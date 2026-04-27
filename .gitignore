@@ -1,0 +1,64 @@
+# ===== Build Output =====
+/build
+app/build
+xposed/build
+nmea/build
+system-api/build
+**/build/
+
+# ===== Gradle =====
+.gradle
+**/.gradle/
+gradle/wrapper/gradle-wrapper.jar
+local.properties
+
+# ===== Android / IDE =====
+*.iml
+*.ipr
+*.iws
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/.name
+/.idea/deploymentTargetDropDown.xml
+/.idea/migrations.xml
+/.idea/render.experimental.xml
+/.idea/kotlinc.xml
+.externalNativeBuild
+.cxx
+
+# ===== macOS =====
+.DS_Store
+**/.DS_Store
+
+# ===== Windows =====
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# ===== Signing / Secrets =====
+apk-keys/
+*.keystore
+*.jks
+keystore.properties
+signing.properties
+app/google-services.json
+google-services.json
+*.env
+
+# ===== Native Build Artifacts =====
+**/*.so.tmp
+/app/src/main/jniLibs/
+
+# ===== Captures / Profiling =====
+/captures
+
+# ===== Kotlin =====
+.kotlin/
+
+# ===== APK Output =====
+*.apk
+*.aab

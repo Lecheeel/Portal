@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/nav_home">
+
+    <fragment
+        android:id="@+id/nav_home"
+        android:name="com.system.location.service.ui.home.HomeFragment"
+        android:label="@string/menu_home"
+        tools:layout="@layout/fragment_home" />
+
+    <fragment
+        android:id="@+id/nav_mock"
+        android:name="com.system.location.service.ui.mock.MockFragment"
+        android:label="@string/menu_mock"
+        tools:layout="@layout/fragment_mock" />
+
+    <fragment
+        android:id="@+id/nav_gnss_mock"
+        android:name="com.system.location.service.ui.gnss.GnssMockFragment"
+        android:label="@string/menu_gnss_mock"
+        tools:layout="@layout/fragment_gnss_mock" />
+
+    <fragment
+        android:id="@+id/nav_route_gallery"
+        android:name="com.system.location.service.ui.mock.RouteMockFragment"
+        android:label="@string/menu_route_mock"
+        tools:layout="@layout/fragment_route_mock" />
+
+    <fragment
+        android:id="@+id/nav_route_edit"
+        android:name="com.system.location.service.ui.mock.RouteEditFragment"
+        android:label="@string/menu_route_mock_edit"
+        tools:layout="@layout/fragment_route_edit" />
+
+    <fragment
+        android:id="@+id/nav_settings"
+        android:name="com.system.location.service.ui.settings.SettingsFragment"
+        android:label="@string/menu_setting"
+        tools:layout="@layout/fragment_settings" />
+</navigation>

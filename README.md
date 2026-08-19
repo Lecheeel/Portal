@@ -6,15 +6,15 @@
 
 ## 项目简介
 
-本项目是对 Portal（一个基于 LSPosed 的系统级虚拟定位模块）进行的深度二次开发。原项目通过 Hook 系统服务实现虚拟定位，本分支在此基础上系统性地清除了所有静态与直接可探测指纹，以便于研究更细粒度的 Android 定位检测技术，并为后续添加测试挡位功能预留了扩展空间。
+本项目是对 Portal 进行的深度二次开发。原项目通过 Hook 系统服务实现虚拟定位，本分支在此基础上系统性地清除了所有静态与直接可探测指纹，以便于研究更细粒度的 Android 定位检测技术，并为后续添加测试挡位功能预留了扩展空间。
 
-**指纹清除是本分支的核心亮点**：任何 App 通过常规手段（包名枚举、字符串扫描、反编译、`sendExtraCommand` 探测、系统属性遍历、logcat 检索等）都无法确认本模块的存在，检测难度被推高到设备特征与时序分析层级。
+任何 App 通过常规手段（包名枚举、字符串扫描、反编译、`sendExtraCommand` 探测、系统属性遍历、logcat 检索等）都无法确认本模块的存在，检测难度被推高到设备特征与时序分析层级。
 
 本项目仅用于开发者调试定位相关程序，以及学习和研究 Android 定位机制。
 
 ---
 
-## 与原项目的主要变更
+## 主要变更
 
 ### P0 — 运行时直接指纹（已清除）
 
@@ -136,7 +136,7 @@ LocationService/
 
 ---
 
-## 如何检测本模块（研究参考）
+## 研究参考
 
 原版 Portal 存在以下几条低成本探测路径，本分支已对其进行清除：
 
@@ -160,7 +160,7 @@ val isMocked = location.extras?.getBoolean("portal.enable") == true
 
 ## 致谢
 
-- [fuqiuluo/Portal](https://github.com/fuqiuluo/Portal) — 原始项目
+- [fuqiuluo/Portal](https://github.com/fuqiuluo/Portal)
 - [GoGoGo](https://github.com/ZCShou/GoGoGo)
 - [Baidu Map SDK](https://lbsyun.baidu.com/faq/api?title=androidsdk)
 - [LSPosed](https://github.com/LSPosed/LSPosed)

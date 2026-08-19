@@ -1,0 +1,211 @@
+Picked up JAVA_TOOL_OPTIONS: --enable-native-access=ALL-UNNAMED
+
+> Configure project :app
+Full architecture and full compilation.
+Full compilation of arm64 architecture
+Full compilation of x64 architecture
+
+> Task :nmea:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :nmea:compileKotlin UP-TO-DATE
+> Task :nmea:compileJava NO-SOURCE
+> Task :nmea:processResources NO-SOURCE
+> Task :nmea:classes UP-TO-DATE
+> Task :nmea:jar UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preArm64ReleaseBuild UP-TO-DATE
+> Task :app:mergeArm64ReleaseJniLibFolders
+> Task :xposed:preBuild UP-TO-DATE
+> Task :xposed:preReleaseBuild UP-TO-DATE
+> Task :xposed:configureCMakeRelWithDebInfo[arm64-v8a]
+> Task :xposed:buildCMakeRelWithDebInfo[arm64-v8a]
+> Task :xposed:configureCMakeRelWithDebInfo[armeabi-v7a]
+> Task :xposed:buildCMakeRelWithDebInfo[armeabi-v7a]
+> Task :xposed:configureCMakeRelWithDebInfo[x86]
+> Task :xposed:buildCMakeRelWithDebInfo[x86]
+> Task :xposed:configureCMakeRelWithDebInfo[x86_64]
+> Task :xposed:buildCMakeRelWithDebInfo[x86_64]
+> Task :xposed:mergeReleaseJniLibFolders
+> Task :xposed:prepareReleaseArtProfile
+> Task :xposed:mergeReleaseNativeLibs
+> Task :system-api:preBuild UP-TO-DATE
+> Task :system-api:preReleaseBuild UP-TO-DATE
+> Task :app:mergeArm64ReleaseArtProfile
+> Task :system-api:generateReleaseResources
+> Task :system-api:packageReleaseResources
+> Task :system-api:processReleaseNavigationResources
+> Task :system-api:parseReleaseLocalResources
+> Task :system-api:javaPreCompileRelease
+> Task :xposed:generateReleaseResources
+> Task :system-api:generateReleaseRFile
+> Task :xposed:copyReleaseJniLibsProjectOnly
+> Task :xposed:packageReleaseResources
+> Task :system-api:compileReleaseKotlin NO-SOURCE
+> Task :system-api:compileReleaseJavaWithJavac
+> Task :xposed:processReleaseNavigationResources
+> Task :system-api:bundleLibCompileToJarRelease
+> Task :xposed:parseReleaseLocalResources
+> Task :xposed:javaPreCompileRelease
+> Task :xposed:generateReleaseRFile
+> Task :app:dataBindingMergeDependencyArtifactsArm64Release
+> Task :app:mergeArm64ReleaseNativeLibs
+> Task :app:generateArm64ReleaseResources
+> Task :app:stripArm64ReleaseDebugSymbols
+> Task :app:mergeArm64ReleaseResources
+
+> Task :xposed:compileReleaseKotlin
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/BaseDivineService.kt:112:45 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/LocationServiceHook.kt:1025:13 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of function types.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/gnss/GnssHook.kt:125:45 Unchecked cast of 'Any!' to 'Array<Location>'.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/miui/MiuiBlurLocationProviderHook.kt:28:34 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/miui/MiuiBlurLocationProviderHook.kt:56:25 'class CellInfoCdma : CellInfo, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/miui/MiuiBlurLocationProviderHook.kt:62:25 'class CellInfoCdma : CellInfo, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/miui/MiuiBlurLocationProviderHook.kt:66:29 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/miui/MiuiBlurLocationProviderHook.kt:68:67 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/miui/MiuiBlurLocationProviderHook.kt:68:96 'fun newInstance(): CellIdentityCdma!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/miui/MiuiBlurLocationProviderHook.kt:68:146 'fun newInstance(): CellSignalStrengthCdma!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:120:25 'class CellInfoCdma : CellInfo, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:126:25 'class CellInfoCdma : CellInfo, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:130:29 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:132:67 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:132:96 'fun newInstance(): CellIdentityCdma!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:132:146 'fun newInstance(): CellSignalStrengthCdma!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:170:30 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:212:37 'class NeighboringCellInfo : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:255:42 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:315:17 'class CellInfoCdma : CellInfo, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:321:17 'class CellInfoCdma : CellInfo, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:325:21 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:327:59 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:327:88 'fun newInstance(): CellIdentityCdma!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:327:138 'fun newInstance(): CellSignalStrengthCdma!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:345:17 'class CellInfoCdma : CellInfo, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:351:17 'class CellInfoCdma : CellInfo, Parcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:355:21 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:357:59 'class CellIdentityCdma : CellIdentity' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:357:88 'fun newInstance(): CellIdentityCdma!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt:357:138 'fun newInstance(): CellSignalStrengthCdma!' is deprecated. Deprecated in Java.
+
+> Task :app:extractArm64ReleaseNativeSymbolTables
+> Task :app:packageArm64ReleaseResources
+> Task :app:processArm64ReleaseNavigationResources
+> Task :app:javaPreCompileArm64Release
+> Task :xposed:writeReleaseAarMetadata
+> Task :app:mapArm64ReleaseSourceSetPaths
+> Task :app:createArm64ReleaseCompatibleScreenManifests
+> Task :app:compileArm64ReleaseNavigationResources
+> Task :app:checkArm64ReleaseAarMetadata
+> Task :app:extractDeepLinksArm64Release
+> Task :app:mergeArm64ReleaseNativeDebugMetadata
+> Task :xposed:extractDeepLinksRelease
+> Task :app:parseArm64ReleaseLocalResources
+> Task :xposed:processReleaseManifest
+> Task :app:dataBindingGenBaseClassesArm64Release
+> Task :xposed:compileReleaseJavaWithJavac NO-SOURCE
+> Task :app:generateArm64ReleaseRFile
+> Task :xposed:bundleLibRuntimeToJarRelease
+> Task :xposed:bundleLibCompileToJarRelease
+
+> Task :app:processArm64ReleaseMainManifest
+C:\Users\User\Desktop\prj\Portal\app\src\main\AndroidManifest.xml:47:9-41 Warning:
+	android:extractNativeLibs should not be specified in this source AndroidManifest.xml file. See https://d.android.com/guide/topics/manifest/application-element#extractNativeLibs for more information.
+The AGP Upgrade Assistant can remove the attribute from the AndroidManifest.xml file and update the build file accordingly. See https://d.android.com/studio/build/agp-upgrade-assistant for more information.
+
+> Task :app:processArm64ReleaseManifest
+> Task :xposed:mapReleaseSourceSetPaths
+> Task :xposed:compileReleaseLibraryResources
+> Task :app:mergeArm64ReleaseStartupProfile
+> Task :app:generateArm64ReleaseAssets UP-TO-DATE
+> Task :xposed:generateReleaseAssets UP-TO-DATE
+> Task :app:checkArm64ReleaseDuplicateClasses
+> Task :xposed:mergeReleaseAssets
+> Task :app:mergeArm64ReleaseAssets
+> Task :app:compressArm64ReleaseAssets
+> Task :app:extractArm64ReleaseVersionControlInfo
+> Task :app:extractProguardFiles
+> Task :xposed:processReleaseJavaRes
+> Task :xposed:createFullJarRelease
+> Task :system-api:processReleaseJavaRes NO-SOURCE
+> Task :system-api:bundleLibRuntimeToJarRelease
+> Task :system-api:extractProguardFiles
+> Task :system-api:createFullJarRelease
+> Task :system-api:processReleaseManifest
+> Task :system-api:prepareLintJarForPublish
+> Task :xposed:extractProguardFiles
+> Task :xposed:bundleLibRuntimeToDirRelease
+> Task :system-api:generateReleaseLintModel
+> Task :xposed:generateReleaseLintModel
+> Task :xposed:prepareLintJarForPublish
+> Task :xposed:checkReleaseAarMetadata
+> Task :xposed:extractDeepLinksForAarRelease
+> Task :app:desugarArm64ReleaseFileDependencies
+
+> Task :app:compileArm64ReleaseKotlin
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/MainActivity.kt:156:58 'static field FLAG_TRANSLUCENT_STATUS: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/MainActivity.kt:157:20 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/MainActivity.kt:162:30 'var systemUiVisibility: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/MainActivity.kt:162:56 'static field SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/MainActivity.kt:253:44 'constructor(p0: Context!): Notification.Builder' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/MainActivity.kt:268:20 'field defaults: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/MainActivity.kt:427:32 Return in function with expression body and without explicit return type. Use block body '{...}' or add an explicit return type. This will become an error in language version 2.5. See https://youtrack.jetbrains.com/issue/KTLC-288.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/android/widget/RockerView.kt:86:31 'fun getColor(p0: Int): Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/android/widget/RockerView.kt:90:41 'fun getColor(p0: Int): Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/android/window/OverlayUtils.kt:17:31 'fun unsafeCheckOpNoThrow(p0: String, p1: Int, p2: String): Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/home/HomeFragment.kt:53:8 This class is not recommended for use in Kotlin. Use 'kotlin.collections.List' instead.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/home/HomeFragment.kt:153:16 'var isOpenGps: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/mock/MockFragment.kt:191:43 'val adapterPosition: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/mock/Rocker.kt:58:60 'static field TYPE_PHONE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/mock/RouteEditFragment.kt:55:8 This class is not recommended for use in Kotlin. Use 'kotlin.collections.List' instead.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/mock/RouteEditFragment.kt:229:16 'var isOpenGps: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/mock/RouteMockFragment.kt:279:43 'val adapterPosition: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/viewmodel/MockServiceViewModel.kt:58:25 This is a delicate API and its use requires care. Make sure you fully read and understand documentation of the declaration that is marked as a delicate API.
+w: file:///C:/Users/User/Desktop/prj/Portal/app/src/main/java/com/system/location/service/ui/viewmodel/MockServiceViewModel.kt:84:28 This is a delicate API and its use requires care. Make sure you fully read and understand documentation of the declaration that is marked as a delicate API.
+
+> Task :app:processArm64ReleaseManifestForPackage
+> Task :xposed:extractReleaseAnnotations
+> Task :app:compileArm64ReleaseJavaWithJavac
+> Task :app:generateArm64ReleaseLintVitalReportModel
+> Task :xposed:mergeReleaseGeneratedProguardFiles
+> Task :xposed:mergeReleaseConsumerProguardFiles
+> Task :system-api:checkReleaseAarMetadata
+> Task :system-api:extractDeepLinksForAarRelease
+> Task :xposed:mergeReleaseJavaResource
+> Task :system-api:extractReleaseAnnotations
+> Task :xposed:syncReleaseLibJars
+> Task :xposed:bundleReleaseLocalLintAar
+> Task :system-api:generateReleaseAssets UP-TO-DATE
+> Task :system-api:mergeReleaseAssets
+> Task :system-api:mergeReleaseGeneratedProguardFiles
+> Task :system-api:mergeReleaseConsumerProguardFiles
+> Task :system-api:prepareReleaseArtProfile
+> Task :system-api:writeReleaseAarMetadata
+> Task :system-api:mergeReleaseJavaResource
+> Task :system-api:writeReleaseLintModelMetadata
+> Task :system-api:syncReleaseLibJars
+> Task :system-api:bundleReleaseLocalLintAar
+> Task :xposed:writeReleaseLintModelMetadata
+> Task :xposed:generateReleaseLintVitalModel
+> Task :app:processArm64ReleaseJavaRes
+> Task :app:collectArm64ReleaseDependencies
+> Task :app:sdkArm64ReleaseDependencyData
+> Task :app:writeArm64ReleaseAppMetadata
+> Task :app:writeArm64ReleaseSigningConfigVersions
+> Task :app:processArm64ReleaseResources
+> Task :app:dexBuilderArm64Release
+> Task :app:mergeArm64ReleaseGlobalSynthetics
+> Task :app:optimizeArm64ReleaseResources
+> Task :app:mergeExtDexArm64Release
+> Task :app:mergeArm64ReleaseJavaResource
+> Task :app:mergeDexArm64Release
+> Task :app:compileArm64ReleaseArtProfile
+> Task :xposed:lintVitalAnalyzeRelease
+> Task :app:lintVitalAnalyzeArm64Release
+> Task :app:lintVitalReportArm64Release
+> Task :app:lintVitalArm64Release
+> Task :app:packageArm64Release
+> Task :app:createArm64ReleaseApkListingFileRedirect
+> Task :app:assembleArm64Release
+
+[Incubating] Problems report is available at: file:///C:/Users/User/Desktop/prj/Portal/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 2m 41s
+123 actionable tasks: 121 executed, 2 up-to-date

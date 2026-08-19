@@ -27,16 +27,16 @@ object FakeLoc {
     var enable = false
 
     /**
-     * 模拟Gnss卫星数据开关
+     * 模拟Gnss卫星数据开关（默认开启，仅在模拟定位启动时生效）
      */
     @Volatile
-    var enableMockGnss = false
+    var enableMockGnss = true
 
     /**
-     * 模拟WLAN数据
+     * 模拟WLAN数据（默认开启，仅在模拟定位启动时生效）
      */
     @Volatile
-    var enableMockWifi = false
+    var enableMockWifi = true
 
     /**
      * 是否禁用GetCurrentLocation方法（在部分系统不禁用可能导致hook失效）

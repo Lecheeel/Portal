@@ -31,7 +31,7 @@ object GnssHook: BaseLocationHook() {
                     Logger.debug("doNothingMethod: ${param.method.name}")
                 }
 
-                if (FakeLoc.enableMockGnss && !FakeLoc.enableAGPS) {
+                if (FakeLoc.enable && FakeLoc.enableMockGnss && !FakeLoc.enableAGPS) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("${param.method.name}: disable")
                     }
@@ -66,7 +66,7 @@ object GnssHook: BaseLocationHook() {
                         kotlin.runCatching {
                             XposedHelpers.findAndHookMethod(classListener, "onNmeaReceived", Long::class.java, String::class.java, object: XC_MethodHook() {
                                 override fun beforeHookedMethod(param: MethodHookParam) {
-                                    if (FakeLoc.enableMockGnss && !FakeLoc.enableAGPS) {
+                                    if (FakeLoc.enable && FakeLoc.enableMockGnss && !FakeLoc.enableAGPS) {
                                         if (FakeLoc.enableDebugLog)
                                             Logger.debug("GnssManagerService.onNmeaReceived: disable")
                                         param.result = null

@@ -459,7 +459,7 @@ internal object LocationServiceHook: BaseLocationHook() {
                     if(FakeLoc.enableDebugLog) {
                         Logger.debug("registerGnssStatusCallback: injected!")
                     }
-                    if (!FakeLoc.enableMockGnss) {
+                    if (!FakeLoc.enable || !FakeLoc.enableMockGnss) {
                         return
                     }
 
@@ -480,7 +480,7 @@ internal object LocationServiceHook: BaseLocationHook() {
 
                         // https://www.csno-tarc.cn/system/constellation
 
-                        if (!FakeLoc.enableMockGnss) return@beforeHook
+                        if (!FakeLoc.enable || !FakeLoc.enableMockGnss) return@beforeHook
 
                         val svCount = Random.nextInt(FakeLoc.minSatellites, MAX_SATELLITES + 1)
                         val mockGps = MockGnssData(
@@ -587,7 +587,7 @@ internal object LocationServiceHook: BaseLocationHook() {
                         if (FakeLoc.enableDebugLog) {
                             Logger.debug("onNmeaReceived")
                         }
-                        if (FakeLoc.enableMockGnss) result = null
+                        if (FakeLoc.enable && FakeLoc.enableMockGnss) result = null
                     })
                 }
             }).isEmpty()) {

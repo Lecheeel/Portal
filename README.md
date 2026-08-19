@@ -8,6 +8,8 @@
 
 本项目是对 Portal（一个基于 LSPosed 的系统级虚拟定位模块）进行的深度二次开发。原项目通过 Hook 系统服务实现虚拟定位，本分支在此基础上系统性地清除了所有静态与直接可探测指纹，以便于研究更细粒度的 Android 定位检测技术，并为后续添加测试挡位功能预留了扩展空间。
 
+**指纹清除是本分支的核心亮点**：任何 App 通过常规手段（包名枚举、字符串扫描、反编译、`sendExtraCommand` 探测、系统属性遍历、logcat 检索等）都无法确认本模块的存在，检测难度被推高到设备特征与时序分析层级。
+
 本项目仅用于开发者调试定位相关程序，以及学习和研究 Android 定位机制。
 
 ---
@@ -44,8 +46,15 @@
 | CMake 项目名 | `Portal` | `LocationExt` |
 | JNI 导出函数符号 | `Java_moe_fuqiuluo_dobby_Dobby_setStatus` | `Java_com_system_location_service_jni_Dobby_setStatus` |
 | 构建输出 APK 名 | `Portal-v*.apk` | `LocationService-v*.apk` |
+| Application 类名 | `Portal` | `LocationServiceApp` |
+| 日志标签 | `[Portal]`（Xposed/Kotlin/C++ 三层） | `[LocationService]` |
+| 颜色资源名 | `portal_*`（colors/layouts/themes） | `lse_*` |
+| Style/Theme 名 | `Portal.*` / `Theme.Portal` | `LocationService.*` / `Theme.LocationService` |
+| 通知渠道名 | `Portal Location` | `LocationService` |
+| C++ 头文件宏 | `PORTAL_*_H` | `LOCATIONEXT_*_H` |
+| 运行时库加载方法 | `loadPortalLibrary()` | `loadLocationLibrary()` |
 
-所有 `.kt`、`.java`、`.xml`、`.cpp`、`.kts` 共 **70 个文件**均已批量同步更新，无遗漏。
+所有 `.kt`、`.java`、`.xml`、`.cpp`、`.kts` 等源码与资源文件均已批量同步更新，磁盘目录结构与包名完全一致，无遗漏。
 
 ### P2 — 运行时可观测行为指纹（已清除）
 
@@ -70,7 +79,9 @@ LocationService/
 │   ├── com.system.location.service.hook
 │   └── com.system.location.service.jni  (Dobby 原生传感器 Hook)
 ├── nmea/                       # NMEA 句子解析与注入
+│   └── moe.microbios.nmea
 └── system-api/                 # 编译用系统 API 桩
+    └── com.system.location.service.api
 ```
 
 **通信机制**：App 通过 `LocationManager.sendExtraCommand("fused_ext", sessionKey, bundle)` 与 system_server 进程内的 Hook 进行 IPC 通信，会话 key 在每次启动时随机生成，防止第三方枚举探测。
@@ -99,6 +110,29 @@ LocationService/
 - 已安装 [LSPosed](https://github.com/LSPosed/LSPosed) 框架
 - Root 权限（传感器 Hook 功能需要）
 - 在 LSPosed 中激活模块，作用域选择 `android`、`com.android.phone` 及目标应用
+
+---
+
+## 构建要求
+
+本项目工具链保持最新稳定版本，持续跟进 Android 生态演进。
+
+| 组件 | 版本 | 说明 |
+|---|---|---|
+| JDK | 17+（推荐 21 / 25） | CI 使用 JDK 21 |
+| Gradle | 9.7.0 | wrapper 已锁定 |
+| AGP | 9.3.1 | 内置 Kotlin，无需单独应用 `kotlin-android` 插件 |
+| Kotlin | 2.4.10 | 含 serialization 插件 / kotlin-reflect |
+| compileSdk | 37 | targetSdk 36 |
+| Build Tools | 36.0.0 | AGP 9.3 要求 |
+| NDK | 28.2.13676358 | `sdkmanager "ndk;28.2.13676358"` |
+| CMake | 3.31.6 | `sdkmanager "cmake;3.31.6"` |
+
+主要依赖（均保持最新稳定版）：`androidx.core-ktx 1.19.0`、`appcompat 1.8.0`、`material 1.14.0`、`constraintlayout 2.2.2`、`lifecycle 2.11.0`、`navigation 2.9.8`、`fastjson2 2.0.64`、`GeographicLib-Java 2.1`、`Bugly 4.1.9.3`、`Xposed API 82`、`Dobby 1.2`。
+
+> **JDK 24+ 注意**：使用 JDK 24/25 构建时（例如 Android Studio 自带的 JBR 25），需设置环境变量
+> `JAVA_TOOL_OPTIONS=--enable-native-access=ALL-UNNAMED`，否则 AGP 的 prefab 原生构建任务
+> 会把 JVM 的 restricted-method 警告误判为错误导致构建失败。CI 工作流已包含该设置。
 
 ---
 

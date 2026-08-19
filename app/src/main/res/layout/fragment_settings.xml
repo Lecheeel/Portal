@@ -36,7 +36,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/selinux"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -66,7 +66,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/altitude"
-                    android:textColor="@color/portal_mini_title_color"
+                    android:textColor="@color/lse_mini_title_color"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"/>
 
@@ -104,7 +104,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/rocker_speed"
-                    android:textColor="@color/portal_mini_title_color"
+                    android:textColor="@color/lse_mini_title_color"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"/>
 
@@ -142,7 +142,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/accuracy"
-                    android:textColor="@color/portal_mini_title_color"
+                    android:textColor="@color/lse_mini_title_color"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"/>
 
@@ -183,7 +183,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/debug"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -216,7 +216,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/dgc"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -249,7 +249,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/rll"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -282,7 +282,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/dfused"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -315,7 +315,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/cdma"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -349,7 +349,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/hook_sensor"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -379,7 +379,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/item_report_duration_title"
-                    android:textColor="@color/portal_mini_title_color"
+                    android:textColor="@color/lse_mini_title_color"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"/>
 
@@ -417,7 +417,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="模拟最少卫星数量"
-                    android:textColor="@color/portal_mini_title_color"
+                    android:textColor="@color/lse_mini_title_color"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"/>
 
@@ -458,7 +458,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="禁用扫描WIFI列表"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -491,7 +491,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="反定位拉回"
-                        android:textColor="@color/portal_mini_title_color" />
+                        android:textColor="@color/lse_mini_title_color" />
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"

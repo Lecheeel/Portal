@@ -2,8 +2,8 @@
 // Created by fuqiuluo on 2024/10/15.
 //
 
-#ifndef PORTAL_SENSOR_HOOK_H
-#define PORTAL_SENSOR_HOOK_H
+#ifndef LOCATIONEXT_SENSOR_HOOK_H
+#define LOCATIONEXT_SENSOR_HOOK_H
 
 #include "android/sensor.h"
 
@@ -16,4 +16,4 @@ typedef void (*OriginalConvertToSensorEventType)(void*, void*);
 
 void doSensorHook();
 
-#endif //PORTAL_SENSOR_HOOK_H
+#endif //LOCATIONEXT_SENSOR_HOOK_H

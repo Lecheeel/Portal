@@ -28,7 +28,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/portal_mini_title_color"
+                    android:textColor="@color/lse_mini_title_color"
                     android:textAppearance="@style/TextAppearance.AppCompat.Inverse"
                     android:text="@string/target_location"/>
 
@@ -75,7 +75,7 @@
                             android:layout_height="wrap_content"
                             android:text="@string/default_latlon"
                             android:textAppearance="@style/TextAppearance.AppCompat.Body2"
-                            android:textColor="@color/portal_appbar_color_center"/>
+                            android:textColor="@color/lse_appbar_color_center"/>
 
                     </LinearLayout>
 
@@ -124,11 +124,11 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:checkMark="?android:attr/listChoiceIndicatorMultiple"
-                            android:checkMarkTint="@color/portal_mock_off"
+                            android:checkMarkTint="@color/lse_mock_off"
                             android:checked="false"
                             android:gravity="center"
                             android:text="@string/rocker"
-                            android:textColor="@color/portal_mock_off"
+                            android:textColor="@color/lse_mock_off"
                             android:textSize="12sp" />
                     </LinearLayout>
                 </LinearLayout>
@@ -144,7 +144,7 @@
             android:layout_marginRight="20dp"
             android:layout_marginBottom="4dp"
             android:textAppearance="@style/TextAppearance.AppCompat.Inverse"
-            android:textColor="@color/portal_mini_title_color"
+            android:textColor="@color/lse_mini_title_color"
             android:text="@string/history_location"/>
 
         <com.google.android.material.card.MaterialCardView
@@ -172,8 +172,8 @@
         android:layout_marginEnd="@dimen/fab_margin"
         android:contentDescription="@string/follow_location"
         app:srcCompat="@drawable/sharp_location_off_24"
-        android:backgroundTint="@color/portal_mock_off"
-        android:tint="@color/portal_appbar_color"
+        android:backgroundTint="@color/lse_mock_off"
+        android:tint="@color/lse_appbar_color"
         app:fabSize="auto"
         android:visibility="gone"
         android:layout_gravity="bottom|end"/>

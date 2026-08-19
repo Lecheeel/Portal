@@ -24,7 +24,7 @@
             android:layout_width="match_parent"
             android:layout_marginTop="8dp"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/portal_location_detail_background"
+            app:cardBackgroundColor="@color/lse_location_detail_background"
             app:cardCornerRadius="4dp">
 
             <LinearLayout
@@ -49,18 +49,18 @@
                     android:maxLines="1"
                     android:layout_weight="3"
                     android:text=""
-                    android:background="@color/portal_location_detail_block"
+                    android:background="@color/lse_location_detail_block"
                     android:textSize="11sp"
                     android:gravity="center"
                     android:textIsSelectable="true"
-                    android:textColor="@color/portal_appbar_color" />
+                    android:textColor="@color/lse_appbar_color" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/portal_location_detail_background"
+            app:cardBackgroundColor="@color/lse_location_detail_background"
             android:layout_marginTop="8dp"
             app:cardCornerRadius="4dp">
 
@@ -85,11 +85,11 @@
                     android:layout_height="match_parent"
                     android:layout_weight="3"
                     android:text=""
-                    android:background="@color/portal_location_detail_block"
+                    android:background="@color/lse_location_detail_block"
                     android:textSize="11sp"
                     android:gravity="center"
                     android:textIsSelectable="true"
-                    android:textColor="@color/portal_appbar_color" />
+                    android:textColor="@color/lse_appbar_color" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </LinearLayout>

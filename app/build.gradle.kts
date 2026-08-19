@@ -1,20 +1,18 @@
 import com.android.build.api.dsl.ApplicationExtension
-import java.io.ByteArrayOutputStream
+import com.android.build.api.variant.impl.VariantOutputImpl
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "com.system.location.service"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.system.location.service"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = getVersionCode()
         versionName = "1.0.4" + ".r${getGitCommitCount()}." + getVersionName()
 
@@ -90,17 +88,7 @@ android {
         }
     }
 
-    android.applicationVariants.all {
-        outputs.map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
-            .forEach {
-                val abiName = when (val abi = it.outputFileName.split("-")[1].split(".apk")[0]) {
-                    "app" -> "all"
-                    "x64" -> "x86_64"
-                    else -> abi
-                }
-                it.outputFileName = "LocationService-v${versionName}-${abiName}.apk"
-            }
-    }
+    // APK renaming moved to androidComponents.onVariants at bottom of file
 
     flavorDimensions.add("mode")
 
@@ -133,9 +121,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+
     buildFeatures {
         viewBinding = true
     }
@@ -218,10 +204,7 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
 
-    implementation(libs.okhttp)
-
     implementation(libs.fastjson)
-    implementation(libs.kotlinx.serialization)
     implementation(libs.kotlin.reflect)
 
     implementation(libs.bugly)
@@ -238,21 +221,17 @@ dependencies {
 }
 
 fun getGitCommitCount(): Int {
-    val out = ByteArrayOutputStream()
-    exec {
+    val result = providers.exec {
         commandLine("git", "rev-list", "--count", "HEAD")
-        standardOutput = out
     }
-    return out.toString().trim().toInt()
+    return result.standardOutput.asText.get().trim().toInt()
 }
 
 fun getGitCommitHash(): String {
-    val out = ByteArrayOutputStream()
-    exec {
+    val result = providers.exec {
         commandLine("git", "rev-parse", "--short", "HEAD")
-        standardOutput = out
     }
-    return out.toString().trim()
+    return result.standardOutput.asText.get().trim()
 }
 
 fun getVersionCode(): Int {
@@ -261,5 +240,20 @@ fun getVersionCode(): Int {
 
 fun getVersionName(): String {
     return getGitCommitHash()
+}
+
+// AGP 9: rename APK outputs via the new variant API (cast to internal impl for outputFileName)
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val impl = output as VariantOutputImpl
+            val abiName = when (val abi = impl.outputFileName.get().split("-")[1].split(".apk")[0]) {
+                "app" -> "all"
+                "x64" -> "x86_64"
+                else -> abi
+            }
+            impl.outputFileName.set("LocationService-v" + output.versionName.get() + "-" + abiName + ".apk")
+        }
+    }
 }
 

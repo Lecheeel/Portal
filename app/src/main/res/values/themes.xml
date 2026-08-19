@@ -2,16 +2,16 @@
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/portal_appbar_color</item>
-        <item name="colorSecondary">@color/portal_appbar_color</item>
-        <item name="colorSecondaryVariant">@color/portal_appbar_color_center</item>
+        <item name="colorOnPrimary">@color/lse_appbar_color</item>
+        <item name="colorSecondary">@color/lse_appbar_color</item>
+        <item name="colorSecondaryVariant">@color/lse_appbar_color_center</item>
 
 
         <item name="colorOnSecondary">@color/white</item>
         <item name="colorPrimary">@color/theme_appbar_color</item>
         <item name="colorControlHighlight">@color/theme_focused_touch</item>
 
-        <item name="colorPrimaryDark">@color/portal_appbar_color</item>
+        <item name="colorPrimaryDark">@color/lse_appbar_color</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="windowActionModeOverlay">true</item>
         <item name="windowActionBar">false</item>
@@ -19,26 +19,26 @@
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:windowTranslucentStatus">true</item>
         <item name="colorControlNormal">@color/white</item>
-        <item name="colorControlActivated">@color/portal_appbar_color_dark</item>
+        <item name="colorControlActivated">@color/lse_appbar_color_dark</item>
         <item name="android:textColorHint">@android:color/white</item>
         <item name="android:editTextColor">@android:color/white</item>
-        <item name="searchViewStyle">@style/Portal.SearchViewStyle</item>
+        <item name="searchViewStyle">@style/LocationService.SearchViewStyle</item>
         <item name="selectableItemBackgroundBorderless">@drawable/ripple_effect</item>
-        <item name="sliderStyle">@style/Portal.SliderTheme</item>
+        <item name="sliderStyle">@style/LocationService.SliderTheme</item>
     </style>
 
-    <style name="Portal.SliderTheme" parent="Widget.MaterialComponents.Slider">
-
-    </style>
-
-    <style name="Portal.SearchViewStyle" parent="Widget.AppCompat.SearchView">
-    </style>
-
-    <style name="AppTheme.Portal.ToolBarOverlay" parent="ThemeOverlay.AppCompat.DayNight.ActionBar">
+    <style name="LocationService.SliderTheme" parent="Widget.MaterialComponents.Slider">
 
     </style>
 
-    <style name="AppTheme.Portal.PopupTheme" parent="ThemeOverlay.AppCompat.Light">
+    <style name="LocationService.SearchViewStyle" parent="Widget.AppCompat.SearchView">
+    </style>
+
+    <style name="AppTheme.LocationService.ToolBarOverlay" parent="ThemeOverlay.AppCompat.DayNight.ActionBar">
+
+    </style>
+
+    <style name="AppTheme.LocationService.PopupTheme" parent="ThemeOverlay.AppCompat.Light">
 
     </style>
 

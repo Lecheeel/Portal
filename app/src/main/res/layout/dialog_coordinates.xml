@@ -20,7 +20,7 @@
             android:imeOptions="actionNext"
             android:inputType="text"
             android:singleLine="true"
-            android:textColor="@color/portal_text_color"
+            android:textColor="@color/lse_text_color"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body2">
 
         </com.google.android.material.textfield.TextInputEditText>
@@ -41,7 +41,7 @@
             android:imeOptions="actionNext"
             android:inputType="text"
             android:singleLine="true"
-            android:textColor="@color/portal_text_color"
+            android:textColor="@color/lse_text_color"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body2">
 
         </com.google.android.material.textfield.TextInputEditText>

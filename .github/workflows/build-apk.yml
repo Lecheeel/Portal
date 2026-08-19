@@ -3,7 +3,7 @@ name: Build Apks
 on:
   workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: [ main ]
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -13,7 +13,7 @@ on:
 
 jobs:
   build:
-    name: Build Portal
+    name: Build LocationService
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -27,6 +27,10 @@ jobs:
         with:
           distribution: jetbrains
           java-version: 21
+
+      - name: Install NDK and CMake
+        run: |
+          sdkmanager "ndk;28.2.13676358" "cmake;3.31.6"
           
       - name: Cache Gradle Dependencies
         uses: actions/cache@v4
@@ -64,15 +68,16 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.SIGN_ALIAS }}
           KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
+          JAVA_TOOL_OPTIONS: "--enable-native-access=ALL-UNNAMED"
 
-      - name: Set Portal Version
+      - name: Set LocationService Version
         run: |
           version_name_all=$(basename -s .apk "${{ env.APK_FILE_ALL }}")
           version_name_arm64=$(basename -s .apk "${{ env.APK_FILE_ARM64 }}")
           version_name_x86_64=$(basename -s .apk "${{ env.APK_FILE_X86_64 }}")
-          echo "PORTAL_VERSION_ALL=$version_name_all" >> $GITHUB_ENV
-          echo "PORTAL_VERSION_ARM64=$version_name_arm64" >> $GITHUB_ENV
-          echo "PORTAL_VERSION_x86_64=$version_name_x86_64" >> $GITHUB_ENV
+          echo "LS_VERSION_ALL=$version_name_all" >> $GITHUB_ENV
+          echo "LS_VERSION_ARM64=$version_name_arm64" >> $GITHUB_ENV
+          echo "LS_VERSION_X86_64=$version_name_x86_64" >> $GITHUB_ENV
 
       - name: Show Artifacts SHA256
         run: |
@@ -89,17 +94,17 @@ jobs:
       - name: Upload ALL APK RELEASE
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.PORTAL_VERSION_ALL }}"
+          name: "${{ env.LS_VERSION_ALL }}"
           path: "${{ env.APK_FILE_ALL }}"
 
       - name: Upload ARM64 APK RELEASE
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.PORTAL_VERSION_ARM64 }}"
+          name: "${{ env.LS_VERSION_ARM64 }}"
           path: "${{ env.APK_FILE_ARM64 }}"
 
       - name: Upload X86_64 APK RELEASE
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.PORTAL_VERSION_x86_64 }}"
+          name: "${{ env.LS_VERSION_X86_64 }}"
           path: "${{ env.APK_FILE_X86_64 }}"

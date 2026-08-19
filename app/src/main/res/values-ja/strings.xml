@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="app_name">Portal</string>
+  <string name="app_name">LocationService</string>
   <string name="navigation_drawer_open">ナビゲーションドロワーを開く</string>
   <string name="navigation_drawer_close">ナビゲーションドロワーを閉じる</string>
-  <string name="nav_header_title">Portal</string>
+  <string name="nav_header_title">LocationService</string>
   <string name="nav_header_subtitle">学習とコミュニケーションのみのため、3 時間以内に削除してください</string>
   <string name="nav_header_desc">ナビゲーションヘッダー</string>
   <string name="action_settings">設定</string>

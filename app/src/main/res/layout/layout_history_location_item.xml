@@ -14,7 +14,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:contentPadding="8dp"
         app:cardCornerRadius="24dp"
-        app:cardBackgroundColor="@color/portal_appbar_color">
+        app:cardBackgroundColor="@color/lse_appbar_color">
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="wrap_content"
@@ -64,7 +64,7 @@
                 android:gravity="center"
                 android:text="@string/latlon_display"
                 android:textAppearance="@style/TextAppearance.AppCompat.Body2"
-                android:textColor="@color/portal_mini_title_color"
+                android:textColor="@color/lse_mini_title_color"
                 app:emojiCompatEnabled="true" />
 
             <com.google.android.material.textview.MaterialTextView

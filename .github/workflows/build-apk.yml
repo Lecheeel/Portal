@@ -30,8 +30,14 @@ jobs:
 
       - name: Install NDK and CMake
         run: |
-          sdkmanager "ndk;28.2.13676358" "cmake;3.31.6"
-          
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$SDK_ROOT" -name sdkmanager -type f 2>/dev/null | head -1)"
+          fi
+          echo "Using sdkmanager: ${SDKMANAGER}"
+          yes | "${SDKMANAGER}" --sdk_root="${SDK_ROOT}" "ndk;28.2.13676358" "cmake;3.31.6"
+
       - name: Cache Gradle Dependencies
         uses: actions/cache@v4
         with:

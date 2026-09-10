@@ -506,6 +506,42 @@
                     android:layout_gravity="center_vertical"
                     app:useMaterialThemeColors="true"/>
             </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/check_update_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:padding="5dp"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_vertical">
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/check_update_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="检查更新"
+                        android:textColor="@color/lse_mini_title_color" />
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/check_update_desc"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="点击检查 GitHub Releases 最新版本"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/check_update_button"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="检查" />
+            </LinearLayout>
         </LinearLayout>
 
     </ScrollView>

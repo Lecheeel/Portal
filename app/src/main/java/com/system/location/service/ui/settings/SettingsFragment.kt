@@ -33,6 +33,7 @@ import com.system.location.service.ext.needOpenSELinux
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.speed
 import com.system.location.service.service.MockServiceHelper
+import com.system.location.service.update.UpdateChecker
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 import com.system.location.service.ui.viewmodel.SettingsViewModel
 import kotlin.getValue
@@ -248,7 +249,47 @@ class SettingsFragment : Fragment() {
             requireContext().loopBroadcastlocation = isChecked
             showToast("重启模拟生效")
         }
+
+        binding.checkUpdateDesc.text = "当前版本 ${UpdateChecker.parseLocalVersion().versionName}"
+        binding.checkUpdateButton.setOnClickListener { checkForUpdate() }
+
         return root
+    }
+
+    private fun checkForUpdate() {
+        binding.checkUpdateButton.isEnabled = false
+        binding.checkUpdateDesc.text = "正在检查更新…"
+        lifecycleScope.launch {
+            val result = UpdateChecker.check()
+            binding.checkUpdateButton.isEnabled = true
+            when (result) {
+                is UpdateChecker.Result.UpdateAvailable -> {
+                    val info = result.info
+                    binding.checkUpdateDesc.text = "发现新版本 ${info.versionName}"
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("发现新版本")
+                        .setMessage(
+                            "最新版本：${info.versionName}\n" +
+                            "当前版本：${UpdateChecker.parseLocalVersion().versionName}\n\n" +
+                            (info.body.take(600).ifBlank { "查看 Release 页获取更新说明" })
+                        )
+                        .setPositiveButton("下载更新") { _, _ ->
+                            UpdateChecker.openDownload(requireContext(), info)
+                        }
+                        .setNegativeButton("下次再说", null)
+                        .show()
+                }
+                is UpdateChecker.Result.UpToDate -> {
+                    binding.checkUpdateDesc.text =
+                        "已是最新版本 ${UpdateChecker.parseLocalVersion().versionName}"
+                    showToast("当前已是最新版本")
+                }
+                is UpdateChecker.Result.Error -> {
+                    binding.checkUpdateDesc.text = "检查失败：${result.message}"
+                    showToast("检查更新失败：${result.message}")
+                }
+            }
+        }
     }
 
     private fun showToast(message: String) {

@@ -15,84 +15,59 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.ColorStateList
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
+import android.graphics.Color
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
 import android.view.WindowManager
-import android.widget.AdapterView.OnItemClickListener
-import android.widget.ImageView
-import android.widget.SimpleAdapter
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SearchView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.core.widget.ImageViewCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
-import androidx.navigation.NavController.OnDestinationChangedListener
 import androidx.navigation.NavDestination
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
-import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.model.BitmapDescriptorFactory
 import com.amap.api.maps.model.LatLng
-import com.amap.api.maps.model.MarkerOptions
-import com.amap.api.services.core.LatLonPoint
-import com.amap.api.services.geocoder.GeocodeSearch
 import com.amap.api.services.geocoder.GeocodeResult
+import com.amap.api.services.geocoder.GeocodeSearch
 import com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener
 import com.amap.api.services.geocoder.RegeocodeAddress
-import com.amap.api.services.geocoder.RegeocodeQuery
 import com.amap.api.services.geocoder.RegeocodeResult
-import com.amap.api.services.help.Inputtips
-import com.amap.api.services.help.Inputtips.InputtipsListener
-import com.amap.api.services.help.InputtipsQuery
-import com.amap.api.services.help.Tip
 import com.google.android.material.navigation.NavigationView
 import com.tencent.bugly.crashreport.CrashReport
 import kotlinx.coroutines.launch
 import com.system.location.service.android.permission.RequestPermissions
 import com.system.location.service.android.root.ShellUtils
 import com.system.location.service.android.window.OverlayUtils
-import com.system.location.service.amap.toPoi
-import com.system.location.service.bdmap.Poi
 import com.system.location.service.databinding.ActivityMainBinding
 import com.system.location.service.ext.Loc4j
-import com.system.location.service.ext.gcj02
-import com.system.location.service.ext.wgs84
 import com.system.location.service.ui.notification.NotificationUtils
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 
 class MainActivity : AppCompatActivity() {
     private lateinit var appBarConfiguration: AppBarConfiguration
-    private lateinit var binding: ActivityMainBinding
+    lateinit var binding: ActivityMainBinding
 
     /* Permission */
     private val requestMultiplePermissions = RequestPermissions(this)
 
-    /* AMap */
-    private var mInputtips: Inputtips? = null
+    /* ViewModels */
     private val aMapViewModel by viewModels<AMapViewModel>()
     private val mockServiceViewModel by viewModels<MockServiceViewModel>()
 
@@ -136,7 +111,7 @@ class MainActivity : AppCompatActivity() {
             READ_PHONE_STATE -> "LocationService需要读取设备信息"
             ACCESS_NETWORK_STATE, INTERNET -> "LocationService需要访问网络"
             VIBRATE -> "LocationService需要访问传感器"
-            else -> "需要 $permission 才能运行"
+            else -> "需要  才能运行"
         }
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
@@ -151,19 +126,17 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Edge-to-Edge full immersion layout
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.isAppearanceLightStatusBars = false // 状态栏字体颜色
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
-            window.statusBarColor = ContextCompat.getColor(this, R.color.theme_appbar_color)
-        }
+        controller.isAppearanceLightStatusBars = true
+        controller.isAppearanceLightNavigationBars = true
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
 
         CrashReport.setUserSceneTag(this, 261771)
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.N) {
-            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-        }
 
         if (!ShellUtils.hasRoot()) {
             Toast.makeText(this, "无Root可能导致传感器Hook失效", Toast.LENGTH_LONG).show()
@@ -171,7 +144,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
-                if(checkPermission()) {
+                if (checkPermission()) {
                     mockServiceViewModel.locationManager = getSystemService(LOCATION_SERVICE) as? LocationManager
                 }
 
@@ -182,14 +155,10 @@ class MainActivity : AppCompatActivity() {
 
                 setSupportActionBar(binding.appBarMain.toolbar)
 
-                binding.appBarMain.toolbar.setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.theme_appbar_color))
                 val drawerLayout: DrawerLayout = binding.drawerLayout
                 val navView: NavigationView = binding.navView
-                navView.itemIconTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.theme_nav_icon_color)
                 val navController = findNavController(R.id.nav_host_fragment_content_main)
 
-                // Passing each menu ID as a set of Ids because each
-                // menu should be considered as top level destinations.
                 appBarConfiguration = AppBarConfiguration(
                     setOf(
                         R.id.nav_home, R.id.nav_mock, R.id.nav_gnss_mock, R.id.nav_route_gallery, R.id.nav_settings
@@ -199,27 +168,14 @@ class MainActivity : AppCompatActivity() {
                 setupActionBarWithNavController(navController, appBarConfiguration)
                 navView.setupWithNavController(navController)
 
-                binding.appBarMain.toolbar.navigationIcon?.colorFilter = PorterDuffColorFilter(
-                    ContextCompat.getColor(this@MainActivity, R.color.theme_appbar_icon_color), PorterDuff.Mode.SRC_IN
-                )
-
-                navController.addOnDestinationChangedListener(object: OnDestinationChangedListener {
-                    val menuIdMapping = mapOf(
-                        R.id.nav_home to R.id.action_search,
-                        //R.id.nav_settings to R.id.action_info
-                    )
-
-                    override fun onDestinationChanged(
-                        controller: NavController,
-                        destination: NavDestination,
-                        arguments: Bundle?
-                    ) {
-                        menuIdMapping.forEach { (key, value) ->
-                            val menu = binding.appBarMain.toolbar.menu
-                            menu.findItem(value)?.isVisible = key == destination.id
-                        }
+                navController.addOnDestinationChangedListener { _, destination, _ ->
+                    // Show standard toolbar for secondary screens, hide for home full-screen map
+                    if (destination.id == R.id.nav_home) {
+                        binding.appBarMain.toolbar.visibility = View.GONE
+                    } else {
+                        binding.appBarMain.toolbar.visibility = View.VISIBLE
                     }
-                })
+                }
             }
         }
 
@@ -229,18 +185,12 @@ class MainActivity : AppCompatActivity() {
 
             override fun onRegeocodeSearched(result: RegeocodeResult?, code: Int) {
                 if (code != 1000 || result == null) {
-                    Log.e("MainActivity", "Reverse GeoCode error: $code")
+                    Log.e("MainActivity", "Reverse GeoCode error: ")
                     return
                 }
                 with(aMapViewModel) {
                     val addr: RegeocodeAddress = result.regeocodeAddress
                     markName = addr.formatAddress
-
-                    if (showDetailView) {
-                        val p = result.regeocodeQuery.point
-                        val wgs = Loc4j.gcj2wgs(p.latitude, p.longitude)
-                        showDetailInfo(wgs, LatLng(p.latitude, p.longitude))
-                    }
                 }
             }
         })
@@ -282,17 +232,17 @@ class MainActivity : AppCompatActivity() {
         fun requestSettingCanDrawOverlays() {
             kotlin.runCatching {
                 val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
-                intent.setData(Uri.parse("package:$packageName"))
+                intent.data = Uri.parse("package:")
                 startActivity(intent)
             }.onFailure {
-                Log.e("MainActivity", "requestSettingCanDrawOverlays: ", it) // boom in Redmi K60
+                Log.e("MainActivity", "requestSettingCanDrawOverlays: ", it)
                 Toast.makeText(this, "跳转失败，请手动去设置授权", Toast.LENGTH_LONG).show()
             }
             finish()
         }
 
         if (!OverlayUtils.hasOverlayPermissions(this)) {
-            Toast.makeText(this, "快给我悬浮窗权限", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "请授予悬浮窗权限", Toast.LENGTH_LONG).show()
             requestSettingCanDrawOverlays()
             return false
         }
@@ -324,7 +274,7 @@ class MainActivity : AppCompatActivity() {
                     READ_PHONE_STATE -> "LocationService需要读取设备信息"
                     ACCESS_NETWORK_STATE, INTERNET -> "LocationService需要访问网络"
                     VIBRATE -> "LocationService需要访问传感器"
-                    else -> "需要 $permission 才能运行"
+                    else -> "需要  才能运行"
                 } + "，请手动授权！", Toast.LENGTH_SHORT).show()
             }
 
@@ -332,155 +282,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main, menu)
-        val searchItem: MenuItem = menu.findItem(R.id.action_search)
-        val searchView = searchItem.actionView as SearchView
-        searchView.onActionViewExpanded()
-
-        val searchClose = searchView.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)
-        val searchBack = searchView.findViewById<ImageView>(androidx.appcompat.R.id.search_go_btn)
-        val voiceBack = searchView.findViewById<ImageView>(androidx.appcompat.R.id.search_voice_btn)
-        val color = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.white))
-        ImageViewCompat.setImageTintList(searchClose, color)
-        ImageViewCompat.setImageTintList(searchBack, color)
-        ImageViewCompat.setImageTintList(voiceBack, color)
-
-        val mSearchList = binding.appBarMain.searchListView
-        mSearchList.onItemClickListener = OnItemClickListener { parent, view, pos, id ->
-            val lngText = (view.findViewById<View>(R.id.poi_longitude) as TextView).text.toString()
-            val latText = (view.findViewById<View>(R.id.poi_latitude) as TextView).text.toString()
-            with(aMapViewModel) {
-                markName = (view.findViewById<View>(R.id.poi_name) as TextView).text.toString()
-
-                val lng = lngText.toDouble() // wgs84
-                val lat = latText.toDouble()
-                markedLoc = lat to lng
-                if (isExists) {
-                    val gcjLoc = markedLoc!!.gcj02
-                    val location = LatLng(gcjLoc.latitude, gcjLoc.longitude)
-                    aMapMove(location)
-                } else {
-                    Toast.makeText(this@MainActivity, "地图未加载", Toast.LENGTH_SHORT).show()
-                }
-
-                markMap()
-
-                binding.appBarMain.searchLinear.visibility = View.INVISIBLE
-                searchItem.collapseActionView()
-            }
-        }
-        if (mInputtips == null) {
-            mInputtips = Inputtips(this@MainActivity, object : InputtipsListener {
-                override fun onGetInputtips(tips: MutableList<Tip>?, code: Int) {
-                    if (code != 1000 || tips == null || tips.isEmpty()) {
-                        Toast.makeText(this@MainActivity, "未搜索到相关位置", Toast.LENGTH_SHORT).show()
-                        return
-                    }
-                    val data = tips.filter { it.point != null }.toPoi(
-                        aMapViewModel.currentLocation
-                    ).map { it.toMap() } // wgs84
-
-                    val simAdapt = SimpleAdapter(
-                        this@MainActivity, data,
-                        R.layout.layout_search_poi_item,
-                        arrayOf(Poi.KEY_NAME, Poi.KEY_ADDRESS, Poi.KEY_LONGITUDE_RAW, Poi.KEY_LATITUDE_RAW, Poi.KEY_TAG),
-                        intArrayOf(R.id.poi_name, R.id.poi_address, R.id.poi_longitude, R.id.poi_latitude, R.id.poi_tag)
-                    )
-                    mSearchList.setAdapter(simAdapt)
-                    binding.appBarMain.searchLinear.visibility = View.VISIBLE
-                }
-            })
-        }
-
-        searchView.setOnQueryTextListener(object: SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
-                if (query.isNullOrBlank()) return false
-                try {
-                    mInputtips!!.setQuery(InputtipsQuery(query, mCityString ?: ""))
-                    mInputtips!!.requestInputtipsAsyn()
-
-                    aMapViewModel.aMap.clear()
-                    binding.appBarMain.searchLinear.visibility = View.INVISIBLE
-                } catch (e: Exception) {
-                    Toast.makeText(this@MainActivity, "搜索出错", Toast.LENGTH_SHORT).show()
-                    Log.e("MainActivity", "Search error: ${e.stackTraceToString()}")
-                }
-                return true
-            }
-
-            override fun onQueryTextChange(newText: String?): Boolean {
-                if (!newText.isNullOrBlank()) {
-                    try {
-                        mInputtips!!.setQuery(InputtipsQuery(newText, mCityString ?: ""))
-                        mInputtips!!.requestInputtipsAsyn()
-                    } catch (e: Exception) {
-                        Toast.makeText(this@MainActivity, "搜索出错", Toast.LENGTH_SHORT).show()
-                        Log.e("MainActivity", "Search error: ${e.stackTraceToString()}")
-                    }
-                } else {
-                    binding.appBarMain.searchLinear.visibility = View.GONE
-                }
-                return true
-            }
-        })
-        return true
-    }
-
-    private fun markMap() = with(aMapViewModel) {
-        if (markedLoc == null) return
-
-        if (perspectiveState == AMapViewModel.Perspective.FOLLOWING) {
-            perspectiveState = AMapViewModel.Perspective.NORMAL
-        }
-
-        val gcjLoc = markedLoc!!.gcj02
-        val ooA = MarkerOptions()
-            .position(gcjLoc)
-            .apply {
-                if (mMapIndicator != null)
-                    icon(mMapIndicator)
-            }
-        if (isExists) {
-            aMap.clear()
-            aMap.addMarker(ooA)
-        }
-
-        showDetailInfo(markedLoc!!, gcjLoc)
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun showDetailInfo(wgsLoc: Pair<Double, Double>, gcjLoc: LatLng) {
-        val infoView = layoutInflater.inflate(R.layout.layout_loc_detail, null)
-        val locDetail = infoView.findViewById<TextView>(R.id.loc_detail)
-        locDetail.text = "${wgsLoc.second.toString().take(10)}, ${wgsLoc.first.toString().take(10)}"
-        val locAddr = infoView.findViewById<TextView>(R.id.loc_addr)
-        locAddr.text = aMapViewModel.markName ?: "未知地址"
-
-        if (!aMapViewModel.isExists) return
-        aMapViewModel.aMap.addMarker(
-            MarkerOptions()
-                .position(gcjLoc)
-                .icon(infoView)
-                .infoWindowEnable(false)
-        )
-    }
-
-    private fun aMapMove(location: LatLng) = with(aMapViewModel) {
-        if (isExists) {
-            aMap.moveCamera(CameraUpdateFactory.changeLatLng(location))
-        } else {
-            Toast.makeText(this@MainActivity, "地图未加载", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     override fun onSupportNavigateUp(): Boolean {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
     }
 
     companion object {
@@ -490,7 +294,7 @@ class MainActivity : AppCompatActivity() {
             set(value) {
                 if (field != value)  {
                     field = value
-                    Log.d("HomeViewModel", "cityString: $value")
+                    Log.d("MainActivity", "cityString: ")
                 }
             }
     }

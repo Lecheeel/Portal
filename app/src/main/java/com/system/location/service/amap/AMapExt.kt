@@ -3,7 +3,9 @@ package com.system.location.service.amap
 import android.graphics.Color
 import android.util.Log
 import com.amap.api.maps.AMap
+import com.amap.api.maps.CameraUpdateFactory
 import com.amap.api.maps.model.BitmapDescriptorFactory
+import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.MyLocationStyle
 import com.amap.api.services.help.Tip
 import com.system.location.service.bdmap.Poi
@@ -25,7 +27,7 @@ fun List<Tip>.toPoi(
             .filter { s -> s.isNotBlank() }
             .joinToString(" ")
         if (currentLocation != null) {
-            Log.d("toPoi", "currentLocation: $currentLocation, lat: $lat, lon: $lon")
+            Log.d("toPoi", "currentLocation: , lat: , lon: ")
             Poi(
                 name = it.name,
                 address = address,
@@ -35,9 +37,9 @@ fun List<Tip>.toPoi(
             ).also {
                 val distance = it.distanceTo(currentLocation.first, currentLocation.second).toInt()
                 if (distance < 1000) {
-                    it.address = "${distance}m ${it.address}"
+                    it.address = "m "
                 } else {
-                    it.address = "${(distance / 1000.0).toString().take(4)}km ${it.address}"
+                    it.address = "km "
                 }
             }
         } else {
@@ -70,9 +72,16 @@ fun AMap.setMapConfig(mode: AMapViewModel.Perspective, resourceId: Int?) {
     isMyLocationEnabled = true
 }
 
-fun AMap.locateMe() {
-    // 高德没有"跟随一次"的直接等价：先切 FOLLOWING 再切回 NORMAL 触发一次居中
-    myLocationStyle = MyLocationStyle().myLocationType(MyLocationStyle.LOCATION_TYPE_MAP_ROTATE)
-    isMyLocationEnabled = true
-    myLocationStyle = MyLocationStyle().myLocationType(MyLocationStyle.LOCATION_TYPE_LOCATION_ROTATE_NO_CENTER)
+fun AMap.locateMe(target: LatLng? = null) {
+    if (target != null && target.latitude != 0.0 && target.longitude != 0.0) {
+        animateCamera(CameraUpdateFactory.newLatLngZoom(target, 17f), 600, null)
+    } else {
+        val myLoc = myLocation
+        if (myLoc != null && myLoc.latitude != 0.0 && myLoc.longitude != 0.0) {
+            animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(myLoc.latitude, myLoc.longitude), 17f), 600, null)
+        } else {
+            myLocationStyle = MyLocationStyle().myLocationType(MyLocationStyle.LOCATION_TYPE_LOCATE)
+            isMyLocationEnabled = true
+        }
+    }
 }

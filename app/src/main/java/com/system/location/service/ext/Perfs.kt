@@ -12,6 +12,14 @@ import com.system.location.service.hook.utils.FakeLoc
 val Context.sharedPrefs
     get() = getSharedPreferences(MockServiceHelper.PROVIDER_NAME, Context.MODE_PRIVATE)!!
 
+var Context.lastKnownLat: Double
+    get() = sharedPrefs.getFloat("last_known_lat", 0f).toDouble()
+    set(value) = sharedPrefs.edit { putFloat("last_known_lat", value.toFloat()) }
+
+var Context.lastKnownLng: Double
+    get() = sharedPrefs.getFloat("last_known_lng", 0f).toDouble()
+    set(value) = sharedPrefs.edit { putFloat("last_known_lng", value.toFloat()) }
+
 var Context.selectLocation: HistoricalLocation?
     get() {
         return sharedPrefs.getString("selectedLocation", null)?.let {
@@ -131,20 +139,6 @@ var Context.hookSensor: Boolean
         putBoolean("hookSensor", value)
     }
 
-//var Context.updateInterval: Long
-//    get() = sharedPrefs.getLong("updateInterval", FakeLoc.updateInterval)
-//
-//    set(value) = sharedPrefs.edit {
-//        putLong("updateInterval", value)
-//    }
-//
-//var Context.hideMock: Boolean
-//    get() = sharedPrefs.getBoolean("hideMock", FakeLoc.hideMock)
-//
-//    set(value) = sharedPrefs.edit {
-//        putBoolean("hideMock", value)
-//    }
-
 var Context.debug: Boolean
     get() = sharedPrefs.getBoolean("debug", FakeLoc.enableDebugLog)
     set(value) = sharedPrefs.edit {
@@ -173,9 +167,6 @@ var Context.disableFusedProvider: Boolean
         FakeLoc.disableFusedLocation = value
     }
 
-/**
- * 是否允许地理围栏请求
- */
 var Context.enableRequestGeofence: Boolean
     get() = sharedPrefs.getBoolean("enableRequestGeofence", !FakeLoc.disableRequestGeofence)
     set(value) = sharedPrefs.edit {
@@ -183,9 +174,6 @@ var Context.enableRequestGeofence: Boolean
         FakeLoc.disableRequestGeofence = !value
     }
 
-/**
- * 是否允许位置获取
- */
 var Context.enableGetFromLocation: Boolean
     get() = sharedPrefs.getBoolean("enableGetFromLocation", !FakeLoc.disableGetFromLocation)
     set(value) = sharedPrefs.edit {
@@ -193,9 +181,6 @@ var Context.enableGetFromLocation: Boolean
         FakeLoc.disableGetFromLocation = !value
     }
 
-/**
- * 是否允许AGPS模块
- */
 var Context.enableAGPS: Boolean
     get() = sharedPrefs.getBoolean("enableAGPS", FakeLoc.enableAGPS)
     set(value) = sharedPrefs.edit {
@@ -203,9 +188,6 @@ var Context.enableAGPS: Boolean
         FakeLoc.enableAGPS = value
     }
 
-/**
- * 是否允许NMEA模块
- */
 var Context.enableNMEA: Boolean
     get() = sharedPrefs.getBoolean("enableNMEA", FakeLoc.enableNMEA)
     set(value) = sharedPrefs.edit {
@@ -226,6 +208,3 @@ var Context.loopBroadcastlocation: Boolean
         putBoolean("loopBroadcastLocation", value)
         FakeLoc.loopBroadcastLocation = value
     }
-
-
-

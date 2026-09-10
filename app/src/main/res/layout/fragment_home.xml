@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     tools:context=".ui.home.HomeFragment">
 
+    <!-- 1. Full Screen Immersive Map -->
     <com.amap.api.maps.MapView
         android:id="@+id/amapView"
         android:layout_width="match_parent"
@@ -14,84 +15,299 @@
         android:clickable="true"
         android:focusable="true" />
 
-    <RadioGroup
-        android:id="@+id/map_type_group"
+    <!-- 2. Central Crosshair (for pinpoint coordinate selection) -->
+    <ImageView
+        android:id="@+id/ivCrosshair"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="center"
+        android:src="@drawable/ic_crosshair"
+        app:tint="@color/primary"
+        android:importantForAccessibility="no"
+        android:elevation="4dp" />
+
+    <!-- 3. Top Floating Search Bar (Card / Capsule Style) -->
+    <LinearLayout
+        android:id="@+id/topSearchBarContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_gravity="top"
+        android:paddingTop="36dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:elevation="12dp">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            app:cardCornerRadius="26dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/surface_glass">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp">
+
+                <ImageView
+                    android:id="@+id/btnMenu"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="?selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_menu_modern"
+                    android:importantForAccessibility="no" />
+
+                <EditText
+                    android:id="@+id/etSearchQuery"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@null"
+                    android:hint="@string/action_search"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:singleLine="true"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_tertiary"
+                    android:textSize="14sp" />
+
+                <ImageView
+                    android:id="@+id/btnClearSearch"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="?selectableItemBackgroundBorderless"
+                    android:src="@drawable/baseline_close_24"
+                    android:visibility="gone"
+                    app:tint="@color/icon_grey"
+                    android:importantForAccessibility="no" />
+
+                <ImageView
+                    android:id="@+id/btnDoSearch"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?selectableItemBackgroundBorderless"
+                    android:src="@drawable/baseline_search_24"
+                    app:tint="@color/primary"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Search Result Dropdown Card -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardSearchResults"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp"
+            app:cardBackgroundColor="@color/surface_glass">
+
+            <ListView
+                android:id="@+id/lvSearchResults"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:divider="@color/card_border"
+                android:dividerHeight="1dp" />
+        </androidx.cardview.widget.CardView>
+    </LinearLayout>
+
+    <!-- 4. Quick Action Floating Island on Top-Right -->
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        android:layout_margin="8dp">
+        android:layout_marginTop="100dp"
+        android:layout_marginEnd="16dp"
+        android:orientation="vertical"
+        android:elevation="8dp">
 
-        <RadioButton
-            android:id="@+id/map_type_normal"
-            android:text="@string/normal_view"
-            android:checked="true"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-
-        <RadioButton
-            android:id="@+id/map_type_satellite"
-            android:text="@string/satellite_view"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-    </RadioGroup>
-
-    <com.google.android.material.checkbox.MaterialCheckBox
-        android:id="@+id/show_route"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_margin="8dp"
-        android:text="@string/show_route"
-        />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start">
+        <!-- Layer Mode Toggle (Normal / Satellite) -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab"
+            android:id="@+id/fabMapType"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/fab_margin"
-            android:layout_marginBottom="@dimen/fab_margin"
-            android:importantForAccessibility="no"
-            app:srcCompat="@drawable/baseline_keyboard_arrow_up_24"
-            app:fabSize="normal"/>
+            android:layout_marginBottom="12dp"
+            app:fabSize="mini"
+            app:backgroundTint="@color/surface_glass"
+            app:tint="@color/primary"
+            app:srcCompat="@drawable/ic_layers_modern"
+            app:elevation="4dp"
+            android:contentDescription="@string/normal_view" />
+
+        <!-- Route Display Toggle -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabToggleRoute"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:fabSize="mini"
+            app:backgroundTint="@color/surface_glass"
+            app:tint="@color/icon_grey"
+            app:srcCompat="@drawable/baseline_route_24"
+            app:elevation="4dp"
+            android:contentDescription="@string/show_route" />
+
+        <!-- Target Direct Input -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabInputCoords"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:fabSize="mini"
+            app:backgroundTint="@color/surface_glass"
+            app:tint="@color/primary"
+            app:srcCompat="@drawable/baseline_edit_location_alt_24"
+            app:elevation="4dp"
+            android:contentDescription="@string/goto_location" />
+
+        <!-- Locate Me / Center View -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabMyLocation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:fabSize="normal"
+            app:backgroundTint="@color/primary"
+            app:tint="@color/white"
+            app:srcCompat="@drawable/baseline_my_location_24"
+            app:elevation="6dp"
+            android:contentDescription="@string/follow_location" />
+    </LinearLayout>
+
+    <!-- 5. Modern Bottom Panel (Persistent Bottom Card) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/bottomControlCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="10dp"
+        app:cardBackgroundColor="@color/surface_glass">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:padding="16dp">
 
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/fab_my_location"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/fab_margin"
-                android:contentDescription="@string/follow_location"
-                android:visibility="gone"
-                app:srcCompat="@drawable/baseline_my_location_24"
-                app:fabSize="mini"/>
+            <!-- Drag Handle Bar Indicator -->
+            <View
+                android:layout_width="36dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/bg_search_bar" />
 
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/fab_goto"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/fab_margin"
-                android:contentDescription="@string/goto_location"
-                android:visibility="gone"
-                app:srcCompat="@drawable/baseline_edit_location_alt_24"
-                app:fabSize="mini"/>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/fab_add"
-                android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvTargetName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/target_location"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+
+                    <TextView
+                        android:id="@+id/tvTargetAddress"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="点击地图选点或拖动准星"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+
+                    <TextView
+                        android:id="@+id/tvTargetCoords"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="0.000000, 0.000000"
+                        android:textColor="@color/primary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <!-- Quick Save Location Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveLocation"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/save_location"
+                    android:textSize="12sp"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/baseline_save_24"
+                    app:iconSize="16dp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp"
+                android:background="@color/card_border" />
+
+            <!-- Primary Actions Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/fab_margin"
-                android:contentDescription="@string/save_location"
-                android:visibility="gone"
-                app:srcCompat="@drawable/baseline_add_location_alt_24"
-                app:fabSize="mini"/>
+                android:orientation="horizontal">
+
+                <!-- Start/Stop Mock Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickMock"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="@string/start_mock"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="22dp"
+                    app:icon="@drawable/baseline_play_24"
+                    app:iconSize="18dp" />
+
+                <!-- Float Rocker Toggle Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickRocker"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/rocker"
+                    android:textSize="13sp"
+                    app:cornerRadius="22dp"
+                    app:icon="@drawable/baseline_adjust_24"
+                    app:iconSize="18dp" />
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

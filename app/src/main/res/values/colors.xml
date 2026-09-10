@@ -1,50 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorAccent">#D81B60</color>
+    <!-- Brand / Primary (Modern Indigo/Blue) -->
+    <color name="primary">#3B82F6</color>
+    <color name="primary_dark">#1D4ED8</color>
+    <color name="colorAccent">#6366F1</color>
+    <color name="accent">#4F46E5</color>
+    <color name="accentFallback">#6366F1</color>
+    <color name="colorPrimary">#3B82F6</color>
+    <color name="colorPrimaryDark">#1D4ED8</color>
 
-    <color name="primary">#FFFFFFFF</color>
-    <color name="primary_dark">#FFFFFFFF</color>
-    <color name="accent">#696969</color>
-    <color name="accentFallback">#757575</color>
-    <color name="icon_grey">#757575</color>
+    <!-- Modern Material 3 Light Surface & Colors -->
+    <color name="surface">#F8FAFC</color>
+    <color name="surface_variant">#F1F5F9</color>
+    <color name="surface_container_highest">#E2E8F0</color>
+    <color name="surface_glass">#F2FFFFFF</color>
+    <color name="card_border">#1A000000</color>
 
-    <color name="red500">#F44336</color>
-    <color name="green500">#4CAF50</color>
-    <color name="grey500">#9E9E9E</color>
-    <color name="blue500">#2196f3</color>
-    <color name="yellow500">#FFC107</color>
+    <!-- Text & Icon Colors -->
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#64748B</color>
+    <color name="text_tertiary">#94A3B8</color>
+    <color name="icon_grey">#64748B</color>
 
-    <color name="dark_secondary_text">#dedede</color>
+    <!-- Status Colors -->
+    <color name="red500">#EF4444</color>
+    <color name="green500">#10B981</color>
+    <color name="grey500">#94A3B8</color>
+    <color name="blue500">#3B82F6</color>
+    <color name="yellow500">#F59E0B</color>
 
-    <!-- Flashing colors -->
-    <color name="flashing_background_color">@android:color/black</color>
-    <color name="ic_launcher_background">#00B0FF</color>
+    <color name="dark_secondary_text">#94A3B8</color>
+    <color name="flashing_background_color">#0F172A</color>
+    <color name="ic_launcher_background">#3B82F6</color>
 
-    <color name="theme_appbar_color">#5F5F5F</color>
-    <color name="theme_side_nav_text_color">#FFFFFF</color>
-    <color name="theme_side_nav_start_color">#373737</color>
-    <color name="theme_side_nav_center_color">#494949</color>
-    <color name="theme_side_nav_end_color">#373737</color>
-    <color name="theme_appbar_text_color">#FFFFFF</color>
-    <color name="theme_appbar_icon_color">#FFFFFF</color>
-    <color name="theme_nav_icon_color">#0D0D0D</color>
-    <color name="theme_active">#5F5F5F</color>
-    <color name="theme_focused_touch">#A0A0A0</color>
+    <!-- Compatibility mapping updated to modern palette -->
+    <color name="theme_appbar_color">#FFFFFF</color>
+    <color name="theme_side_nav_text_color">#0F172A</color>
+    <color name="theme_side_nav_start_color">#FFFFFF</color>
+    <color name="theme_side_nav_center_color">#F8FAFC</color>
+    <color name="theme_side_nav_end_color">#FFFFFF</color>
+    <color name="theme_appbar_text_color">#0F172A</color>
+    <color name="theme_appbar_icon_color">#0F172A</color>
+    <color name="theme_nav_icon_color">#3B82F6</color>
+    <color name="theme_active">#EFF6FF</color>
+    <color name="theme_focused_touch">#DBEAFE</color>
 
-    <color name="lse_appbar_color">#5F5F5F</color>
-    <color name="lse_appbar_color_center">#494949</color>
-    <color name="lse_appbar_color_dark">#373737</color>
-    <color name="lse_mini_title_color">#5F5F5F</color>
-    <color name="lse_hint_color">#5F5F5F</color>
-    <color name="lse_text_color">#373737</color>
-    <color name="lse_nav_icon">#373737</color>
-    <color name="lse_mock_off">#373737</color>
-    <color name="lse_mock_on">#040404</color>
+    <color name="lse_appbar_color">#FFFFFF</color>
+    <color name="lse_appbar_color_center">#F8FAFC</color>
+    <color name="lse_appbar_color_dark">#F1F5F9</color>
+    <color name="lse_mini_title_color">#64748B</color>
+    <color name="lse_hint_color">#94A3B8</color>
+    <color name="lse_text_color">#0F172A</color>
+    <color name="lse_nav_icon">#3B82F6</color>
+    <color name="lse_mock_off">#64748B</color>
+    <color name="lse_mock_on">#10B981</color>
 
-    <color name="lse_location_detail_background">#bb5F5F5F</color>
-    <color name="lse_location_detail_block">#aaFFFFFF</color>
+    <color name="lse_location_detail_background">#F1F5F9</color>
+    <color name="lse_location_detail_block">#FFFFFF</color>
 
-    <color name="selected_color">#BCBCBC</color>
+    <color name="selected_color">#DBEAFE</color>
 
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
@@ -53,6 +67,4 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="colorPrimary">#F44336</color>
-    <color name="colorPrimaryDark">#8E24AA</color>
 </resources>

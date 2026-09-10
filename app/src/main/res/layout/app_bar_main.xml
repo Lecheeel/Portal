@@ -4,14 +4,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
     tools:context=".MainActivity">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:elevation="20dp"
-        android:fitsSystemWindows="true">
+        android:elevation="0dp"
+        android:background="@android:color/transparent"
+        app:elevation="0dp">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
@@ -20,27 +21,26 @@
             app:title="@string/app_name"
             app:theme="@style/AppTheme.LocationService.ToolBarOverlay"
             app:popupTheme="@style/AppTheme.LocationService.PopupTheme"
-            app:titleTextColor="@color/theme_appbar_text_color"
-            app:subtitleTextColor="@color/theme_appbar_text_color"
+            app:titleTextColor="@color/text_primary"
+            app:subtitleTextColor="@color/text_secondary"
+            android:visibility="gone"
             app:collapseIcon="@drawable/baseline_arrow_back_24" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
     <include layout="@layout/content_main" />
 
+    <!-- Legacy search dropdown kept hidden to prevent binding compilation errors -->
     <LinearLayout
         android:id="@+id/search_linear"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#ddffffff"
         android:visibility="gone"
         android:layout_marginTop="?attr/actionBarSize">
         <ListView
             android:id="@+id/search_list_view"
             android:layout_width="match_parent"
-            android:layout_margin="10dp"
-            android:layout_height="wrap_content">
-        </ListView>
+            android:layout_height="wrap_content" />
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

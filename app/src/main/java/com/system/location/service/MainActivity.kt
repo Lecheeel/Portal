@@ -53,32 +53,35 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
-import com.baidu.mapapi.map.BitmapDescriptorFactory
-import com.baidu.mapapi.map.InfoWindow
-import com.baidu.mapapi.map.MapStatusUpdateFactory
-import com.baidu.mapapi.map.MarkerOptions
-import com.baidu.mapapi.map.MyLocationConfiguration
-import com.baidu.mapapi.model.LatLng
-import com.baidu.mapapi.search.core.SearchResult
-import com.baidu.mapapi.search.geocode.GeoCodeResult
-import com.baidu.mapapi.search.geocode.GeoCoder
-import com.baidu.mapapi.search.geocode.OnGetGeoCoderResultListener
-import com.baidu.mapapi.search.geocode.ReverseGeoCodeResult
-import com.baidu.mapapi.search.sug.SuggestionSearch
-import com.baidu.mapapi.search.sug.SuggestionSearchOption
+import com.amap.api.maps.CameraUpdateFactory
+import com.amap.api.maps.model.BitmapDescriptorFactory
+import com.amap.api.maps.model.LatLng
+import com.amap.api.maps.model.MarkerOptions
+import com.amap.api.services.core.LatLonPoint
+import com.amap.api.services.geocoder.GeocodeSearch
+import com.amap.api.services.geocoder.GeocodeResult
+import com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener
+import com.amap.api.services.geocoder.RegeocodeAddress
+import com.amap.api.services.geocoder.RegeocodeQuery
+import com.amap.api.services.geocoder.RegeocodeResult
+import com.amap.api.services.help.Inputtips
+import com.amap.api.services.help.Inputtips.InputtipsListener
+import com.amap.api.services.help.InputtipsQuery
+import com.amap.api.services.help.Tip
 import com.google.android.material.navigation.NavigationView
 import com.tencent.bugly.crashreport.CrashReport
 import kotlinx.coroutines.launch
 import com.system.location.service.android.permission.RequestPermissions
 import com.system.location.service.android.root.ShellUtils
 import com.system.location.service.android.window.OverlayUtils
+import com.system.location.service.amap.toPoi
 import com.system.location.service.bdmap.Poi
-import com.system.location.service.bdmap.toPoi
 import com.system.location.service.databinding.ActivityMainBinding
+import com.system.location.service.ext.Loc4j
 import com.system.location.service.ext.gcj02
 import com.system.location.service.ext.wgs84
 import com.system.location.service.ui.notification.NotificationUtils
-import com.system.location.service.ui.viewmodel.BaiduMapViewModel
+import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 
 class MainActivity : AppCompatActivity() {
@@ -88,9 +91,9 @@ class MainActivity : AppCompatActivity() {
     /* Permission */
     private val requestMultiplePermissions = RequestPermissions(this)
 
-    /* BaiduMap */
-    private var mSuggestionSearch: SuggestionSearch? = null
-    private val baiduMapViewModel by viewModels<BaiduMapViewModel>()
+    /* AMap */
+    private var mInputtips: Inputtips? = null
+    private val aMapViewModel by viewModels<AMapViewModel>()
     private val mockServiceViewModel by viewModels<MockServiceViewModel>()
 
     private fun getRequiredPermissions(): MutableSet<String> {
@@ -220,18 +223,23 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        baiduMapViewModel.mGeoCoder = GeoCoder.newInstance()
-        baiduMapViewModel.mGeoCoder?.setOnGetGeoCodeResultListener(object: OnGetGeoCoderResultListener {
-            override fun onGetGeoCodeResult(geoCodeResult: GeoCodeResult) {}
+        aMapViewModel.mGeoCoder = GeocodeSearch(this)
+        aMapViewModel.mGeoCoder?.setOnGeocodeSearchListener(object : OnGeocodeSearchListener {
+            override fun onGeocodeSearched(result: GeocodeResult?, code: Int) {}
 
-            override fun onGetReverseGeoCodeResult(reverseGeoCodeResult: ReverseGeoCodeResult) {
-                if (reverseGeoCodeResult.error != SearchResult.ERRORNO.NO_ERROR) {
-                    Log.e("MainActivity", "Reverse GeoCode error: ${reverseGeoCodeResult.error}")
-                } else with(baiduMapViewModel) {
-                    markName = reverseGeoCodeResult.address.toString()
+            override fun onRegeocodeSearched(result: RegeocodeResult?, code: Int) {
+                if (code != 1000 || result == null) {
+                    Log.e("MainActivity", "Reverse GeoCode error: $code")
+                    return
+                }
+                with(aMapViewModel) {
+                    val addr: RegeocodeAddress = result.regeocodeAddress
+                    markName = addr.formatAddress
 
                     if (showDetailView) {
-                        showDetailInfo(reverseGeoCodeResult.location.wgs84, reverseGeoCodeResult.location)
+                        val p = result.regeocodeQuery.point
+                        val wgs = Loc4j.gcj2wgs(p.latitude, p.longitude)
+                        showDetailInfo(wgs, LatLng(p.latitude, p.longitude))
                     }
                 }
             }
@@ -241,7 +249,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initNotification() {
-        with(baiduMapViewModel) {
+        with(aMapViewModel) {
             mNotification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val notificationUtils = NotificationUtils(this@MainActivity)
                 val builder = notificationUtils.getAndroidChannelNotification(
@@ -342,7 +350,7 @@ class MainActivity : AppCompatActivity() {
         mSearchList.onItemClickListener = OnItemClickListener { parent, view, pos, id ->
             val lngText = (view.findViewById<View>(R.id.poi_longitude) as TextView).text.toString()
             val latText = (view.findViewById<View>(R.id.poi_latitude) as TextView).text.toString()
-            with(baiduMapViewModel) {
+            with(aMapViewModel) {
                 markName = (view.findViewById<View>(R.id.poi_name) as TextView).text.toString()
 
                 val lng = lngText.toDouble() // wgs84
@@ -351,7 +359,7 @@ class MainActivity : AppCompatActivity() {
                 if (isExists) {
                     val gcjLoc = markedLoc!!.gcj02
                     val location = LatLng(gcjLoc.latitude, gcjLoc.longitude)
-                    baiduMap.setMapStatus(MapStatusUpdateFactory.newLatLng(location))
+                    aMapMove(location)
                 } else {
                     Toast.makeText(this@MainActivity, "地图未加载", Toast.LENGTH_SHORT).show()
                 }
@@ -362,14 +370,15 @@ class MainActivity : AppCompatActivity() {
                 searchItem.collapseActionView()
             }
         }
-        if (mSuggestionSearch == null) {
-            mSuggestionSearch = SuggestionSearch.newInstance()
-            mSuggestionSearch?.setOnGetSuggestionResultListener { suggestionResult ->
-                if (suggestionResult == null || suggestionResult.allSuggestions == null) {
-                    Toast.makeText(this@MainActivity, "未搜索到相关位置", Toast.LENGTH_SHORT).show()
-                } else {
-                    val data = suggestionResult.toPoi(
-                        baiduMapViewModel.currentLocation
+        if (mInputtips == null) {
+            mInputtips = Inputtips(this@MainActivity, object : InputtipsListener {
+                override fun onGetInputtips(tips: MutableList<Tip>?, code: Int) {
+                    if (code != 1000 || tips == null || tips.isEmpty()) {
+                        Toast.makeText(this@MainActivity, "未搜索到相关位置", Toast.LENGTH_SHORT).show()
+                        return
+                    }
+                    val data = tips.filter { it.point != null }.toPoi(
+                        aMapViewModel.currentLocation
                     ).map { it.toMap() } // wgs84
 
                     val simAdapt = SimpleAdapter(
@@ -381,19 +390,17 @@ class MainActivity : AppCompatActivity() {
                     mSearchList.setAdapter(simAdapt)
                     binding.appBarMain.searchLinear.visibility = View.VISIBLE
                 }
-            }
+            })
         }
 
         searchView.setOnQueryTextListener(object: SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 if (query.isNullOrBlank()) return false
                 try {
-                    mSuggestionSearch!!.requestSuggestion(SuggestionSearchOption()
-                        .keyword(query)
-                        .city(mCityString)
-                    )
+                    mInputtips!!.setQuery(InputtipsQuery(query, mCityString ?: ""))
+                    mInputtips!!.requestInputtipsAsyn()
 
-                    baiduMapViewModel.baiduMap.clear()
+                    aMapViewModel.aMap.clear()
                     binding.appBarMain.searchLinear.visibility = View.INVISIBLE
                 } catch (e: Exception) {
                     Toast.makeText(this@MainActivity, "搜索出错", Toast.LENGTH_SHORT).show()
@@ -405,11 +412,8 @@ class MainActivity : AppCompatActivity() {
             override fun onQueryTextChange(newText: String?): Boolean {
                 if (!newText.isNullOrBlank()) {
                     try {
-                        mSuggestionSearch!!.requestSuggestion(
-                            SuggestionSearchOption()
-                                .keyword(newText)
-                                .city(mCityString)
-                        )
+                        mInputtips!!.setQuery(InputtipsQuery(newText, mCityString ?: ""))
+                        mInputtips!!.requestInputtipsAsyn()
                     } catch (e: Exception) {
                         Toast.makeText(this@MainActivity, "搜索出错", Toast.LENGTH_SHORT).show()
                         Log.e("MainActivity", "Search error: ${e.stackTraceToString()}")
@@ -423,11 +427,11 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    private fun markMap() = with(baiduMapViewModel) {
+    private fun markMap() = with(aMapViewModel) {
         if (markedLoc == null) return
 
-        if (perspectiveState == MyLocationConfiguration.LocationMode.FOLLOWING) {
-            perspectiveState = MyLocationConfiguration.LocationMode.NORMAL
+        if (perspectiveState == AMapViewModel.Perspective.FOLLOWING) {
+            perspectiveState = AMapViewModel.Perspective.NORMAL
         }
 
         val gcjLoc = markedLoc!!.gcj02
@@ -437,8 +441,10 @@ class MainActivity : AppCompatActivity() {
                 if (mMapIndicator != null)
                     icon(mMapIndicator)
             }
-        baiduMap.clear()
-        baiduMap.addOverlay(ooA)
+        if (isExists) {
+            aMap.clear()
+            aMap.addMarker(ooA)
+        }
 
         showDetailInfo(markedLoc!!, gcjLoc)
     }
@@ -449,10 +455,23 @@ class MainActivity : AppCompatActivity() {
         val locDetail = infoView.findViewById<TextView>(R.id.loc_detail)
         locDetail.text = "${wgsLoc.second.toString().take(10)}, ${wgsLoc.first.toString().take(10)}"
         val locAddr = infoView.findViewById<TextView>(R.id.loc_addr)
-        locAddr.text = baiduMapViewModel.markName ?: "未知地址"
-        val mInfoWindow = InfoWindow(BitmapDescriptorFactory.fromView(infoView), gcjLoc, -95, null)
+        locAddr.text = aMapViewModel.markName ?: "未知地址"
 
-        baiduMapViewModel.baiduMap.showInfoWindow(mInfoWindow)
+        if (!aMapViewModel.isExists) return
+        aMapViewModel.aMap.addMarker(
+            MarkerOptions()
+                .position(gcjLoc)
+                .icon(infoView)
+                .infoWindowEnable(false)
+        )
+    }
+
+    private fun aMapMove(location: LatLng) = with(aMapViewModel) {
+        if (isExists) {
+            aMap.moveCamera(CameraUpdateFactory.changeLatLng(location))
+        } else {
+            Toast.makeText(this@MainActivity, "地图未加载", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -462,8 +481,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-
-        mSuggestionSearch?.destroy()
     }
 
     companion object {

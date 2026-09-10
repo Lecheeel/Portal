@@ -63,6 +63,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.SIGN_ALIAS }}
           KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
+          AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
           JAVA_TOOL_OPTIONS: "--enable-native-access=ALL-UNNAMED"
 
       - name: Set LocationService Version

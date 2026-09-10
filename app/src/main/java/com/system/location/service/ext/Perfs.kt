@@ -3,7 +3,7 @@ package com.system.location.service.ext
 import android.content.Context
 import androidx.core.content.edit
 import com.alibaba.fastjson2.JSON
-import com.baidu.mapapi.map.BaiduMap
+import com.amap.api.maps.AMap
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.ui.mock.HistoricalLocation
 import com.system.location.service.ui.mock.HistoricalRoute
@@ -79,7 +79,7 @@ var Context.minSatelliteCount: Int
     }
 
 var Context.mapType: Int
-    get() = sharedPrefs.getInt("mapType", BaiduMap.MAP_TYPE_NORMAL)
+    get() = sharedPrefs.getInt("mapType", AMap.MAP_TYPE_NORMAL)
     set(value) = sharedPrefs.edit {
         putInt("mapType", value)
     }

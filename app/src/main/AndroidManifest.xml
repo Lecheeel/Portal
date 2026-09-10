@@ -56,16 +56,15 @@
             </intent-filter>
         </activity>
 
-        <!-- 百度地图定位服务 -->
+        <!-- 高德地图定位服务 -->
         <service
-            android:name="com.baidu.location.f"
+            android:name="com.amap.api.location.APSService"
             android:enabled="true"
             android:foregroundServiceType="location"
-            android:process=":remote"
             tools:ignore="ForegroundServicePermission" />
         <meta-data
-            android:name="com.baidu.lbsapi.API_KEY"
-            android:value="UzCD3gLYg3M9Ue2749hm1jsHX2DyfMUF" />
+            android:name="com.amap.api.v2.apikey"
+            android:value="${AMAP_ANDROID_KEY}" />
 
         <!-- Xposed 模块配置 -->
         <meta-data

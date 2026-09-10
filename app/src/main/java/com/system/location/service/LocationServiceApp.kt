@@ -2,9 +2,8 @@ package com.system.location.service
 
 import android.app.Application
 import android.content.Context
-import com.baidu.location.LocationClient
-import com.baidu.mapapi.CoordType
-import com.baidu.mapapi.SDKInitializer
+import com.amap.api.location.AMapLocationClient
+import com.amap.api.maps.MapsInitializer
 import com.tencent.bugly.crashreport.CrashReport
 import com.system.location.service.android.Bugly
 
@@ -13,11 +12,11 @@ class LocationServiceApp: Application() {
     override fun onCreate() {
         super.onCreate()
 
-        SDKInitializer.setAgreePrivacy(this, true)
-        LocationClient.setAgreePrivacy(true)
-
-        SDKInitializer.initialize(this)
-        SDKInitializer.setCoordType(DEFAULT_COORD_TYPE)
+        // 高德 SDK 隐私合规（必须最先调用，否则 SDK 无法启动）
+        MapsInitializer.updatePrivacyShow(this, true, true)
+        MapsInitializer.updatePrivacyAgree(this, true)
+        AMapLocationClient.updatePrivacyShow(this, true, true)
+        AMapLocationClient.updatePrivacyAgree(this, true)
 
         CrashReport.initCrashReport(applicationContext)
 
@@ -32,11 +31,6 @@ class LocationServiceApp: Application() {
     }
 
     companion object {
-        val DEFAULT_COORD_TYPE = CoordType.GCJ02
-        const val DEFAULT_COORD_STR = "GCJ02"
-
         lateinit var appContext: Context
-        //val DEFAULT_COORD_TYPE = CoordType.BD09LL
-        //const val DEFAULT_COORD_STR = "bd09ll"
     }
 }

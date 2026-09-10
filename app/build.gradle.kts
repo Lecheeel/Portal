@@ -29,6 +29,8 @@ android {
 //        }
 
         manifestPlaceholders["BUGLY_APPID"] = "222f9ef298"
+        manifestPlaceholders["AMAP_ANDROID_KEY"] =
+            System.getenv("AMAP_ANDROID_KEY") ?: ""
 
         val publicIp = try {
             val isWindows = org.gradle.internal.os.OperatingSystem.current().isWindows
@@ -130,11 +132,6 @@ android {
             useLegacyPackaging = true
             excludes += "lib/armeabi/**"
             excludes += "lib/x86/**"
-            excludes += "lib/x86_64/libBaiduMapSDK**"
-            excludes += "lib/x86_64/libc++_shared.so"
-            excludes += "lib/x86_64/libc++_shared.so"
-            excludes += "lib/x86_64/liblocSDK8b.so"
-            excludes += "lib/x86_64/libtiny_magic.so"
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -160,9 +157,7 @@ android {
         }
     }
     sourceSets {
-        getByName("main").jniLibs.srcDirs("libs")
     }
-
     configureAppSigningConfigsForRelease(project)
 }
 
@@ -209,11 +204,8 @@ dependencies {
 
     implementation(libs.bugly)
 
+    implementation(libs.amap.map3d.location.search)
     implementation(libs.geotools)
-    implementation(fileTree(mapOf(
-        "dir" to "libs",
-        "include" to listOf("*.jar")
-    )))
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

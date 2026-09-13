@@ -59,6 +59,8 @@ import com.system.location.service.ext.Loc4j
 import com.system.location.service.ui.notification.NotificationUtils
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
+import com.system.location.service.update.StartupUpdateViewModel
+import com.system.location.service.update.UpdateDialogFragment
 
 class MainActivity : AppCompatActivity() {
     private lateinit var appBarConfiguration: AppBarConfiguration
@@ -70,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     /* ViewModels */
     private val aMapViewModel by viewModels<AMapViewModel>()
     private val mockServiceViewModel by viewModels<MockServiceViewModel>()
+    private val startupUpdateViewModel by viewModels<StartupUpdateViewModel>()
 
     private fun getRequiredPermissions(): MutableSet<String> {
         val permissions = mutableSetOf(
@@ -176,6 +179,17 @@ class MainActivity : AppCompatActivity() {
                         binding.appBarMain.toolbar.visibility = View.VISIBLE
                     }
                 }
+                startupUpdateViewModel.check()
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                startupUpdateViewModel.pendingUpdate.collect { info ->
+                    if (info != null && UpdateDialogFragment.show(supportFragmentManager, info)) {
+                        startupUpdateViewModel.onPromptShown()
+                    }
+                }
             }
         }
 
@@ -196,6 +210,16 @@ class MainActivity : AppCompatActivity() {
         })
 
         mockServiceViewModel.initRocker(this)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (::binding.isInitialized) startupUpdateViewModel.check()
+    }
+
+    override fun onStop() {
+        if (!isChangingConfigurations) startupUpdateViewModel.onBackgrounded()
+        super.onStop()
     }
 
     private fun initNotification() {

@@ -7,17 +7,19 @@ import android.os.Build
 import android.util.Log
 import com.system.location.service.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
 
 /**
  * GitHub Release 检查更新
  *
  * 版本约定：Release tag 形如 v1.0.4.r7.af74379，
  * 与 BuildConfig.VERSION_NAME (1.0.4.r<count>.<hash>) 同构。
- * 比对规则：先比 .r<count>（commit 数），相等时比 commit hash 是否一致。
+ * 先比较主版本号，再以提交和发布时间区分同版本构建。
  */
 object UpdateChecker {
 
@@ -34,6 +36,7 @@ object UpdateChecker {
         val htmlUrl: String,
         val commitCount: Int,
         val commitHash: String,
+        val publishedAt: Long = 0,
     )
 
     sealed class Result {
@@ -60,6 +63,8 @@ object UpdateChecker {
             } finally {
                 conn.disconnect()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "check failed", e)
             Result.Error(e.message ?: "网络请求失败")
@@ -81,7 +86,7 @@ object UpdateChecker {
                     .firstOrNull { it.optString("name").endsWith("-$abi.apk") }
                     ?.optString("browser_download_url")
             }
-        if (tag.isBlank()) return null
+        if (ReleaseVersion.parse(tag) == null) return null
         val parts = tag.split(".")
         // 1.0.4.r7.af74379 → commitCount=7, hash=af74379
         val rIndex = parts.indexOfFirst { it.startsWith("r") && it.drop(1).toIntOrNull() != null }
@@ -95,17 +100,12 @@ object UpdateChecker {
             htmlUrl = json.optString("html_url").ifBlank { RELEASES_PAGE },
             commitCount = commitCount,
             commitHash = commitHash,
+            publishedAt = runCatching { Instant.parse(json.optString("published_at")).epochSecond }.getOrDefault(0),
         )
     }
 
     private fun isNewer(info: UpdateInfo): Boolean {
-        val local = parseLocalVersion()
-        if (info.commitCount != local.commitCount) {
-            return info.commitCount > local.commitCount
-        }
-        // commit 数相同：commit hash 不同也提示（同一仓库不同构建）
-        return info.commitHash.isNotBlank() &&
-                !info.commitHash.equals(local.commitHash, ignoreCase = true)
+        return ReleaseVersion.isNewer(info.versionName, BuildConfig.VERSION_NAME, info.publishedAt, BuildConfig.VERSION_CODE.toLong())
     }
 
     fun parseLocalVersion(): UpdateInfo {
@@ -126,7 +126,10 @@ object UpdateChecker {
     }
 
     fun openDownload(context: Context, info: UpdateInfo) {
-        val url = info.apkUrl ?: info.htmlUrl
+        openDownload(context, info.apkUrl ?: info.htmlUrl)
+    }
+
+    fun openDownload(context: Context, url: String) {
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }.onFailure {

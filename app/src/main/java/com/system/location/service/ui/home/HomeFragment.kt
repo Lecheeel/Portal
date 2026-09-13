@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SimpleAdapter
@@ -63,6 +64,7 @@ import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.HomeViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 import java.math.BigDecimal
+import java.util.Locale
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -75,6 +77,8 @@ class HomeFragment : Fragment() {
     private lateinit var mLocationClient: AMapLocationClient
     private var mInputtips: Inputtips? = null
     private var hasCenteredInitialLocation = false
+    private var isDraggingMap = false
+    private var targetGeocoder: GeocodeSearch? = null
 
     @SuppressLint("SetTextI18n")
     override fun onCreateView(
@@ -83,6 +87,7 @@ class HomeFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        binding.amapView.onCreate(savedInstanceState)
         val root: View = binding.root
 
         with(aMapViewModel) {
@@ -95,6 +100,7 @@ class HomeFragment : Fragment() {
         setupSearchBar()
         setupQuickActions()
         setupBottomPanel()
+        aMapViewModel.markedLoc?.let { onTargetLocationUpdated(it, true) }
 
         return root
     }
@@ -123,16 +129,35 @@ class HomeFragment : Fragment() {
             setMapConfig(aMapViewModel.perspectiveState, null)
 
             setOnMapClickListener { loc ->
-                aMapViewModel.markedLoc = loc.wgs84
                 onTargetLocationUpdated(loc.wgs84, true)
             }
 
+            setOnMapTouchListener { event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> isDraggingMap = false
+                    MotionEvent.ACTION_MOVE -> isDraggingMap = true
+                }
+            }
             setOnCameraChangeListener(object : AMap.OnCameraChangeListener {
-                override fun onCameraChange(position: com.amap.api.maps.model.CameraPosition) {}
+                override fun onCameraChange(position: com.amap.api.maps.model.CameraPosition) {
+                    if (_binding == null || !isDraggingMap) return
+                    val wgs = position.target.wgs84
+                    aMapViewModel.markedLoc = wgs
+                    aMapViewModel.markName = null
+                    binding.tvTargetCoords.text = formatCoordinates(wgs)
+                    binding.tvTargetName.text = "已选位置"
+                    binding.tvTargetAddress.text = "松开地图获取地址"
+                }
                 override fun onCameraChangeFinish(position: com.amap.api.maps.model.CameraPosition) {
+                    if (_binding == null) return
                     val wgs = position.target.wgs84
                     requireContext().lastKnownLat = wgs.first
                     requireContext().lastKnownLng = wgs.second
+                    if (isDraggingMap || aMapViewModel.markedLoc == null) {
+                        if (isDraggingMap) hasCenteredInitialLocation = true
+                        isDraggingMap = false
+                        onTargetLocationUpdated(wgs)
+                    }
                 }
             })
         }
@@ -151,7 +176,7 @@ class HomeFragment : Fragment() {
         }
         mLocationClient.setLocationOption(option)
         mLocationClient.setLocationListener { loc ->
-            if (loc == null || loc.errorCode != 0) return@setLocationListener
+            if (_binding == null || loc == null || loc.errorCode != 0) return@setLocationListener
 
             val wgs = loc.wgs84
             aMapViewModel.currentLocation = wgs
@@ -221,11 +246,9 @@ class HomeFragment : Fragment() {
             if (lat != null && lng != null) {
                 val wgs = lat to lng
                 aMapViewModel.markedLoc = wgs
-                aMapViewModel.markName = nameText
                 onTargetLocationUpdated(wgs, true)
-
-                val gcj = wgs.gcj02
-                binding.amapView.map.animateCamera(CameraUpdateFactory.newLatLngZoom(gcj, 17f), 500, null)
+                aMapViewModel.markName = nameText
+                binding.tvTargetName.text = nameText ?: "已选位置"
 
                 binding.cardSearchResults.visibility = View.GONE
                 binding.etSearchQuery.setText(nameText ?: "")
@@ -316,7 +339,7 @@ class HomeFragment : Fragment() {
         binding.fabMyLocation.setOnClickListener {
             val cur = aMapViewModel.currentLocation
             if (cur != null) {
-                binding.amapView.map.locateMe(cur.gcj02)
+                onTargetLocationUpdated(cur, true)
             } else {
                 binding.amapView.map.locateMe()
             }
@@ -464,8 +487,12 @@ class HomeFragment : Fragment() {
 
     @SuppressLint("SetTextI18n")
     private fun onTargetLocationUpdated(wgsLoc: Pair<Double, Double>, animate: Boolean = false) {
+        if (_binding == null) return
+        aMapViewModel.markedLoc = wgsLoc
+        aMapViewModel.markName = null
         val gcj = wgsLoc.gcj02
-        binding.tvTargetCoords.text = ", "
+        binding.tvTargetCoords.text = formatCoordinates(wgsLoc)
+        binding.tvTargetName.text = "已选位置"
         binding.tvTargetAddress.text = "正在获取地址信息..."
 
         // Place marker on map
@@ -476,16 +503,30 @@ class HomeFragment : Fragment() {
         aMapViewModel.aMap.addMarker(marker)
 
         if (animate) {
+            hasCenteredInitialLocation = true
+            isDraggingMap = false
             binding.amapView.map.animateCamera(CameraUpdateFactory.changeLatLng(gcj), 400, null)
         }
 
         // Reverse Geocode
-        lifecycleScope.launch {
-            if (aMapViewModel.mGeoCoder == null) {
-                aMapViewModel.mGeoCoder = GeocodeSearch(requireContext())
-                aMapViewModel.mGeoCoder?.setOnGeocodeSearchListener(object : GeocodeSearch.OnGeocodeSearchListener {
+        try {
+            if (targetGeocoder == null) {
+                targetGeocoder = GeocodeSearch(requireContext())
+                targetGeocoder?.setOnGeocodeSearchListener(object : GeocodeSearch.OnGeocodeSearchListener {
                     override fun onRegeocodeSearched(result: RegeocodeResult?, code: Int) {
-                        if (_binding == null || result == null || code != 1000) return
+                        if (_binding == null) return
+                        if (result == null) {
+                            binding.tvTargetAddress.text = "地址暂不可用，坐标已选定"
+                            return
+                        }
+                        val current = aMapViewModel.markedLoc?.gcj02 ?: return
+                        val queried = result.regeocodeQuery.point
+                        if (kotlin.math.abs(current.latitude - queried.latitude) > 0.000001 ||
+                            kotlin.math.abs(current.longitude - queried.longitude) > 0.000001) return
+                        if (code != 1000) {
+                            binding.tvTargetAddress.text = "地址暂不可用，坐标已选定"
+                            return
+                        }
                         val addr = result.regeocodeAddress.formatAddress
                         aMapViewModel.markName = addr
                         binding.tvTargetName.text = if (result.regeocodeAddress.pois.isNotEmpty()) {
@@ -493,17 +534,24 @@ class HomeFragment : Fragment() {
                         } else {
                             result.regeocodeAddress.district ?: "已选位置"
                         }
-                        binding.tvTargetAddress.text = addr
+                        binding.tvTargetAddress.text = addr.ifBlank { "地址暂不可用，坐标已选定" }
                     }
 
                     override fun onGeocodeSearched(result: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
                 })
             }
-            aMapViewModel.mGeoCoder?.getFromLocationAsyn(
+            targetGeocoder?.getFromLocationAsyn(
                 RegeocodeQuery(LatLonPoint(gcj.latitude, gcj.longitude), 200f, GeocodeSearch.AMAP)
             )
+        } catch (e: Exception) {
+            binding.tvTargetAddress.text = "地址暂不可用，坐标已选定"
+            Log.w("HomeFragment", "Reverse geocoding failed", e)
         }
     }
+
+    // The location editor expects longitude first, followed by latitude (WGS84).
+    private fun formatCoordinates(wgs: Pair<Double, Double>): String =
+        String.format(Locale.US, "%.6f, %.6f", wgs.second, wgs.first)
 
     private fun previewRoute(points: List<Pair<Double, Double>>) {
         aMapViewModel.aMap.clear()
@@ -534,7 +582,7 @@ class HomeFragment : Fragment() {
         val defaultName = aMapViewModel.markName ?: "收藏地点-"
         editName.setText(defaultName)
         editAddress.setText(aMapViewModel.markName ?: "自定义地点")
-        editLatLon.setText(", ")
+        editLatLon.setText(formatCoordinates(target))
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("保存至位置库")
@@ -566,7 +614,7 @@ class HomeFragment : Fragment() {
         val latitudeEditText = dialogView.findViewById<TextInputEditText>(R.id.editTextLatitude)
         val longitudeEditText = dialogView.findViewById<TextInputEditText>(R.id.editTextLongitude)
 
-        aMapViewModel.currentLocation?.let {
+        (aMapViewModel.markedLoc ?: aMapViewModel.currentLocation)?.let {
             latitudeEditText.setText(BigDecimal.valueOf(it.first).toPlainString())
             longitudeEditText.setText(BigDecimal.valueOf(it.second).toPlainString())
         }
@@ -587,11 +635,6 @@ class HomeFragment : Fragment() {
             }
             .setNegativeButton("取消", null)
             .show()
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        binding.amapView.onCreate(savedInstanceState)
     }
 
     override fun onResume() {
@@ -616,19 +659,16 @@ class HomeFragment : Fragment() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onDestroyView() {
         aMapViewModel.isExists = false
-        if (::mLocationClient.isInitialized && mLocationClient.isStarted) {
+        targetGeocoder?.setOnGeocodeSearchListener(null)
+        targetGeocoder = null
+        if (::mLocationClient.isInitialized) {
             mLocationClient.stopLocation()
-        }
-        if (_binding != null) {
-            binding.amapView.map.isMyLocationEnabled = false
             mLocationClient.onDestroy()
         }
-    }
-
-    override fun onDestroyView() {
+        binding.amapView.map.isMyLocationEnabled = false
+        binding.amapView.onDestroy()
         super.onDestroyView()
         _binding = null
     }

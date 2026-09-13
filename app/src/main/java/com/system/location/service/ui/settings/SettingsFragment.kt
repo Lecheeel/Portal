@@ -34,6 +34,7 @@ import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.speed
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.update.UpdateChecker
+import com.system.location.service.update.UpdateDialogFragment
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 import com.system.location.service.ui.viewmodel.SettingsViewModel
 import kotlin.getValue
@@ -259,25 +260,15 @@ class SettingsFragment : Fragment() {
     private fun checkForUpdate() {
         binding.checkUpdateButton.isEnabled = false
         binding.checkUpdateDesc.text = "正在检查更新…"
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             val result = UpdateChecker.check()
+            if (_binding == null) return@launch
             binding.checkUpdateButton.isEnabled = true
             when (result) {
                 is UpdateChecker.Result.UpdateAvailable -> {
                     val info = result.info
                     binding.checkUpdateDesc.text = "发现新版本 ${info.versionName}"
-                    MaterialAlertDialogBuilder(requireContext())
-                        .setTitle("发现新版本")
-                        .setMessage(
-                            "最新版本：${info.versionName}\n" +
-                            "当前版本：${UpdateChecker.parseLocalVersion().versionName}\n\n" +
-                            (info.body.take(600).ifBlank { "查看 Release 页获取更新说明" })
-                        )
-                        .setPositiveButton("下载更新") { _, _ ->
-                            UpdateChecker.openDownload(requireContext(), info)
-                        }
-                        .setNegativeButton("下次再说", null)
-                        .show()
+                    UpdateDialogFragment.show(requireActivity().supportFragmentManager, info)
                 }
                 is UpdateChecker.Result.UpToDate -> {
                     binding.checkUpdateDesc.text =

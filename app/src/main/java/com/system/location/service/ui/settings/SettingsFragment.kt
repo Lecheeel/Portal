@@ -102,6 +102,7 @@ class SettingsFragment : Fragment() {
                 }
                 context.speed = value
                 binding.speedValue.text = "%.2f米/秒".format(value)
+                updateRemoteConfig()
             }
         }
 
@@ -117,6 +118,7 @@ class SettingsFragment : Fragment() {
                 }
                 context.accuracy = value
                 binding.accuracyValue.text = "%.2f米".format(value)
+                updateRemoteConfig()
             }
         }
 
@@ -197,8 +199,8 @@ class SettingsFragment : Fragment() {
                 it.substring(0, it.length - 2)
             }) {
                 val value = it.toIntOrNull()
-                if (value == null || value < 0) {
-                    Toast.makeText(context, "上报间隔不合法", Toast.LENGTH_SHORT).show()
+                if (value == null || value < 50) {
+                    Toast.makeText(context, "上报间隔不能小于50ms", Toast.LENGTH_SHORT).show()
                     return@showDialog
                 } else if (value > 1000) {
                     Toast.makeText(context, "上报间隔不能大于1s", Toast.LENGTH_SHORT).show()
@@ -206,7 +208,7 @@ class SettingsFragment : Fragment() {
                 }
                 context.reportDuration = value
                 binding.reportDurationValue.text = "%dms".format(value)
-                showToast("重新启动APP生效")
+                updateRemoteConfig()
             }
         }
 
@@ -248,7 +250,7 @@ class SettingsFragment : Fragment() {
         binding.loopBroadcastLocationSwitch.isChecked = requireContext().loopBroadcastlocation
         binding.loopBroadcastLocationSwitch.setOnCheckedChangeListener { _, isChecked ->
             requireContext().loopBroadcastlocation = isChecked
-            showToast("重启模拟生效")
+            updateRemoteConfig()
         }
 
         binding.checkUpdateDesc.text = "当前版本 ${UpdateChecker.parseLocalVersion().versionName}"
@@ -292,7 +294,7 @@ class SettingsFragment : Fragment() {
     private fun updateRemoteConfig() {
         val context = requireContext()
         with(mockServiceViewModel) {
-            if(!MockServiceHelper.putConfig(locationManager!!, context)) {
+            if(!MockServiceHelper.putConfig(locationManager ?: return, context)) {
                 showToast("更新远程配置失败")
             } else {
                 showToast("同步配置成功")

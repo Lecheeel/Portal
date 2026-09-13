@@ -4,191 +4,148 @@ import android.app.Activity
 import android.location.LocationManager
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import com.tencent.bugly.crashreport.CrashReport
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
 import com.system.location.service.android.coro.CoroutineController
 import com.system.location.service.android.coro.CoroutineRouteMock
-import com.system.location.service.ext.Loc4j
 import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.speed
+import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.ui.mock.HistoricalLocation
 import com.system.location.service.ui.mock.HistoricalRoute
 import com.system.location.service.ui.mock.Rocker
-import com.system.location.service.hook.utils.FakeLoc
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.sf.geographiclib.Geodesic
 
 class MockServiceViewModel : ViewModel() {
     lateinit var rocker: Rocker
-    private lateinit var rockerJob: Job
-    private lateinit var routeMockJob: Job
+    private var movementJob: Job? = null
+    private val movementMutex = Mutex()
     var isRockerLocked = false
-    var routeStage = 0
+    @Volatile var routeStage = 0
     val rockerCoroutineController = CoroutineController()
     val routeMockCoroutine = CoroutineRouteMock()
-
     var isRouteStart = false
 
     var locationManager: LocationManager? = null
         set(value) {
             field = value
-            if (value != null)
-                MockServiceHelper.tryInitService(value)
+            if (value != null) MockServiceHelper.tryInitService(value)
+        }
+    var selectedLocation: HistoricalLocation? = null
+    @Volatile var selectedRoute: HistoricalRoute? = null
+        set(value) {
+            if (field != value) {
+                routeMockCoroutine.pause()
+                routeStage = 0
+            }
+            field = value
         }
 
-    var selectedLocation: HistoricalLocation? = null
-    var selectedRoute: HistoricalRoute? = null
+    fun pauseMovement() {
+        rockerCoroutineController.pause()
+        routeMockCoroutine.pause()
+    }
 
+    suspend fun stopMovement() {
+        pauseMovement()
+        movementMutex.withLock {
+            pauseMovement()
+            routeStage = 0
+        }
+        withContext(Dispatchers.Main) {
+            if (::rocker.isInitialized && rocker.autoStatus) rocker.autoStatus = false
+        }
+    }
 
     fun initRocker(activity: Activity): Rocker {
-        if (!::rocker.isInitialized) {
-            rocker = Rocker(activity)
-        }
-
-        if (!::rockerJob.isInitialized || rockerJob.isCancelled) {
-            rockerCoroutineController.pause()
-            val delayTime = activity.reportDuration.toLong()
-            val applicationContext = activity.applicationContext
-            rockerJob = GlobalScope.launch {
-                do {
-                    rockerCoroutineController.controlledCoroutine()
-                    delay(delayTime)
-
-                    CrashReport.setUserSceneTag(applicationContext, 261773)
-                    val lm = locationManager
-                    if (lm == null) {
-                        Log.e("MockServiceViewModel", "locationManager is null, skip move")
-                    } else if(!MockServiceHelper.move(lm, FakeLoc.speed / (1000 / delayTime) / 0.85, FakeLoc.bearing)) {
-                        Log.e("MockServiceViewModel", "Failed to move")
+        if (!::rocker.isInitialized) rocker = Rocker(activity)
+        val context = activity.applicationContext
+        FakeLoc.speed = context.speed
+        FakeLoc.altitude = context.altitude
+        FakeLoc.accuracy = context.accuracy
+        if (movementJob?.isActive != true) {
+            movementJob = viewModelScope.launch(Dispatchers.IO) {
+                var previousTick = System.nanoTime()
+                var previousMode = 0
+                while (isActive) {
+                    delay(context.reportDuration.toLong())
+                    val now = System.nanoTime()
+                    val elapsed = ((now - previousTick) / 1_000_000_000.0).coerceIn(0.0, 1.0)
+                    previousTick = now
+                    val mode = when {
+                        !rockerCoroutineController.isPaused -> 1
+                        !routeMockCoroutine.isPaused -> 2
+                        else -> 0
                     }
-
-//                    if (MockServiceHelper.broadcastLocation(locationManager!!)) {
-//                        Log.d("MockServiceViewModel", "Broadcast location")
-//                    } else {
-//                        Log.e("MockServiceViewModel", "Failed to broadcast location")
-//                    }
-                } while (isActive)
-            }
-        }
-
-        FakeLoc.speed = activity.speed
-        FakeLoc.altitude = activity.altitude
-        FakeLoc.accuracy = activity.accuracy
-
-        if (!::routeMockJob.isInitialized || routeMockJob.isCancelled) {
-            routeMockCoroutine.pause()
-            val delayTime = activity.reportDuration.toLong()
-            routeMockJob = GlobalScope.launch {
-                do {
-                    routeMockCoroutine.routeMockCoroutine()
-                    delay(delayTime)
-
-                    // Issue #5 修复：路线模拟时空指针崩溃
-                    // selectedRoute / locationManager / route 可能未就绪或为空，跳过本轮等待下次 tick
-                    val route = selectedRoute?.route
-                    if (route.isNullOrEmpty()) continue
+                    if (mode == 0) { previousMode = 0; continue }
                     val lm = locationManager ?: continue
-
-                    // 如果是第0阶段，定位到第一个点
-                    if (routeStage == 0) {
-                        MockServiceHelper.setLocation(
-                            lm,
-                            route[0].first,
-                            route[0].second
-                        )
-                        routeStage++
-                    }
-
-                    // 处理所有已到达的阶段
-                    while (routeStage < route.size) {
-                        val target = route[routeStage]
-                        val location = MockServiceHelper.getLocation(lm)
-                        if (location == null) {
-                            Log.e("MockServiceViewModel", "getLocation returned null")
-                            break
-                        }
-                        val currentLat = location.first
-                        val currentLon = location.second
-
-                        val inverse = Geodesic.WGS84.Inverse(
-                            currentLat,
-                            currentLon,
-                            target.first,
-                            target.second
-                        )
-                        // 判断距离是否小于1米（可根据需要调整阈值）
-                        if (inverse.s12 < 1.0) {
-                            // 精确设置位置到目标点并进入下一阶段
-                            MockServiceHelper.setLocation(
-                                lm,
-                                target.first,
-                                target.second
-                            )
-                            routeStage++
-                        } else if (inverse.s12 < FakeLoc.speed / (1000 / delayTime) / 0.85) {
-                            // 如果距离小于速度，直接移动到目标点
-                            MockServiceHelper.setLocation(
-                                lm,
-                                target.first,
-                                target.second
-                            )
-                            routeStage++
-
-                        } else {
-                            break
-                        }
-                    }
-
-                    // 检查是否已完成所有阶段
-                    if (routeStage >= route.size) {
-                        routeMockCoroutine.pause()
-                        rocker.autoStatus = false
-                        // 重设阶段
-                        routeStage = 0
-                        break // 退出循环
-                    }
-
-                    // 处理当前目标点的移动
-                    val target = route[routeStage]
-                    val location = MockServiceHelper.getLocation(lm)
-                    if (location == null) {
-                        Log.e("MockServiceViewModel", "getLocation returned null")
+                    if (!MockServiceHelper.isMockStart(lm)) {
+                        pauseMovement()
+                        previousMode = 0
                         continue
                     }
-                    val currentLat = location.first
-                    val currentLon = location.second
-
-                    val inverse = Geodesic.WGS84.Inverse(
-                        currentLat,
-                        currentLon,
-                        target.first,
-                        target.second
-                    )
-                    var azimuth = inverse.azi1
-                    if (azimuth < 0) {
-                        azimuth += 360
+                    // Never charge paused time to the first movement after a mode switch.
+                    if (mode != previousMode) { previousMode = mode; continue }
+                    val distance = context.speed * elapsed
+                    movementMutex.withLock {
+                        if (mode == 1 && !rockerCoroutineController.isPaused) {
+                            routeMockCoroutine.pause()
+                            if (!MockServiceHelper.move(lm, distance, FakeLoc.bearing)) {
+                                Log.w("MockServiceViewModel", "Move failed")
+                            }
+                        } else if (mode == 2 && !routeMockCoroutine.isPaused) {
+                            advanceRoute(lm, distance)
+                        }
                     }
-
-                    Log.d("MockServiceViewModel", "从 $currentLat, $currentLon 移动到 ${target.first}, ${target.second}, 方位角: $azimuth")
-                    if (!MockServiceHelper.move(
-                            lm,
-                            FakeLoc.speed / (1000 / delayTime) / 0.85,
-                            azimuth
-                        )
-                    ) {
-                        Log.e("MockServiceViewModel", "移动失败")
-                    }
-                } while (isActive)
+                }
             }
         }
-
         return rocker
+    }
+
+    private suspend fun advanceRoute(lm: LocationManager, distance: Double) {
+        val route = selectedRoute?.route ?: return
+        if (route.size < 2) return
+        var current = MockServiceHelper.getLocation(lm) ?: return
+        if (routeStage == 0) {
+            if (!MockServiceHelper.setLocation(lm, route.first().first, route.first().second)) return
+            current = route.first()
+            routeStage = 1
+        }
+        var remaining = distance
+        while (routeStage < route.size) {
+            if (routeMockCoroutine.isPaused || selectedRoute?.route !== route) return
+            val target = route[routeStage]
+            val inverse = Geodesic.WGS84.Inverse(current.first, current.second, target.first, target.second)
+            if (inverse.s12 <= remaining || inverse.s12 < 0.001) {
+                if (!MockServiceHelper.setLocation(lm, target.first, target.second)) return
+                remaining = (remaining - inverse.s12).coerceAtLeast(0.0)
+                current = target
+                routeStage++
+            } else {
+                if (remaining > 0) MockServiceHelper.move(lm, remaining, (inverse.azi1 + 360) % 360)
+                return
+            }
+        }
+        routeMockCoroutine.pause()
+        routeStage = 0
+        withContext(Dispatchers.Main) { rocker.autoStatus = false }
+    }
+
+    override fun onCleared() {
+        pauseMovement()
+        if (::rocker.isInitialized && rocker.isStart) rocker.hide()
+        super.onCleared()
     }
 
     fun isServiceStart(): Boolean {

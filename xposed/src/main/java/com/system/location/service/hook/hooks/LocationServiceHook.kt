@@ -317,13 +317,7 @@ internal object LocationServiceHook: BaseLocationHook() {
             //    void onProviderEnabledChanged(String provider, boolean enabled);
             //    void onFlushComplete(int requestCode);
             //}
-            val provider = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                kotlin.runCatching {
-                    XposedHelpers.callMethod(args[1], "getProvider") as? String
-                }.getOrNull()
-            } else {
-                args[0] as? String
-            } ?: "gps"
+            val provider = args[0] as? String ?: "gps"
             val listener = args.filterIsInstance<IInterface>().firstOrNull() ?: run {
                 Logger.error("registerLocationListener: listener is null: $method")
                 return@beforeHook
@@ -906,21 +900,17 @@ internal object LocationServiceHook: BaseLocationHook() {
         locationListeners.removeIf { it.second.asBinder() == binder }
     }
 
+    @Synchronized
     fun callOnLocationChanged() {
+        if (!FakeLoc.enable) return
+        val sample = FakeLoc.snapshot(force = true)
         if (FakeLoc.enableDebugLog) {
             Logger.debug("==> callOnLocationChanged: ${locationListeners.size}")
         }
         locationListeners.forEach { listenerWithProvider ->
             val listener = listenerWithProvider.second
-            var location = FakeLoc.lastLocation
-            if (location == null) {
-                location = if (listenerWithProvider.first == "GnssBatch") {
-                    Location("gps")
-                } else {
-                    Location(listenerWithProvider.first)
-                }
-            }
-            location = injectLocation(location)
+            if (!FakeLoc.enable) return
+            val location = sample.toLocation(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
             var called = false
             var error: Throwable? = null
             kotlin.runCatching {

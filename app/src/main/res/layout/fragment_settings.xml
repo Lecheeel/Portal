@@ -495,7 +495,7 @@
                     <com.google.android.material.textview.MaterialTextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="解决位置拉回问题 可能导致发热"
+                        android:text="按上报间隔持续发送固定位置，不产生随机跳动"
                         android:textSize="11sp" />
                 </LinearLayout>
                 <com.google.android.material.switchmaterial.SwitchMaterial

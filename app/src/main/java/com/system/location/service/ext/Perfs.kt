@@ -75,7 +75,7 @@ var Context.jsonHistoricalRoutes: String
     }
 
 var Context.reportDuration: Int
-    get() = sharedPrefs.getInt("reportDuration", 100)
+    get() = sharedPrefs.getInt("reportDuration", 100).coerceIn(50, 1000)
     set(value) = sharedPrefs.edit {
         putInt("reportDuration", value)
     }

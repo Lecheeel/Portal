@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import com.system.location.service.LocationServiceApp
 import com.system.location.service.android.root.ShellUtils
+import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
 import com.system.location.service.ext.debug
 import com.system.location.service.ext.disableFusedProvider
@@ -29,8 +30,6 @@ object MockServiceHelper {
     const val PROVIDER_NAME = "fused_ext"
     private lateinit var randomKey: String
 
-    private var loopThread :Thread ?= null
-    @Volatile private var isRunning = false
 
     fun tryInitService(locationManager: LocationManager) {
         val rely = Bundle()
@@ -122,6 +121,7 @@ object MockServiceHelper {
         speed: Double,
         altitude: Double,
         accuracy: Float,
+        target: Pair<Double, Double>,
     ): Boolean {
         if (!::randomKey.isInitialized) {
             return false
@@ -131,7 +131,10 @@ object MockServiceHelper {
         rely.putDouble("speed", speed)
         rely.putDouble("altitude", altitude)
         rely.putFloat("accuracy", accuracy)
-        startLoopBroadcastLocation(locationManager)
+        rely.putDouble("lat", target.first)
+        rely.putDouble("lon", target.second)
+        val context = LocationServiceApp.appContext
+        rely.putLong("report_interval", broadcastInterval(context))
         return if(locationManager.sendExtraCommand(PROVIDER_NAME, randomKey, rely)) {
             isMockStart(locationManager)
         } else {
@@ -145,7 +148,6 @@ object MockServiceHelper {
         }
         val rely = Bundle()
         rely.putString("command_id", "stop")
-        stopLoopBroadcastLocation()
         if (locationManager.sendExtraCommand(PROVIDER_NAME, randomKey, rely)) {
             return !isMockStart(locationManager)
         }
@@ -201,7 +203,7 @@ object MockServiceHelper {
         }
         val rely = Bundle()
         rely.putString("command_id", "set_speed")
-        rely.putFloat("speed", speed)
+        rely.putDouble("speed", speed.toDouble())
         return locationManager.sendExtraCommand(PROVIDER_NAME, randomKey, rely)
     }
 
@@ -232,7 +234,7 @@ object MockServiceHelper {
         val rely = Bundle()
         rely.putString("command_id", "get_speed")
         if(locationManager.sendExtraCommand(PROVIDER_NAME, randomKey, rely)) {
-            return rely.getFloat("speed")
+            return rely.getDouble("speed").toFloat()
         }
         return null
     }
@@ -244,7 +246,7 @@ object MockServiceHelper {
         val rely = Bundle()
         rely.putString("command_id", "get_bearing")
         if(locationManager.sendExtraCommand(PROVIDER_NAME, randomKey, rely)) {
-            return rely.getFloat("bearing")
+            return rely.getDouble("bearing").toFloat()
         }
         return null
     }
@@ -313,6 +315,7 @@ object MockServiceHelper {
 
         FakeLoc.altitude = context.altitude
         FakeLoc.speed = context.speed
+        FakeLoc.accuracy = context.accuracy
         FakeLoc.enableDebugLog = context.debug
         FakeLoc.disableGetCurrentLocation = context.disableGetCurrentLocation
         FakeLoc.disableRegisterLocationListener = context.disableRegisterLocationListener
@@ -326,9 +329,10 @@ object MockServiceHelper {
 
         val rely = Bundle()
         rely.putString("command_id", "put_config")
-        rely.putBoolean("enable", FakeLoc.enable)
         rely.putDouble("altitude", FakeLoc.altitude)
         rely.putDouble("speed", FakeLoc.speed)
+        rely.putFloat("accuracy", FakeLoc.accuracy)
+        rely.putLong("report_interval", broadcastInterval(context))
         rely.putBoolean("enable_debug_log", FakeLoc.enableDebugLog)
         rely.putBoolean("disable_get_current_location", FakeLoc.disableGetCurrentLocation)
         rely.putBoolean("disable_register_location_listener", FakeLoc.disableRegisterLocationListener)
@@ -348,37 +352,10 @@ object MockServiceHelper {
     }
 
 
-    private fun startLoopBroadcastLocation(locationManager: LocationManager){
-        val appContext = LocationServiceApp.appContext
-        val delayTime=appContext.reportDuration.toLong()
-
-        if(isRunning) return
-        if(!appContext.loopBroadcastlocation) return
-
-        isRunning=true
-        loopThread=Thread{
-            Log.d("MockServiceHelper","loopBoardcast: Start")
-            while(isRunning){
-                try {
-                    broadcastLocation(locationManager)
-                    Thread.sleep(delayTime)
-                }catch (e:InterruptedException){
-                    if (FakeLoc.enableDebugLog) {
-                        Log.d("MockServiceHelper","loopBoardcast: Stop")
-                    }
-                    break
-                }
-            }
-        }
-        loopThread!!.start()
+    private fun broadcastInterval(context: Context): Long {
+        val interval = context.reportDuration.toLong().coerceIn(50, 1000)
+        return if (context.loopBroadcastlocation) interval else maxOf(500L, interval)
     }
-
-    private fun stopLoopBroadcastLocation(){
-        isRunning =false
-        loopThread?.interrupt()
-        loopThread = null
-    }
-
 
     @SuppressLint("DiscouragedPrivateApi")
     fun loadLocationLibrary(context: Context): Boolean {

@@ -1,40 +1,13 @@
 package com.system.location.service.android.coro
 
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 
 class CoroutineController {
-    private val controlChannel = Channel<ControlCommand>(Channel.UNLIMITED)
-    var isPaused = false
+    private val paused = MutableStateFlow(true)
+    val isPaused: Boolean get() = paused.value
 
-    suspend fun controlledCoroutine() {
-        checkControl()
-    }
-
-    private suspend fun checkControl() {
-        controlChannel.tryReceive().getOrNull()?.let {
-            when (it) {
-                ControlCommand.Pause -> {
-                    isPaused = true
-                    while (controlChannel.receive() != ControlCommand.Resume) {
-                        // do nothing
-                    }
-                    isPaused = false
-                }
-                ControlCommand.Resume -> {}
-            }
-        }
-    }
-
-    fun pause() {
-        controlChannel.trySend(ControlCommand.Pause)
-    }
-
-    fun resume() {
-        controlChannel.trySend(ControlCommand.Resume)
-    }
-}
-
-enum class ControlCommand {
-    Pause,
-    Resume
+    suspend fun controlledCoroutine() { paused.first { !it } }
+    fun pause() { paused.value = true }
+    fun resume() { paused.value = false }
 }

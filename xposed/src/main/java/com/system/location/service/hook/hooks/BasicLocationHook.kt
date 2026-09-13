@@ -61,42 +61,7 @@ object BasicLocationHook: BaseLocationHook() {
                 val originLocation = mLocations.firstOrNull() as? Location
                     ?: Location(LocationManager.GPS_PROVIDER)
 
-                val location = Location(originLocation.provider)
-
-                val jitterLat = FakeLoc.jitterLocation()
-                location.latitude = jitterLat.first
-                location.longitude = jitterLat.second
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    location.isMock = false
-                }
-                location.altitude = FakeLoc.altitude
-                location.speed = originLocation.speed
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    location.speedAccuracyMetersPerSecond = 0F
-                }
-
-                location.time = originLocation.time
-                location.accuracy = originLocation.accuracy
-                var modBearing = FakeLoc.bearing % 360.0 + 0.0
-                if (modBearing < 0) {
-                    modBearing += 360.0
-                }
-                if (location.hasBearing()) {
-                    location.bearing = modBearing.toFloat()
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    location.bearingAccuracyDegrees = modBearing.toFloat()
-                }
-                location.elapsedRealtimeNanos = originLocation.elapsedRealtimeNanos
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    location.elapsedRealtimeUncertaintyNanos = originLocation.elapsedRealtimeUncertaintyNanos
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    location.verticalAccuracyMeters = originLocation.verticalAccuracyMeters
-                }
-                originLocation.extras?.let {
-                    location.extras = it
-                }
+                val location = FakeLoc.snapshot().toLocation(originLocation.provider)
 
                 mLocationsField.set(locationResult, arrayListOf(location))
             }

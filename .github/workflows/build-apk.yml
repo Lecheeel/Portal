@@ -65,7 +65,7 @@ jobs:
         run: |
           echo ${{ secrets.SIGN_KEYSTORE_BASE64 }} | base64 -d > keystore.jks
           chmod +x ./gradlew
-          ./gradlew :app:assembleRelease --build-cache --parallel --warning-mode all --stacktrace
+          ./gradlew :app:testArm64DebugUnitTest :xposed:testDebugUnitTest :app:assembleRelease --build-cache --parallel --warning-mode all --stacktrace
           echo "APK_FILE_ALL=$(find app/build/outputs/apk/app/release -name '*.apk')" >> $GITHUB_ENV
           echo "APK_FILE_ARM64=$(find app/build/outputs/apk/arm64/release -name '*.apk')" >> $GITHUB_ENV
           echo "APK_FILE_X86_64=$(find app/build/outputs/apk/x64/release -name '*.apk')" >> $GITHUB_ENV

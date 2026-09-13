@@ -2,6 +2,7 @@ package com.system.location.service.ui.home
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -18,9 +19,12 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.amap.api.location.AMapLocationClient
 import com.amap.api.location.AMapLocationClientOption
 import com.amap.api.maps.AMap
+import com.amap.api.maps.LocationSource
 import com.amap.api.maps.CameraUpdateFactory
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.MarkerOptions
@@ -38,6 +42,9 @@ import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.channels.Channel
 import com.system.location.service.MainActivity
 import com.system.location.service.R
 import com.system.location.service.amap.locateMe
@@ -48,6 +55,7 @@ import com.system.location.service.android.window.OverlayUtils
 import com.system.location.service.bdmap.Poi
 import com.system.location.service.databinding.FragmentHomeBinding
 import com.system.location.service.ext.altitude
+import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.gcj02
 import com.system.location.service.ext.lastKnownLat
 import com.system.location.service.ext.lastKnownLng
@@ -79,6 +87,10 @@ class HomeFragment : Fragment() {
     private var hasCenteredInitialLocation = false
     private var isDraggingMap = false
     private var targetGeocoder: GeocodeSearch? = null
+    private var blueDotListener: LocationSource.OnLocationChangedListener? = null
+    private var displayingSimulation = false
+    private var realPositionFilter = PositionFilter()
+    private var targetUpdates = Channel<Pair<Double, Double>>(Channel.CONFLATED)
 
     @SuppressLint("SetTextI18n")
     override fun onCreateView(
@@ -87,6 +99,8 @@ class HomeFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        targetUpdates = Channel(Channel.CONFLATED)
+        realPositionFilter = PositionFilter()
         binding.amapView.onCreate(savedInstanceState)
         val root: View = binding.root
 
@@ -100,7 +114,7 @@ class HomeFragment : Fragment() {
         setupSearchBar()
         setupQuickActions()
         setupBottomPanel()
-        aMapViewModel.markedLoc?.let { onTargetLocationUpdated(it, true) }
+        aMapViewModel.markedLoc?.let { onTargetLocationUpdated(it, true, false) }
 
         return root
     }
@@ -113,7 +127,10 @@ class HomeFragment : Fragment() {
             uiSettings.isMyLocationButtonEnabled = false
             uiSettings.isZoomControlsEnabled = false
             uiSettings.isScaleControlsEnabled = true
-            isMyLocationEnabled = true
+            setLocationSource(object : LocationSource {
+                override fun activate(listener: LocationSource.OnLocationChangedListener?) { blueDotListener = listener }
+                override fun deactivate() { blueDotListener = null }
+            })
 
             // Cold start restore last known location immediately
             val savedLat = requireContext().lastKnownLat
@@ -154,9 +171,10 @@ class HomeFragment : Fragment() {
                     requireContext().lastKnownLat = wgs.first
                     requireContext().lastKnownLng = wgs.second
                     if (isDraggingMap || aMapViewModel.markedLoc == null) {
+                        val userSelection = isDraggingMap
                         if (isDraggingMap) hasCenteredInitialLocation = true
                         isDraggingMap = false
-                        onTargetLocationUpdated(wgs)
+                        onTargetLocationUpdated(wgs, applyToMock = userSelection)
                     }
                 }
             })
@@ -169,26 +187,19 @@ class HomeFragment : Fragment() {
             locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
             isOnceLocation = false
             isNeedAddress = true
-            isSensorEnable = true
+            isSensorEnable = false
             isGpsFirst = false
-            isLocationCacheEnable = true
-            interval = 2000
+            isLocationCacheEnable = false
+            interval = 1000
         }
         mLocationClient.setLocationOption(option)
         mLocationClient.setLocationListener { loc ->
-            if (_binding == null || loc == null || loc.errorCode != 0) return@setLocationListener
+            if (_binding == null || displayingSimulation || loc == null || loc.errorCode != 0) return@setLocationListener
 
-            val wgs = loc.wgs84
-            aMapViewModel.currentLocation = wgs
+            val wgs = realPositionFilter.accept(loc.wgs84, loc.time, loc.accuracy, loc.speed) ?: return@setLocationListener
+            showCurrentPosition(wgs, loc.accuracy)
             requireContext().lastKnownLat = wgs.first
             requireContext().lastKnownLng = wgs.second
-
-            val style = MyLocationStyle().apply {
-                myLocationType(MyLocationStyle.LOCATION_TYPE_LOCATION_ROTATE_NO_CENTER)
-                showMyLocation(true)
-            }
-            aMapViewModel.aMap.myLocationStyle = style
-            aMapViewModel.aMap.isMyLocationEnabled = true
 
             if (!loc.city.isNullOrBlank()) {
                 MainActivity.mCityString = loc.city
@@ -203,7 +214,59 @@ class HomeFragment : Fragment() {
         }
         aMapViewModel.mLocationClient = mLocationClient
         mLocationClient.enableBackgroundLocation(1, aMapViewModel.mNotification)
-        mLocationClient.startLocation()
+        // The resumed-state collector checks simulation before starting real positioning.
+    }
+
+    private fun showCurrentPosition(wgs: Pair<Double, Double>, accuracy: Float) {
+        aMapViewModel.currentLocation = wgs
+        val gcj = wgs.gcj02
+        blueDotListener?.onLocationChanged(Location("gps").apply {
+            latitude = gcj.latitude
+            longitude = gcj.longitude
+            this.accuracy = accuracy.coerceAtLeast(0.1f)
+            time = System.currentTimeMillis()
+            elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+        })
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            for (target in targetUpdates) {
+                val lm = mockServiceViewModel.locationManager ?: continue
+                val applied = withContext(Dispatchers.IO) {
+                    mockServiceViewModel.stopMovement()
+                    if (!MockServiceHelper.isMockStart(lm)) null
+                    else MockServiceHelper.setLocation(lm, target.first, target.second)
+                }
+                if (applied == true) {
+                    displayingSimulation = true
+                    showCurrentPosition(target, requireContext().accuracy)
+                } else if (applied == false) {
+                    Toast.makeText(requireContext(), "目标位置同步失败，请重试", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (isActive) {
+                    val lm = mockServiceViewModel.locationManager
+                    val (running, position) = withContext(Dispatchers.IO) {
+                        val running = lm != null && MockServiceHelper.isMockStart(lm)
+                        running to if (running) MockServiceHelper.getLocation(lm!!) else null
+                    }
+                    displayingSimulation = running
+                    if (running) {
+                        if (mLocationClient.isStarted) mLocationClient.stopLocation()
+                        position?.let { showCurrentPosition(it, requireContext().accuracy) }
+                    } else if (!mLocationClient.isStarted) {
+                        realPositionFilter = PositionFilter()
+                        mLocationClient.startLocation()
+                    }
+                    delay(200)
+                }
+            }
+        }
     }
 
     private fun setupSearchBar() {
@@ -438,23 +501,25 @@ class HomeFragment : Fragment() {
 
         val speed = requireContext().speed
         val altitude = requireContext().altitude
-        val accuracy = FakeLoc.accuracy
+        val accuracy = requireContext().accuracy
 
         lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                if (MockServiceHelper.tryOpenMock(lm, speed, altitude, accuracy)) {
-                    MockServiceHelper.setLocation(lm, target.first, target.second)
-                    MockServiceHelper.broadcastLocation(lm)
-                }
+            mockServiceViewModel.stopMovement()
+            val started = withContext(Dispatchers.IO) {
+                MockServiceHelper.tryOpenMock(lm, speed, altitude, accuracy, target)
             }
+            if (_binding == null) return@launch
+            displayingSimulation = started
+            if (started) showCurrentPosition(target, accuracy)
             updateMockButtonState()
-            Toast.makeText(requireContext(), "已开始位置模拟: ", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), if (started) "已开始位置模拟" else "模拟启动失败", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun tryCloseMock() {
         val lm = mockServiceViewModel.locationManager ?: return
         lifecycleScope.launch {
+            mockServiceViewModel.stopMovement()
             withContext(Dispatchers.IO) {
                 MockServiceHelper.tryCloseMock(lm)
             }
@@ -486,9 +551,13 @@ class HomeFragment : Fragment() {
     }
 
     @SuppressLint("SetTextI18n")
-    private fun onTargetLocationUpdated(wgsLoc: Pair<Double, Double>, animate: Boolean = false) {
+    private fun onTargetLocationUpdated(wgsLoc: Pair<Double, Double>, animate: Boolean = false, applyToMock: Boolean = true) {
         if (_binding == null) return
         aMapViewModel.markedLoc = wgsLoc
+        if (applyToMock) {
+            mockServiceViewModel.pauseMovement()
+            targetUpdates.trySend(wgsLoc)
+        }
         aMapViewModel.markName = null
         val gcj = wgsLoc.gcj02
         binding.tvTargetCoords.text = formatCoordinates(wgsLoc)
@@ -660,6 +729,7 @@ class HomeFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        targetUpdates.close()
         aMapViewModel.isExists = false
         targetGeocoder?.setOnGeocodeSearchListener(null)
         targetGeocoder = null

@@ -19,6 +19,7 @@ object RemoteCommandHandler {
     private var isLoadedLibrary = false
 
     @SuppressLint("UnsafeDynamicallyLoadedCode")
+    @Synchronized
     fun handleInstruction(command: String, rely: Bundle): Boolean {
         // Exchange key -> returns a random key -> is used to verify that it is the LocationService
         if (command == "exchange_key") {
@@ -31,7 +32,26 @@ object RemoteCommandHandler {
         } else if (command != randomKey) {
             return false
         }
-        val commandId = rely.getString("command_id") ?: return false
+        var commandId = rely.getString("command_id") ?: return false
+        if (commandId == "move") {
+            if (!FakeLoc.enable) return false
+            val distance = rely.getDouble("n")
+            val bearing = rely.getDouble("bearing")
+            if (!distance.isFinite() || distance < 0 || !bearing.isFinite()) return false
+            val origin = FakeLoc.coordinatePair()
+            val point = FakeLoc.moveLocation(origin.first, origin.second, distance, bearing)
+            // Resolve relative movement once, then send the same absolute fix to every process.
+            commandId = "update_location"
+            rely.putString("command_id", commandId)
+            rely.putString("mode", "=")
+            rely.putDouble("lat", point.first)
+            rely.putDouble("lon", point.second)
+            rely.putFloat("moving_speed", if (distance > 0) FakeLoc.speed.toFloat() else 0f)
+        }
+        if (commandId == "start" || commandId == "update_location" && rely.getString("mode") == "=") {
+            if (rely.getDouble("lat", Double.NaN) !in -90.0..90.0 ||
+                rely.getDouble("lon", Double.NaN) !in -180.0..180.0) return false
+        }
 
         kotlin.runCatching {
             if (proxyBinders.isNotEmpty() && needProxyCmd.any { it == commandId }) {
@@ -66,19 +86,23 @@ object RemoteCommandHandler {
                 val altitude = rely.getDouble("altitude", FakeLoc.altitude)
                 val accuracy = rely.getFloat("accuracy", FakeLoc.accuracy)
 
-                FakeLoc.enable = true
-                if (isLoadedLibrary) {
-                    Dobby.setStatus(true)
-                }
-
                 FakeLoc.speed = speed
                 FakeLoc.altitude = altitude
                 FakeLoc.accuracy = accuracy
+                FakeLoc.reportIntervalMs = rely.getLong("report_interval", 100L).coerceIn(50, 1000)
+                FakeLoc.updateCoordinates(rely.getDouble("lat"), rely.getDouble("lon"))
+                FakeLoc.enable = true
+                if (isLoadedLibrary) Dobby.setStatus(true)
+                if (FakeLoc.isSystemServerProcess) {
+                    LocationServiceHook.callOnLocationChanged()
+                    LocationTicker.start()
+                }
 
                 return true
             }
             "stop" -> {
                 FakeLoc.enable = false
+                LocationTicker.stop()
                 FakeLoc.hasBearings = false
                 if (isLoadedLibrary) {
                     Dobby.setStatus(false)
@@ -114,8 +138,9 @@ object RemoteCommandHandler {
                 return true
             }
             "get_location" -> {
-                rely.putDouble("lat", FakeLoc.latitude)
-                rely.putDouble("lon", FakeLoc.longitude)
+                val point = FakeLoc.coordinatePair()
+                rely.putDouble("lat", point.first)
+                rely.putDouble("lon", point.second)
                 return true
             }
             "get_listener_size" -> {
@@ -155,23 +180,6 @@ object RemoteCommandHandler {
                 FakeLoc.hasBearings = true
                 return true
             }
-            "move" -> {
-                val distance = rely.getDouble("n", 0.0)
-                if (distance == 0.0) return true
-                val bearing = rely.getDouble("bearing", 0.0)
-                val newLoc = FakeLoc.moveLocation(
-                    n = distance,
-                    angle = bearing
-                )
-                if (FakeLoc.enableDebugLog) {
-                    Logger.debug("move: distance=$distance, bearing=$bearing, newLoc=$newLoc")
-                }
-                FakeLoc.bearing = bearing
-                FakeLoc.hasBearings = true
-                return updateCoordinate(newLoc.first, newLoc.second).also {
-                    if (FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
-                }
-            }
             "update_location" -> {
                 val mode = rely.getString("mode")
                 var newLat = rely.getDouble("lat", 0.0)
@@ -201,7 +209,11 @@ object RemoteCommandHandler {
                         return updateCoordinate(newLat, newLon)
                     }
                     "=" -> {
-                        return updateCoordinate(newLat, newLon)
+                        if (rely.containsKey("bearing")) {
+                            FakeLoc.bearing = rely.getDouble("bearing")
+                            FakeLoc.hasBearings = true
+                        }
+                        return updateCoordinate(newLat, newLon, rely.getFloat("moving_speed", 0f))
                     }
                     "random" -> {
                         return updateCoordinate(Random.nextDouble(-90.0, 90.0), Random.nextDouble(-180.0, 180.0))
@@ -243,12 +255,16 @@ object RemoteCommandHandler {
                 FakeLoc.enableNMEA = enableNMEA
                 FakeLoc.disableRequestGeofence = disableRequestGeofence
                 FakeLoc.disableGetFromLocation = disableGetFromLocation
+                FakeLoc.reportIntervalMs = rely.getLong("report_interval", FakeLoc.reportIntervalMs).coerceIn(50, 1000)
+                if (FakeLoc.enable) LocationTicker.start()
                 return true
             }
             "sync_config" -> {
                 rely.putBoolean("enable", FakeLoc.enable)
-                rely.putDouble("latitude", FakeLoc.latitude)
-                rely.putDouble("longitude", FakeLoc.longitude)
+                val point = FakeLoc.coordinatePair()
+                rely.putDouble("latitude", point.first)
+                rely.putDouble("longitude", point.second)
+                rely.putLong("report_interval", FakeLoc.reportIntervalMs)
                 rely.putDouble("altitude", FakeLoc.altitude)
                 rely.putDouble("speed", FakeLoc.speed)
                 rely.putDouble("speed_amplitude", FakeLoc.speedAmplitude)
@@ -317,10 +333,10 @@ object RemoteCommandHandler {
 //        return LocationServiceProxyHook.injectLocation(location, realLocation)
 //    }
 
-    private fun updateCoordinate(newLat: Double, newLon: Double): Boolean {
+    private fun updateCoordinate(newLat: Double, newLon: Double, movingSpeed: Float = 0f): Boolean {
         if (newLat in -90.0..90.0 && newLon in -180.0..180.0) {
-            FakeLoc.latitude = newLat
-            FakeLoc.longitude = newLon
+            FakeLoc.updateCoordinates(newLat, newLon, movingSpeed)
+            if (FakeLoc.enable && FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
             return true
         } else {
             Logger.error("Invalid latitude or longitude: $newLat, $newLon")

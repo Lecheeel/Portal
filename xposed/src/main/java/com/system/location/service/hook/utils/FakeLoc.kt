@@ -1,13 +1,13 @@
 package com.system.location.service.hook.utils
 
 import android.location.Location
-import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
-import kotlin.random.Random
+import android.os.SystemClock
+import kotlin.math.asin
 
 object FakeLoc {
     /**
@@ -97,8 +97,10 @@ object FakeLoc {
      * 上一次的位置
      */
     @Volatile var lastLocation: Location? = null
-    @Volatile var latitude = 0.0
-    @Volatile var longitude = 0.0
+    @Volatile private var coordinates = 0.0 to 0.0
+    val latitude get() = coordinates.first
+    val longitude get() = coordinates.second
+    fun coordinatePair(): Pair<Double, Double> = coordinates
     @Volatile var altitude = 80.0
 
     @Volatile var speed = 3.05
@@ -107,20 +109,38 @@ object FakeLoc {
 
     @Volatile var hasBearings = false
 
-    var bearing = 0.0
-        get() {
-            if (hasBearings) {
-                return field
-            } else {
-                if (field >= 360.0) {
-                    field -= 360.0
-                }
-                field += 0.5
-                return field
-            }
-        }
+    @Volatile var bearing = 0.0
+    @Volatile var reportIntervalMs = 100L
+    private var sample: LocationSample? = null
+    private var lastSampleNanos = 0L
+    private var lastMovementNanos = 0L
+    private var movementSpeed = 0f
 
-    var accuracy = 25.0f
+    @Synchronized
+    fun updateCoordinates(lat: Double, lon: Double, movingSpeed: Float = 0f, nowNanos: Long = SystemClock.elapsedRealtimeNanos()) {
+        require(lat in -90.0..90.0 && lon in -180.0..180.0)
+        coordinates = lat to lon
+        movementSpeed = movingSpeed.coerceAtLeast(0f)
+        lastMovementNanos = nowNanos
+        sample = null
+    }
+
+    @Synchronized
+    fun snapshot(force: Boolean = false, now: Long = SystemClock.elapsedRealtimeNanos(), timeMillis: Long = System.currentTimeMillis()): LocationSample {
+        sample?.let {
+            if (!force && now - it.elapsedNanos < reportIntervalMs.coerceIn(50, 1000) * 1_000_000) return it
+        }
+        val point = coordinates
+        lastSampleNanos = maxOf(now, lastSampleNanos + 1)
+        return LocationSample(
+            point.first, point.second, altitude, accuracy.coerceAtLeast(0.1f),
+            if (now - lastMovementNanos <= maxOf(500L, reportIntervalMs * 2) * 1_000_000) movementSpeed else 0f,
+            ((bearing % 360 + 360) % 360).toFloat(),
+            timeMillis, lastSampleNanos,
+        ).also { sample = it }
+    }
+
+    @Volatile var accuracy = 25.0f
         set(value) {
             field = if (value < 0) {
                 -value
@@ -140,27 +160,19 @@ object FakeLoc {
         return radius * c
     }
 
-    fun jitterLocation(lat: Double = latitude, lon: Double = longitude, n: Double = Random.nextDouble(0.0, accuracy.toDouble()), angle: Double = bearing): Pair<Double, Double> {
-        val earthRadius = 6371000.0
-        val radiusInDegrees = n / 15 / earthRadius * (180 / PI)
-
-        val jitterAngle = if (Random.nextBoolean()) angle + 45 else angle - 45
-
-        val newLat = lat + radiusInDegrees * cos(Math.toRadians(jitterAngle))
-        val newLon = lon + radiusInDegrees * sin(Math.toRadians(jitterAngle)) / cos(Math.toRadians(lat))
-
-        return Pair(newLat, newLon)
-    }
+    // Legacy callers now read the same fixed coordinate; accuracy is metadata, not noise.
+    fun jitterLocation(): Pair<Double, Double> = coordinatePair()
 
     fun moveLocation(lat: Double = latitude, lon: Double = longitude, n: Double, angle: Double = bearing): Pair<Double, Double> {
-        val earthRadius = 6371000.0
-        val radiusInDegrees = Random.nextDouble(n, n + 1.2) / earthRadius * (180 / PI)
-        val newLat = lat + radiusInDegrees * cos(Math.toRadians(angle))
-        val newLon = lon + radiusInDegrees * sin(Math.toRadians(angle)) / cos(Math.toRadians(lat))
-        return Pair(newLat, newLon)
+        require(n.isFinite() && n >= 0 && angle.isFinite())
+        if (n == 0.0) return lat to lon
+        val distance = n / 6371000.0
+        val latitudeRadians = Math.toRadians(lat)
+        val direction = Math.toRadians(angle)
+        val newLat = asin((sin(latitudeRadians) * cos(distance) + cos(latitudeRadians) * sin(distance) * cos(direction)).coerceIn(-1.0, 1.0))
+        val newLon = Math.toRadians(lon) + atan2(sin(direction) * sin(distance) * cos(latitudeRadians), cos(distance) - sin(latitudeRadians) * sin(newLat))
+        return Math.toDegrees(newLat) to ((Math.toDegrees(newLon) + 540) % 360 - 180)
     }
-
-
 
     fun calculateBearing(latA: Double, lonA: Double, latB: Double, lonB: Double): Double {
         val lat1 = Math.toRadians(latA)

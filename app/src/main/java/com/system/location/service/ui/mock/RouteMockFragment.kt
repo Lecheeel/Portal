@@ -30,6 +30,7 @@ import com.system.location.service.android.root.ShellUtils
 import com.system.location.service.android.widget.RockerView
 import com.system.location.service.android.window.OverlayUtils
 import com.system.location.service.databinding.FragmentRouteMockBinding
+import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
 import com.system.location.service.ext.drawOverOtherAppsEnabled
 import com.system.location.service.ext.hookSensor
@@ -332,16 +333,18 @@ class RouteMockFragment : Fragment() {
             val context = requireContext()
             val speed = context.speed
             val altitude = context.altitude
-            val accuracy = FakeLoc.accuracy
+            val accuracy = context.accuracy
 
             button.isClickable = false
+            mockServiceViewModel.stopMovement()
             try {
                 withContext(Dispatchers.IO) {
                     if (MockServiceHelper.tryOpenMock(
                             mockServiceViewModel.locationManager!!,
                             speed,
                             altitude,
-                            accuracy
+                            accuracy,
+                            selectedRoute.route.first()
                         )
                     ) {
                         updateMockButtonState(
@@ -354,17 +357,8 @@ class RouteMockFragment : Fragment() {
                         return@withContext
                     }
 
-                    val first = selectedRoute.route[0]
-                    if (MockServiceHelper.setLocation(
-                            mockServiceViewModel.locationManager!!,
-                            first.first,
-                            first.second
-                        )
-                    ) {
-                        showToast("更新路线起点位置成功")
-                    } else {
-                        showToast("更新位置失败")
-                    }
+                    showToast("更新路线起点位置成功")
+
                 }
             } finally {
                 button.isClickable = true
@@ -387,6 +381,7 @@ class RouteMockFragment : Fragment() {
 
         lifecycleScope.launch {
             button.isClickable = false
+            mockServiceViewModel.stopMovement()
             try {
                 val isClosed = withContext(Dispatchers.IO) {
                     if (!MockServiceHelper.isMockStart(mockServiceViewModel.locationManager!!)) {

@@ -99,8 +99,8 @@ abstract class BaseDivineService {
         rely.putString("command_id", "sync_config")
         if(locationManager.sendExtraCommand("fused_ext", randomKey, rely)) {
             FakeLoc.enable = rely.getBoolean("enable", FakeLoc.enable)
-            FakeLoc.latitude = rely.getDouble("latitude", FakeLoc.latitude)
-            FakeLoc.longitude = rely.getDouble("longitude", FakeLoc.longitude)
+            FakeLoc.updateCoordinates(rely.getDouble("latitude", FakeLoc.latitude), rely.getDouble("longitude", FakeLoc.longitude))
+            FakeLoc.reportIntervalMs = rely.getLong("report_interval", 100L).coerceIn(50, 1000)
             FakeLoc.altitude = rely.getDouble("altitude", FakeLoc.altitude)
             FakeLoc.speed = rely.getDouble("speed", FakeLoc.speed)
             FakeLoc.speedAmplitude = rely.getDouble("speed_amplitude", FakeLoc.speedAmplitude)

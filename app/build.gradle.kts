@@ -3,6 +3,7 @@ import com.android.build.api.variant.impl.VariantOutputImpl
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.jetbrains.kotlin.serialization)
 }
 
 android {
@@ -11,8 +12,8 @@ android {
 
     defaultConfig {
         applicationId = "com.system.location.service"
-        minSdk = 26
-        targetSdk = 36
+        minSdk = 36
+        targetSdk = 37
         versionCode = getVersionCode()
         versionName = "1.0.4" + ".r${getGitCommitCount()}." + getVersionName()
 
@@ -200,8 +201,7 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
 
-    implementation(libs.fastjson)
-    implementation(libs.kotlin.reflect)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.bugly)
 

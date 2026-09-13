@@ -2,11 +2,11 @@ package com.system.location.service.ext
 
 import android.content.Context
 import androidx.core.content.edit
-import com.alibaba.fastjson2.JSON
 import com.amap.api.maps.AMap
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.ui.mock.HistoricalLocation
 import com.system.location.service.ui.mock.HistoricalRoute
+import com.system.location.service.ui.mock.RouteJson
 import com.system.location.service.hook.utils.FakeLoc
 
 val Context.sharedPrefs
@@ -34,17 +34,17 @@ var Context.selectRoute: HistoricalRoute?
     get() {
         return sharedPrefs.getString("selectedRoute", null)?.let {
             try {
-                JSON.parseObject(it, HistoricalRoute::class.java)
+                RouteJson.decodeRoute(it)
             } catch (e: Exception) {
                 sharedPrefs.edit {
-                    putString("selectedRoute", "")
+                    remove("selectedRoute")
                 }
                 null
             }
         }
     }
     set(value) = sharedPrefs.edit {
-        putString("selectedRoute", JSON.toJSONString(value))
+        putString("selectedRoute", value?.let(RouteJson::encodeRoute))
     }
 
 val Context.historicalLocations: List<HistoricalLocation>

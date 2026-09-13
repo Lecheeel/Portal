@@ -106,7 +106,7 @@ LocationService/
 
 ## 使用要求
 
-- Android 8.0 (API 26) 及以上
+- Android 16 (API 36) 及以上，面向 Android 16～17 测试
 - 已安装 [LSPosed](https://github.com/LSPosed/LSPosed) 框架
 - Root 权限（传感器 Hook 功能需要）
 - 在 LSPosed 中激活模块，作用域选择 `android`、`com.android.phone` 及目标应用
@@ -122,13 +122,13 @@ LocationService/
 | JDK | 17+（推荐 21 / 25） | CI 使用 JDK 21 |
 | Gradle | 9.7.0 | wrapper 已锁定 |
 | AGP | 9.3.1 | 内置 Kotlin，无需单独应用 `kotlin-android` 插件 |
-| Kotlin | 2.4.10 | 含 serialization 插件 / kotlin-reflect |
-| compileSdk | 37 | targetSdk 36 |
+| Kotlin | 2.4.10 | 含 serialization 编译器插件，路线 JSON 无需运行时反射 |
+| compileSdk | 37 | minSdk 36 / targetSdk 37 |
 | Build Tools | 36.0.0 | AGP 9.3 要求 |
 | NDK | 28.2.13676358 | `sdkmanager "ndk;28.2.13676358"` |
 | CMake | 3.31.6 | `sdkmanager "cmake;3.31.6"` |
 
-主要依赖（均保持最新稳定版）：`androidx.core-ktx 1.19.0`、`appcompat 1.8.0`、`material 1.14.0`、`constraintlayout 2.2.2`、`lifecycle 2.11.0`、`navigation 2.9.8`、`fastjson2 2.0.64`、`GeographicLib-Java 2.1`、`Bugly 4.1.9.3`、`Xposed API 82`、`Dobby 1.2`。
+主要依赖（均保持最新稳定版）：`androidx.core-ktx 1.19.0`、`appcompat 1.8.0`、`material 1.14.0`、`constraintlayout 2.2.2`、`lifecycle 2.11.0`、`navigation 2.9.8`、`kotlinx.serialization 1.11.0`、`GeographicLib-Java 2.1`、`Bugly 4.1.9.3`、`Xposed API 82`、`Dobby 1.2`。
 
 > **JDK 24+ 注意**：使用 JDK 24/25 构建时（例如 Android Studio 自带的 JBR 25），需设置环境变量
 > `JAVA_TOOL_OPTIONS=--enable-native-access=ALL-UNNAMED`，否则 AGP 的 prefab 原生构建任务

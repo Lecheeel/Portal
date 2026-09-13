@@ -20,7 +20,6 @@ import androidx.navigation.Navigation
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.alibaba.fastjson2.JSON
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
@@ -221,7 +220,6 @@ class RouteMockFragment : Fragment() {
         }
 
         var locations = requireContext().jsonHistoricalRoutes
-//        val routes = Json.decodeFromString<List<HistoricalRoute>>(locations)
         // 如果locations是空字符串，则创建默认
         if (locations.isEmpty()) {
             val defaultRoute = HistoricalRoute(
@@ -229,10 +227,15 @@ class RouteMockFragment : Fragment() {
                 mutableListOf(Pair(39.908822, 116.397465), Pair(39.907951, 116.397500))
             )
             val defaultRoutes = mutableListOf(defaultRoute)
-            requireContext().jsonHistoricalRoutes = JSON.toJSONString(defaultRoutes)
+            requireContext().jsonHistoricalRoutes = RouteJson.encodeRoutes(defaultRoutes)
             locations = requireContext().jsonHistoricalRoutes
         }
-        val routes = JSON.parseArray(locations, HistoricalRoute::class.java)
+        val routes = try {
+            RouteJson.decodeRoutes(locations)
+        } catch (e: IllegalArgumentException) {
+            showToast("历史路线数据格式错误")
+            emptyList()
+        }
 
         val historicalRouteAdapter = HistoricalRouteAdapter(routes.sortedBy { it.name }
             .toMutableList()) { route, isLongClick ->
@@ -284,11 +287,11 @@ class RouteMockFragment : Fragment() {
                         .setMessage("确定要删除路线(${location.name})吗？")
                         .setPositiveButton("删除") { _, _ ->
                             historicalRouteAdapter.removeItem(position)
-                            JSON.parseArray(jsonHistoricalRoutes, HistoricalRoute::class.java)
+                            RouteJson.decodeRoutes(jsonHistoricalRoutes)
                                 .toMutableList().apply {
                                     removeIf { it.name == location.name }
                                 }.let {
-                                    jsonHistoricalRoutes = JSON.toJSONString(it)
+                                    jsonHistoricalRoutes = RouteJson.encodeRoutes(it)
                                 }
                             showToast("已删除路线")
                         }

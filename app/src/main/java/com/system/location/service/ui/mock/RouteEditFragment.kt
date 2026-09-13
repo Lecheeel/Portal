@@ -20,9 +20,6 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import com.alibaba.fastjson2.JSON
-import com.alibaba.fastjson2.JSONArray
-import com.alibaba.fastjson2.JSONObject
 import com.amap.api.location.AMapLocationClient
 import com.amap.api.location.AMapLocationClientOption
 import com.amap.api.maps.AMap
@@ -49,8 +46,6 @@ import com.system.location.service.ext.Loc4j
 import com.system.location.service.ext.wgs84
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.HomeViewModel
-import java.math.BigDecimal
-import java.util.List
 import kotlin.random.Random
 
 
@@ -357,17 +352,11 @@ class RouteEditFragment : Fragment() {
 
     @SuppressLint("SetTextI18n", "MissingInflatedId", "MutatingSharedPrefs")
     private fun showAddRouteDialog(): Boolean {
-        fun checkLatLon(lat: Double?, lon: Double?): Boolean {
-            return (lat != null && lon != null) && lat in -90.0..90.0 && lon in -180.0..180.0
-        }
-
         val inflater = LayoutInflater.from(requireContext())
         val dialogView = inflater.inflate(R.layout.dialog_add_route, null)
         val editName = dialogView.findViewById<TextInputEditText>(R.id.etRouteName)
         editName.addTextChangedListener {
-            if (it.isNullOrBlank()) {
-                editName.error = "名称不能为空"
-            }
+            editName.error = if (it.isNullOrBlank()) "名称不能为空" else null
         }
         val editRoute = dialogView.findViewById<TextInputEditText>(R.id.etRouteSet)
         editRoute.addTextChangedListener {
@@ -375,98 +364,50 @@ class RouteEditFragment : Fragment() {
                 editRoute.error = "路线经纬度不能为空"
             } else {
                 try {
-                    val json = it.toString()
-                    // 转为 LatLng 数组
-                    val points = JSON.parseArray(json)
-                    if (points.size < 2) {
-                        editRoute.error = "路线经纬度至少需要两个点"
-                    }
-                    // 循环检查每个点的经纬度是否合法
-                    for (point in points) {
-                        val jsonObject = point as JSONObject
-                        val latitude = jsonObject.getDouble("first")
-                        val longitude = jsonObject.getDouble("second")
-                        if (!checkLatLon(latitude, longitude)) {
-                            editRoute.error = "路线经纬度格式错误"
-                            return@addTextChangedListener
-                        }
-                    }
-                } catch (e: Exception) {
-                    editRoute.error = "路线经纬度json格式错误"
+                    RouteJson.decodePoints(it.toString())
+                    editRoute.error = null
+                } catch (e: IllegalArgumentException) {
+                    editRoute.error = "路线格式错误，至少需要两个有效经纬度点"
                 }
             }
         }
 
-        editRoute.setText(JSON.toJSONString(mPoints))
+        editRoute.setText(RouteJson.encodePoints(mPoints))
 
         val builder = MaterialAlertDialogBuilder(requireContext())
         builder.setTitle(null)
         builder
             .setCancelable(false)
             .setView(dialogView)
-            .setPositiveButton("保存") { _, _ ->
-                val routeJson = editRoute.text.toString()
-
-                var name = editName.text?.toString()
-                if (name.isNullOrBlank()) {
-                    Toast.makeText(requireContext(), "名称不能为空", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                val points = JSON.parseArray(routeJson)
-                if (points.size < 2) {
-                    Toast.makeText(requireContext(), "路线经纬度至少需要两个点", Toast.LENGTH_SHORT)
-                        .show()
-                    return@setPositiveButton
-                }
-
-                // 循环检查每个点的经纬度是否合法
-                for (point in points) {
-                    val jsonObject = point as JSONObject
-                    val latitude = jsonObject.getDouble("first")
-                    val longitude = jsonObject.getDouble("second")
-                    if (!checkLatLon(latitude, longitude)) {
-                        Toast.makeText(requireContext(), "路线经纬度格式错误", Toast.LENGTH_SHORT)
-                            .show()
-                        return@setPositiveButton
-                    }
-                }
-
-                fun MutableSet<String>.addLocation(
-                    name: String,
-                    address: String,
-                    lat: Double,
-                    lon: Double
-                ): Boolean {
-                    if (any { it.split(",")[0] == name }) {
-                        return false
-                    }
-                    add(
-                        "$name,$address,${
-                            BigDecimal.valueOf(lat).toPlainString()
-                        },${BigDecimal.valueOf(lon).toPlainString()}"
-                    )
-                    return true
-                }
-
-                val route = JSON.toJSONString(points)
-                with(requireContext()) {
-                    val routes = jsonHistoricalRoutes
-                    val jsonArray: JSONArray = if (routes.isNotEmpty()) {
-                        JSON.parseArray(routes)
-                    } else {
-                        JSONArray()
-                    }
-                    val historicalRoute = HistoricalRoute(name, mPoints)
-                    jsonArray.add(historicalRoute)
-                    jsonArray.toJSONString().also {
-                        jsonHistoricalRoutes = it
-                    }
-                }
-
-                Toast.makeText(requireContext(), "路线已保存", Toast.LENGTH_SHORT).show()
-            }
+            .setPositiveButton("保存", null)
             .setNegativeButton("取消", null)
-            .show()
+        val dialog = builder.create()
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = editName.text?.toString()?.trim().orEmpty()
+                if (name.isBlank()) {
+                    editName.error = "名称不能为空"
+                    return@setOnClickListener
+                }
+                val points = try {
+                    RouteJson.decodePoints(editRoute.text.toString())
+                } catch (e: IllegalArgumentException) {
+                    editRoute.error = "路线格式错误，至少需要两个有效经纬度点"
+                    return@setOnClickListener
+                }
+                val context = requireContext()
+                val routes = try {
+                    RouteJson.decodeRoutes(context.jsonHistoricalRoutes)
+                } catch (e: IllegalArgumentException) {
+                    Toast.makeText(context, "历史路线数据格式错误，无法保存", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                context.jsonHistoricalRoutes = RouteJson.encodeRoutes(routes + HistoricalRoute(name, points))
+                Toast.makeText(context, "路线已保存", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
 
         return true
     }

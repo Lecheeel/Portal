@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.system.location.service"
-        minSdk = 36
+        minSdk = 31
         targetSdk = 37
         versionCode = getVersionCode()
         versionName = "1.0.4" + ".r${getGitCommitCount()}." + getVersionName()

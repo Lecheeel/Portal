@@ -106,7 +106,7 @@ LocationService/
 
 ## 使用要求
 
-- Android 16 (API 36) 及以上，面向 Android 16～17 测试
+- Android 12 (API 31) 及以上
 - 已安装 [LSPosed](https://github.com/LSPosed/LSPosed) 框架
 - Root 权限（传感器 Hook 功能需要）
 - 在 LSPosed 中激活模块，作用域选择 `android`、`com.android.phone` 及目标应用
@@ -123,7 +123,7 @@ LocationService/
 | Gradle | 9.7.0 | wrapper 已锁定 |
 | AGP | 9.3.1 | 内置 Kotlin，无需单独应用 `kotlin-android` 插件 |
 | Kotlin | 2.4.10 | 含 serialization 编译器插件，路线 JSON 无需运行时反射 |
-| compileSdk | 37 | minSdk 36 / targetSdk 37 |
+| compileSdk | 37 | minSdk 31 / targetSdk 37 |
 | Build Tools | 36.0.0 | AGP 9.3 要求 |
 | NDK | 28.2.13676358 | `sdkmanager "ndk;28.2.13676358"` |
 | CMake | 3.31.6 | `sdkmanager "cmake;3.31.6"` |

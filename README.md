@@ -53,11 +53,13 @@ Fragment / Map binding → ViewModel / editor events
 | JDK | 25（Gradle daemon 配置与 CI）；Java/Kotlin 字节码目标 17 |
 | Gradle / AGP / Kotlin | 9.7.0 / 9.3.1 / 2.4.10 |
 | Android SDK | compile/target 37，min 31 |
-| NDK / CMake | 28.2.13676358 / 3.31.6 |
+| Android SDK Build-Tools | 37.0.0 |
+| NDK / CMake | 30.0.16248370 / 4.1.2 |
 
 `local.properties` 配置本机 SDK。地图 Key 通过 `AMAP_ANDROID_KEY` 环境变量传入，并在高德控制台绑定实际包名和签名。无 Key 可以构建及使用手动单点、已保存路线；地图在线能力不保证可用。
 
 ```sh
+sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;30.0.16248370' 'cmake;4.1.2'
 export JAVA_TOOL_OPTIONS=--enable-native-access=ALL-UNNAMED
 ./gradlew test :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest
 ./gradlew lint --max-workers=1
@@ -66,9 +68,11 @@ export JAVA_TOOL_OPTIONS=--enable-native-access=ALL-UNNAMED
 
 Windows 使用 `gradlew.bat`，PowerShell 用 `$env:JAVA_TOOL_OPTIONS='--enable-native-access=ALL-UNNAMED'`。检查顺序与 CI 一致；lint 独立单 worker 执行，避开本次合并调用时出现的 Kotlin FIR 分析器异常，未关闭 lint 检查；异常根因尚未确认。
 
-版本由显式输入确定：`APP_VERSION_NAME` 默认 `1.2.0`、`APP_VERSION_CODE` 默认 `1790000001`、`BUILD_REVISION` 默认 `unknown`。版本码沿用比旧时间戳版本更大的固定起点，后续发布必须递增；不再用版本码推断构建时间。构建配置不查询公网 IP、主机名、工作目录或当前时间，不执行 Git 命令。依赖、SDK 下载仍可能需要网络。未声称跨机器 APK 字节完全相同。
+本机编译、打包及 JVM 单元测试不依赖 Android Emulator；设备界面测试需要模拟器或测试手机。CI 的界面验证工作流继续使用独立安装的模拟器。
 
-导出目录 `app/build/outputs/distribution/`：`LocationService-v1.2.0-all.apk`、`-arm64.apk`、`-x86_64.apk`。导出使用 AGP 公共 artifacts API。未配置签名时 Release APK 未签名；分发安装请设置 `KEYSTORE_PATH`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`。PR CI 不依赖签名或地图 secrets。
+版本由显式输入确定：`APP_VERSION_NAME` 默认 `1.4.0`、`APP_VERSION_CODE` 默认 `1790000003`、`BUILD_REVISION` 默认 `unknown`。版本码沿用比旧时间戳版本更大的固定起点，后续发布必须递增；不再用版本码推断构建时间。构建配置不查询公网 IP、主机名、工作目录或当前时间，不执行 Git 命令。依赖、SDK 下载仍可能需要网络。未声称跨机器 APK 字节完全相同。
+
+导出目录 `app/build/outputs/distribution/`：`LocationService-v1.4.0-all.apk`、`-arm64.apk`、`-x86_64.apk`。导出使用 AGP 公共 artifacts API。未配置签名时 Release APK 未签名；分发安装请设置 `KEYSTORE_PATH`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`。PR CI 不依赖签名或地图 secrets。
 
 ## 验证边界与来源
 

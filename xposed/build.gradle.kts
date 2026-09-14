@@ -5,7 +5,8 @@ plugins {
 android {
     namespace = "com.system.location.service.hook"
     compileSdk = 37
-    ndkVersion = "28.2.13676358"
+    buildToolsVersion = "37.0.0"
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         minSdk = 31
@@ -42,7 +43,7 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.31.6"
+            version = "4.1.2"
         }
     }
 }

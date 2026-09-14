@@ -32,6 +32,7 @@ import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.needOpenSELinux
 import com.system.location.service.ext.reportDuration
+import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.speed
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.update.UpdateChecker
@@ -65,6 +66,12 @@ class SettingsFragment : Fragment() {
         binding.speedValue.text = "%.2f米/秒".format(context.speed)
         binding.accuracyValue.text = "%.2f米".format(context.accuracy)
         binding.reportDurationValue.text = "%dms".format(context.reportDuration)
+        binding.clearMockFlagSwitch.isChecked = context.experimentalClearMockFlag
+        binding.clearMockFlagSwitch.setOnCheckedChangeListener { _, enabled ->
+            context.experimentalClearMockFlag = enabled
+            showToast(if (enabled) "反射清除实验已开启，下次提交生效；系统可能重新标记" else "反射清除实验已关闭")
+            com.system.location.service.runtime.ScenarioRuntime.refreshDiagnostics()
+        }
         binding.satelliteCountValue.text = "%d颗".format(context.minSatelliteCount)
 
         binding.altitudeLayout.setOnClickListener {

@@ -5,6 +5,7 @@ plugins {
 android {
     namespace = "com.system.location.service.api"
     compileSdk = 37
+    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         minSdk = 31

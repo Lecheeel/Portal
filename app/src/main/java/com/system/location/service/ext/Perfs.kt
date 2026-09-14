@@ -90,6 +90,10 @@ var Context.reportDuration: Int
         putInt("reportDuration", value)
     }
 
+var Context.experimentalClearMockFlag: Boolean
+    get() = sharedPrefs.getBoolean("experimentalClearMockFlag", false)
+    set(value) = sharedPrefs.edit { putBoolean("experimentalClearMockFlag", value) }
+
 var Context.minSatelliteCount: Int
     get() = sharedPrefs.getInt("minSatelliteCount", 12)
     set(value) = sharedPrefs.edit {

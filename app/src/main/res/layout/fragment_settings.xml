@@ -18,6 +18,22 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/clear_mock_flag_switch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:padding="8dp"
+                android:text="@string/clear_mock_flag_experiment"
+                app:useMaterialThemeColors="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:text="@string/clear_mock_flag_experiment_desc"
+                android:textSize="12sp" />
+
             <LinearLayout
                 android:id="@+id/selinux_layout"
                 android:visibility="gone"

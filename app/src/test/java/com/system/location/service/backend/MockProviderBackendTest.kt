@@ -2,6 +2,7 @@ package com.system.location.service.backend
 
 import com.system.location.service.backend.mock.*
 import com.system.location.service.core.backend.BackendResult
+import com.system.location.service.core.backend.BackendDiagnostic
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
 import kotlinx.coroutines.runBlocking
@@ -18,6 +19,8 @@ class MockProviderBackendTest {
         var failEnable: String? = null
         var failPublish = false
         var failRemove = false
+        var extraDiagnostics: List<BackendDiagnostic> = emptyList()
+        override fun diagnostics() = extraDiagnostics
         override fun permissionGranted() = allowed
         override fun pendingProviders() = registered.toSet()
         override fun register(provider: String) {
@@ -38,6 +41,17 @@ class MockProviderBackendTest {
         }
     }
     private val sample = LocationSample(Wgs84(25.123456789123, 119.12345678912), 15.0, 2f, 3f, 45f, 1, 1)
+
+    @Test fun reflectionDiagnosticDoesNotClaimDownstreamAcceptanceOrBlockPublishing() = runBlocking {
+        val port = Port()
+        port.extraDiagnostics = listOf(BackendDiagnostic("MOCK_FLAG_EXPERIMENT", "UNAVAILABLE", "reflection blocked"))
+        val backend = MockProviderBackend(port)
+        assertTrue(backend.diagnose().contains(port.extraDiagnostics.single()))
+        assertEquals(BackendResult.Success, backend.prepare())
+        assertEquals(BackendResult.Success, backend.start())
+        assertEquals(BackendResult.Success, backend.publish(sample))
+        assertEquals(listOf(sample, sample), port.fixes.map { it.second })
+    }
 
     @Test fun pointAndPausedSamplesShareCompleteLifecycle() = runBlocking {
         val port = Port(); val backend = MockProviderBackend(port)

@@ -1,0 +1,4 @@
+<resources>
+    <string name="clear_mock_flag_experiment">提交前清除模拟标记（实验）</string>
+    <string name="clear_mock_flag_experiment_desc">仅无 root 标准模拟模式；默认关闭，切换后下次提交生效。尝试反射修改本地 Location，失败不影响上报。系统可能重新标记，不能保证防止回跳；请在能力与诊断中刷新查看实验状态。</string>
+</resources>

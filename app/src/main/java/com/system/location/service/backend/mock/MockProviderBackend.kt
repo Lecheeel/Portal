@@ -5,6 +5,7 @@ import com.system.location.service.core.location.LocationSample
 
 /** Android operations are injected so partial registration and cleanup can be tested on the JVM. */
 interface MockProviderPort {
+    fun diagnostics(): List<BackendDiagnostic> = emptyList()
     fun permissionGranted(): Boolean
     fun pendingProviders(): Set<String>
     fun register(provider: String)
@@ -22,7 +23,7 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
     override suspend fun diagnose() = listOf(
         BackendDiagnostic("MOCK_PERMISSION", if (port.permissionGranted()) "AVAILABLE" else "REQUIRES_ACTION",
             "标准模拟位置授权；Provider 状态：$phase", "在开发者选项中选择本应用"),
-        BackendDiagnostic("PROVIDER_OWNERSHIP", "INFO", "待清理 Provider：${port.pendingProviders().joinToString().ifEmpty { "无" }}"))
+        BackendDiagnostic("PROVIDER_OWNERSHIP", "INFO", "待清理 Provider：${port.pendingProviders().joinToString().ifEmpty { "无" }}")) + port.diagnostics()
     override val capabilities get() = Capability.entries.associateWith {
         when (it) {
             Capability.STANDARD_MOCK -> CapabilityStatus(

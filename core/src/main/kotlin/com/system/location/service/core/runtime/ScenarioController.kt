@@ -103,6 +103,17 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         event(failure)
     }
 
+    /** On process recreation, retain a failing backend so the user can retry cleanup. */
+    suspend fun recoverInterrupted(type: BackendType, reason: String) = mutex.withLock {
+        backend = createBackend(type) ?: return@withLock
+        val clean = stopLocked()
+        val failure = BackendResult.Failure("PROCESS_INTERRUPTED", reason +
+            if (clean) "; 后端残留资源已清理" else "; 清理未完成: ${state.value.error?.reason}",
+            if (clean) "重新启动场景" else "恢复后端授权或连接，然后重试停止")
+        mutableState.value = state.value.copy(backend = type, phase = RuntimePhase.ERROR, error = failure)
+        event(failure)
+    }
+
     private suspend fun publishLocked(): Boolean {
         if (state.value.phase !in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) return false
         val frame = engine!!.tick(clock.nanos(), clock.millis())

@@ -41,7 +41,7 @@ object ScenarioRuntime {
                 .getOrDefault(BackendType.MOCK_PROVIDER)
             controller.selectBackend(selected)
             if (preferences.getBoolean("interrupted", false)) {
-                controller.interrupted("上次场景未正常结束，运行进程已中断；请重试停止或重新启动")
+                controller.recoverInterrupted(selected, "上次场景未正常结束，运行进程已中断")
             }
         }
     }

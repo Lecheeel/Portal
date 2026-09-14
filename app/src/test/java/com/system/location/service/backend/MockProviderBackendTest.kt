@@ -89,4 +89,14 @@ class MockProviderBackendTest {
         backend.start(); backend.stop()
         assertTrue(port.registered.isEmpty())
     }
+
+    @Test fun stopAfterProcessRecreationCleansJournalWithoutStartingProviders() = runBlocking {
+        val port = Port().apply { registered += "gps"; failRemove = true }
+        val backend = MockProviderBackend(port)
+        assertTrue(backend.stop() is BackendResult.Failure)
+        port.failRemove = false
+        assertEquals(BackendResult.Success, backend.stop())
+        assertTrue(port.registered.isEmpty())
+        assertTrue(port.fixes.isEmpty())
+    }
 }

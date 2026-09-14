@@ -76,8 +76,11 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
         phase = Phase.RUNNING
         return BackendResult.Success
     }
-    override suspend fun stop(): BackendResult = cleanup()
-    override suspend fun release(): BackendResult = cleanup()
+    override suspend fun stop(): BackendResult {
+        owned += port.pendingProviders().filter { it == "gps" || it == "network" }
+        return cleanup()
+    }
+    override suspend fun release(): BackendResult = stop()
 
     private inline fun guarded(stage: String, action: () -> BackendResult): BackendResult = try { action() }
     catch (error: Exception) {

@@ -10,6 +10,7 @@ import com.system.location.service.service.MockServiceHelper
 class XposedBackend(private val context: Context) : LocationBackend {
     private val manager = context.getSystemService(LocationManager::class.java)
     private var started = false
+    private var connected = false
     override val type = BackendType.XPOSED
     override val capabilities get() = Capability.entries.associateWith { capability ->
         when (capability) {
@@ -22,7 +23,8 @@ class XposedBackend(private val context: Context) : LocationBackend {
     }
     override suspend fun prepare(): BackendResult {
         MockServiceHelper.tryInitService(manager)
-        return checked(MockServiceHelper.isServiceInit(), "CONNECT", "启用 Xposed 模块的系统作用域并重启设备")
+        connected = MockServiceHelper.isServiceInit()
+        return checked(connected, "CONNECT", "启用 Xposed 模块的系统作用域并重启设备")
     }
     override suspend fun start() = BackendResult.Success
     override suspend fun publish(sample: LocationSample): BackendResult {
@@ -38,7 +40,11 @@ class XposedBackend(private val context: Context) : LocationBackend {
             "PUBLISH", "检查模块是否仍启用")
     }
     override suspend fun stop(): BackendResult {
-        if (!started) return BackendResult.Success
+        if (!connected) {
+            MockServiceHelper.tryInitService(manager)
+            connected = MockServiceHelper.isServiceInit()
+        }
+        if (!connected) return checked(false, "STOP", "重新连接系统服务后重试停止")
         val stopped = MockServiceHelper.tryCloseMock(manager)
         if (stopped) started = false
         return checked(stopped, "STOP", "重新连接系统服务后重试停止")

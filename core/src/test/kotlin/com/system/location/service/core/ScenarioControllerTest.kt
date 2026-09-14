@@ -84,4 +84,16 @@ class ScenarioControllerTest {
         fail = false
         assertTrue(c.start(scenario))
     }
+
+    @Test fun interruptedProcessRetainsFailedBackendUntilResourcesAreReleased() = runBlocking {
+        val backend = Backend().apply { failCleanup = true }
+        val c = ScenarioController({ backend }, Clock())
+        c.recoverInterrupted(BackendType.MOCK_PROVIDER, "process died")
+        assertFalse(c.state.value.isActive)
+        assertFalse(c.selectBackend(BackendType.XPOSED))
+        assertEquals(listOf("stop", "release"), backend.calls)
+        backend.failCleanup = false
+        assertTrue(c.stop())
+        assertTrue(c.selectBackend(BackendType.XPOSED))
+    }
 }

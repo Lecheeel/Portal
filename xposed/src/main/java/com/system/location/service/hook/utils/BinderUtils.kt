@@ -4,6 +4,9 @@ package com.system.location.service.hook.utils
 import android.content.Context
 import android.os.Binder
 import android.os.Build
+import android.content.pm.ApplicationInfo
+import com.system.location.service.hook.security.CallerPolicy
+import com.system.location.service.hook.security.CallerRole
 import de.robv.android.xposed.XposedBridge
 
 
@@ -51,15 +54,23 @@ object BinderUtils {
      * Check whether the `LocationService` is started properly
      */
     fun isLocationProviderEnabled(uid: Int): Boolean {
-        val packageNames = getUidPackageNames(uid = uid)
-        if (uid > 10000 && packageNames?.any {
-                !it.contains("com.system.location.service")
-            } == false) {
-            return true
-        }
-        Logger.warn("Someone try to find LocationService: uid = $uid, packageName = ${packageNames?.joinToString()}")
-        return uid < 10000
+        return callerRole(uid) != CallerRole.DENIED
     }
+
+    fun callerRole(uid: Int = getCallerUid()): CallerRole = runCatching {
+        val pm = getSystemContext()?.packageManager ?: return CallerRole.DENIED
+        val packages = pm.getPackagesForUid(uid)?.toSet() ?: return CallerRole.DENIED
+        val userId = uid / 100000
+        // getApplicationInfo resolves in the system user's context; appId is stable across users.
+        val controllerUid = runCatching {
+            userId * 100000 + pm.getApplicationInfo(CallerPolicy.CONTROLLER_PACKAGE, 0).uid % 100000
+        }.getOrNull()
+        val systemPackages = packages.filterTo(mutableSetOf()) { name ->
+            val info = pm.getApplicationInfo(name, 0)
+            info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        }
+        CallerPolicy.resolve(uid, packages, controllerUid, systemPackages)
+    }.getOrDefault(CallerRole.DENIED)
 
     fun isSystemPackages(packageNames: String): Boolean {
         if (packageNames.contains("com.xiaomi.location.fused") ||

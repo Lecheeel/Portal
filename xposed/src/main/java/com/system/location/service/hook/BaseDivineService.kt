@@ -10,6 +10,7 @@ import android.os.Parcel
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
+import com.system.location.service.hook.security.CommandClient
 
 abstract class BaseDivineService {
     /**
@@ -49,20 +50,15 @@ abstract class BaseDivineService {
             return initDivineService(from, retryCount + 1)
         }
 
-        var randomKey = ""
+        val client = CommandClient()
         val rely = Bundle()
-        if(locationManager.sendExtraCommand("fused_ext", "exchange_key", rely)) {
-            rely.getString("key")?.let {
-                randomKey = it
-            }
-        }
-
-        if (randomKey.isEmpty()){
+        if (!client.connect(locationManager)) {
             Logger.error("Failed to init service in $from")
             return false
         }
 
-        syncConfig(locationManager, randomKey)
+        syncConfig(locationManager, client)
+        RemoteCommandHandler.resetProxySession()
 
         rely.putBinder("proxy", object: Binder() {
             override fun getInterfaceDescriptor(): String {
@@ -71,20 +67,15 @@ abstract class BaseDivineService {
 
             override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
                 if (code == 1) {
-                    val bundle = data.readBundle(javaClass.classLoader)!!
-                    if (FakeLoc.enableDebugLog) {
-                        Logger.debug("ProxyBinder($from): $bundle")
-                    }
-                    if(!RemoteCommandHandler.handleInstruction(randomKey, bundle)) {
-                        Logger.error("Failed to handle instruction in $from")
-                    }
-                    return true
+                    if (Binder.getCallingUid() != 1000) return false
+                    val bundle = data.readBundle(javaClass.classLoader) ?: return false
+                    return RemoteCommandHandler.handleProxyInstruction(bundle)
                 }
                 return super.onTransact(code, data, reply, flags)
             }
         })
         rely.putString("command_id", "set_proxy")
-        if (!locationManager.sendExtraCommand("fused_ext", randomKey, rely)) {
+        if (!client.send(locationManager, rely)) {
             Logger.error("Failed to init service proxy in $from")
             return false
         }
@@ -94,10 +85,10 @@ abstract class BaseDivineService {
     /**
      * Synchronize configurations in different processes
      */
-    private fun syncConfig(locationManager: LocationManager, randomKey: String) {
+    private fun syncConfig(locationManager: LocationManager, client: CommandClient) {
         val rely = Bundle()
         rely.putString("command_id", "sync_config")
-        if(locationManager.sendExtraCommand("fused_ext", randomKey, rely)) {
+        if(client.send(locationManager, rely)) {
             FakeLoc.enable = rely.getBoolean("enable", FakeLoc.enable)
             FakeLoc.updateCoordinates(rely.getDouble("latitude", FakeLoc.latitude), rely.getDouble("longitude", FakeLoc.longitude))
             FakeLoc.reportIntervalMs = rely.getLong("report_interval", 100L).coerceIn(50, 1000)

@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
+import android.os.Binder
+import android.os.SystemClock
+import com.system.location.service.hook.security.CommandSecurity
 import com.system.location.service.jni.Dobby
 import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.hook.utils.FakeLoc
@@ -15,24 +18,52 @@ import kotlin.random.Random
 object RemoteCommandHandler {
     private val proxyBinders by lazy { Collections.synchronizedList(arrayListOf<IBinder>()) }
     private val needProxyCmd = arrayOf("start", "stop", "set_speed_amp", "set_altitude", "set_speed", "update_location", "set_bearing", "move", "put_config")
-    internal val randomKey by lazy { Random.nextDouble().toBits().toString(16) }
+    private val security = CommandSecurity()
+    private var proxySequence = 0L
+    private var lastProxySequence = 0L
     private var isLoadedLibrary = false
 
     @SuppressLint("UnsafeDynamicallyLoadedCode")
     @Synchronized
     fun handleInstruction(command: String, rely: Bundle): Boolean {
-        // Exchange key -> returns a random key -> is used to verify that it is the LocationService
+        val uid = BinderUtils.getCallerUid()
+        val role = BinderUtils.callerRole(uid)
         if (command == "exchange_key") {
-            val userId = BinderUtils.getCallerUid()
-            if (BinderUtils.isLocationProviderEnabled(userId)) {
-                rely.putString("key", randomKey)
-                return true
-            }
-            // Go back and see if the instruction has been processed to prevent it from being detected by others
-        } else if (command != randomKey) {
-            return false
+            val key = security.exchange(uid, role) ?: return false
+            rely.putString("key", key)
+            rely.putInt("protocol_version", CommandSecurity.VERSION)
+            return true
         }
+        if (!security.accept(uid, role, command, rely.getString("command_id"),
+                rely.getInt("protocol_version"), rely.getLong("sequence"),
+                rely.getLong("sent_at", -1), SystemClock.elapsedRealtime())) return false
+        return runCatching { applyInstruction(rely) }.onFailure {
+            Logger.error("Invalid remote command", it)
+        }.getOrDefault(false)
+    }
+
+    @Synchronized
+    internal fun resetProxySession() { lastProxySequence = 0 }
+
+    @Synchronized
+    internal fun handleProxyInstruction(rely: Bundle): Boolean {
+        if (Binder.getCallingUid() != 1000 || FakeLoc.isSystemServerProcess) return false
+        val sequence = rely.getLong("proxy_sequence")
+        val sent = rely.getLong("sent_at", -1)
+        val now = SystemClock.elapsedRealtime()
+        if (sequence <= lastProxySequence || sent < 0 || sent > now || now - sent > CommandSecurity.MAX_AGE_MS ||
+            rely.getString("command_id") !in needProxyCmd) return false
+        lastProxySequence = sequence
+        return runCatching { applyInstruction(rely) }.getOrDefault(false)
+    }
+
+    private fun applyInstruction(rely: Bundle): Boolean {
         var commandId = rely.getString("command_id") ?: return false
+        if (listOf("speed", "altitude", "bearing", "speed_amplitude").any {
+                rely.containsKey(it) && !rely.getDouble(it).isFinite()
+            }) return false
+        if (rely.containsKey("speed") && rely.getDouble("speed") < 0) return false
+        if (rely.containsKey("accuracy") && (!rely.getFloat("accuracy").isFinite() || rely.getFloat("accuracy") < 0)) return false
         if (commandId == "move") {
             if (!FakeLoc.enable) return false
             val distance = rely.getDouble("n")
@@ -55,12 +86,14 @@ object RemoteCommandHandler {
 
         kotlin.runCatching {
             if (proxyBinders.isNotEmpty() && needProxyCmd.any { it == commandId }) {
+                rely.putLong("proxy_sequence", ++proxySequence)
                 proxyBinders.removeIf {
                     if (it.isBinderAlive && it.pingBinder()) {
                         val data = Parcel.obtain()
-                        data.writeBundle(rely)
-                        it.transact(1, data, null, 0)
-                        data.recycle()
+                        try {
+                            data.writeBundle(rely)
+                            it.transact(1, data, null, 0)
+                        } finally { data.recycle() }
                         false
                     } else true
                 }

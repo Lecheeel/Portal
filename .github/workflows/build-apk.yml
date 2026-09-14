@@ -34,10 +34,15 @@ jobs:
             printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > keystore.jks
             echo "KEYSTORE_PATH=../keystore.jks" >> "$GITHUB_ENV"
           fi
-      - name: Unit tests, lint and release APKs
+      - name: Unit tests
         run: |
           chmod +x ./gradlew
-          ./gradlew :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest lint :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
+          ./gradlew test :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest --build-cache --stacktrace
+      - name: Lint
+        # Run separately to avoid a reproduced Kotlin FIR analysis failure during combined builds.
+        run: ./gradlew lint --max-workers=1 --build-cache --stacktrace
+      - name: Release APKs
+        run: ./gradlew :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
         env:
           KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.SIGN_ALIAS }}

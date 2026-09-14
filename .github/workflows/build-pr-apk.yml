@@ -26,10 +26,15 @@ jobs:
         run: sdkmanager 'platforms;android-37' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.31.6'
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests, lint and release APKs
+      - name: Unit tests
         run: |
           chmod +x ./gradlew
-          ./gradlew :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest lint :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
+          ./gradlew test :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest --build-cache --stacktrace
+      - name: Lint
+        # Run separately to avoid a reproduced Kotlin FIR analysis failure during combined builds.
+        run: ./gradlew lint --max-workers=1 --build-cache --stacktrace
+      - name: Release APKs
+        run: ./gradlew :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4

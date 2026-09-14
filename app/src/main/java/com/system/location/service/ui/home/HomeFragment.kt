@@ -622,7 +622,7 @@ class HomeFragment : Fragment() {
         val defaultName = aMapViewModel.markName ?: "收藏地点-"
         editName.setText(defaultName)
         editAddress.setText(aMapViewModel.markName ?: "自定义地点")
-        editLatLon.setText(formatCoordinates(target))
+        editLatLon.setText("${target.second}, ${target.first}")
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("保存至位置库")
@@ -634,13 +634,14 @@ class HomeFragment : Fragment() {
                 val lon = latLonParts.getOrNull(0)?.trim()?.toDoubleOrNull()
                 val lat = latLonParts.getOrNull(1)?.trim()?.toDoubleOrNull()
 
-                if (name.isEmpty() || address.isEmpty() || lat == null || lon == null) {
+                if (name.isEmpty() || address.isEmpty() || lat == null || lon == null ||
+                    lat !in -90.0..90.0 || lon !in -180.0..180.0 || latLonParts.size != 2) {
                     Toast.makeText(requireContext(), "填写内容不规范", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
 
                 val locations = requireContext().rawHistoricalLocations.toMutableSet()
-                locations.add(",,,")
+                locations.add(HistoricalLocation(name, address, lat, lon).toString())
                 requireContext().rawHistoricalLocations = locations
                 Toast.makeText(requireContext(), "已加入位置库", Toast.LENGTH_SHORT).show()
             }

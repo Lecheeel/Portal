@@ -1,73 +1,40 @@
 package com.system.location.service.ui.mock
 
-import java.math.BigDecimal
+import com.system.location.service.core.geo.Wgs84
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
-data class HistoricalLocation(
-    val name: String,
-    val address: String,
-    val lat: Double,
-    val lon: Double
-) {
+@Serializable data class HistoricalLocation(val name: String, val address: String, val lat: Double, val lon: Double) {
+    init { require(name.isNotBlank()); Wgs84(lat, lon) }
+    override fun toString(): String = Json { encodeDefaults = true }.encodeToString(LocationEnvelope(location = this))
     companion object {
-        // Format: "name","address","lat","lon"
-        fun fromString(str: String): HistoricalLocation {
-            // CSV parser supporting commas inside quoted fields
+        /** Legacy CSV is read only; new records are versioned JSON with Double fields. */
+        fun fromString(text: String): HistoricalLocation {
+            if (text.trimStart().startsWith("{")) {
+                val envelope = Json.decodeFromString<LocationEnvelope>(text)
+                require(envelope.schemaVersion == 1) { "Unsupported saved location schema" }
+                return envelope.location
+            }
             val fields = mutableListOf<String>()
-            var currentField = StringBuilder()
-            var inQuotes = false
-            
-            var i = 0
-            while (i < str.length) {
-                val char = str[i]
+            val field = StringBuilder()
+            var quoted = false
+            var index = 0
+            while (index < text.length) {
+                val char = text[index]
                 when {
-                    char == '"' && (i + 1 >= str.length || str[i + 1] != '"') -> {
-                        // Toggle quote state
-                        inQuotes = !inQuotes
-                    }
-                    char == '"' && i + 1 < str.length && str[i + 1] == '"' -> {
-                        // Handle escaped quotes ("") 
-                        currentField.append('"')
-                        // Skip next quote
-                        i++
-                    }
-                    char == ',' && !inQuotes -> {
-                        // Comma as separator
-                        fields.add(currentField.toString().trim())
-                        currentField = StringBuilder()
-                    }
-                    else -> {
-                        // Regular character
-                        currentField.append(char)
-                    }
+                    char == '"' && quoted && text.getOrNull(index + 1) == '"' -> { field.append('"'); index++ }
+                    char == '"' -> quoted = !quoted
+                    char == ',' && !quoted -> { fields += field.toString().trim(); field.setLength(0) }
+                    else -> field.append(char)
                 }
-                i++
+                index++
             }
-            
-            // Add the last field
-            fields.add(currentField.toString().trim())
-            
-            if (fields.size != 4) {
-                throw IllegalArgumentException("Invalid format. Expected 4 fields but got ${fields.size}: $str")
-            }
-            
-            return HistoricalLocation(
-                name = fields[0].trim('"'),
-                address = fields[1].trim('"'),
-                lat = fields[2].trim('"').toDouble(),
-                lon = fields[3].trim('"').toDouble()
-            )
+            require(!quoted) { "Unclosed CSV quote" }
+            fields += field.toString().trim()
+            require(fields.size == 4) { "Expected four CSV fields" }
+            return HistoricalLocation(fields[0], fields[1], fields[2].toDouble(), fields[3].toDouble())
         }
     }
-
-    override fun toString(): String {
-        val plainLat = BigDecimal(lat).toPlainString()
-        val plainLon = BigDecimal(lon).toPlainString()
-        
-        // Quote fields containing commas
-        val quotedName = if (name.contains(",")) "\"$name\"" else name
-        val quotedAddress = if (address.contains(",")) "\"$address\"" else address
-        
-        return "$quotedName,$quotedAddress,$plainLat,$plainLon"
-    }
 }
-
+@Serializable private data class LocationEnvelope(val schemaVersion: Int = 1, val location: HistoricalLocation)

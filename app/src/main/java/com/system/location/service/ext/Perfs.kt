@@ -36,7 +36,7 @@ var Context.lastKnownLng: Double
 var Context.selectLocation: HistoricalLocation?
     get() {
         return sharedPrefs.getString("selectedLocation", null)?.let {
-            HistoricalLocation.fromString(it)
+            runCatching { HistoricalLocation.fromString(it) }.getOrNull()
         }
     }
     set(value) = sharedPrefs.edit {
@@ -62,8 +62,8 @@ var Context.selectRoute: HistoricalRoute?
 
 val Context.historicalLocations: List<HistoricalLocation>
     get() {
-        return sharedPrefs.getStringSet("locations", emptySet())?.map {
-            HistoricalLocation.fromString(it)
+        return sharedPrefs.getStringSet("locations", emptySet())?.mapNotNull {
+            runCatching { HistoricalLocation.fromString(it) }.getOrNull()
         } ?: emptyList()
     }
 

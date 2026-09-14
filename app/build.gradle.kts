@@ -1,10 +1,17 @@
 import com.android.build.api.dsl.ApplicationExtension
-import com.android.build.api.variant.impl.VariantOutputImpl
+import com.android.build.api.artifact.SingleArtifact
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.serialization)
 }
+
+val releaseVersionName = providers.gradleProperty("APP_VERSION_NAME").orElse("1.1.0")
+val releaseVersionCode = providers.gradleProperty("APP_VERSION_CODE").orElse("1790000000").map(String::toInt)
+val revision = providers.gradleProperty("BUILD_REVISION").orElse("unknown")
+require(releaseVersionName.get().matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+"))) { "APP_VERSION_NAME must be major.minor.patch" }
+require(releaseVersionCode.get() in 1..2_100_000_000) { "Invalid APP_VERSION_CODE" }
+require(revision.get().matches(Regex("[A-Za-z0-9._-]{1,64}"))) { "Invalid BUILD_REVISION" }
 
 android {
     namespace = "com.system.location.service"
@@ -14,8 +21,9 @@ android {
         applicationId = "com.system.location.service"
         minSdk = 31
         targetSdk = 37
-        versionCode = getVersionCode()
-        versionName = "1.0.6" + ".r${getGitCommitCount()}." + getVersionName()
+        versionCode = releaseVersionCode.get()
+        versionName = releaseVersionName.get()
+        buildConfigField("String", "GIT_REVISION", "\"${revision.get()}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -33,49 +41,13 @@ android {
         manifestPlaceholders["AMAP_ANDROID_KEY"] =
             System.getenv("AMAP_ANDROID_KEY") ?: ""
 
-        val publicIp = try {
-            val isWindows = org.gradle.internal.os.OperatingSystem.current().isWindows
-            val process = if (isWindows) {
-                Runtime.getRuntime().exec(arrayOf(
-                    "powershell.exe",
-                    "-command",
-                    "(Invoke-WebRequest -Uri 'https://api.ipify.org' -UseBasicParsing).Content," +
-                            "(Invoke-WebRequest -Uri 'https://ifconfig.me' -UseBasicParsing).Content," +
-                            "(Invoke-WebRequest -Uri 'https://icanhazip.com' -UseBasicParsing).Content," +
-                            "(Invoke-WebRequest -Uri 'https://checkip.amazonaws.com' -UseBasicParsing).Content" +
-                            " | Select-Object -First 1"
-                ))
-            } else {
-                Runtime.getRuntime().exec(arrayOf("sh", "-c",
-                    "curl -s https://api.ipify.org || " +
-                            "curl -s https://ifconfig.me || " +
-                            "curl -s https://icanhazip.com || " +
-                            "curl -s https://checkip.amazonaws.com"
-                ))
-            }
-            val reader = process.inputStream.bufferedReader()
-            val ip = reader.readLine()?.trim() ?: "unknown"
-            if (ip.matches("\\d+\\.\\d+\\.\\d+\\.\\d+".toRegex())) ip else "unknown"
-        } catch (e: Exception) {
-            println("Error getting public IP address: ${e.message}")
-            "unknown"
-        }
+        manifestPlaceholders["APP_CHANNEL"] = "local"
 
-        val deviceName = try {
-            val process = Runtime.getRuntime().exec("hostname")
-            val reader = process.inputStream.bufferedReader()
-            reader.readLine()?.trim() ?: "unknown"
-        } catch (e: Exception) {
-            println("Error getting device name: ${e.message}")
-            "unknown"
-        }
-        val buildPath = project.rootDir.absolutePath.replace("\\", "/")
-        manifestPlaceholders["BUGLY_BUILD_ENV"] = "IP:$publicIp,DEVICE:$deviceName,PATH:$buildPath"
-        manifestPlaceholders["APP_CHANNEL"] = "$publicIp-$deviceName"
     }
 
     buildTypes {
         release {
+            manifestPlaceholders["APP_CHANNEL"] = "release"
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -86,12 +58,12 @@ android {
         }
 
         debug {
+            manifestPlaceholders["APP_CHANNEL"] = "debug"
             manifestPlaceholders["APP_VERSION"] = "${defaultConfig.versionName}-debug"
             manifestPlaceholders["BUGLY_ENABLE_DEBUG"] = "true"
         }
     }
 
-    // APK renaming moved to androidComponents.onVariants at bottom of file
 
     flavorDimensions.add("mode")
 
@@ -214,40 +186,17 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
-fun getGitCommitCount(): Int {
-    val result = providers.exec {
-        commandLine("git", "rev-list", "--count", "HEAD")
-    }
-    return result.standardOutput.asText.get().trim().toInt()
-}
-
-fun getGitCommitHash(): String {
-    val result = providers.exec {
-        commandLine("git", "rev-parse", "--short", "HEAD")
-    }
-    return result.standardOutput.asText.get().trim()
-}
-
-fun getVersionCode(): Int {
-    return (System.currentTimeMillis() / 1000L).toInt()
-}
-
-fun getVersionName(): String {
-    return getGitCommitHash()
-}
-
-// AGP 9: rename APK outputs via the new variant API (cast to internal impl for outputFileName)
+// Export stable distribution names using the public artifacts API; packaged APKs stay untouched.
+val exportReleaseApks = tasks.register("exportReleaseApks")
 androidComponents {
-    onVariants { variant ->
-        variant.outputs.forEach { output ->
-            val impl = output as VariantOutputImpl
-            val abiName = when (val abi = impl.outputFileName.get().split("-")[1].split(".apk")[0]) {
-                "app" -> "all"
-                "x64" -> "x86_64"
-                else -> abi
-            }
-            impl.outputFileName.set("LocationService-v" + output.versionName.get() + "-" + abiName + ".apk")
+    onVariants(selector().withBuildType("release")) { variant ->
+        val abi = when (variant.flavorName) { "app" -> "all"; "x64" -> "x86_64"; else -> "arm64" }
+        val export = tasks.register<Copy>("export${variant.name.replaceFirstChar { it.uppercase() }}Apk") {
+            from(variant.artifacts.get(SingleArtifact.APK))
+            include("*.apk")
+            into(layout.buildDirectory.dir("outputs/distribution"))
+            rename { "LocationService-v${releaseVersionName.get()}-$abi.apk" }
         }
+        exportReleaseApks.configure { dependsOn(export) }
     }
 }
-

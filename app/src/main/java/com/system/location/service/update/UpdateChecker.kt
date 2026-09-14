@@ -91,7 +91,7 @@ object UpdateChecker {
         // 1.0.4.r7.af74379 → commitCount=7, hash=af74379
         val rIndex = parts.indexOfFirst { it.startsWith("r") && it.drop(1).toIntOrNull() != null }
         val commitCount = if (rIndex >= 0) parts[rIndex].drop(1).toInt() else 0
-        val commitHash = parts.lastOrNull() ?: ""
+        val commitHash = ReleaseVersion.parse(tag)?.hash.orEmpty()
         return UpdateInfo(
             tagName = json.optString("tag_name"),
             versionName = tag,
@@ -105,7 +105,7 @@ object UpdateChecker {
     }
 
     private fun isNewer(info: UpdateInfo): Boolean {
-        return ReleaseVersion.isNewer(info.versionName, BuildConfig.VERSION_NAME, info.publishedAt, BuildConfig.VERSION_CODE.toLong())
+        return ReleaseVersion.isNewer(info.versionName, BuildConfig.VERSION_NAME, info.publishedAt, 0)
     }
 
     fun parseLocalVersion(): UpdateInfo {
@@ -113,7 +113,7 @@ object UpdateChecker {
         val parts = v.split(".")
         val rIndex = parts.indexOfFirst { it.startsWith("r") && it.drop(1).toIntOrNull() != null }
         val commitCount = if (rIndex >= 0) parts[rIndex].drop(1).toInt() else 0
-        val commitHash = parts.lastOrNull() ?: ""
+        val commitHash = BuildConfig.GIT_REVISION
         return UpdateInfo(
             tagName = "v$v",
             versionName = v,

@@ -58,7 +58,7 @@ class MapUiTest {
             scenario.onActivity { activity ->
                 val model = ViewModelProvider(activity)[AMapViewModel::class.java]
                 target = model.markedLoc
-                model.originalLocation = 39.9 to 116.4
+                model.rememberOriginalLocation(39.9 to 116.4, isMock = false, simulationActive = false)
                 model.aMap.moveCamera(CameraUpdateFactory.newLatLng(LatLng(39.91, 116.41)))
             }
             scenario.recreate()

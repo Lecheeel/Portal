@@ -1,13 +1,10 @@
 package com.system.location.service.service
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.location.LocationManager
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import com.system.location.service.LocationServiceApp
-import com.system.location.service.android.root.ShellUtils
 import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
 import com.system.location.service.ext.debug
@@ -24,7 +21,6 @@ import com.system.location.service.ext.speed
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.loopBroadcastlocation
 import com.system.location.service.hook.utils.FakeLoc
-import java.io.File
 
 object MockServiceHelper {
     const val PROVIDER_NAME = "fused_ext"
@@ -355,68 +351,17 @@ object MockServiceHelper {
         return if (commandClient.send(locationManager, request)) request else null
     }
 
+    fun prepareNative(locationManager: LocationManager): Boolean = commandClient.send(locationManager, Bundle().apply {
+        putString("command_id", "native_prepare")
+    })
+    fun setNativeEnabled(locationManager: LocationManager, enabled: Boolean): Boolean = commandClient.send(locationManager, Bundle().apply {
+        putString("command_id", "native_status"); putBoolean("enabled", enabled)
+    })
+
 
     private fun broadcastInterval(context: Context): Long {
         val interval = context.reportDuration.toLong().coerceIn(50, 1000)
         return if (context.loopBroadcastlocation) interval else maxOf(500L, interval)
     }
 
-    @SuppressLint("DiscouragedPrivateApi")
-    fun loadLocationLibrary(context: Context): Boolean {
-        if (!ShellUtils.hasRoot()) return false
-
-        val isX86: Boolean = runCatching {
-            if (Build.SUPPORTED_ABIS.any { it.contains("x86") }) {
-                return@runCatching true
-            }
-            val clazz = Class.forName("dalvik.system.VMRuntime")
-            val method = clazz.getDeclaredMethod("getRuntime")
-            val runtime = method.invoke(null)
-            val field = clazz.getDeclaredField("vmInstructionSet")
-            field.isAccessible = true
-            val instructionSet = field.get(runtime) as String
-            if (instructionSet.contains("x86") ) {
-                true
-            } else false
-        }.getOrElse { false }
-        // todo: support x86
-
-        val soDir = File("/data/local/ext-lib")
-        if (!soDir.exists()) {
-            ShellUtils.executeCommand("mkdir ${soDir.absolutePath}")
-        }
-        val soFile = File(soDir, "liblocationext.so")
-        runCatching {
-            val tmpSoFile = File(soDir, "liblocationext.so.tmp").also { file ->
-                var nativeDir = context.applicationInfo.nativeLibraryDir
-                val apkSoFile = File(nativeDir, "liblocationext.so")
-                if (apkSoFile.exists()) {
-                    ShellUtils.executeCommand("cp ${apkSoFile.absolutePath} ${file.absolutePath}")
-                } else {
-                    Log.e("MockServiceHelper", "Failed to copy native library: ${apkSoFile.absolutePath}")
-                    return@runCatching
-                }
-            }
-            if (soFile.exists()) {
-                val originalHash = ShellUtils.executeCommandToBytes("head -c 4096 ${soFile.absolutePath}")
-                val newHash = ShellUtils.executeCommandToBytes("head -c 4096 ${tmpSoFile.absolutePath}")
-                if (originalHash.contentEquals(newHash)) {
-                    ShellUtils.executeCommand("rm ${soFile.absolutePath}")
-                    ShellUtils.executeCommand("mv ${tmpSoFile.absolutePath} ${soFile.absolutePath}")
-                }
-            } else if (tmpSoFile.exists()) {
-                ShellUtils.executeCommand("mv ${tmpSoFile.absolutePath} ${soFile.absolutePath}")
-            }
-        }.onFailure {
-            Log.w("MockServiceHelper", "Failed to copy native library", it)
-        }
-
-        ShellUtils.executeCommand("chmod 777 ${soFile.absolutePath}")
-
-        val result = loadLibrary(context.getSystemService(Context.LOCATION_SERVICE) as LocationManager, soFile.absolutePath)
-
-        Log.d("MockServiceHelper", "load native library result: $result")
-
-        return result == "success"
-    }
 }

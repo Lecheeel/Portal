@@ -158,7 +158,6 @@ object RemoteCommandHandler {
                 FakeLoc.reportIntervalMs = rely.getLong("report_interval", 100L).coerceIn(50, 1000)
                 FakeLoc.updateCoordinates(rely.getDouble("lat"), rely.getDouble("lon"))
                 FakeLoc.enable = true
-                if (isLoadedLibrary) Dobby.setStatus(true)
                 if (FakeLoc.isSystemServerProcess) {
                     LocationServiceHook.callOnLocationChanged()
                     LocationTicker.start()
@@ -357,6 +356,7 @@ object RemoteCommandHandler {
             }
             "load_library" -> {
                 val path = rely.getString("path") ?: return false
+                if (!FakeLoc.isSystemServerProcess || path != "/data/local/ext-lib/liblocationext.so") return false
 
                 if (isLoadedLibrary && path.endsWith("liblocationext.so")) {
                     rely.putString("result", "success")
@@ -371,10 +371,17 @@ object RemoteCommandHandler {
                     rely.putString("result", it.stackTraceToString())
                 }
 
-                if (isLoadedLibrary) {
-                    Dobby.setStatus(FakeLoc.enable)
-                }
-
+                return true
+            }
+            "native_prepare" -> {
+                if (!FakeLoc.isSystemServerProcess || !isLoadedLibrary) return false
+                return Dobby.prepareSensors()
+            }
+            "native_status" -> {
+                if (!FakeLoc.isSystemServerProcess) return false
+                if (!isLoadedLibrary) return !rely.getBoolean("enabled")
+                if (rely.getBoolean("enabled") && (!FakeLoc.enable || !FakeLoc.externallyDriven)) return false
+                Dobby.setStatus(rely.getBoolean("enabled"))
                 return true
             }
             else -> return false

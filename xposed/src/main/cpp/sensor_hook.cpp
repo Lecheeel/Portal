@@ -7,10 +7,11 @@
 #include "logging.h"
 #include "elf_util.h"
 #include "dobby_hook.h"
+#include <atomic>
 
 #define LIBSF_PATH "/system/lib64/libsensorservice.so"
 
-extern bool enableSensorHook;
+extern std::atomic_bool enableSensorHook;
 
 // _ZN7android16SensorEventQueue5writeERKNS_2spINS_7BitTubeEEEPK12ASensorEventm
 OriginalSensorEventQueueWriteType OriginalSensorEventQueueWrite = nullptr;
@@ -18,14 +19,11 @@ OriginalSensorEventQueueWriteType OriginalSensorEventQueueWrite = nullptr;
 OriginalConvertToSensorEventType OriginalConvertToSensorEvent = nullptr;
 
 int64_t SensorEventQueueWrite(void *tube, void *events, int64_t numEvents) {
-    if (enableSensorHook) {
-        LOGD("SensorEventQueueWrite called");
-    }
     return OriginalSensorEventQueueWrite(tube, events, numEvents);
 }
 
 void ConvertToSensorEvent(void *src, void *dst) {
-    if (enableSensorHook) {
+    if (enableSensorHook.load()) {
         auto a = *(int32_t *)((char*)src + 4);
         auto b = *(int32_t *)((char*)src + 8);
         auto c = *(int64_t *)((char*)src + 16);
@@ -50,17 +48,15 @@ void ConvertToSensorEvent(void *src, void *dst) {
         OriginalConvertToSensorEvent(src, dst);
     }
 
-    if (enableSensorHook) {
-        LOGD("ConvertToSensorEvent called");
-    }
 }
 
-void doSensorHook() {
+bool doSensorHook() {
+    if (OriginalConvertToSensorEvent != nullptr) return true;
     SandHook::ElfImg sensorService(LIBSF_PATH);
 
     if (!sensorService.isValid()) {
         LOGE("failed to load libsensorservice");
-        return;
+        return false;
     }
 
     auto sensorWrite = sensorService.getSymbolAddress<void*>("_ZN7android16SensorEventQueue5writeERKNS_2spINS_7BitTubeEEEPK12ASensorEventm");
@@ -73,12 +69,13 @@ void doSensorHook() {
     LOGD("Dobby SensorEventQueue::write found at %p", sensorWrite);
     LOGD("Dobby convertToSensorEvent found at %p", convertToSensorEvent);
 
-    if (sensorWrite != nullptr) {
+    if (sensorWrite != nullptr && OriginalSensorEventQueueWrite == nullptr) {
         OriginalSensorEventQueueWrite = (OriginalSensorEventQueueWriteType)InlineHook(sensorWrite, (void *)SensorEventQueueWrite);
     }
 
     if (convertToSensorEvent != nullptr) {
         OriginalConvertToSensorEvent = (OriginalConvertToSensorEventType)InlineHook(convertToSensorEvent, (void *)ConvertToSensorEvent);
     }
+    return OriginalConvertToSensorEvent != nullptr;
 }
 

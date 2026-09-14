@@ -21,11 +21,23 @@ import java.util.Locale
 class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val binding = FragmentRuntimeBinding.bind(view)
-        val types = listOf(BackendType.MOCK_PROVIDER, BackendType.XPOSED)
+        val types = BackendType.entries
         binding.backend.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item,
-            listOf("标准 Mock Provider（无 Root）", "Xposed 系统后端"))
+            listOf("标准 Mock Provider（无 Root）", "Xposed 系统后端", "Native + Xposed（实验性）"))
         binding.backend.setSelection(types.indexOf(ScenarioRuntime.state.value.backend).coerceAtLeast(0))
         binding.applyBackend.setOnClickListener {
+            if (types[binding.backend.selectedItemPosition] == BackendType.NATIVE) {
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("启用实验性 Native 后端")
+                    .setMessage("需要 Root 与 Xposed。当前实现使用固定系统库路径、符号和偏移，可能不兼容当前 ROM。停止可禁用行为，卸载 Hook 需要重启系统。不会自动关闭 SELinux。")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("明确启用") { _, _ ->
+                        requireContext().getSharedPreferences("scenario_runtime", android.content.Context.MODE_PRIVATE)
+                            .edit().putBoolean("native_opt_in", true).apply()
+                        ScenarioRuntime.selectBackend(BackendType.NATIVE)
+                    }.show()
+                return@setOnClickListener
+            }
             viewLifecycleOwner.lifecycleScope.launch {
                 val selected = ScenarioRuntime.selectBackend(types[binding.backend.selectedItemPosition]).await()
                 Toast.makeText(requireContext(), if (selected) "已应用后端" else "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()

@@ -14,6 +14,6 @@ typedef int64_t (*OriginalSensorEventQueueWriteType)(void*, void*, int64_t);
 // void convertToSensorEvent(const Event &src, sensors_event_t *dst);
 typedef void (*OriginalConvertToSensorEventType)(void*, void*);
 
-void doSensorHook();
+bool doSensorHook();
 
 #endif //LOCATIONEXT_SENSOR_HOOK_H

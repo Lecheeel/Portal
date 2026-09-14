@@ -25,7 +25,7 @@ object ScenarioRuntime {
         when (type) {
             BackendType.XPOSED -> XposedBackend(context)
             BackendType.MOCK_PROVIDER -> MockProviderBackend(AndroidMockProviderPort(context))
-            else -> error("此后端尚未安装")
+            BackendType.NATIVE -> com.system.location.service.backend.native.NativeBackend(context)
         }
     }, object : RuntimeClock {
         override fun nanos() = SystemClock.elapsedRealtimeNanos()

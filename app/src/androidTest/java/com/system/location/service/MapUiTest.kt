@@ -36,7 +36,8 @@ class MapUiTest {
 
     @Test fun homeHidesCrosshairAndRequiresExplicitLocationConfirmation() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            onView(withId(R.id.ivCrosshair)).check(matches(withEffectiveVisibility(Visibility.GONE)))
+            // The old center cursor id is intentionally removed from the layout.
+            assertEquals(0, instrumentation.targetContext.resources.getIdentifier("ivCrosshair", "id", instrumentation.targetContext.packageName))
             onView(withId(R.id.btn_apply_location)).check(matches(not(isEnabled())))
             scenario.onActivity { activity ->
                 val model = ViewModelProvider(activity)[AMapViewModel::class.java]

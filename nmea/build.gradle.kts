@@ -13,3 +13,5 @@ kotlin {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
+
+dependencies { testImplementation(libs.junit) }

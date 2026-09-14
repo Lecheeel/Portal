@@ -29,7 +29,7 @@ jobs:
       - name: Unit tests, lint and release APKs
         run: |
           chmod +x ./gradlew
-          ./gradlew :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest lint :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
+          ./gradlew :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest lint :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4

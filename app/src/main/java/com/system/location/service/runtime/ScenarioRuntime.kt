@@ -35,6 +35,7 @@ object ScenarioRuntime {
     val diagnostics = controller.diagnostics
     @Volatile private var service: ScenarioService? = null
     @Volatile private var ready = CompletableDeferred<Unit>()
+    private val serviceStarts = ServiceStartGate()
     private val initialized by lazy {
         scope.async {
             val selected = runCatching { BackendType.valueOf(preferences.getString("backend", "MOCK_PROVIDER")!!) }
@@ -57,8 +58,10 @@ object ScenarioRuntime {
             try {
                 if (service == null) {
                     ready = CompletableDeferred()
+                    val request = serviceStarts.begin()
                     withContext(Dispatchers.Main) {
-                        ContextCompat.startForegroundService(context, Intent(context, ScenarioService::class.java))
+                        ContextCompat.startForegroundService(context, Intent(context, ScenarioService::class.java)
+                            .putExtra(ScenarioService.REQUEST, request))
                     }
                     withTimeout(10_000) { ready.await() }
                 }
@@ -94,8 +97,15 @@ object ScenarioRuntime {
         initialized.await()
         commands.withLock { action() }
     }
-    internal fun attached(instance: ScenarioService) { service = instance; ready.complete(Unit) }
-    internal fun attachmentFailed(error: Exception) { ready.completeExceptionally(error) }
+    internal fun attached(instance: ScenarioService, request: Long): Boolean {
+        if (!serviceStarts.accept(request)) return false
+        service = instance
+        ready.complete(Unit)
+        return true
+    }
+    internal fun attachmentFailed(request: Long, error: Exception) {
+        if (serviceStarts.accept(request)) ready.completeExceptionally(error)
+    }
     internal fun detached(instance: ScenarioService) {
         if (service !== instance) return
         service = null
@@ -114,6 +124,7 @@ object ScenarioRuntime {
         }
     }
     private suspend fun finishService() = withContext(Dispatchers.Main) {
+        serviceStarts.cancel()
         service?.let { instance -> service = null; instance.finishPlayback() }
     }
 }

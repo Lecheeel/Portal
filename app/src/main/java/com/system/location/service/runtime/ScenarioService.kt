@@ -15,6 +15,7 @@ import kotlinx.coroutines.*
 class ScenarioService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var wakeLock: PowerManager.WakeLock? = null
+    private var startupError: Exception? = null
     override fun onCreate() {
         super.onCreate()
         val notifications = getSystemService(NotificationManager::class.java)
@@ -28,21 +29,34 @@ class ScenarioService : Service() {
         try {
             ServiceCompat.startForeground(this, 201, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
             wakeLock = getSystemService(PowerManager::class.java)
-                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LocationService:Playback").apply { acquire() }
-            ScenarioRuntime.attached(this)
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LocationService:Playback").apply {
+                    setReferenceCounted(false)
+                    acquire(600_000)
+                }
             scope.launch {
+                var renewedAt = android.os.SystemClock.elapsedRealtime()
                 while (isActive) {
                     delay(ScenarioRuntime.controller.intervalMs)
                     ScenarioRuntime.tick(this@ScenarioService)
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (ScenarioRuntime.state.value.isActive && now - renewedAt >= 300_000) {
+                        wakeLock?.acquire(600_000)
+                        renewedAt = now
+                    }
                 }
             }
         } catch (error: Exception) {
-            ScenarioRuntime.attachmentFailed(error)
-            stopSelf()
+            startupError = error
         }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == STOP) ScenarioRuntime.stop()
+        else {
+            val request = intent?.getLongExtra(REQUEST, -1) ?: -1
+            val error = startupError
+            if (error != null) { ScenarioRuntime.attachmentFailed(request, error); finishPlayback() }
+            else if (!ScenarioRuntime.attached(this, request)) finishPlayback()
+        }
         // A dead process is reported as interrupted, never silently restored as running.
         return START_NOT_STICKY
     }
@@ -57,5 +71,6 @@ class ScenarioService : Service() {
     companion object {
         private const val CHANNEL = "scenario_playback"
         private const val STOP = "com.system.location.service.STOP_SCENARIO"
+        const val REQUEST = "request_id"
     }
 }

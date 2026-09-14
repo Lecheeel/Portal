@@ -110,7 +110,8 @@ object ScenarioRuntime {
         if (service !== instance) return
         service = null
         command {
-            controller.interrupted("前台服务已被系统终止，场景已中断")
+            // An old service can finish destruction after a replacement has attached.
+            if (service == null) controller.interrupted("前台服务已被系统终止，场景已中断")
             false
         }
     }

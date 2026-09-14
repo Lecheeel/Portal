@@ -154,7 +154,10 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     }
 
     private suspend fun stopLocked(): Boolean = withContext(NonCancellable) {
-        val active = backend ?: return@withContext true
+        val active = backend ?: run {
+            if (state.value.phase != RuntimePhase.IDLE) mutableState.value = state.value.copy(phase = RuntimePhase.STOPPED, error = null)
+            return@withContext true
+        }
         mutableState.value = state.value.copy(phase = RuntimePhase.STOPPING)
         suspend fun cleanup(action: suspend () -> BackendResult): BackendResult = try { action() }
         catch (error: Exception) { BackendResult.Failure("CLEANUP", error.message ?: error.javaClass.simpleName) }

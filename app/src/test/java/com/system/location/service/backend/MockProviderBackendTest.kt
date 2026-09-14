@@ -99,4 +99,27 @@ class MockProviderBackendTest {
         assertTrue(port.registered.isEmpty())
         assertTrue(port.fixes.isEmpty())
     }
+
+    @Test fun sameRouteRuntimePublishesBothProvidersAndFreezesAcrossPause() = runBlocking {
+        val port = Port()
+        var elapsed = 0L
+        val clock = object : com.system.location.service.core.runtime.RuntimeClock {
+            override fun nanos() = elapsed * 1_000_000
+            override fun millis() = elapsed
+        }
+        val controller = com.system.location.service.core.runtime.ScenarioController({ MockProviderBackend(port) }, clock)
+        val scene = com.system.location.service.core.scenario.Scenario("route", "route", route =
+            com.system.location.service.core.scenario.Route("r", "r", listOf(Wgs84(25.0, 119.0), Wgs84(25.01, 119.01))))
+        assertTrue(controller.start(scene))
+        elapsed = 1000; controller.tick()
+        assertTrue(controller.pause())
+        val point = controller.state.value.sample!!.coordinate
+        elapsed = 90_000; controller.tick()
+        assertEquals(point, port.fixes.last().second.coordinate)
+        assertEquals(0f, port.fixes.last().second.speed)
+        controller.resume(); elapsed = 91_000; controller.tick()
+        assertNotEquals(point, port.fixes.last().second.coordinate)
+        assertEquals(port.fixes.last().second, port.fixes[port.fixes.lastIndex - 1].second)
+        assertTrue(controller.stop()); assertTrue(port.registered.isEmpty())
+    }
 }

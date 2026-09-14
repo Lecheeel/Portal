@@ -73,6 +73,9 @@ class ScenarioControllerTest {
         assertEquals(RuntimePhase.ERROR, c.state.value.phase)
         assertFalse(c.state.value.isActive)
         assertEquals("PROCESS_INTERRUPTED", c.state.value.error!!.stage)
+        assertTrue(c.stop())
+        assertEquals(RuntimePhase.STOPPED, c.state.value.phase)
+        assertNull(c.state.value.error)
     }
 
     @Test fun backendConstructionFailureIsReportedAndCanRecover() = runBlocking {

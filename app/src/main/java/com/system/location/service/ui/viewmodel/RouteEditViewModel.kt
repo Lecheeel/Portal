@@ -41,6 +41,9 @@ class RouteEditViewModel(application: Application) : AndroidViewModel(applicatio
     fun pick(point: Gcj02) { events.trySend { planning?.cancel(); it.pick(point) } }
     fun camera(camera: MapCamera) { events.trySend { it.camera(camera) } }
     fun cancel() { events.trySend { planning?.cancel(); it.cancel() } }
+    fun mode(mode: DrawingMode) { events.trySend { planning?.cancel(); it.mode(mode) } }
+    fun stroke(points: List<Gcj02>) { val snapshot = points.toList(); events.trySend { it.appendStroke(snapshot) } }
+    fun undo() { events.trySend { it.undo() } }
     fun plan() {
         events.trySend { draft ->
             planning?.cancel()

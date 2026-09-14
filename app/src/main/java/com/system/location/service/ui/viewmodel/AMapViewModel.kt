@@ -19,6 +19,8 @@ class AMapViewModel: ViewModel() {
      * WGS84
      */
     var currentLocation: Pair<Double, Double>? = null
+    // First trusted real fix for this app session. Never assigned from simulation samples.
+    var originalLocation: Pair<Double, Double>? = null
 
     var markName: String? = null
 

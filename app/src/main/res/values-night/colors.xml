@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="surface">#101827</color>
+    <color name="surface_variant">#1E293B</color>
+    <color name="surface_container_highest">#334155</color>
+    <color name="surface_glass">#F21E293B</color>
+    <color name="card_border">#334155</color>
+    <color name="text_primary">#F1F5F9</color>
+    <color name="text_secondary">#CBD5E1</color>
+    <color name="text_tertiary">#94A3B8</color>
+    <color name="icon_grey">#CBD5E1</color>
+    <color name="theme_appbar_color">#1E293B</color>
+    <color name="theme_appbar_text_color">#F1F5F9</color>
+    <color name="theme_appbar_icon_color">#F1F5F9</color>
+    <color name="theme_side_nav_text_color">#F1F5F9</color>
+    <color name="theme_side_nav_start_color">#1E293B</color>
+    <color name="theme_side_nav_center_color">#172033</color>
+    <color name="theme_side_nav_end_color">#101827</color>
+    <color name="theme_active">#243D60</color>
+    <color name="theme_focused_touch">#334C70</color>
+</resources>

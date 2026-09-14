@@ -53,4 +53,57 @@ class RouteDraftTest {
         assertFalse(c.complete(old, listOf(listOf(start, mid))))
         assertTrue(c.complete(latest, listOf(listOf(start, end))))
     }
+    @Test fun manualPointsNeedTwoDistinctPointsAndUndoRestoresPreviousGeometry() {
+        val c = RouteDraftController(Store())
+        c.mode(DrawingMode.POINTS)
+        c.pick(start); c.pick(start)
+        assertNull(c.state.value.route)
+        c.pick(mid); c.pick(end)
+        val frozen = c.state.value.route!!.frozen()
+        c.undo()
+        assertEquals(listOf(start, mid).map(CoordinateTransform::toWgs84), c.state.value.route!!.points)
+        assertEquals(3, frozen.points.size)
+        c.undo()
+        assertNull(c.state.value.route)
+        assertNull(c.beginPlan())
+    }
+    @Test fun freehandPersistsEveryStrokeAndUndoRemovesOneWholeStroke() {
+        val store = Store(); val c = RouteDraftController(store)
+        c.mode(DrawingMode.FREEHAND)
+        val input = mutableListOf(start, start, mid)
+        c.appendStroke(input)
+        input.clear()
+        c.appendStroke(listOf(mid, end))
+        val restored = RouteDraftController(store)
+        assertEquals(DrawingMode.FREEHAND, restored.state.value.mode)
+        assertEquals(listOf(start, mid, end).map(CoordinateTransform::toWgs84), restored.state.value.route!!.points)
+        restored.undo()
+        assertEquals(listOf(start, mid).map(CoordinateTransform::toWgs84), restored.state.value.route!!.points)
+        restored.undo()
+        assertNull(restored.state.value.route)
+        assertTrue(restored.state.value.strokes.isEmpty())
+    }
+    @Test fun modeSwitchRejectsInFlightPlanAndClearKeepsModeAndCamera() {
+        val c = ready(); val request = c.beginPlan()!!
+        val camera = MapCamera(mid, 16f, 0f, 0f)
+        c.camera(camera); c.mode(DrawingMode.FREEHAND)
+        c.appendStroke(listOf(start, end))
+        assertFalse(c.complete(request, listOf(listOf(start, mid, end))))
+        assertEquals(2, c.state.value.route!!.points.size)
+        c.cancel()
+        assertEquals(DrawingMode.FREEHAND, c.state.value.mode)
+        assertEquals(camera, c.state.value.camera)
+        assertTrue(c.state.value.strokes.isEmpty())
+        c.mode(DrawingMode.PLAN); c.pick(start); c.pick(end)
+        assertNotNull(c.beginPlan())
+    }
+    @Test fun oversizeStrokeLeavesPreviousDraftIntact() {
+        val c = RouteDraftController(Store()); c.mode(DrawingMode.FREEHAND)
+        c.appendStroke(listOf(start, end))
+        val before = c.state.value
+        try {
+            c.appendStroke(List(10_000) { if (it % 2 == 0) start else mid })
+            fail("Should reject oversized draft")
+        } catch (_: IllegalArgumentException) { assertEquals(before, c.state.value) }
+    }
 }

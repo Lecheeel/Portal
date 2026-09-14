@@ -1,20 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingHorizontal="12dp">
-        <EditText android:id="@+id/query" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
-            android:hint="搜索地点，再设为起点或终点" android:inputType="text" android:singleLine="true" />
-        <Button android:id="@+id/search" android:layout_width="wrap_content" android:layout_height="48dp" android:text="搜索" />
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/surface" android:orientation="vertical">
+    <com.google.android.material.button.MaterialButtonToggleGroup android:id="@+id/drawing_mode" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginHorizontal="16dp" app:singleSelection="true" app:selectionRequired="true">
+        <com.google.android.material.button.MaterialButton android:id="@+id/mode_plan" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="规划" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/mode_points" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="加点" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/mode_freehand" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="画线" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingHorizontal="16dp">
+        <EditText android:id="@+id/query" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:hint="搜索地点" android:inputType="text" android:singleLine="true" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/search" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="48dp" android:text="搜索" />
     </LinearLayout>
-    <RadioGroup android:id="@+id/endpoint" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal">
-        <RadioButton android:id="@+id/select_start" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:checked="true" android:text="点击地图设置起点" />
-        <RadioButton android:id="@+id/select_end" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="点击地图设置终点" />
+    <RadioGroup android:id="@+id/endpoint" android:layout_width="match_parent" android:layout_height="48dp" android:paddingHorizontal="16dp" android:orientation="horizontal">
+        <RadioButton android:id="@+id/select_start" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:checked="true" android:text="选择起点" />
+        <RadioButton android:id="@+id/select_end" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="选择终点" />
     </RadioGroup>
-    <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="12dp" android:maxLines="4" />
-    <com.amap.api.maps.MapView android:id="@+id/amap_view" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/plan" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="规划 / 重新规划" />
-        <Button android:id="@+id/cancel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="取消路线" />
-        <Button android:id="@+id/confirm" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="确认路线" />
+    <TextView android:id="@+id/gesture_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="16dp" android:paddingVertical="8dp" android:textColor="@color/text_secondary" android:textSize="13sp" />
+    <com.system.location.service.ui.mock.RouteGestureLayout android:id="@+id/gesture_layer" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <com.amap.api.maps.MapView android:id="@+id/amap_view" android:layout_width="match_parent" android:layout_height="match_parent" />
+    </com.system.location.service.ui.mock.RouteGestureLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:background="@drawable/bg_bottom_sheet">
+        <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_primary" android:textSize="14sp" android:maxLines="3" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton android:id="@+id/plan" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="规划" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/undo" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="撤销" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/cancel" style="@style/Widget.Material3.Button.TextButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="清空" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/confirm" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="保存" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

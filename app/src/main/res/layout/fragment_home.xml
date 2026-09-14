@@ -15,17 +15,6 @@
         android:clickable="true"
         android:focusable="true" />
 
-    <!-- 2. Central Crosshair (for pinpoint coordinate selection) -->
-    <ImageView
-        android:id="@+id/ivCrosshair"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_gravity="center"
-        android:src="@drawable/ic_crosshair"
-        app:tint="@color/primary"
-        android:importantForAccessibility="no"
-        android:elevation="4dp" />
-
     <!-- 3. Top Floating Search Bar (Card / Capsule Style) -->
     <LinearLayout
         android:id="@+id/topSearchBarContainer"
@@ -200,13 +189,15 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Drag Handle Bar Indicator -->
-            <View
-                android:layout_width="36dp"
-                android:layout_height="4dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_search_bar" />
+            <TextView
+                android:id="@+id/original_position"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:text="原始位置 · 等待真实定位"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:background="?attr/selectableItemBackground" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -215,10 +206,14 @@
                 android:orientation="horizontal">
 
                 <LinearLayout
+                    android:id="@+id/target_selection"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:background="?attr/selectableItemBackground"
+                    android:contentDescription="确认并切换到所选位置"
+                    android:minHeight="64dp">
 
                     <TextView
                         android:id="@+id/tvTargetName"
@@ -236,7 +231,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="点击地图选点或拖动准星"
+                        android:text="点击地图选点，再确认切换位置"
                         android:textColor="@color/text_secondary"
                         android:textSize="12sp"
                         android:maxLines="1"
@@ -266,12 +261,15 @@
                     app:iconSize="16dp" />
             </LinearLayout>
 
-            <View
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_apply_location"
                 android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="12dp"
-                android:background="@color/card_border" />
+                android:layout_height="52dp"
+                android:layout_marginTop="8dp"
+                android:enabled="false"
+                android:text="在所选位置开始模拟"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/baseline_location_on_24" />
 
             <!-- Primary Actions Row -->
             <LinearLayout
@@ -282,6 +280,7 @@
                 <!-- Start/Stop Mock Button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnQuickMock"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp"
                     android:layout_height="44dp"
                     android:layout_weight="1"

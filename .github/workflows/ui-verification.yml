@@ -1,0 +1,58 @@
+name: Map and runtime UI verification
+
+"on":
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_TOOL_OPTIONS: --enable-native-access=ALL-UNNAMED
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install build toolchain
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.31.6'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Build test APKs
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleX64Debug :app:assembleX64DebugAndroidTest --build-cache --stacktrace
+      - name: Emulator interaction tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            ./gradlew :app:connectedX64DebugAndroidTest --stacktrace
+            adb pull /sdcard/Android/data/com.system.location.service/files/ui-captures app/build/ui-captures
+      - name: Upload device reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-verification-${{ github.sha }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            app/build/ui-captures/

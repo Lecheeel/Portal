@@ -1,8 +1,10 @@
 package com.system.location.service.ui.mock
 
 import android.graphics.Color
+import android.graphics.Point
 import android.os.Bundle
 import android.view.View
+import android.view.MotionEvent
 import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -33,6 +35,9 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
     private var renderedGeometry: Triple<Gcj02?, Gcj02?, String?>? = null
     private var rendering = false
     private var searchGeneration = 0L
+    private val stroke = ArrayList<Gcj02>()
+    private var strokePreview: Polyline? = null
+    private var lastScreenPoint: Point? = null
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val ui = FragmentRouteEditBinding.bind(view)
         binding = ui
@@ -55,8 +60,27 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
         ui.endpoint.setOnCheckedChangeListener { _, checked ->
             if (!rendering) model.select(if (checked == R.id.select_start) Endpoint.START else Endpoint.END)
         }
+        ui.drawingMode.addOnButtonCheckedListener { _, id, checked ->
+            if (!rendering && checked) {
+                val mode = when (id) { R.id.mode_points -> DrawingMode.POINTS; R.id.mode_freehand -> DrawingMode.FREEHAND; else -> DrawingMode.PLAN }
+                if (mode != model.state.value.mode) {
+                    rendering = true
+                    ui.drawingMode.check(modeId(model.state.value.mode))
+                    rendering = false
+                    if (model.state.value.start != null) MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("切换绘制方式？").setMessage("当前未保存的路线将被清空。")
+                        .setNegativeButton("继续编辑", null).setPositiveButton("切换") { _, _ -> ++searchGeneration; model.mode(mode) }.show()
+                    else { ++searchGeneration; model.mode(mode) }
+                }
+            }
+        }
+        ui.gestureLayer.onStrokeTouch = ::drawStroke
+        ui.undo.setOnClickListener { model.undo() }
         ui.plan.setOnClickListener { model.plan() }
-        ui.cancel.setOnClickListener { ++searchGeneration; model.cancel() }
+        ui.cancel.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext()).setTitle("清空当前路线？")
+                .setNegativeButton("取消", null).setPositiveButton("清空") { _, _ -> ++searchGeneration; model.cancel() }.show()
+        }
         ui.search.setOnClickListener { search(ui.query.text.toString()) }
         ui.confirm.setOnClickListener { confirmSnapshot() }
         viewLifecycleOwner.lifecycleScope.launch {
@@ -78,12 +102,25 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
             cameraRestored = true
         }
         rendering = true
+        ui.drawingMode.check(modeId(draft.mode))
         ui.endpoint.check(if (draft.selecting == Endpoint.START) R.id.select_start else R.id.select_end)
         rendering = false
-        ui.status.text = "起点：${draft.start ?: "未选择"}\n终点：${draft.end ?: "未选择"}\n" +
-            (if (draft.phase == DraftPhase.PLANNING) "正在规划步行路线…" else draft.message.orEmpty())
+        val planned = draft.mode == DrawingMode.PLAN
+        ui.endpoint.visibility = if (planned) View.VISIBLE else View.GONE
+        ui.plan.visibility = if (planned) View.VISIBLE else View.GONE
+        ui.undo.visibility = if (planned) View.GONE else View.VISIBLE
+        ui.undo.isEnabled = draft.strokes.isNotEmpty()
+        ui.gestureLayer.drawingEnabled = draft.mode == DrawingMode.FREEHAND
+        ui.gestureHint.text = when (draft.mode) {
+            DrawingMode.PLAN -> "点击地图设置起终点，沿道路规划步行路线"
+            DrawingMode.POINTS -> "依次点击地图加点，按顺序直线连接；拖动和双指缩放地图"
+            DrawingMode.FREEHAND -> "单指画线 · 双指移动和缩放 · 撤销上一笔\n多笔之间直线连接；双指操作会取消尚未完成的一笔"
+        }
+        ui.status.text = if (draft.phase == DraftPhase.PLANNING) "正在规划步行路线…"
+            else draft.message ?: if (planned) "起点${if (draft.start == null) "未选" else "已选"} · 终点${if (draft.end == null) "未选" else "已选"}"
+            else "从地图开始绘制你的路线"
         ui.confirm.isEnabled = draft.phase == DraftPhase.PLANNED && draft.route != null
-        ui.plan.isEnabled = draft.start != null && draft.end != null
+        ui.plan.isEnabled = draft.start != null && draft.end != null && draft.phase != DraftPhase.PLANNING
         val geometry = Triple(draft.start, draft.end, draft.route?.id)
         if (geometry == renderedGeometry) return
         renderedGeometry = geometry
@@ -96,6 +133,39 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
             // Keep the user's camera during restores/rotation; full route can be inspected by zooming.
         }
     }
+    private fun modeId(mode: DrawingMode) = when (mode) {
+        DrawingMode.PLAN -> R.id.mode_plan
+        DrawingMode.POINTS -> R.id.mode_points
+        DrawingMode.FREEHAND -> R.id.mode_freehand
+    }
+
+    private fun drawStroke(event: MotionEvent) {
+        val ui = binding ?: return
+        fun discard() { stroke.clear(); lastScreenPoint = null; strokePreview?.remove(); strokePreview = null }
+        if (event.actionMasked == MotionEvent.ACTION_CANCEL) { discard(); return }
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) discard()
+        val screen = Point(event.x.toInt(), event.y.toInt())
+        val last = lastScreenPoint
+        val threshold = 6 * resources.displayMetrics.density
+        if (last == null || kotlin.math.hypot((screen.x - last.x).toDouble(), (screen.y - last.y).toDouble()) >= threshold || event.actionMasked == MotionEvent.ACTION_UP) {
+            if (stroke.size < 10_000) {
+                val point = ui.amapView.map.projection.fromScreenLocation(screen)
+                val gcj = Gcj02(point.latitude, point.longitude)
+                if (stroke.lastOrNull() != gcj) stroke.add(gcj)
+                lastScreenPoint = screen
+                val points = stroke.map { LatLng(it.latitude, it.longitude) }
+                if (points.size >= 2) {
+                    if (strokePreview == null) strokePreview = ui.amapView.map.addPolyline(PolylineOptions().addAll(points).width(10f).color(Color.rgb(16, 185, 129)))
+                    else strokePreview?.points = points
+                }
+            }
+        }
+        if (event.actionMasked == MotionEvent.ACTION_UP) {
+            if (stroke.size >= 2) model.stroke(stroke)
+            discard()
+        }
+    }
+
     private fun search(query: String) {
         if (query.isBlank()) return
         val generation = ++searchGeneration
@@ -110,7 +180,7 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
                         .setItems(candidates.map { "${it.name} ${it.address.orEmpty()}" }.toTypedArray()) { _, which ->
                             if (generation != searchGeneration || binding == null) return@setItems
                             val point = candidates[which].point
-                            model.pick(Gcj02(point.latitude, point.longitude))
+                            if (model.state.value.mode != DrawingMode.FREEHAND) model.pick(Gcj02(point.latitude, point.longitude))
                             binding?.amapView?.map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(point.latitude, point.longitude), 16f))
                         }.show()
                 }
@@ -146,6 +216,8 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); binding?.amapView?.onSaveInstanceState(outState) }
     override fun onDestroyView() {
         ++searchGeneration
+        binding?.gestureLayer?.onStrokeTouch = null
+        strokePreview?.remove(); strokePreview = null; stroke.clear()
         binding?.amapView?.apply { map.setOnMapClickListener(null); map.setOnCameraChangeListener(null); onDestroy() }
         binding = null
         super.onDestroyView()

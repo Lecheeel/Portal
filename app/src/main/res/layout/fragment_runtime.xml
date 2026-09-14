@@ -1,20 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:padding="20dp">
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="选择定位后端" android:textSize="20sp" android:labelFor="@id/backend" />
-        <Spinner android:id="@+id/backend" android:layout_width="match_parent" android:layout_height="56dp" />
-        <Button android:id="@+id/apply_backend" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="应用后端（先停止当前场景）" />
-        <Button android:id="@+id/mock_settings" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="打开开发者选项，选择模拟位置应用" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="12dp"
-            android:text="无 Root 模式提供标准模拟位置，系统会保留模拟标记。需要前台位置权限。Google 融合定位和各应用是否采纳该位置需分别验证。" />
-        <TextView android:id="@+id/runtime_state" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="16dp" android:textIsSelectable="true" />
-        <Button android:id="@+id/pause_resume" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="暂停 / 恢复" />
-        <Button android:id="@+id/stop_runtime" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="停止并清理（失败可重试）" />
-        <Button android:id="@+id/refresh_diagnostics" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="刷新后端与 Hook 诊断" />
-        <TextView android:id="@+id/capabilities" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="16dp" android:textIsSelectable="true" />
-        <TextView android:id="@+id/diagnostics" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="16dp" android:textIsSelectable="true" />
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/surface">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+        <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" app:cardCornerRadius="20dp" app:cardBackgroundColor="@color/theme_appbar_color" app:strokeColor="@color/card_border" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                <TextView android:id="@+id/phase_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="24sp" android:textColor="@color/text_primary" android:textStyle="bold" android:text="未运行" />
+                <TextView android:id="@+id/overview" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="@color/text_primary" android:layout_marginTop="8dp" />
+                <com.google.android.material.progressindicator.LinearProgressIndicator android:id="@+id/route_progress" android:layout_width="match_parent" android:layout_height="8dp" android:layout_marginVertical="16dp" android:max="1000" app:trackCornerRadius="4dp" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/pause_resume" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginEnd="8dp" android:layout_height="wrap_content" android:minHeight="48dp" android:text="暂停" />
+                    <com.google.android.material.button.MaterialButton android:id="@+id/stop_runtime" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="停止" />
+                </LinearLayout>
+                <com.google.android.material.button.MaterialButton android:id="@+id/toggle_state" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="运行详情 ▾" />
+                <LinearLayout android:id="@+id/state_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                    <TextView android:id="@+id/runtime_state" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/text_primary" android:textIsSelectable="true" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" app:cardCornerRadius="20dp" app:cardBackgroundColor="@color/theme_appbar_color" app:strokeColor="@color/card_border" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                <com.google.android.material.button.MaterialButton android:id="@+id/toggle_backend" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="后端设置 ▾" />
+                <LinearLayout android:id="@+id/backend_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="定位后端" android:labelFor="@id/backend" android:textColor="@color/text_secondary" />
+                    <Spinner android:id="@+id/backend" android:layout_width="match_parent" android:layout_height="56dp" />
+                    <com.google.android.material.button.MaterialButton android:id="@+id/apply_backend" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="应用后端" />
+                    <com.google.android.material.button.MaterialButton android:id="@+id/mock_settings" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="打开开发者选项" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="标准模式需要位置权限，并在开发者选项中选择本应用为模拟位置应用。切换后端前请停止当前场景。" android:textColor="@color/text_secondary" android:textSize="13sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" app:cardCornerRadius="20dp" app:cardBackgroundColor="@color/theme_appbar_color" app:strokeColor="@color/card_border" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                <com.google.android.material.button.MaterialButton android:id="@+id/toggle_capabilities" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="能力与诊断 ▾" />
+                <LinearLayout android:id="@+id/capability_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/refresh_diagnostics" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="刷新后端与 Hook 诊断" />
+                    <TextView android:id="@+id/capabilities" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/text_primary" android:textIsSelectable="true" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" app:cardCornerRadius="20dp" app:cardBackgroundColor="@color/theme_appbar_color" app:strokeColor="@color/card_border" app:strokeWidth="1dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                <com.google.android.material.button.MaterialButton android:id="@+id/toggle_logs" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="运行日志 ▾" />
+                <LinearLayout android:id="@+id/log_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                    <Spinner android:id="@+id/log_filter" android:layout_width="match_parent" android:layout_height="48dp" android:contentDescription="日志筛选" />
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                        <com.google.android.material.button.MaterialButton android:id="@+id/copy_logs" style="@style/Widget.Material3.Button.TextButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="复制日志" />
+                        <com.google.android.material.button.MaterialButton android:id="@+id/clear_logs" style="@style/Widget.Material3.Button.TextButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="清空视图" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/diagnostics" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/text_primary" android:textIsSelectable="true" />
+                    <com.google.android.material.button.MaterialButton android:id="@+id/more_logs" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="显示更多" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
 </ScrollView>

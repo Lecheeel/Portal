@@ -11,11 +11,13 @@ import kotlinx.serialization.json.Json
 import java.util.UUID
 
 @Serializable enum class Endpoint { START, END }
+@Serializable enum class DrawingMode { PLAN, POINTS, FREEHAND }
 @Serializable enum class DraftPhase { EMPTY, ENDPOINTS, PLANNING, PLANNED, ERROR }
 @Serializable data class MapCamera(val target: Gcj02, val zoom: Float, val bearing: Float, val tilt: Float)
 @Serializable data class RouteDraft(val schemaVersion: Int = 1, val start: Gcj02? = null, val end: Gcj02? = null,
     val selecting: Endpoint = Endpoint.START, val generation: Long = 0, val phase: DraftPhase = DraftPhase.EMPTY,
-    val route: Route? = null, val camera: MapCamera? = null, val message: String? = null)
+    val route: Route? = null, val camera: MapCamera? = null, val message: String? = null,
+    val mode: DrawingMode = DrawingMode.PLAN, val strokes: List<List<Gcj02>> = emptyList())
 data class PlanRequest(val generation: Long, val start: Gcj02, val end: Gcj02)
 
 object RoutePlanAssembler {
@@ -51,15 +53,48 @@ class RouteDraftController(private val store: DocumentStore) {
     @Synchronized fun select(endpoint: Endpoint) { commit(state.value.copy(selecting = endpoint)) }
     @Synchronized fun pick(point: Gcj02) {
         val old = state.value
+        if (old.mode != DrawingMode.PLAN) {
+            if (old.mode == DrawingMode.POINTS) appendStroke(listOf(point))
+            return
+        }
         commit(old.copy(start = if (old.selecting == Endpoint.START) point else old.start,
             end = if (old.selecting == Endpoint.END) point else old.end,
             selecting = Endpoint.END, generation = old.generation + 1,
             route = null, phase = DraftPhase.ENDPOINTS, message = null))
     }
     @Synchronized fun camera(camera: MapCamera) { commit(state.value.copy(camera = camera)) }
-    @Synchronized fun cancel() { commit(RouteDraft(generation = state.value.generation + 1, camera = state.value.camera)) }
+    @Synchronized fun cancel() { commit(RouteDraft(generation = state.value.generation + 1, camera = state.value.camera, mode = state.value.mode)) }
+    /** Changing modes explicitly starts a new draft; the UI confirms before discarding geometry. */
+    @Synchronized fun mode(mode: DrawingMode) {
+        if (mode != state.value.mode) commit(RouteDraft(generation = state.value.generation + 1, camera = state.value.camera, mode = mode))
+    }
+    @Synchronized fun appendStroke(points: List<Gcj02>) {
+        if (state.value.mode == DrawingMode.PLAN || points.isEmpty()) return
+        val clean = points.fold(ArrayList<Gcj02>()) { result, point ->
+            if (result.lastOrNull() != point) result.add(point)
+            result
+        }.toList()
+        require(state.value.strokes.sumOf { it.size } + clean.size <= 10_000) { "手动路线最多 10000 个点，请撤销或缩短路线" }
+        rebuildManual(state.value.strokes + listOf(clean))
+    }
+    @Synchronized fun undo() {
+        if (state.value.mode != DrawingMode.PLAN && state.value.strokes.isNotEmpty()) rebuildManual(state.value.strokes.dropLast(1))
+    }
+    private fun rebuildManual(strokes: List<List<Gcj02>>) {
+        val points = strokes.flatten().fold(ArrayList<Gcj02>()) { result, point ->
+            if (result.lastOrNull() != point) result.add(point)
+            result
+        }
+        val route = if (points.size >= 2) Route(UUID.randomUUID().toString(), "手动路线",
+            points.map(CoordinateTransform::toWgs84)).frozen() else null
+        commit(state.value.copy(strokes = strokes, start = points.firstOrNull(), end = points.lastOrNull(),
+            route = route, generation = state.value.generation + 1,
+            phase = if (route != null) DraftPhase.PLANNED else DraftPhase.EMPTY,
+            message = if (route != null) "${points.size} 个点 · 可继续编辑或保存" else "至少添加两个不同的点"))
+    }
     @Synchronized fun beginPlan(): PlanRequest? {
         val old = state.value
+        if (old.mode != DrawingMode.PLAN) return null
         if (old.start == null || old.end == null || old.start == old.end) {
             commit(old.copy(phase = DraftPhase.ERROR, route = null, message = "请选择不同的起点与终点"))
             return null

@@ -4,29 +4,41 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import java.lang.reflect.Member
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 object HookInstaller {
     private val probed = ConcurrentHashMap.newKeySet<Member>()
 
     fun hookMethod(member: Member, callback: XC_MethodHook): XC_MethodHook.Unhook {
         val key = member.toString()
-        try {
-            val handle = XposedBridge.hookMethod(member, callback)
-            HookStatusRegistry.installed(key)
-            if (probed.add(member)) {
-                var probe: XC_MethodHook.Unhook? = null
-                probe = XposedBridge.hookMethod(member, object : XC_MethodHook(PRIORITY_HIGHEST) {
-                    override fun beforeHookedMethod(param: MethodHookParam) {
-                        HookStatusRegistry.matched(key)
-                        probe?.unhook() // Probe costs only the first invocation.
-                    }
-                })
-            }
-            return handle
-        } catch (error: Throwable) {
+        val handle = try { XposedBridge.hookMethod(member, callback) }
+        catch (error: Throwable) {
             HookStatusRegistry.record(key, HookStatus(supported = true, failed = true, reason = error.javaClass.simpleName))
             throw error
         }
+        HookStatusRegistry.installed(key)
+        if (probed.add(member)) {
+            val probe = AtomicReference<XC_MethodHook.Unhook?>()
+            val matched = AtomicBoolean(false)
+            try {
+                val observation = XposedBridge.hookMethod(member, object : XC_MethodHook(PRIORITY_HIGHEST) {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        matched.set(true)
+                        HookStatusRegistry.matched(key)
+                        probe.getAndSet(null)?.unhook()
+                    }
+                })
+                probe.set(observation)
+                // The first invocation may occur before the hook API returns its handle.
+                if (matched.get()) probe.getAndSet(null)?.unhook()
+            } catch (error: Throwable) {
+                probed.remove(member)
+                HookStatusRegistry.record("$key [observation]", HookStatus(supported = true,
+                    failed = true, reason = "Match observation unavailable: ${error.javaClass.simpleName}"))
+            }
+        }
+        return handle
     }
 
     fun hookAllMethods(type: Class<*>, name: String, callback: XC_MethodHook): Set<XC_MethodHook.Unhook> {

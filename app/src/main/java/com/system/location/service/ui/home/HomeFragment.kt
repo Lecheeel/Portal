@@ -391,15 +391,7 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // Quick Mock start/stop
-        binding.btnQuickMock.setOnClickListener {
-            val isRunning = mockServiceViewModel.isServiceStart()
-            if (isRunning) {
-                tryCloseMock()
-            } else {
-                tryOpenMock()
-            }
-        }
+        binding.btnQuickMock.setOnClickListener { tryCloseMock() }
 
         // Toggle Floating Rocker
         binding.btnQuickRocker.setOnClickListener {
@@ -497,20 +489,9 @@ class HomeFragment : Fragment() {
         val isRunning = mockServiceViewModel.isServiceStart()
         binding.btnApplyLocation.isEnabled = aMapViewModel.markedLoc != null && !isApplyingLocation
         binding.btnApplyLocation.text = if (isApplyingLocation) "正在切换…" else if (isRunning) "切换到所选位置" else "在所选位置开始模拟"
-        binding.btnQuickMock.isEnabled = !isApplyingLocation && (isRunning || aMapViewModel.markedLoc != null)
-        if (isRunning) {
-            binding.btnQuickMock.text = "停止模拟"
-            binding.btnQuickMock.setIconResource(R.drawable.baseline_stop_24)
-            binding.btnQuickMock.setBackgroundColor(
-                ContextCompat.getColor(requireContext(), R.color.red500)
-            )
-        } else {
-            binding.btnQuickMock.text = getString(R.string.start_mock)
-            binding.btnQuickMock.setIconResource(R.drawable.baseline_play_24)
-            binding.btnQuickMock.setBackgroundColor(
-                ContextCompat.getColor(requireContext(), R.color.primary)
-            )
-        }
+        binding.btnQuickMock.isEnabled = !isApplyingLocation && isRunning
+        binding.btnQuickMock.text = "停止模拟"
+        binding.btnQuickMock.setIconResource(R.drawable.baseline_stop_24)
     }
 
     @SuppressLint("SetTextI18n")

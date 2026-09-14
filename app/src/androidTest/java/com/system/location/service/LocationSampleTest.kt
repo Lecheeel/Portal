@@ -1,6 +1,7 @@
 package com.system.location.service
 
 import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.hook.utils.toLocation
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicReference

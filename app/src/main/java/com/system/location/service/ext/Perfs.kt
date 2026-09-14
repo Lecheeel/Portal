@@ -1,6 +1,7 @@
 package com.system.location.service.ext
 
 import android.content.Context
+import com.system.location.service.data.repository.*
 import androidx.core.content.edit
 import com.amap.api.maps.AMap
 import com.system.location.service.service.MockServiceHelper
@@ -62,29 +63,25 @@ var Context.selectRoute: HistoricalRoute?
 
 val Context.historicalLocations: List<HistoricalLocation>
     get() {
-        return sharedPrefs.getStringSet("locations", emptySet())?.mapNotNull {
-            runCatching { HistoricalLocation.fromString(it) }.getOrNull()
-        } ?: emptyList()
+        LibraryRepositories.ensureMigrated()
+        return LibraryRepositories.locations.list().map { it.toHistorical() }
     }
 
 var Context.rawHistoricalLocations: Set<String>
-    get() {
-        return sharedPrefs.getStringSet("locations", emptySet()) ?: emptySet()
-    }
+    get() = historicalLocations.map { it.toString() }.toSet()
     set(value) {
-        sharedPrefs.edit {
-            putStringSet("locations", value)
-        }
+        LibraryRepositories.ensureMigrated()
+        LibraryRepositories.locations.replaceAll(value.map { HistoricalLocation.fromString(it).toSaved() })
     }
 
 var Context.jsonHistoricalRoutes: String
     get() {
-        return sharedPrefs.getString("routes", null) ?: ""
+        LibraryRepositories.ensureMigrated()
+        return RouteJson.encodeRoutes(LibraryRepositories.routes.list().map { it.toHistorical() })
     }
     set(value) {
-        sharedPrefs.edit {
-            putString("routes", value)
-        }
+        LibraryRepositories.ensureMigrated()
+        LibraryRepositories.routes.replaceAll(RouteJson.decodeRoutes(value).map { it.toSaved() })
     }
 
 var Context.reportDuration: Int

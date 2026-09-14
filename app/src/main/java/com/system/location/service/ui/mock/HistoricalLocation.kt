@@ -4,11 +4,14 @@ import com.system.location.service.core.geo.Wgs84
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.system.location.service.data.repository.stableRecordId
 
-@Serializable data class HistoricalLocation(val name: String, val address: String, val lat: Double, val lon: Double) {
+@Serializable data class HistoricalLocation(val name: String, val address: String, val lat: Double, val lon: Double,
+    val id: String = stableRecordId("location", "$name:$address:$lat:$lon"), val favorite: Boolean = false) {
     init { require(name.isNotBlank()); Wgs84(lat, lon) }
-    override fun toString(): String = Json { encodeDefaults = true }.encodeToString(LocationEnvelope(location = this))
+    override fun toString(): String = json.encodeToString(LocationEnvelope(location = this))
     companion object {
+        private val json = Json { encodeDefaults = true }
         /** Legacy CSV is read only; new records are versioned JSON with Double fields. */
         fun fromString(text: String): HistoricalLocation {
             if (text.trimStart().startsWith("{")) {

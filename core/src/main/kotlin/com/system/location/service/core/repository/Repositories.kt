@@ -23,6 +23,7 @@ interface Repository<T> {
     fun copy(id: String, name: String): T
     fun importJson(text: String): List<T>
     fun exportJson(): String
+    fun replaceAll(items: List<T>)
 }
 
 /** No cached mutable collections: reads and failed writes never mutate the saved library. */
@@ -70,6 +71,7 @@ abstract class VersionedRepository<T>(private val store: DocumentStore, serializ
         return imported.map(::freeze)
     }
     @Synchronized override fun exportJson() = encode(read())
+    @Synchronized override fun replaceAll(items: List<T>) { write(items.map(::freeze)) }
     private fun read(): List<T> = store.read()?.let(::decode) ?: emptyList()
     private fun decode(text: String): List<T> {
         require(text.length <= MAX_DOCUMENT_CHARS) { "Library exceeds size limit" }

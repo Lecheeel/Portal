@@ -40,9 +40,9 @@ class MockServiceViewModel : ViewModel() {
     }
     suspend fun startRoute(route: HistoricalRoute): Boolean {
         moving = false
-        val id = UUID.randomUUID().toString()
+        val id = route.id
         return ScenarioRuntime.start(Scenario(id, route.name,
-            route = Route(id, route.name, route.route.map { Wgs84(it.first, it.second) }), profile = profile())).await()
+            route = Route(id, route.name, route.route.map { Wgs84(it.first, it.second) }), mode = route.mode, profile = profile())).await()
     }
     suspend fun stopScenario() = ScenarioRuntime.stop().await()
     fun pauseScenario() { ScenarioRuntime.pause() }

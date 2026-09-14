@@ -42,7 +42,7 @@ import com.system.location.service.R
 import com.system.location.service.amap.locateMe
 import com.system.location.service.amap.setMapConfig
 import com.system.location.service.amap.toPoi
-import com.system.location.service.android.widget.RockerView
+import com.system.location.service.ui.mock.RockerOverlay
 import com.system.location.service.android.window.OverlayUtils
 import com.system.location.service.bdmap.Poi
 import com.system.location.service.databinding.FragmentHomeBinding
@@ -394,44 +394,19 @@ class HomeFragment : Fragment() {
 
         // Toggle Floating Rocker
         binding.btnQuickRocker.setOnClickListener {
+            if (RockerOverlay.isEnabled) {
+                RockerOverlay.setEnabled(false)
+                updateMockButtonState()
+                return@setOnClickListener
+            }
             if (!OverlayUtils.hasOverlayPermissions(requireContext())) {
                 Toast.makeText(requireContext(), "请先授权悬浮窗权限", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            if (mockServiceViewModel.locationManager == null) {
-                Toast.makeText(requireContext(), "定位服务加载异常", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            if (!RockerOverlay.setEnabled(true)) {
+                Toast.makeText(requireContext(), "悬浮窗显示失败，请检查悬浮窗权限", Toast.LENGTH_SHORT).show()
             }
-            if (!mockServiceViewModel.isServiceStart()) {
-                Toast.makeText(requireContext(), "请先启动模拟后再使用摇杆", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val rocker = mockServiceViewModel.rocker
-            if (rocker.isStart) {
-                rocker.hide()
-                mockServiceViewModel.setMoving(false)
-            } else {
-                rocker.show()
-                rocker.setRockerListener(object : RockerView.Companion.OnMoveListener {
-                    override fun onAngle(angle: Double) {
-                        mockServiceViewModel.setBearing(angle)
-                    }
-
-                    override fun onLockChanged(isLocked: Boolean) {
-                        mockServiceViewModel.isRockerLocked = isLocked
-                    }
-
-                    override fun onFinished() {
-                        if (!mockServiceViewModel.isRockerLocked) {
-                            mockServiceViewModel.setMoving(false)
-                        }
-                    }
-
-                    override fun onStarted() {
-                        mockServiceViewModel.setMoving(true)
-                    }
-                })
-            }
+            updateMockButtonState()
         }
 
         // Save location
@@ -474,10 +449,6 @@ class HomeFragment : Fragment() {
                 Toast.makeText(requireContext(), mockServiceViewModel.failureMessage(), Toast.LENGTH_LONG).show()
                 return@launch
             }
-            if (mockServiceViewModel.rocker.isStart) {
-                mockServiceViewModel.rocker.hide()
-                mockServiceViewModel.setMoving(false)
-            }
             updateMockButtonState()
             Toast.makeText(requireContext(), "模拟已停止", Toast.LENGTH_SHORT).show()
         }
@@ -491,6 +462,7 @@ class HomeFragment : Fragment() {
         binding.btnQuickMock.isEnabled = !isApplyingLocation && isRunning
         binding.btnQuickMock.text = "停止模拟"
         binding.btnQuickMock.setIconResource(R.drawable.baseline_stop_24)
+        binding.btnQuickRocker.text = if (RockerOverlay.isEnabled) "关闭悬浮窗" else "开启悬浮窗"
     }
 
     @SuppressLint("SetTextI18n")

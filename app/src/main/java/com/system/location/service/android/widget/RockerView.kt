@@ -195,7 +195,7 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        if (event == null) return false
+        if (event == null || !isEnabled) return false
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 listener?.onStarted()
@@ -322,8 +322,11 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
 
     fun reset() {
         // joystick back to center
+        lockRunnable?.let { handler.removeCallbacks(it) }
+        lockRunnable = null
         mRockerPosition = Point()
         isLocked.set(false)
+        listener?.onLockChanged(false)
         invalidate()
     }
 

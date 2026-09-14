@@ -195,12 +195,16 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        mockServiceViewModel.initRocker(this)
     }
 
     override fun onStart() {
         super.onStart()
         if (::binding.isInitialized) startupUpdateViewModel.check()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        com.system.location.service.ui.mock.RockerOverlay.refresh()
     }
 
     override fun onStop() {

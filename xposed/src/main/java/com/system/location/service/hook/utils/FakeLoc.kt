@@ -153,7 +153,7 @@ object FakeLoc {
         return LocationSample(
             Wgs84(point.first, point.second), altitude, accuracy.coerceAtLeast(0.1f),
             if (now - lastMovementNanos <= maxOf(500L, reportIntervalMs * 2) * 1_000_000) movementSpeed else 0f,
-            ((bearing % 360 + 360) % 360).toFloat(),
+            ((bearing % 360 + 360) % 360).toFloat().coerceAtMost(359.99997f),
             timeMillis, lastSampleNanos,
         ).also { sample = it }
     }

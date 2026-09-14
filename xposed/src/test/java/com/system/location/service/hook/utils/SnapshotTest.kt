@@ -4,6 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SnapshotTest {
+    @Test fun legacyBearingNearFullCircleRemainsValidAfterFloatRounding() {
+        val old = FakeLoc.bearing
+        try {
+            FakeLoc.bearing = 359.9999999
+            FakeLoc.updateCoordinates(25.0, 119.0, nowNanos = 1)
+            assertTrue(FakeLoc.snapshot(true, 2, 2).bearing < 360f)
+        } finally { FakeLoc.bearing = old }
+    }
     @Test fun externallyPublishedFixIsSharedWithoutRewritingItsFieldsOrTime() {
         val fix = com.system.location.service.core.location.LocationSample(
             com.system.location.service.core.geo.Wgs84(25.123456789123, 119.123456789123), 82.0, 4f, 8f, 92f, 100, 100)

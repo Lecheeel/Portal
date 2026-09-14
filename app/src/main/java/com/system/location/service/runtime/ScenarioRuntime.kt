@@ -6,6 +6,8 @@ import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.system.location.service.LocationServiceApp
 import com.system.location.service.backend.xposed.XposedBackend
+import com.system.location.service.backend.mock.MockProviderBackend
+import com.system.location.service.backend.mock.AndroidMockProviderPort
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.runtime.*
 import com.system.location.service.core.scenario.Scenario
@@ -22,6 +24,7 @@ object ScenarioRuntime {
     val controller = ScenarioController({ type ->
         when (type) {
             BackendType.XPOSED -> XposedBackend(context)
+            BackendType.MOCK_PROVIDER -> MockProviderBackend(AndroidMockProviderPort(context))
             else -> error("此后端尚未安装")
         }
     }, object : RuntimeClock {
@@ -34,7 +37,9 @@ object ScenarioRuntime {
     @Volatile private var ready = CompletableDeferred<Unit>()
     private val initialized by lazy {
         scope.async {
-            controller.selectBackend(BackendType.XPOSED)
+            val selected = runCatching { BackendType.valueOf(preferences.getString("backend", "MOCK_PROVIDER")!!) }
+                .getOrDefault(BackendType.MOCK_PROVIDER)
+            controller.selectBackend(selected)
             if (preferences.getBoolean("interrupted", false)) {
                 controller.interrupted("上次场景未正常结束，运行进程已中断；请重试停止或重新启动")
             }
@@ -43,7 +48,9 @@ object ScenarioRuntime {
 
     fun initialize() { initialized.start() }
 
-    fun selectBackend(type: BackendType) = command { controller.selectBackend(type) }
+    fun selectBackend(type: BackendType) = command {
+        controller.selectBackend(type).also { if (it) preferences.edit().putString("backend", type.name).commit() }
+    }
     fun start(scenario: Scenario) : Deferred<Boolean> {
         val frozen = scenario.frozen()
         return command {

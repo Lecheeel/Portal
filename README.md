@@ -1,176 +1,75 @@
 # LocationService
 
-> 基于 [Portal](https://github.com/fuqiuluo/Portal) 的二次开发版本，用于 Android 定位检测技术研究。
+基于 [Portal](https://github.com/fuqiuluo/Portal) 的 Android 定位实验应用。同一套单点或路线场景可选择标准 Mock Provider、Xposed 系统后端，或明确启用的实验性 Native 扩展。支持 Android 12 / API 31 及以上；具体 ROM 和定位消费者的行为需要设备验证。
 
----
+| 运行方式 | 要求 | 已实现的能力 | 限制 |
+|---|---|---|---|
+| 标准 Mock Provider | 开发者选项选择本应用为模拟位置应用；前台位置权限 | GPS/Network 标准 Provider、单点、路线、暂停/恢复、前台服务、停止清理 | 不需要 Root/LSPosed/Native；保留 Android 模拟标记；未集成 GMS Mock API |
+| Xposed | 兼容 Xposed API 的框架；启用系统作用域并重启 | 接收统一定位样本；保留 system_server、电话、融合和已列出的厂商 Hook；系统侧诊断 | 私有 API 和 Hook 命中依赖 Android/ROM；单独勾选目标 App 不提供独立场景能力 |
+| Native + Xposed（实验性） | Xposed 条件、Root、arm64、明确选择实验后端 | 基于 Xposed 发布定位，按需安装原有 Dobby 传感器扩展 | 固定系统库路径、符号与结构偏移；不保证兼容；停止禁用行为，卸载已装 Hook 需重启系统 |
+| 仅有 Root | 可使用标准 Mock 模式 | Root 本身不是定位发布后端 | 不等价于已安装 Xposed；不会自动关闭 SELinux |
 
-## 项目简介
+无 Root 模式不是 Xposed 的等价替代。本项目不承诺不可检测、全部应用支持或所有 ROM 兼容。
 
-本项目是对 Portal 进行的深度二次开发。原项目通过 Hook 系统服务实现虚拟定位，本分支在此基础上系统性地清除了所有静态与直接可探测指纹，以便于研究更细粒度的 Android 定位检测技术，并为后续添加测试挡位功能预留了扩展空间。
+## 使用
 
-任何 App 通过常规手段（包名枚举、字符串扫描、反编译、`sendExtraCommand` 探测、系统属性遍历、logcat 检索等）都无法确认本模块的存在，检测难度被推高到设备特征与时序分析层级。
+1. 在侧栏打开“后端与运行状态”，选择后端。默认是标准 Mock Provider。
+2. 无 Root 模式：在系统开发者选项的“选择模拟位置信息应用”中选择 LocationService，授予精确位置权限，从应用前台启动场景。悬浮窗仅用于首页摇杆，不是启动定位的前置条件。
+3. “位置模拟”页面可直接输入 **WGS84 纬度、经度**，无需地图 Key。也可保存到位置库，再从资料库启动。
+4. 路线库 → 地图建路线：依次选择起点/终点或搜索 POI，规划步行路线，确认后保存或保存并启动。高德地图显示/规划使用 GCJ02，保存和发布转换为 WGS84。地图与规划需要有效的高德 Key 和网络。
+5. 资料库提供路线、场景、位置的 JSON 导入/导出、重命名、复制和删除。路线可收藏，播放模式为单次、闭合循环、往返。导入文件包含完整版本化资料库；GPX UI 暂未实现。
+6. 在运行状态、单点或资料库页面暂停、恢复、停止；前台通知也可停止。UI 关闭不会主动停止播放。进程异常退出后报告中断并尝试清理，不自动恢复为“运行中”。Xposed 新发布会话在最后样本的单调时间超过 5 秒后停止模拟。
 
-本项目仅用于开发者调试定位相关程序，以及学习和研究 Android 定位机制。
+正在运行的路线是冻结快照。编辑资料库或设置不会更改当前场景；设置页参数用于下次启动，已保存场景使用自身参数。
 
----
+## 架构
 
-## 主要变更
-
-### P0 — 运行时直接指纹（已清除）
-
-这类指纹可被任意 App 以极低成本主动探测。
-
-| 项目 | 原始值 | 变更后 |
-|---|---|---|
-| 虚拟 Provider 名称 | `"portal"` | `"fused_ext"` |
-| `sendExtraCommand` 通信命令名 | `"portal"` | `"fused_ext"` |
-| `isProviderEnabled` 探测判断 | `provider == "portal"` | `provider == "fused_ext"` |
-| 系统属性注入标志 key | `"portal.injected_${pkg}"` | `"_lp.${hex(pkg.hashCode())}"` |
-| 随机会话 key 前缀 | `"portal_" + Random` | 纯 hex 随机数，无前缀 |
-
-**影响**：原版任何 App 只需调用 `LocationManager.sendExtraCommand("portal", ...)` 或遍历 `System.getProperties()` 查找 `portal.*` 前缀即可确认模块存在。清除后这两条探测路径均失效。
-
-### P1 — 静态指纹（已清除）
-
-这类指纹在 APK 扫描、包管理器枚举、反编译等场景下可被识别。
-
-| 项目 | 原始值 | 变更后 |
-|---|---|---|
-| `applicationId` / 包名 | `moe.fuqiuluo.portal` | `com.system.location.service` |
-| Xposed 模块包名 | `moe.fuqiuluo.xposed` | `com.system.location.service.hook` |
-| JNI/Dobby 包名 | `moe.fuqiuluo.dobby` | `com.system.location.service.jni` |
-| Xposed 入口类 (`xposed_init`) | `moe.fuqiuluo.xposed.FakeLocation` | `com.system.location.service.hook.FakeLocation` |
-| Xposed 模块描述 | `基于 Xposed 实现 虚拟位置定位服务` | `Location Service Extension` |
-| 原生库名 | `libportal.so` | `liblocationext.so` |
-| 原生库运行时路径 | `/data/local/portal-lib/libportal.so` | `/data/local/ext-lib/liblocationext.so` |
-| CMake 项目名 | `Portal` | `LocationExt` |
-| JNI 导出函数符号 | `Java_moe_fuqiuluo_dobby_Dobby_setStatus` | `Java_com_system_location_service_jni_Dobby_setStatus` |
-| 构建输出 APK 名 | `Portal-v*.apk` | `LocationService-v*.apk` |
-| Application 类名 | `Portal` | `LocationServiceApp` |
-| 日志标签 | `[Portal]`（Xposed/Kotlin/C++ 三层） | `[LocationService]` |
-| 颜色资源名 | `portal_*`（colors/layouts/themes） | `lse_*` |
-| Style/Theme 名 | `Portal.*` / `Theme.Portal` | `LocationService.*` / `Theme.LocationService` |
-| 通知渠道名 | `Portal Location` | `LocationService` |
-| C++ 头文件宏 | `PORTAL_*_H` | `LOCATIONEXT_*_H` |
-| 运行时库加载方法 | `loadPortalLibrary()` | `loadLocationLibrary()` |
-
-所有 `.kt`、`.java`、`.xml`、`.cpp`、`.kts` 等源码与资源文件均已批量同步更新，磁盘目录结构与包名完全一致，无遗漏。
-
-### P2 — 运行时可观测行为指纹（已清除）
-
-这类指纹需要调用方具备一定分析能力才可发现，但并不复杂。
-
-| 项目 | 原始行为 | 变更后 |
-|---|---|---|
-| `Location.extras` 写入 `"portal.enable"` | 非 hide 模式下写入 Bundle，直接暴露模块标识 | 完全移除，任何模式下均不写入 |
-| `Location.extras` 写入 `"is_mock"` | 非 hide 模式下写入 Bundle | 完全移除，通过 `location.isMock` 标准字段表达 |
-| Binder 接口描述符 | `moe.fuqiuluo.portal.service.${from}Helper` | `android.location.service.${from}Provider` |
-| BinderUtils 包名白名单过滤 | 硬编码 `moe.fuqiuluo.portal` | 同步更新为新包名 |
-
----
-
-## 架构说明
-
-```
-LocationService/
-├── app/                        # 主应用（用户界面、配置管理、地图交互）
-│   └── com.system.location.service
-├── xposed/                     # Xposed 模块（系统服务 Hook）
-│   ├── com.system.location.service.hook
-│   └── com.system.location.service.jni  (Dobby 原生传感器 Hook)
-├── nmea/                       # NMEA 句子解析与注入
-│   └── moe.microbios.nmea
-└── system-api/                 # 编译用系统 API 桩
-    └── com.system.location.service.api
+```text
+Fragment / Map binding → ViewModel / editor events
+                                  ↓
+                     ScenarioRuntime（应用进程）
+                                  ↓
+                 ScenarioController + PlaybackEngine（core）
+                                  ↓ LocationSample（WGS84）
+                MockProvider / Xposed / Native backend
+                                  ↓
+                  RuntimeState + DiagnosticEvent → UI
 ```
 
-**通信机制**：App 通过 `LocationManager.sendExtraCommand("fused_ext", sessionKey, bundle)` 与 system_server 进程内的 Hook 进行 IPC 通信，会话 key 在每次启动时随机生成，防止第三方枚举探测。
+`ScenarioService` 持有 tick 循环及有超时的唤醒锁；领域引擎按实际单调经过时间推进，暂停时间不累计为移动距离。Route/Scenario/坐标/播放与 Android、地图 SDK、Xposed 解耦。Xposed 使用经 UID/实际包名认证的版本化 IPC，一次命令传完整样本，辅助进程不重新计算路线。
 
----
+旧 Float 坐标迁移为 Double 字符串，旧路线 JSON 和收藏位置 CSV 迁入 `schemaVersion=1` 的原子文件资料库。旧偏好保留，无效记录有迁移诊断；历史 Float 已丢失的精度不能恢复。
 
-## 功能列表
+详见 [架构与边界](docs/architecture.md)、[验收记录](docs/verification.md) 和 [提交清单](docs/implementation-commits.md)。
 
-- [x] 任意场景下强制替换 GPS / 网络 / 融合定位坐标
-- [x] Hook GNSS 卫星数据（颗数、信噪比、NMEA 句子）
-- [x] Hook 基站 / 电话信息（TelephonyRegistry、PhoneInterfaceManager）
-- [x] Hook Wi-Fi 扫描结果与连接信息
-- [x] Hook 三方定位 SDK（高德、百度、腾讯）
-- [x] 支持路线录制与回放
-- [x] 摇杆实时移动位置
-- [x] 可配置速度、高度、精度、航向
-- [x] 传感器 Hook（Dobby 原生库，需 root）
-- [x] 隐藏 `isMock` 标志（Android 12+）
-- [ ] 测试挡位模式（规划中，将支持逐层开启各类 Hook）
+## 构建与检查
 
----
+| 工具 | 当前配置 |
+|---|---|
+| JDK | 25（Gradle daemon 配置与 CI）；Java/Kotlin 字节码目标 17 |
+| Gradle / AGP / Kotlin | 9.7.0 / 9.3.1 / 2.4.10 |
+| Android SDK | compile/target 37，min 31 |
+| NDK / CMake | 28.2.13676358 / 3.31.6 |
 
-## 使用要求
+`local.properties` 配置本机 SDK。地图 Key 通过 `AMAP_ANDROID_KEY` 环境变量传入，并在高德控制台绑定实际包名和签名。无 Key 可以构建及使用手动单点、已保存路线；地图在线能力不保证可用。
 
-- Android 12 (API 31) 及以上
-- 已安装 [LSPosed](https://github.com/LSPosed/LSPosed) 框架
-- Root 权限（传感器 Hook 功能需要）
-- 在 LSPosed 中激活模块，作用域选择 `android`、`com.android.phone` 及目标应用
-
----
-
-## 构建要求
-
-本项目工具链保持最新稳定版本，持续跟进 Android 生态演进。
-
-| 组件 | 版本 | 说明 |
-|---|---|---|
-| JDK | 17+（推荐 21 / 25） | CI 使用 JDK 21 |
-| Gradle | 9.7.0 | wrapper 已锁定 |
-| AGP | 9.3.1 | 内置 Kotlin，无需单独应用 `kotlin-android` 插件 |
-| Kotlin | 2.4.10 | 含 serialization 编译器插件，路线 JSON 无需运行时反射 |
-| compileSdk | 37 | minSdk 31 / targetSdk 37 |
-| Build Tools | 36.0.0 | AGP 9.3 要求 |
-| NDK | 28.2.13676358 | `sdkmanager "ndk;28.2.13676358"` |
-| CMake | 3.31.6 | `sdkmanager "cmake;3.31.6"` |
-
-主要依赖（均保持最新稳定版）：`androidx.core-ktx 1.19.0`、`appcompat 1.8.0`、`material 1.14.0`、`constraintlayout 2.2.2`、`lifecycle 2.11.0`、`navigation 2.9.8`、`kotlinx.serialization 1.11.0`、`GeographicLib-Java 2.1`、`Bugly 4.1.9.3`、`Xposed API 82`、`Dobby 1.2`。
-
-> **JDK 24+ 注意**：使用 JDK 24/25 构建时（例如 Android Studio 自带的 JBR 25），需设置环境变量
-> `JAVA_TOOL_OPTIONS=--enable-native-access=ALL-UNNAMED`，否则 AGP 的 prefab 原生构建任务
-> 会把 JVM 的 restricted-method 警告误判为错误导致构建失败。CI 工作流已包含该设置。
-
----
-
-## 研究参考
-
-原版 Portal 存在以下几条低成本探测路径，本分支已对其进行清除：
-
-```kotlin
-// 原版：直接探测 portal provider（已清除）
-val bundle = Bundle()
-val exists = locationManager.sendExtraCommand("portal", "exchange_key", bundle)
-
-// 原版：枚举系统属性（已清除）
-val isInjected = System.getProperties().keys.any {
-    it.toString().startsWith("portal.")
-}
-
-// 原版：读取 Location extras（已清除）
-val isMocked = location.extras?.getBoolean("portal.enable") == true
+```sh
+export JAVA_TOOL_OPTIONS=--enable-native-access=ALL-UNNAMED
+./gradlew test :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest
+./gradlew lint --max-workers=1
+./gradlew :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION=YOUR_GIT_SHA
 ```
 
-清除以上路径后，检测难度进入下一层级（设备特征、时序分析、卫星数据一致性等），这也是本二次开发的研究目标所在。
+Windows 使用 `gradlew.bat`，PowerShell 用 `$env:JAVA_TOOL_OPTIONS='--enable-native-access=ALL-UNNAMED'`。检查顺序与 CI 一致；lint 独立单 worker 执行，避开本次合并调用时出现的 Kotlin FIR 分析器异常，未关闭 lint 检查；异常根因尚未确认。
 
----
+版本由显式输入确定：`APP_VERSION_NAME` 默认 `1.1.0`、`APP_VERSION_CODE` 默认 `1790000000`、`BUILD_REVISION` 默认 `unknown`。版本码沿用比旧时间戳版本更大的固定起点，后续发布必须递增；不再用版本码推断构建时间。构建配置不查询公网 IP、主机名、工作目录或当前时间，不执行 Git 命令。依赖、SDK 下载仍可能需要网络。未声称跨机器 APK 字节完全相同。
 
-## 致谢
+导出目录 `app/build/outputs/distribution/`：`LocationService-v1.1.0-all.apk`、`-arm64.apk`、`-x86_64.apk`。导出使用 AGP 公共 artifacts API。未配置签名时 Release APK 未签名；分发安装请设置 `KEYSTORE_PATH`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`。PR CI 不依赖签名或地图 secrets。
 
-- [fuqiuluo/Portal](https://github.com/fuqiuluo/Portal)
-- [GoGoGo](https://github.com/ZCShou/GoGoGo)
-- [Baidu Map SDK](https://lbsyun.baidu.com/faq/api?title=androidsdk)
-- [LSPosed](https://github.com/LSPosed/LSPosed)
-- [Dobby](https://github.com/jmpews/Dobby)
+## 验证边界与来源
 
----
+本次已执行源码检查、JVM 单元测试、lint、Debug/Release 构建和 APK ABI 检查；当前没有连接设备。前台服务/电源策略、AppOps 撤销、实际定位消费者、高德在线返回、system_server Binder 与 Native ROM 行为均需真机验收。当前 Bugly x86_64 依赖仍有 16 KB 页对齐 lint 警告，不能宣称所有 16 KB 页设备兼容。
 
-## 免责声明
+参考项目用于学习领域分层、Provider 生命周期、资料库与诊断设计，本次未复制参考目录中 GPL/AGPL 项目的实现；未引入 SharedMemory、ptrace、Compose 重写或默认噪声。保留 Portal、LSPosed、Dobby 与地图 SDK 的来源和依赖关系。原 README 声明 Apache 2.0；实际再分发仍须核对仓库和各第三方组件的许可证、版权与 NOTICE 要求。
 
-1. 本项目基于 Apache 2.0 许可证开放，可用于任何符合法律的目的，包括商业和非商业用途，特别鼓励用于学习和研究。
-2. 使用者须遵守当地相关法律法规，因使用本软件导致的任何后果由使用者自行承担，与本项目开发者无关。
-3. 如发现任何人利用本项目进行违法活动，请收集证据并向有关部门举报。
-4. 根据 Apache 2.0，再分发时需保留原始版权声明、NOTICE 文件、许可证副本，并说明所做的重大修改。
+保留原有致谢：[Portal](https://github.com/fuqiuluo/Portal)、[GoGoGo](https://github.com/ZCShou/GoGoGo)、[百度地图 SDK](https://lbsyun.baidu.com/faq/api?title=androidsdk)、[LSPosed](https://github.com/LSPosed/LSPosed)、[Dobby](https://github.com/jmpews/Dobby)。当前地图适配使用高德 SDK。

@@ -8,6 +8,7 @@ enum class Capability { STANDARD_MOCK, XPOSED, NATIVE, GMS_FUSED, BACKGROUND_PLA
 enum class Availability { AVAILABLE, REQUIRES_ACTION, UNAVAILABLE, EXPERIMENTAL }
 data class CapabilityStatus(val availability: Availability, val reason: String = "")
 typealias BackendCapabilities = Map<Capability, CapabilityStatus>
+data class BackendDiagnostic(val stage: String, val result: String, val reason: String, val suggestion: String = "")
 
 sealed class BackendResult {
     data object Success : BackendResult()
@@ -24,4 +25,5 @@ interface LocationBackend {
     suspend fun resume(): BackendResult = BackendResult.Success
     suspend fun stop(): BackendResult
     suspend fun release(): BackendResult
+    suspend fun diagnose(): List<BackendDiagnostic> = emptyList()
 }

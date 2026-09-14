@@ -13,6 +13,7 @@
         <TextView android:id="@+id/runtime_state" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="16dp" android:textIsSelectable="true" />
         <Button android:id="@+id/pause_resume" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="暂停 / 恢复" />
         <Button android:id="@+id/stop_runtime" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="停止并清理（失败可重试）" />
+        <Button android:id="@+id/refresh_diagnostics" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="刷新后端与 Hook 诊断" />
         <TextView android:id="@+id/capabilities" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="16dp" android:textIsSelectable="true" />
         <TextView android:id="@+id/diagnostics" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="16dp" android:textIsSelectable="true" />
     </LinearLayout>

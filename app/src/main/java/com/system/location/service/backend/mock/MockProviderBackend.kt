@@ -19,6 +19,10 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
         private set
     private val owned = linkedSetOf<String>()
     override val type = BackendType.MOCK_PROVIDER
+    override suspend fun diagnose() = listOf(
+        BackendDiagnostic("MOCK_PERMISSION", if (port.permissionGranted()) "AVAILABLE" else "REQUIRES_ACTION",
+            "标准模拟位置授权；Provider 状态：$phase", "在开发者选项中选择本应用"),
+        BackendDiagnostic("PROVIDER_OWNERSHIP", "INFO", "待清理 Provider：${port.pendingProviders().joinToString().ifEmpty { "无" }}"))
     override val capabilities get() = Capability.entries.associateWith {
         when (it) {
             Capability.STANDARD_MOCK -> CapabilityStatus(

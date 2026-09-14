@@ -78,6 +78,7 @@ object ScenarioRuntime {
         return false
     }
     fun pause() = command { controller.pause() }
+    fun refreshDiagnostics() = command { controller.refreshDiagnostics(); true }
     fun resume() = command { controller.resume() }
     fun motion(bearing: Double, moving: Boolean) = command { controller.setMotion(bearing, moving) }
     fun stop() = command {

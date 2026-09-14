@@ -13,6 +13,8 @@ class NativeBackend(private val context: Context) : LocationBackend {
     private val manager = context.getSystemService(LocationManager::class.java)
     private var sensorsEnabled = false
     override val type = BackendType.NATIVE
+    override suspend fun diagnose() = xposed.diagnose() + BackendDiagnostic("NATIVE", "EXPERIMENTAL",
+        "Native 依赖 Xposed；当前实例传感器启用状态：$sensorsEnabled", "符号安装成功不等于 ROM 行为已验证")
     override val capabilities get() = xposed.capabilities + mapOf(
         Capability.NATIVE to CapabilityStatus(Availability.EXPERIMENTAL, "需要 Root 与 Xposed；固定符号、偏移，未进行设备兼容性验证"),
         Capability.SENSOR_SIMULATION to CapabilityStatus(Availability.EXPERIMENTAL, "停止只禁用行为；已安装的 Native Hook 需重启系统才能卸载"))

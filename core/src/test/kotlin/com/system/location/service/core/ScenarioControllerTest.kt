@@ -54,7 +54,7 @@ class ScenarioControllerTest {
         backend.failPublish = true
         assertFalse(c.start(scenario)); assertEquals(RuntimePhase.ERROR, c.state.value.phase)
         assertEquals(listOf("stop", "release"), backend.calls.takeLast(2))
-        assertEquals("PUBLISH", c.diagnostics.value.single().stage)
+        assertEquals("PUBLISH", c.diagnostics.value.last { it.result == "FAILED" }.stage)
         backend.failPublish = false
         assertTrue(c.start(scenario))
     }

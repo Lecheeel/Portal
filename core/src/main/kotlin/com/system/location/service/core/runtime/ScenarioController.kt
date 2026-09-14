@@ -87,6 +87,17 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         event(failure)
     }
 
+    suspend fun refreshDiagnostics() = mutex.withLock {
+        val instance = backend ?: createBackend(state.value.backend) ?: return@withLock
+        try {
+            instance.diagnose().forEach { diagnostic ->
+                record(diagnostic.stage, diagnostic.result, diagnostic.reason, diagnostic.suggestion)
+            }
+            mutableState.value = state.value.copy(capabilities = instance.capabilities)
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) { event(BackendResult.Failure("DIAGNOSE", error.message ?: "诊断失败")) }
+    }
+
     private fun createBackend(type: BackendType): LocationBackend? = try { factory(type) }
     catch (cancelled: CancellationException) { throw cancelled }
     catch (error: Exception) {
@@ -120,6 +131,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         if (!step("PUBLISH") { backend!!.publish(frame.sample) }) return false
         mutableState.value = state.value.copy(sample = frame.sample, currentPoint = frame.segment,
             progress = frame.progress, lastUpdateAt = frame.sample.timeMillis)
+        record("PUBLISH", "SUCCESS", "最近定位样本已提交至后端")
         if (frame.completed) return stopLocked()
         return true
     }
@@ -137,6 +149,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
             event(result)
             return false
         }
+        if (stage != "PUBLISH") record(stage, "SUCCESS", "后端操作完成")
         return true
     }
 
@@ -152,14 +165,18 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         mutableState.value = state.value.copy(phase = if (failure == null) RuntimePhase.STOPPED else RuntimePhase.ERROR,
             error = failure, sample = state.value.sample?.copy(speed = 0f))
         failure?.let(::event)
+        if (failure == null) record("CLEANUP", "SUCCESS", "后端已停止并释放资源")
         failure == null
     }
 
     private fun event(failure: BackendResult.Failure) {
+        record(failure.stage, "FAILED", failure.reason, failure.suggestion)
+    }
+    private fun record(stage: String, result: String, reason: String, suggestion: String = "") {
         val now = clock.millis()
-        val previous = mutableDiagnostics.value.lastOrNull()
-        if (previous?.stage == failure.stage && previous.reason == failure.reason && now - previous.timestamp < 5000) return
+        val previous = mutableDiagnostics.value.lastOrNull { it.stage == stage && it.result == result && it.reason == reason }
+        if (previous != null && now - previous.timestamp < 5000) return
         mutableDiagnostics.value = (mutableDiagnostics.value + DiagnosticEvent(now, state.value.backend,
-            failure.stage, "FAILED", failure.reason, failure.suggestion)).takeLast(100)
+            stage, result, reason, suggestion)).takeLast(100)
     }
 }

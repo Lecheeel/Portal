@@ -51,6 +51,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             if (ScenarioRuntime.state.value.phase == RuntimePhase.PAUSED) ScenarioRuntime.resume() else ScenarioRuntime.pause()
         }
         binding.stopRuntime.setOnClickListener { ScenarioRuntime.stop() }
+        binding.refreshDiagnostics.setOnClickListener { ScenarioRuntime.refreshDiagnostics() }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
@@ -73,7 +74,8 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
                 }
                 launch {
                     ScenarioRuntime.diagnostics.collect { events ->
-                        binding.diagnostics.text = "最近诊断\n" + events.takeLast(20).asReversed().joinToString("\n\n") {
+                        val migration = com.system.location.service.data.repository.LibraryRepositories.migrationIssues()
+                        binding.diagnostics.text = "旧资料迁移：${if (migration.isEmpty()) "无已记录问题" else migration.joinToString("; ")}\n最近诊断\n" + events.takeLast(80).asReversed().joinToString("\n\n") {
                             "${it.backend} · ${it.stage} · ${it.result}\n${it.reason}\n${it.suggestion}"
                         }
                     }

@@ -11,6 +11,16 @@ class XposedBackend(private val context: Context) : LocationBackend {
     private val manager = context.getSystemService(LocationManager::class.java)
     private var connected = false
     override val type = BackendType.XPOSED
+    override suspend fun diagnose(): List<BackendDiagnostic> {
+        if (!MockServiceHelper.isServiceInit()) MockServiceHelper.tryInitService(manager)
+        val status = MockServiceHelper.runtimeStatus(manager)
+        connected = status?.getInt("sample_version") == 1
+        if (!connected) return listOf(BackendDiagnostic("REMOTE_COMMAND", "FAILED", "未连接兼容的系统模块", "启用系统作用域，安装当前版本并重启"))
+        return listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "system_server 远程通道已连接"),
+            BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status!!.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),
+            BackendDiagnostic("LAST_PUBLISH", "INFO", "系统侧最近发布时间：${status.getLong("last_publish")}; 启用状态：${status.getBoolean("is_start")}")) +
+            status.getStringArrayList("hook_details").orEmpty().take(60).map { BackendDiagnostic("HOOK_POINT", "INFO", it) }
+    }
     override val capabilities get() = Capability.entries.associateWith { capability ->
         when (capability) {
             Capability.XPOSED, Capability.GNSS_INJECTION -> CapabilityStatus(

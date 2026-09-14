@@ -156,8 +156,7 @@ class HomeFragment : Fragment() {
             if (_binding == null || displayingSimulation || mockServiceViewModel.runtimeState.value.isActive || loc == null || loc.errorCode != 0 || loc.isMock) return@setLocationListener
 
             val wgs = realPositionFilter.accept(loc.wgs84, loc.time, loc.accuracy, loc.speed) ?: return@setLocationListener
-            if (aMapViewModel.originalLocation == null) {
-                aMapViewModel.originalLocation = wgs
+            if (aMapViewModel.rememberOriginalLocation(wgs, loc.isMock, mockServiceViewModel.runtimeState.value.isActive)) {
                 renderOriginalPosition()
             }
             showCurrentPosition(wgs, loc.accuracy)

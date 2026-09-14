@@ -21,6 +21,14 @@ class AMapViewModel: ViewModel() {
     var currentLocation: Pair<Double, Double>? = null
     // First trusted real fix for this app session. Never assigned from simulation samples.
     var originalLocation: Pair<Double, Double>? = null
+        private set
+
+    fun rememberOriginalLocation(point: Pair<Double, Double>, isMock: Boolean, simulationActive: Boolean): Boolean {
+        if (originalLocation != null || isMock || simulationActive ||
+            point.first !in -90.0..90.0 || point.second !in -180.0..180.0) return false
+        originalLocation = point
+        return true
+    }
 
     var markName: String? = null
 

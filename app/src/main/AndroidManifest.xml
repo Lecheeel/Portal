@@ -56,6 +56,9 @@
             </intent-filter>
         </activity>
 
+        <service android:name=".runtime.ScenarioService" android:exported="false"
+            android:foregroundServiceType="location" />
+
         <!-- 高德地图定位服务 -->
         <service
             android:name="com.amap.api.location.APSService"

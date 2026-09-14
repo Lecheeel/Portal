@@ -81,6 +81,12 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
 
     suspend fun stop(): Boolean = mutex.withLock { stopLocked() }
 
+    suspend fun reportFailure(failure: BackendResult.Failure) = mutex.withLock {
+        stopLocked()
+        mutableState.value = state.value.copy(phase = RuntimePhase.ERROR, error = failure)
+        event(failure)
+    }
+
     private fun createBackend(type: BackendType): LocationBackend? = try { factory(type) }
     catch (cancelled: CancellationException) { throw cancelled }
     catch (error: Exception) {

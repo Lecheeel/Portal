@@ -12,6 +12,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -35,10 +36,8 @@ import com.system.location.service.ext.needOpenSELinux
 import com.system.location.service.ext.rawHistoricalLocations
 import com.system.location.service.ext.selectLocation
 import com.system.location.service.ext.speed
-import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 import com.system.location.service.ui.viewmodel.MockViewModel
-import com.system.location.service.hook.utils.FakeLoc
 
 class MockFragment : Fragment() {
     private var _binding: FragmentMockBinding? = null
@@ -108,16 +107,14 @@ class MockFragment : Fragment() {
                         rocker.show()
                     } else {
                         rocker.hide()
-                        rockerCoroutineController.pause()
+                        setMoving(false)
                     }
                 }
             }
 
             rocker.setRockerListener(object: RockerView.Companion.OnMoveListener {
                 override fun onAngle(angle: Double) {
-                    MockServiceHelper.setBearing(locationManager!!, angle)
-                    FakeLoc.bearing = angle
-                    FakeLoc.hasBearings = true
+                    setBearing(angle)
                 }
 
                 override fun onLockChanged(isLocked: Boolean) {
@@ -126,12 +123,12 @@ class MockFragment : Fragment() {
 
                 override fun onFinished() {
                     if (!isRockerLocked) {
-                        rockerCoroutineController.pause()
+                        setMoving(false)
                     }
                 }
 
                 override fun onStarted() {
-                    rockerCoroutineController.resume()
+                    setMoving(true)
                 }
             })
         }
@@ -146,8 +143,7 @@ class MockFragment : Fragment() {
         val locations = requireContext().historicalLocations
 
         binding.mockLocationCard.setOnClickListener {
-            val location = MockServiceHelper.getLocation(mockServiceViewModel.locationManager!!)
-            Toast.makeText(requireContext(), "Location$location, ListenerSize: ${MockServiceHelper.getLocationListenerSize(mockServiceViewModel.locationManager!!)}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), mockServiceViewModel.runtimeState.value.toString(), Toast.LENGTH_SHORT).show()
         }
 
         // 2024.10.10: sort historical locations
@@ -161,19 +157,8 @@ class MockFragment : Fragment() {
                 mockServiceViewModel.selectedLocation = loc
                 requireContext().selectLocation = loc
 
-                if (mockServiceViewModel.locationManager == null) {
-                    Toast.makeText(requireContext(), "定位服务加载异常", Toast.LENGTH_SHORT).show()
-                    CrashReport.postCatchedException(RuntimeException("运行时mockServiceViewModel.locationManager为空！"))
-                    return@HistoricalLocationAdapter
-                }
+                showToast("已选择位置；点击开始后应用新场景")
 
-                if (MockServiceHelper.isMockStart(mockServiceViewModel.locationManager!!)) {
-                    if (MockServiceHelper.setLocation(mockServiceViewModel.locationManager!!, loc.lat, loc.lon)) {
-                        Toast.makeText(requireContext(), "位置更新成功", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(requireContext(), "更新位置失败", Toast.LENGTH_SHORT).show()
-                    }
-                }
             }
         }
         val recyclerView = binding.historicalLocationList
@@ -214,94 +199,37 @@ class MockFragment : Fragment() {
     }
 
     private fun tryOpenService(button: MaterialButton) {
-        if (!OverlayUtils.hasOverlayPermissions(requireContext())) {
-            showToast("请授权悬浮窗权限")
-            return
-        }
-
-        val selectedLocation = mockServiceViewModel.selectedLocation ?: run {
-            showToast("请选择一个位置")
-            return
-        }
-
-        if (mockServiceViewModel.locationManager == null) {
-            showToast("定位服务加载异常")
-            return
-        }
-
-        if (!MockServiceHelper.isServiceInit()) {
-            showToast("系统服务注入失败")
-            return
-        }
-
+        val selected = mockServiceViewModel.selectedLocation ?: run { showToast("请先选择位置"); return }
         lifecycleScope.launch {
-            val context = requireContext()
-            val speed = context.speed
-            val altitude = context.altitude
-            val accuracy = context.accuracy
-
-            button.isClickable = false
-            mockServiceViewModel.stopMovement()
+            button.isEnabled = false
             try {
-                withContext(Dispatchers.IO) {
-                    mockServiceViewModel.locationManager!!.let {
-                        if (MockServiceHelper.tryOpenMock(it, speed, altitude, accuracy, selectedLocation.lat to selectedLocation.lon)) {
-                            updateMockButtonState(button, "停止模拟", R.drawable.rounded_play_disabled_24)
-                        } else {
-                            showToast("模拟服务启动失败")
-                            return@withContext
-                        }
-
-                        showToast("更新位置成功")
-
-                    }
-                }
-            } finally {
-                button.isClickable = true
-            }
+                if (mockServiceViewModel.startPoint(selected.lat to selected.lon, selected.name)) {
+                    updateMockButtonState(button, "停止模拟", R.drawable.rounded_play_disabled_24)
+                } else showToast(mockServiceViewModel.failureMessage())
+            } finally { button.isEnabled = true }
         }
-
-
     }
 
     private fun tryCloseService(button: MaterialButton) {
-        if (mockServiceViewModel.locationManager == null) {
-            showToast("定位服务加载异常")
-            return
-        }
-
-        if (!MockServiceHelper.isServiceInit()) {
-            showToast("系统服务注入失败")
-            return
-        }
-
         lifecycleScope.launch {
-            button.isClickable = false
-            mockServiceViewModel.stopMovement()
+            button.isEnabled = false
             try {
-                val isClosed = withContext(Dispatchers.IO) {
-                    if (!MockServiceHelper.isMockStart(mockServiceViewModel.locationManager!!)) {
-                        showToast("模拟服务未启动")
-                        return@withContext false
-                    }
+                if (mockServiceViewModel.stopScenario()) {
+                    updateMockButtonState(button, "开始模拟", R.drawable.rounded_play_arrow_24)
+                    if (mockServiceViewModel.rocker.isStart) mockServiceViewModel.rocker.hide()
+                } else showToast(mockServiceViewModel.failureMessage())
+            } finally { button.isEnabled = true }
+        }
+    }
 
-                    if (MockServiceHelper.tryCloseMock(mockServiceViewModel.locationManager!!)) {
-                        updateMockButtonState(button, "开始模拟", R.drawable.rounded_play_arrow_24)
-                        return@withContext true
-                    } else {
-                        showToast("模拟服务停止失败")
-                        return@withContext false
-                    }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                mockServiceViewModel.runtimeState.collect { state ->
+                    binding.switchMock.text = if (state.isActive) "停止模拟" else "开始模拟"
+                    binding.switchMock.setIconResource(if (state.isActive) R.drawable.rounded_play_disabled_24 else R.drawable.rounded_play_arrow_24)
                 }
-                if (isClosed && mockServiceViewModel.rocker.isStart) {
-                    binding.rocker.isClickable = false
-                    binding.rocker.toggle()
-                    mockServiceViewModel.rocker.hide()
-                    mockServiceViewModel.rockerCoroutineController.pause()
-                    binding.rocker.isClickable = true
-                }
-            } finally {
-                button.isClickable = true
             }
         }
     }

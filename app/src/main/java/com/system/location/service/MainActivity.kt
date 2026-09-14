@@ -78,16 +78,9 @@ class MainActivity : AppCompatActivity() {
         val permissions = mutableSetOf(
             ACCESS_FINE_LOCATION,
             ACCESS_COARSE_LOCATION,
-            ACCESS_LOCATION_EXTRA_COMMANDS,
-            ACCESS_WIFI_STATE,
-            CHANGE_WIFI_STATE,
-            READ_PHONE_STATE,
-            INTERNET,
-            ACCESS_NETWORK_STATE,
-            VIBRATE
         )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            permissions.add(FOREGROUND_SERVICE)
+        if (Build.VERSION.SDK_INT >= 33) {
+            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         return permissions
     }
@@ -101,9 +94,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (denied.isEmpty()) {
-            requireFloatWindows()
-        }
     }
 
     private fun showPermissionDeniedToast(permission: String) {
@@ -141,15 +131,10 @@ class MainActivity : AppCompatActivity() {
 
         CrashReport.setUserSceneTag(this, 261771)
 
-        if (!ShellUtils.hasRoot()) {
-            Toast.makeText(this, "无Root可能导致传感器Hook失效", Toast.LENGTH_LONG).show()
-        }
-
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
-                if (checkPermission()) {
-                    mockServiceViewModel.locationManager = getSystemService(LOCATION_SERVICE) as? LocationManager
-                }
+                checkPermission()
+                mockServiceViewModel.locationManager = getSystemService(LOCATION_SERVICE) as? LocationManager
 
                 initNotification()
 
@@ -302,7 +287,6 @@ class MainActivity : AppCompatActivity() {
                 } + "，请手动授权！", Toast.LENGTH_SHORT).show()
             }
 
-            setContentView(R.layout.activity_no_permission)
         }
     }
 

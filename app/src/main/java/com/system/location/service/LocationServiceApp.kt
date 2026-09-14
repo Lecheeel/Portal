@@ -26,6 +26,7 @@ class LocationServiceApp: Application() {
         CrashReport.setCollectPrivacyInfo(applicationContext, true)
 
         appContext = applicationContext
+        com.system.location.service.runtime.ScenarioRuntime.initialize()
 
         //CrashReport.setAllThreadStackEnable(applicationContext, true, true)
     }

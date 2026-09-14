@@ -65,8 +65,6 @@ import com.system.location.service.ext.selectLocation
 import com.system.location.service.ext.selectRoute
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.wgs84
-import com.system.location.service.hook.utils.FakeLoc
-import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.ui.mock.HistoricalLocation
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.HomeViewModel
@@ -233,12 +231,8 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewLifecycleOwner.lifecycleScope.launch {
             for (target in targetUpdates) {
-                val lm = mockServiceViewModel.locationManager ?: continue
-                val applied = withContext(Dispatchers.IO) {
-                    mockServiceViewModel.stopMovement()
-                    if (!MockServiceHelper.isMockStart(lm)) null
-                    else MockServiceHelper.setLocation(lm, target.first, target.second)
-                }
+                val applied = if (mockServiceViewModel.isServiceStart())
+                    mockServiceViewModel.startPoint(target) else null
                 if (applied == true) {
                     displayingSimulation = true
                     showCurrentPosition(target, requireContext().accuracy)
@@ -249,12 +243,10 @@ class HomeFragment : Fragment() {
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                while (isActive) {
-                    val lm = mockServiceViewModel.locationManager
-                    val (running, position) = withContext(Dispatchers.IO) {
-                        val running = lm != null && MockServiceHelper.isMockStart(lm)
-                        running to if (running) MockServiceHelper.getLocation(lm!!) else null
-                    }
+                mockServiceViewModel.runtimeState.collect { state ->
+                    val running = state.isActive
+                    val position = state.sample?.coordinate?.let { it.latitude to it.longitude }
+                    updateMockButtonState()
                     displayingSimulation = running
                     if (running) {
                         if (mLocationClient.isStarted) mLocationClient.stopLocation()
@@ -263,7 +255,6 @@ class HomeFragment : Fragment() {
                         realPositionFilter = PositionFilter()
                         mLocationClient.startLocation()
                     }
-                    delay(200)
                 }
             }
         }
@@ -439,16 +430,12 @@ class HomeFragment : Fragment() {
             val rocker = mockServiceViewModel.rocker
             if (rocker.isStart) {
                 rocker.hide()
-                mockServiceViewModel.rockerCoroutineController.pause()
+                mockServiceViewModel.setMoving(false)
             } else {
                 rocker.show()
                 rocker.setRockerListener(object : RockerView.Companion.OnMoveListener {
                     override fun onAngle(angle: Double) {
-                        mockServiceViewModel.locationManager?.let { lm ->
-                            MockServiceHelper.setBearing(lm, angle)
-                        }
-                        FakeLoc.bearing = angle
-                        FakeLoc.hasBearings = true
+                        mockServiceViewModel.setBearing(angle)
                     }
 
                     override fun onLockChanged(isLocked: Boolean) {
@@ -457,12 +444,12 @@ class HomeFragment : Fragment() {
 
                     override fun onFinished() {
                         if (!mockServiceViewModel.isRockerLocked) {
-                            mockServiceViewModel.rockerCoroutineController.pause()
+                            mockServiceViewModel.setMoving(false)
                         }
                     }
 
                     override fun onStarted() {
-                        mockServiceViewModel.rockerCoroutineController.resume()
+                        mockServiceViewModel.setMoving(true)
                     }
                 })
             }
@@ -475,25 +462,11 @@ class HomeFragment : Fragment() {
     }
 
     private fun tryOpenMock() {
-        if (!OverlayUtils.hasOverlayPermissions(requireContext())) {
-            Toast.makeText(requireContext(), "请授权悬浮窗权限", Toast.LENGTH_SHORT).show()
-            return
-        }
         val target = aMapViewModel.markedLoc ?: aMapViewModel.currentLocation
         if (target == null) {
             Toast.makeText(requireContext(), "请先在地图上选择位置", Toast.LENGTH_SHORT).show()
             return
         }
-        val lm = mockServiceViewModel.locationManager
-        if (lm == null) {
-            Toast.makeText(requireContext(), "定位服务尚未初始化", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (!MockServiceHelper.isServiceInit()) {
-            Toast.makeText(requireContext(), "系统Hook模块未就绪", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         val name = aMapViewModel.markName ?: "目标位置"
         val hist = HistoricalLocation(name, name, target.first, target.second)
         requireContext().selectLocation = hist
@@ -504,28 +477,26 @@ class HomeFragment : Fragment() {
         val accuracy = requireContext().accuracy
 
         lifecycleScope.launch {
-            mockServiceViewModel.stopMovement()
-            val started = withContext(Dispatchers.IO) {
-                MockServiceHelper.tryOpenMock(lm, speed, altitude, accuracy, target)
-            }
+            val started = mockServiceViewModel.startPoint(target, name)
             if (_binding == null) return@launch
             displayingSimulation = started
             if (started) showCurrentPosition(target, accuracy)
             updateMockButtonState()
-            Toast.makeText(requireContext(), if (started) "已开始位置模拟" else "模拟启动失败", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), if (started) "已开始位置模拟" else mockServiceViewModel.failureMessage(), Toast.LENGTH_LONG).show()
         }
     }
 
     private fun tryCloseMock() {
-        val lm = mockServiceViewModel.locationManager ?: return
         lifecycleScope.launch {
-            mockServiceViewModel.stopMovement()
-            withContext(Dispatchers.IO) {
-                MockServiceHelper.tryCloseMock(lm)
+            val stopped = mockServiceViewModel.stopScenario()
+            if (_binding == null) return@launch
+            if (!stopped) {
+                Toast.makeText(requireContext(), mockServiceViewModel.failureMessage(), Toast.LENGTH_LONG).show()
+                return@launch
             }
             if (mockServiceViewModel.rocker.isStart) {
                 mockServiceViewModel.rocker.hide()
-                mockServiceViewModel.rockerCoroutineController.pause()
+                mockServiceViewModel.setMoving(false)
             }
             updateMockButtonState()
             Toast.makeText(requireContext(), "模拟已停止", Toast.LENGTH_SHORT).show()

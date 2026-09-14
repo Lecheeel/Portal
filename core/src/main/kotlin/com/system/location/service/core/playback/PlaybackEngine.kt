@@ -26,6 +26,7 @@ class PlaybackEngine(input: Scenario) {
     private var point = points.first()
     private var manualBearing = 0.0
     private var manualMoving = false
+    private var speedMps = scenario.profile.speedMps
     private var orbitEnabled = false
     private var orbitRadiusMeters = 0.2
     private var orbitPhase = 0.0
@@ -46,20 +47,23 @@ class PlaybackEngine(input: Scenario) {
         orbitEnabled = enabled
         orbitRadiusMeters = radiusMeters
     }
+    fun setSpeed(speed: Double) {
+        require(speed.isFinite() && speed in 0.0..1000.0)
+        speedMps = speed
+    }
 
     fun tick(nowNanos: Long, wallTimeMillis: Long): PlaybackFrame {
         require(nowNanos >= 0 && wallTimeMillis >= 0)
         val now = maxOf(nowNanos, previousNanos ?: nowNanos)
         val dt = previousNanos?.let { (now - it) / 1_000_000_000.0 } ?: 0.0
         previousNanos = now
-        val profile = scenario.profile
         if (scenario.route == null) {
             val moving = manualMoving && !paused
             if (moving && dt > 0) {
-                val fix = Geodesic.WGS84.Direct(point.latitude, point.longitude, manualBearing, profile.speedMps * dt)
+                val fix = Geodesic.WGS84.Direct(point.latitude, point.longitude, manualBearing, speedMps * dt)
                 point = Wgs84(fix.lat2, fix.lon2)
-            } else if (orbitEnabled && !paused && !manualMoving && dt > 0) {
-                val angularSpeed = (profile.speedMps.coerceAtLeast(0.05) / orbitRadiusMeters)
+            } else if (orbitEnabled && !paused && !manualMoving && speedMps > 0 && dt > 0) {
+                val angularSpeed = speedMps / orbitRadiusMeters
                 orbitPhase = (orbitPhase + angularSpeed * dt) % (2.0 * Math.PI)
                 val bearing = Math.toDegrees(orbitPhase)
                 val fix = Geodesic.WGS84.Direct(orbitCenter.latitude, orbitCenter.longitude,
@@ -68,10 +72,10 @@ class PlaybackEngine(input: Scenario) {
             }
             val orbiting = orbitEnabled && !paused && !manualMoving
             val outputBearing = if (orbiting) (Math.toDegrees(orbitPhase) + 90.0) else manualBearing
-            return frame(point, outputBearing, if (moving) profile.speedMps else if (orbiting) profile.speedMps else 0.0,
+            return frame(point, outputBearing, if (moving) speedMps else if (orbiting) speedMps else 0.0,
                 now, wallTimeMillis, 0, 0.0, false)
         }
-        if (!paused) travelled += profile.speedMps * dt
+        if (!paused) travelled += speedMps * dt
         val finished = scenario.mode == RouteMode.ONCE && travelled >= totalDistance
         val cycle = when (scenario.mode) {
             RouteMode.ONCE -> travelled.coerceAtMost(totalDistance)
@@ -93,7 +97,7 @@ class PlaybackEngine(input: Scenario) {
         val result = Geodesic.WGS84.Direct(from.latitude, from.longitude, inverse.azi1, distance - cumulative[segment])
         val coordinate = if (distance >= totalDistance) points.last() else Wgs84(result.lat2, result.lon2)
         val bearing = result.azi2 + if (backwards) 180 else 0
-        return frame(coordinate, bearing, if (paused || finished) 0.0 else profile.speedMps,
+        return frame(coordinate, bearing, if (paused || finished) 0.0 else speedMps,
             now, wallTimeMillis, segment, distance / totalDistance, finished)
     }
 

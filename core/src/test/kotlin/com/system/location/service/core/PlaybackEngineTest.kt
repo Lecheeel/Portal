@@ -87,6 +87,10 @@ class PlaybackEngineTest {
         val distance = Geodesic.WGS84.Inverse(center.latitude, center.longitude,
             sample.latitude, sample.longitude).s12
         assertEquals(0.2, distance, 0.002)
+        e.setSpeed(0.0)
+        val stopped = e.tick(5_000_000_000, 5000).sample
+        assertEquals(sample.coordinate, stopped.coordinate)
+        assertEquals(0f, stopped.speed)
     }
 
     @Test fun invalidProfilesAndScenariosAreRejected() {

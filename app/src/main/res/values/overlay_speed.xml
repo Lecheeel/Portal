@@ -1,0 +1,7 @@
+<resources>
+    <string name="overlay_route_speed">路线速度</string>
+    <string name="overlay_speed_value">%1$.2f m/s</string>
+    <string name="overlay_speed_decrease">速度降低 0.1 米/秒</string>
+    <string name="overlay_speed_increase">速度增加 0.1 米/秒</string>
+    <string name="overlay_speed_failed">场景状态已变化或调速失败，请重试</string>
+</resources>

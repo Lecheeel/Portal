@@ -15,6 +15,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.mock.RockerOverlay
+import com.system.location.service.ext.speed
+import com.system.location.service.ext.sharedPrefs
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -40,6 +44,9 @@ class RockerOverlayTest {
         }
         val preferences = context.getSharedPreferences("rocker_overlay", Context.MODE_PRIVATE)
         val previouslyEnabled = preferences.getBoolean("enabled", true)
+        val hadSpeed = context.sharedPrefs.contains("speed")
+        val savedSpeed = context.speed
+        context.speed = 3.05
         preferences.edit().remove("enabled").commit()
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -50,8 +57,16 @@ class RockerOverlayTest {
                 }
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed())).perform(click())
                 overlay(R.id.rocker).check(matches(isDisplayed()))
+                overlay(R.id.speed_title).check(matches(withText(R.string.rocker_speed)))
+                overlay(R.id.speed_slider).check(matches(isDisplayed()))
+                overlay(R.id.speed_up).perform(click())
+                runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.15) > 0.001) delay(10) } }
+                overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_value, context.speed))))
                 overlay(R.id.expand_menu).perform(click())
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
+                overlay(R.id.rocker_minimized).perform(click())
+                overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_value, context.speed))))
+                overlay(R.id.expand_menu).perform(click())
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
                 scenario.recreate()
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
@@ -72,6 +87,7 @@ class RockerOverlayTest {
         } finally {
             instrumentation.runOnMainSync { RockerOverlay.setEnabled(false) }
             preferences.edit().putBoolean("enabled", previouslyEnabled).commit()
+            if (hadSpeed) context.speed = savedSpeed else context.sharedPrefs.edit().remove("speed").commit()
             if (!overlayWasAllowed) overlayPermission("default")
         }
     }

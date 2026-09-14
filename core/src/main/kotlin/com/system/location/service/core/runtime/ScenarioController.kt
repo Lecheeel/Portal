@@ -47,7 +47,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         next.setOrbit(orbitEnabled, orbitRadiusMeters)
         intervalMs = next.scenario.profile.intervalMs
         mutableState.value = RuntimeState(RuntimePhase.PREPARING, type, input.id, input.name,
-            input.route?.id, capabilities = instance.capabilities)
+            input.route?.id, capabilities = instance.capabilities, configuredSpeedMps = next.scenario.profile.speedMps)
         if (!step("PREPARE") { instance.prepare() }) return@withLock false
         mutableState.value = state.value.copy(phase = RuntimePhase.READY, capabilities = instance.capabilities)
         if (!step("START") { instance.start() }) return@withLock false
@@ -88,6 +88,15 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         orbitRadiusMeters = radiusMeters
         engine?.setOrbit(enabled, radiusMeters)
         true
+    }
+    suspend fun setSpeed(speed: Double): Boolean = mutex.withLock {
+        if (!speed.isFinite() || speed !in 0.0..1000.0 ||
+            state.value.phase !in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) return@withLock false
+        // Settle elapsed movement at the old speed before changing it.
+        if (!publishLocked() || !state.value.isActive) return@withLock false
+        engine!!.setSpeed(speed)
+        mutableState.value = state.value.copy(configuredSpeedMps = speed)
+        publishLocked()
     }
 
     suspend fun stop(): Boolean = mutex.withLock { stopLocked() }

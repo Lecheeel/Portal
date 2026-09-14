@@ -1,16 +1,20 @@
 package com.system.location.service.ui.mock
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.hardware.display.DisplayManager
 import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.Display
 import android.view.WindowManager
+import android.widget.Toast
 import com.system.location.service.LocationServiceApp
 import com.system.location.service.R
 import com.system.location.service.android.widget.RockerView
 import com.system.location.service.android.window.OverlayUtils
 import com.system.location.service.core.runtime.RuntimePhase
+import com.system.location.service.ext.sharedPrefs
+import com.system.location.service.ext.speed
 import com.system.location.service.runtime.ScenarioRuntime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +33,9 @@ object RockerOverlay {
     private var moving = false
     private var locked = false
     private var bearing = 0.0
+    private val speedPreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "speed") scope.launch { updateSpeedState() }
+    }
     val isEnabled get() = preferences.getBoolean("enabled", true)
     val isVisible get() = rocker?.isStart == true
 
@@ -42,6 +49,7 @@ object RockerOverlay {
         }
         if (!observing) {
             observing = true
+            context.sharedPrefs.registerOnSharedPreferenceChangeListener(speedPreferenceListener)
             scope.launch {
                 ScenarioRuntime.state.map { Triple(it.phase, it.scenarioId, it.startedAt) }
                     .distinctUntilChanged().collect {
@@ -52,6 +60,10 @@ object RockerOverlay {
                         updatePlaybackState()
                     }
             }
+            scope.launch {
+                ScenarioRuntime.state.map { Triple(it.phase, it.routeId, it.configuredSpeedMps) }
+                    .distinctUntilChanged().collect { updateSpeedState() }
+            }
         }
         return try {
             val window = rocker ?: Rocker(ContextThemeWrapper(
@@ -60,6 +72,15 @@ object RockerOverlay {
                     .createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null), R.style.AppTheme
             )).also { view ->
                 rocker = view
+                view.onSpeedChanged = { speed ->
+                    val change = ScenarioRuntime.setSpeed(speed)
+                    scope.launch {
+                        if (!change.await()) {
+                            updateSpeedState()
+                            Toast.makeText(context, R.string.overlay_speed_failed, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
                 view.setRockerListener(object : RockerView.Companion.OnMoveListener {
                     override fun onStarted() {
                         bearing = ScenarioRuntime.state.value.sample?.bearing?.toDouble() ?: bearing
@@ -79,6 +100,7 @@ object RockerOverlay {
                 })
             }
             updatePlaybackState()
+            updateSpeedState()
             window.show()
             true
         } catch (error: RuntimeException) {
@@ -111,5 +133,11 @@ object RockerOverlay {
             RuntimePhase.PAUSED -> "模拟已暂停"
             else -> "未在模拟 · 请在主页启动"
         })
+    }
+
+    private fun updateSpeedState() {
+        val state = ScenarioRuntime.state.value
+        rocker?.setSpeedState(state.isActive && state.routeId != null,
+            if (state.isActive) state.configuredSpeedMps ?: context.speed else context.speed)
     }
 }

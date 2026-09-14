@@ -13,6 +13,7 @@ import com.system.location.service.core.runtime.*
 import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.ext.experimentalOrbitMotion
 import com.system.location.service.ext.experimentalOrbitRadius
+import com.system.location.service.ext.speed
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -87,6 +88,22 @@ object ScenarioRuntime {
     fun refreshDiagnostics() = command { controller.refreshDiagnostics(); true }
     fun resume() = command { controller.resume() }
     fun motion(bearing: Double, moving: Boolean) = command { controller.setMotion(bearing, moving) }
+    fun setSpeed(speed: Double): Deferred<Boolean> {
+        val expected = state.value
+        return command {
+            val current = state.value
+            if (!speed.isFinite() || speed !in 0.0..1000.0 ||
+                current.scenarioId != expected.scenarioId || current.startedAt != expected.startedAt ||
+                current.phase != expected.phase) return@command false
+            val accepted = if (current.isActive) controller.setSpeed(speed) else true
+            if (accepted) context.speed = speed
+            if (current.isActive && !state.value.isActive) {
+                if (state.value.phase == RuntimePhase.STOPPED) preferences.edit().putBoolean("interrupted", false).commit()
+                finishService()
+            }
+            accepted
+        }
+    }
     fun stop() = command {
         val stopped = controller.stop()
         if (stopped) {

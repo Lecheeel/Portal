@@ -1,0 +1,7 @@
+<resources>
+    <string name="overlay_route_speed">ルート速度</string>
+    <string name="overlay_speed_value">%1$.2f m/s</string>
+    <string name="overlay_speed_decrease">速度を 0.1 m/s 下げる</string>
+    <string name="overlay_speed_increase">速度を 0.1 m/s 上げる</string>
+    <string name="overlay_speed_failed">シーンの状態が変わったか、速度変更に失敗しました。再試行してください</string>
+</resources>

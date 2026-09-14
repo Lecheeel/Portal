@@ -8,6 +8,7 @@ import com.system.location.service.core.scenario.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import net.sf.geographiclib.Geodesic
 
 class ScenarioControllerTest {
     private class Clock : RuntimeClock {
@@ -34,6 +35,62 @@ class ScenarioControllerTest {
         }
     }
     private val scenario = Scenario("s", "test", route = Route("r", "route", listOf(Wgs84(0.0, 0.0), Wgs84(0.01, 0.01))))
+
+    @Test fun speedChangesSettleOldMotionForBothRoutesAndJoystick() = runBlocking {
+        for (route in listOf(false, true)) {
+            val clock = Clock()
+            val c = ScenarioController({ Backend() }, clock)
+            val scene = if (route) scenario else Scenario("p", "point", point = Wgs84(0.0, 0.0))
+            assertTrue(c.start(scene.copy(profile = MovementProfile(speedMps = 2.0))))
+            if (!route) assertTrue(c.setMotion(90.0, true))
+            val startedAt = c.state.value.startedAt
+            clock.time = 1000
+            assertTrue(c.setSpeed(8.0))
+            fun distance(): Double = c.state.value.sample!!.let {
+                Geodesic.WGS84.Inverse(0.0, 0.0, it.latitude, it.longitude).s12
+            }
+            assertEquals(2.0, distance(), 1e-5)
+            assertEquals(8f, c.state.value.sample!!.speed)
+            assertEquals(8.0, c.state.value.configuredSpeedMps!!, 0.0)
+            assertEquals(startedAt, c.state.value.startedAt)
+            clock.time = 2000
+            c.tick()
+            assertEquals(10.0, distance(), 1e-5)
+            assertTrue(c.pause())
+            val paused = c.state.value.sample!!.coordinate
+            clock.time = 50000
+            assertTrue(c.setSpeed(4.0))
+            assertEquals(paused, c.state.value.sample!!.coordinate)
+            assertEquals(0f, c.state.value.sample!!.speed)
+            assertEquals(4.0, c.state.value.configuredSpeedMps!!, 0.0)
+            assertTrue(c.resume())
+            clock.time = 51000
+            c.tick()
+            assertEquals(14.0, distance(), 1e-5)
+            assertTrue(c.setSpeed(0.0))
+            clock.time = 60000
+            c.tick()
+            assertEquals(14.0, distance(), 1e-5)
+            assertFalse(c.setSpeed(Double.NaN))
+            assertFalse(c.setSpeed(-1.0))
+            assertFalse(c.setSpeed(1001.0))
+            assertEquals(0.0, c.state.value.configuredSpeedMps!!, 0.0)
+            c.stop()
+            assertFalse(c.setSpeed(10.0))
+        }
+    }
+
+    @Test fun speedChangeHandlesCompletionAndPublishFailure() = runBlocking {
+        val clock = Clock(); val backend = Backend(); val c = ScenarioController({ backend }, clock)
+        c.start(scenario)
+        clock.time = 1_000_000
+        assertFalse(c.setSpeed(10.0))
+        assertEquals(RuntimePhase.STOPPED, c.state.value.phase)
+        c.start(scenario)
+        backend.failPublish = true
+        assertFalse(c.setSpeed(10.0))
+        assertEquals(RuntimePhase.ERROR, c.state.value.phase)
+    }
 
     @Test fun completeLifecycleAndSingleStateSource() = runBlocking {
         val clock = Clock(); val backend = Backend(); val c = ScenarioController({ backend }, clock)

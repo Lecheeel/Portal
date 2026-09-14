@@ -4,6 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
     app:startDestination="@+id/nav_home">
+    <fragment android:id="@+id/nav_runtime" android:name="com.system.location.service.ui.runtime.RuntimeFragment"
+        android:label="后端与运行状态" tools:layout="@layout/fragment_runtime" />
 
     <fragment
         android:id="@+id/nav_home"

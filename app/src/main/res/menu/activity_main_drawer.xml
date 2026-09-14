@@ -4,6 +4,7 @@
     tools:showIn="navigation_view">
 
     <group android:checkableBehavior="single">
+        <item android:id="@+id/nav_runtime" android:icon="@drawable/baseline_play_24" android:title="后端与运行状态" />
         <item
             android:id="@+id/nav_home"
             android:icon="@drawable/baseline_edit_location_alt_24"

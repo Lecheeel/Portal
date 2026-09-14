@@ -940,8 +940,7 @@ internal object LocationServiceHook: BaseLocationHook() {
             }
 
             if (!called) {
-                Logger.error("callOnLocationChanged failed: " + error?.stackTraceToString())
-                Logger.error("The listener all methods: " + listener.javaClass.declaredMethods.joinToString { it.name })
+                Logger.error("Location listener delivery failed", error ?: IllegalStateException("No supported listener method"))
             }
         }
 

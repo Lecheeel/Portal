@@ -1,4 +1,6 @@
 <resources>
     <string name="clear_mock_flag_experiment">送信前に模擬位置フラグを解除（実験）</string>
     <string name="clear_mock_flag_experiment_desc">Root 不要の標準模擬位置モード専用。初期状態はオフで、変更は次回送信から反映されます。リフレクションでローカルの Location の変更を試みます。失敗しても送信は継続します。システムが再び模擬位置としてマークする場合があり、実際の位置への復帰を防ぐ保証はありません。診断を更新して実験の状態を確認してください。</string>
+    <string name="orbit_motion_experiment">静止時の小半径円運動（実験）</string>
+    <string name="orbit_motion_experiment_desc">ジョイスティックを離すと開始地点の周囲を連続して周回します。初期半径は0.20m。単一点シミュレーション専用です。</string>
 </resources>

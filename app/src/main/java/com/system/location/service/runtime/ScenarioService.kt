@@ -50,7 +50,10 @@ class ScenarioService : Service() {
         }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == STOP) ScenarioRuntime.stop()
+        if (intent?.action == STOP) ScenarioRuntime.stop().invokeOnCompletion {
+            // A notification action can recreate the service after its process was killed.
+            scope.launch(Dispatchers.Main) { if (!ScenarioRuntime.state.value.isActive) finishPlayback() }
+        }
         else {
             val request = intent?.getLongExtra(REQUEST, -1) ?: -1
             val error = startupError

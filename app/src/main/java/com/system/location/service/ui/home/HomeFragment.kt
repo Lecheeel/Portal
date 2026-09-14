@@ -595,14 +595,9 @@ class HomeFragment : Fragment() {
 
     private fun previewRoute(points: List<Pair<Double, Double>>) {
         aMapViewModel.aMap.clear()
-        for (i in 0 until points.size - 1) {
-            aMapViewModel.aMap.addPolyline(
-                PolylineOptions()
-                    .color(Color.argb(200, 59, 130, 246))
-                    .width(12f)
-                    .add(points[i].gcj02, points[i + 1].gcj02)
-            )
-        }
+        if (points.size >= 2) aMapViewModel.aMap.addPolyline(
+            PolylineOptions().color(Color.argb(200, 59, 130, 246)).width(12f).addAll(points.map { it.gcj02 })
+        )
     }
 
     @SuppressLint("SetTextI18n")
@@ -640,10 +635,11 @@ class HomeFragment : Fragment() {
                     return@setPositiveButton
                 }
 
-                val locations = requireContext().rawHistoricalLocations.toMutableSet()
-                locations.add(HistoricalLocation(name, address, lat, lon).toString())
-                requireContext().rawHistoricalLocations = locations
-                Toast.makeText(requireContext(), "已加入位置库", Toast.LENGTH_SHORT).show()
+                val saved = mockServiceViewModel.saveLocation(name, address, lat, lon)
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val result = saved.await()
+                    Toast.makeText(requireContext(), if (result.isSuccess) "已加入位置库" else "保存失败：${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                }
             }
             .setNegativeButton("取消", null)
             .show()

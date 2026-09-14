@@ -1,117 +1,60 @@
-name: Build Apks
+name: Verify and Build APKs
 
-on:
+"on":
   workflow_dispatch:
   push:
-    branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - '**.txt'
-      - '.github/**'
-      - '.idea/**'
-      - '!.github/workflows/**'
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  JAVA_TOOL_OPTIONS: --enable-native-access=ALL-UNNAMED
 
 jobs:
-  build:
-    name: Build LocationService
+  verify:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          
-      - name: Setup Java 21
-        uses:  gmitch215/setup-java@6d2c5e1f82f180ae79f799f0ed6e3e5efb4e664d
+      - uses: actions/setup-java@v4
         with:
-          distribution: jetbrains
-          java-version: 21
-
-      - name: Install NDK and CMake
-        run: |
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -f "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$SDK_ROOT" -name sdkmanager -type f 2>/dev/null | head -1)"
-          fi
-          echo "Using sdkmanager: ${SDKMANAGER}"
-          yes | "${SDKMANAGER}" --sdk_root="${SDK_ROOT}" "ndk;28.2.13676358" "cmake;3.31.6"
-
-      - name: Cache Gradle Dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            !~/.gradle/caches/build-cache-*
-          key: gradle-deps-core-${{ hashFiles('**/build.gradle.kts') }}
-          restore-keys: gradle-deps
-
-      - name: Cache Gradle Build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-*
-            ~/.gradle/buildOutputCleanup/cache.properties
-          key: gradle-builds-core-${{ github.sha }}
-          restore-keys: gradle-builds
-
-      - name: Setup google-services.json
-        run: |
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > app/google-services.json
-
-      - name: Build with Gradle
-        run: |
-          echo ${{ secrets.SIGN_KEYSTORE_BASE64 }} | base64 -d > keystore.jks
-          chmod +x ./gradlew
-          ./gradlew :app:testArm64DebugUnitTest :xposed:testDebugUnitTest :app:assembleRelease --build-cache --parallel --warning-mode all --stacktrace
-          echo "APK_FILE_ALL=$(find app/build/outputs/apk/app/release -name '*.apk')" >> $GITHUB_ENV
-          echo "APK_FILE_ARM64=$(find app/build/outputs/apk/arm64/release -name '*.apk')" >> $GITHUB_ENV
-          echo "APK_FILE_X86_64=$(find app/build/outputs/apk/x64/release -name '*.apk')" >> $GITHUB_ENV
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android toolchain
+        run: sdkmanager 'platforms;android-37' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.31.6'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare optional release signing
         env:
-          KEYSTORE_PATH: "../keystore.jks"
+          SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$SIGN_KEYSTORE_BASE64" ]; then
+            printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > keystore.jks
+            echo "KEYSTORE_PATH=../keystore.jks" >> "$GITHUB_ENV"
+          fi
+      - name: Unit tests, lint and release APKs
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest lint :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
+        env:
           KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.SIGN_ALIAS }}
           KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
           AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
-          JAVA_TOOL_OPTIONS: "--enable-native-access=ALL-UNNAMED"
-
-      - name: Set LocationService Version
-        run: |
-          version_name_all=$(basename -s .apk "${{ env.APK_FILE_ALL }}")
-          version_name_arm64=$(basename -s .apk "${{ env.APK_FILE_ARM64 }}")
-          version_name_x86_64=$(basename -s .apk "${{ env.APK_FILE_X86_64 }}")
-          echo "LS_VERSION_ALL=$version_name_all" >> $GITHUB_ENV
-          echo "LS_VERSION_ARM64=$version_name_arm64" >> $GITHUB_ENV
-          echo "LS_VERSION_X86_64=$version_name_x86_64" >> $GITHUB_ENV
-
-      - name: Show Artifacts SHA256
-        run: |
-          echo "### Build Success :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "|ABI|SHA256|" >> $GITHUB_STEP_SUMMARY
-          echo "|:--------:|:----------|" >> $GITHUB_STEP_SUMMARY
-          all=($(sha256sum "${{ env.APK_FILE_ALL }}"))
-          echo "|all|$all" >> $GITHUB_STEP_SUMMARY
-          arm64=($(sha256sum "${{ env.APK_FILE_ARM64 }}"))
-          echo "|arm64|$arm64" >> $GITHUB_STEP_SUMMARY
-          x86_64=($(sha256sum "${{ env.APK_FILE_X86_64 }}"))
-          echo "|x86_64|$x86_64" >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload ALL APK RELEASE
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.LS_VERSION_ALL }}"
-          path: "${{ env.APK_FILE_ALL }}"
-
-      - name: Upload ARM64 APK RELEASE
+          name: LocationService-${{ github.sha }}
+          path: app/build/outputs/distribution/*.apk
+      - name: Upload verification reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.LS_VERSION_ARM64 }}"
-          path: "${{ env.APK_FILE_ARM64 }}"
-
-      - name: Upload X86_64 APK RELEASE
-        uses: actions/upload-artifact@v4
-        with:
-          name: "${{ env.LS_VERSION_X86_64 }}"
-          path: "${{ env.APK_FILE_X86_64 }}"
+          name: verification-${{ github.sha }}
+          path: |
+            core/build/reports/tests/
+            app/build/reports/
+            xposed/build/reports/
+            system-api/build/reports/

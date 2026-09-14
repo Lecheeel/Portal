@@ -12,6 +12,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.Dispatchers
@@ -58,17 +59,8 @@ class SettingsFragment : Fragment() {
         val root: View = binding.root
 
         val context = requireContext()
-        binding.selinuxSwitch.isChecked = context.needOpenSELinux
-        binding.selinuxSwitch.setOnCheckedChangeListener(object: CompoundButton.OnCheckedChangeListener {
-            override fun onCheckedChanged(
-                buttonView: CompoundButton,
-                isChecked: Boolean
-            ) {
-                context.needOpenSELinux = isChecked
-                showToast(if (isChecked) "已开启SELinux" else "已关闭SELinux")
-            }
-        })
-
+        binding.selinuxLayout.visibility = View.GONE
+        binding.sensorHookLayout.visibility = View.GONE
         binding.altitudeValue.text = "%.2f米".format(context.altitude)
         binding.speedValue.text = "%.2f米/秒".format(context.speed)
         binding.accuracyValue.text = "%.2f米".format(context.accuracy)
@@ -78,7 +70,7 @@ class SettingsFragment : Fragment() {
         binding.altitudeLayout.setOnClickListener {
             showDialog("设置海拔高度", binding.altitudeValue.text.toString().let { it.substring(0, it.length - 1) }) {
                 val value = it.toDoubleOrNull()
-                if (value == null || value < 0.0) {
+                if (value == null || !value.isFinite() || value < 0.0) {
                     showToast("海拔高度不合法")
                     return@showDialog
                 } else if (value > 10000) {
@@ -93,7 +85,7 @@ class SettingsFragment : Fragment() {
         binding.speedLayout.setOnClickListener {
             showDialog("设置速度", binding.speedValue.text.toString().let { it.substring(0, it.length - 3) }) {
                 val value = it.toDoubleOrNull()
-                if (value == null || value < 0.0) {
+                if (value == null || !value.isFinite() || value < 0.0) {
                     showToast("速度不合法")
                     return@showDialog
                 } else if (value > 1000) {
@@ -109,7 +101,7 @@ class SettingsFragment : Fragment() {
         binding.accuracyLayout.setOnClickListener {
             showDialog("设置精度", binding.accuracyValue.text.toString().let { it.substring(0, it.length - 1) }) {
                 val value = it.toFloatOrNull()
-                if (value == null || value < 0.0) {
+                if (value == null || !value.isFinite() || value <= 0.0) {
                     Toast.makeText(context, "精度不合法", Toast.LENGTH_SHORT).show()
                     return@showDialog
                 } else if (value > 1000) {
@@ -182,18 +174,6 @@ class SettingsFragment : Fragment() {
             }
         })
 
-        binding.sensorHookSwitch.isChecked = context.hookSensor
-        binding.sensorHookSwitch.setOnCheckedChangeListener(object: CompoundButton.OnCheckedChangeListener {
-            override fun onCheckedChanged(
-                buttonView: CompoundButton,
-                isChecked: Boolean
-            ) {
-                context.hookSensor = isChecked
-                showToast("重新启动生效")
-                updateRemoteConfig()
-            }
-        })
-
         binding.reportDurationLayout.setOnClickListener {
             showDialog("设置上报间隔", binding.reportDurationValue.text.toString().let {
                 it.substring(0, it.length - 2)
@@ -234,17 +214,7 @@ class SettingsFragment : Fragment() {
         binding.disableWlanScanSwitch.isChecked = requireContext().disableWifiScan
         binding.disableWlanScanSwitch.setOnCheckedChangeListener { _, isChecked ->
             requireContext().disableWifiScan = isChecked
-            with(mockServiceViewModel) {
-                if (isChecked) {
-                    if(!MockServiceHelper.startWifiMock(locationManager!!)) {
-                        showToast("禁用WLAN扫描失败: 无法连接到系统服务")
-                    }
-                } else {
-                    if(!MockServiceHelper.stopWifiMock(locationManager!!)) {
-                        showToast("启用WLAN扫描失败: 无法连接到系统服务")
-                    }
-                }
-            }
+            updateRemoteConfig()
         }
 
         binding.loopBroadcastLocationSwitch.isChecked = requireContext().loopBroadcastlocation
@@ -257,6 +227,23 @@ class SettingsFragment : Fragment() {
         binding.checkUpdateButton.setOnClickListener { checkForUpdate() }
 
         return root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                com.system.location.service.runtime.ScenarioRuntime.state.collect { state ->
+                    val hooks = state.backend != com.system.location.service.core.backend.BackendType.MOCK_PROVIDER
+                    listOf(binding.debugSwitch, binding.dgcSwitch, binding.rllSwitch, binding.dfusedSwitch,
+                        binding.cdmaSwitch, binding.disableWlanScanSwitch, binding.loopBroadcastLocationSwitch).forEach {
+                        it.isEnabled = hooks
+                        it.contentDescription = if (hooks) "下次启动 Xposed 场景生效" else "标准 Mock 模式不支持系统 Hook 设置"
+                    }
+                    binding.satelliteCountLayout.isEnabled = hooks
+                }
+            }
+        }
     }
 
     private fun checkForUpdate() {
@@ -292,14 +279,7 @@ class SettingsFragment : Fragment() {
     }
 
     private fun updateRemoteConfig() {
-        val context = requireContext()
-        with(mockServiceViewModel) {
-            if(!MockServiceHelper.putConfig(locationManager ?: return, context)) {
-                showToast("更新远程配置失败")
-            } else {
-                showToast("同步配置成功")
-            }
-        }
+        showToast("配置已保存，下次启动场景生效")
     }
 
     @SuppressLint("MissingInflatedId")

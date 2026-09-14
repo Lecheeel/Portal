@@ -7,6 +7,7 @@ import android.util.Log
 import com.system.location.service.LocationServiceApp
 import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
+import com.system.location.service.ext.disableWifiScan
 import com.system.location.service.ext.debug
 import com.system.location.service.ext.disableFusedProvider
 import com.system.location.service.ext.disableGetCurrentLocation
@@ -320,6 +321,7 @@ object MockServiceHelper {
         rely.putDouble("speed", FakeLoc.speed)
         rely.putFloat("accuracy", FakeLoc.accuracy)
         rely.putLong("report_interval", broadcastInterval(context))
+        rely.putBoolean("enable_mock_wifi", context.disableWifiScan)
         rely.putBoolean("enable_debug_log", FakeLoc.enableDebugLog)
         rely.putBoolean("disable_get_current_location", FakeLoc.disableGetCurrentLocation)
         rely.putBoolean("disable_register_location_listener", FakeLoc.disableRegisterLocationListener)

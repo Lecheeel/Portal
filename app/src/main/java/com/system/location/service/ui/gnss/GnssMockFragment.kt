@@ -18,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.tencent.bugly.crashreport.CrashReport
 import com.tencent.bugly.proguard.bi
@@ -136,12 +137,21 @@ class GnssMockFragment : Fragment() {
         return root
     }
 
-    private fun tryOpenService(button: MaterialButton) {
-        if (!OverlayUtils.hasOverlayPermissions(requireContext())) {
-            showToast("请授权悬浮窗权限")
-            return
+    private fun observeCapabilities() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                com.system.location.service.runtime.ScenarioRuntime.state.collect { state ->
+                    val enabled = state.backend != com.system.location.service.core.backend.BackendType.MOCK_PROVIDER && state.isActive
+                    binding.switchGnssMock.isEnabled = enabled
+                    listOf(binding.switchRequestGeofence, binding.switchGetFromLocation, binding.switchEnableAgps,
+                        binding.switchEnableNmea).forEach { it.isEnabled = enabled }
+                    if (!enabled) binding.switchGnssMock.text = "需要运行 Xposed 场景"
+                }
+            }
         }
+    }
 
+    private fun tryOpenService(button: MaterialButton) {
         if (!MockServiceHelper.isServiceInit()) {
             showToast("系统服务注入失败")
             return
@@ -150,7 +160,6 @@ class GnssMockFragment : Fragment() {
         lifecycleScope.launch {
             button.isClickable = false
             try {
-                MockServiceHelper.putConfig(locationManager, requireContext())
                 if (MockServiceHelper.startGnssMock(locationManager)) {
                     updateMockButtonState(button, "停止模拟", R.drawable.rounded_play_disabled_24)
                 } else {
@@ -283,6 +292,7 @@ class GnssMockFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        observeCapabilities()
     }
 
     override fun onResume() {

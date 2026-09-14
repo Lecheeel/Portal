@@ -8,17 +8,30 @@ import com.system.location.service.ui.mock.HistoricalLocation
 import com.system.location.service.ui.mock.HistoricalRoute
 import com.system.location.service.ui.mock.RouteJson
 import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.data.persistence.CoordinatePreferences
 
 val Context.sharedPrefs
     get() = getSharedPreferences(MockServiceHelper.PROVIDER_NAME, Context.MODE_PRIVATE)!!
 
+private val Context.coordinatePreferences: CoordinatePreferences
+    get() = CoordinatePreferences({ sharedPrefs.all }) { values ->
+        sharedPrefs.edit {
+            values.forEach { (key, value) ->
+                when (value) {
+                    is String -> putString(key, value)
+                    is Int -> putInt(key, value)
+                }
+            }
+        }
+    }
+
 var Context.lastKnownLat: Double
-    get() = sharedPrefs.getFloat("last_known_lat", 0f).toDouble()
-    set(value) = sharedPrefs.edit { putFloat("last_known_lat", value.toFloat()) }
+    get() = coordinatePreferences.get(CoordinatePreferences.LATITUDE)
+    set(value) = coordinatePreferences.set(CoordinatePreferences.LATITUDE, value)
 
 var Context.lastKnownLng: Double
-    get() = sharedPrefs.getFloat("last_known_lng", 0f).toDouble()
-    set(value) = sharedPrefs.edit { putFloat("last_known_lng", value.toFloat()) }
+    get() = coordinatePreferences.get(CoordinatePreferences.LONGITUDE)
+    set(value) = coordinatePreferences.set(CoordinatePreferences.LONGITUDE, value)
 
 var Context.selectLocation: HistoricalLocation?
     get() {

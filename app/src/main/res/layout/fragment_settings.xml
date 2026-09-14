@@ -34,6 +34,45 @@
                 android:text="@string/clear_mock_flag_experiment_desc"
                 android:textSize="12sp" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/orbit_motion_switch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:padding="8dp"
+                android:text="@string/orbit_motion_experiment"
+                app:useMaterialThemeColors="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:text="@string/orbit_motion_experiment_desc"
+                android:textSize="12sp" />
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/orbit_radius_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="5dp">
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/orbit_radius_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="圆周运动半径"
+                    android:textColor="@color/lse_mini_title_color"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/orbit_radius_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0.20米"
+                    android:textSize="11sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
             <LinearLayout
                 android:id="@+id/selinux_layout"
                 android:visibility="gone"

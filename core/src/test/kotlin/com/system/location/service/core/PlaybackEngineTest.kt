@@ -77,6 +77,18 @@ class PlaybackEngineTest {
             moved.sample.latitude, moved.sample.longitude).s12, 1e-5)
     }
 
+    @Test fun orbitExperimentStaysWithinConfiguredRadius() {
+        val center = Wgs84(25.1, 119.1)
+        val e = PlaybackEngine(Scenario("p", "点", point = center,
+            profile = MovementProfile(speedMps = 0.2)))
+        e.setOrbit(true, 0.2)
+        e.tick(0, 0)
+        val sample = e.tick(1_000_000_000, 1000).sample
+        val distance = Geodesic.WGS84.Inverse(center.latitude, center.longitude,
+            sample.latitude, sample.longitude).s12
+        assertEquals(0.2, distance, 0.002)
+    }
+
     @Test fun invalidProfilesAndScenariosAreRejected() {
         assertThrows(IllegalArgumentException::class.java) { MovementProfile(speedMps = Double.NaN) }
         assertThrows(IllegalArgumentException::class.java) { Scenario("s", "name") }

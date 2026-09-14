@@ -91,8 +91,16 @@ var Context.reportDuration: Int
     }
 
 var Context.experimentalClearMockFlag: Boolean
-    get() = sharedPrefs.getBoolean("experimentalClearMockFlag", false)
+    get() = sharedPrefs.getBoolean("experimentalClearMockFlag", true)
     set(value) = sharedPrefs.edit { putBoolean("experimentalClearMockFlag", value) }
+
+var Context.experimentalOrbitMotion: Boolean
+    get() = sharedPrefs.getBoolean("experimentalOrbitMotion", false)
+    set(value) = sharedPrefs.edit { putBoolean("experimentalOrbitMotion", value) }
+
+var Context.experimentalOrbitRadius: Double
+    get() = sharedPrefs.getFloat("experimentalOrbitRadius", 0.2f).toDouble().coerceIn(0.05, 5.0)
+    set(value) = sharedPrefs.edit { putFloat("experimentalOrbitRadius", value.toFloat()) }
 
 var Context.minSatelliteCount: Int
     get() = sharedPrefs.getInt("minSatelliteCount", 12)

@@ -20,6 +20,8 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     val diagnostics = mutableDiagnostics.asStateFlow()
     private var backend: LocationBackend? = null
     private var engine: PlaybackEngine? = null
+    private var orbitEnabled = false
+    private var orbitRadiusMeters = 0.2
     @Volatile var intervalMs = 500L
         private set
 
@@ -42,6 +44,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         val instance = createBackend(type) ?: return@withLock false
         backend = instance
         engine = next
+        next.setOrbit(orbitEnabled, orbitRadiusMeters)
         intervalMs = next.scenario.profile.intervalMs
         mutableState.value = RuntimeState(RuntimePhase.PREPARING, type, input.id, input.name,
             input.route?.id, capabilities = instance.capabilities)
@@ -76,6 +79,14 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         if (engine?.scenario?.route != null || !state.value.isActive || !bearing.isFinite()) return@withLock false
         if (!publishLocked()) return@withLock false
         engine?.setMotion(bearing, moving)
+        true
+    }
+
+    suspend fun configureOrbit(enabled: Boolean, radiusMeters: Double): Boolean = mutex.withLock {
+        if (!radiusMeters.isFinite() || radiusMeters !in 0.05..5.0) return@withLock false
+        orbitEnabled = enabled
+        orbitRadiusMeters = radiusMeters
+        engine?.setOrbit(enabled, radiusMeters)
         true
     }
 

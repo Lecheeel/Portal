@@ -11,6 +11,8 @@ import com.system.location.service.backend.mock.AndroidMockProviderPort
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.runtime.*
 import com.system.location.service.core.scenario.Scenario
+import com.system.location.service.ext.experimentalOrbitMotion
+import com.system.location.service.ext.experimentalOrbitRadius
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -66,6 +68,7 @@ object ScenarioRuntime {
                     withTimeout(10_000) { ready.await() }
                 }
                 check(preferences.edit().putBoolean("interrupted", true).commit()) { "无法持久化运行标记" }
+                controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius)
                 controller.start(frozen).also { if (!state.value.isActive) finishService() }
             } catch (cancelled: CancellationException) {
                 if (cancelled !is TimeoutCancellationException) throw cancelled

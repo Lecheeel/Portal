@@ -26,6 +26,10 @@ class PlaybackEngine(input: Scenario) {
     private var point = points.first()
     private var manualBearing = 0.0
     private var manualMoving = false
+    private var orbitEnabled = false
+    private var orbitRadiusMeters = 0.2
+    private var orbitPhase = 0.0
+    private val orbitCenter = points.first()
 
     init { require(scenario.route == null || totalDistance > 0.001) { "Route has no movement" } }
 
@@ -35,6 +39,12 @@ class PlaybackEngine(input: Scenario) {
         require(bearing.isFinite())
         manualBearing = (bearing % 360 + 360) % 360
         manualMoving = moving
+    }
+
+    fun setOrbit(enabled: Boolean, radiusMeters: Double) {
+        require(radiusMeters.isFinite() && radiusMeters in 0.05..5.0)
+        orbitEnabled = enabled
+        orbitRadiusMeters = radiusMeters
     }
 
     fun tick(nowNanos: Long, wallTimeMillis: Long): PlaybackFrame {
@@ -48,8 +58,18 @@ class PlaybackEngine(input: Scenario) {
             if (moving && dt > 0) {
                 val fix = Geodesic.WGS84.Direct(point.latitude, point.longitude, manualBearing, profile.speedMps * dt)
                 point = Wgs84(fix.lat2, fix.lon2)
+            } else if (orbitEnabled && !paused && !manualMoving && dt > 0) {
+                val angularSpeed = (profile.speedMps.coerceAtLeast(0.05) / orbitRadiusMeters)
+                orbitPhase = (orbitPhase + angularSpeed * dt) % (2.0 * Math.PI)
+                val bearing = Math.toDegrees(orbitPhase)
+                val fix = Geodesic.WGS84.Direct(orbitCenter.latitude, orbitCenter.longitude,
+                    bearing, orbitRadiusMeters)
+                point = Wgs84(fix.lat2, fix.lon2)
             }
-            return frame(point, manualBearing, if (moving) profile.speedMps else 0.0, now, wallTimeMillis, 0, 0.0, false)
+            val orbiting = orbitEnabled && !paused && !manualMoving
+            val outputBearing = if (orbiting) (Math.toDegrees(orbitPhase) + 90.0) else manualBearing
+            return frame(point, outputBearing, if (moving) profile.speedMps else if (orbiting) profile.speedMps else 0.0,
+                now, wallTimeMillis, 0, 0.0, false)
         }
         if (!paused) travelled += profile.speedMps * dt
         val finished = scenario.mode == RouteMode.ONCE && travelled >= totalDistance

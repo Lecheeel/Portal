@@ -33,6 +33,8 @@ import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.needOpenSELinux
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.experimentalClearMockFlag
+import com.system.location.service.ext.experimentalOrbitMotion
+import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.update.UpdateChecker
@@ -71,6 +73,24 @@ class SettingsFragment : Fragment() {
             context.experimentalClearMockFlag = enabled
             showToast(if (enabled) "反射清除实验已开启，下次提交生效；系统可能重新标记" else "反射清除实验已关闭")
             com.system.location.service.runtime.ScenarioRuntime.refreshDiagnostics()
+        }
+        binding.orbitMotionSwitch.isChecked = context.experimentalOrbitMotion
+        binding.orbitMotionSwitch.setOnCheckedChangeListener { _, enabled ->
+            context.experimentalOrbitMotion = enabled
+            showToast(if (enabled) "圆周运动实验已开启，下次启动场景生效" else "圆周运动实验已关闭")
+        }
+        binding.orbitRadiusValue.text = "%.2f米".format(context.experimentalOrbitRadius)
+        binding.orbitRadiusLayout.setOnClickListener {
+            showDialog("设置圆周半径（米）", "%.2f".format(context.experimentalOrbitRadius)) {
+                val value = it.toDoubleOrNull()
+                if (value == null || !value.isFinite() || value < 0.05 || value > 5.0) {
+                    showToast("半径需在0.05至5米之间")
+                    return@showDialog
+                }
+                context.experimentalOrbitRadius = value
+                binding.orbitRadiusValue.text = "%.2f米".format(value)
+                showToast("圆周半径已保存，下次启动场景生效")
+            }
         }
         binding.satelliteCountValue.text = "%d颗".format(context.minSatelliteCount)
 

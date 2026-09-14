@@ -1,4 +1,6 @@
 <resources>
     <string name="clear_mock_flag_experiment">提交前清除模拟标记（实验）</string>
-    <string name="clear_mock_flag_experiment_desc">仅无 root 标准模拟模式；默认关闭，切换后下次提交生效。尝试反射修改本地 Location，失败不影响上报。系统可能重新标记，不能保证防止回跳；请在能力与诊断中刷新查看实验状态。</string>
+    <string name="clear_mock_flag_experiment_desc">仅无 root 标准模拟模式；默认开启，尝试反射修改本地 Location，失败不影响上报。系统可能重新标记，不能保证防止回跳。</string>
+    <string name="orbit_motion_experiment">静止时小半径圆周运动（实验）</string>
+    <string name="orbit_motion_experiment_desc">摇杆松开后围绕起点持续绕圈，默认半径0.20米；仅单点模拟，下次启动生效。</string>
 </resources>

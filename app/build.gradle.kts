@@ -27,11 +27,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        ndk {
-            abiFilters.clear()
-            abiFilters.addAll(listOf("arm64-v8a"))
-        }
-
 //        val googleServicesFile = project.file("google-services.json")
 //        if (!googleServicesFile.exists()) {
 //            throw GradleException("在 CI 环境中必须提供 google-services.json 文件!")

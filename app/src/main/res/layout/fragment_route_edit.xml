@@ -1,98 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".ui.home.HomeFragment">
-
-    <com.amap.api.maps.MapView
-        android:id="@+id/amapView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:clickable="true"
-        android:focusable="true" />
-
-    <RadioGroup
-        android:id="@+id/map_type_group"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_margin="8dp">
-
-        <RadioButton
-            android:id="@+id/map_type_normal"
-            android:text="@string/normal_view"
-            android:checked="true"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-
-        <RadioButton
-            android:id="@+id/map_type_satellite"
-            android:text="@string/satellite_view"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-    </RadioGroup>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end">
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/fab_margin"
-            android:layout_marginBottom="@dimen/fab_margin"
-            android:importantForAccessibility="no"
-            app:srcCompat="@drawable/baseline_keyboard_arrow_up_24"
-            app:fabSize="normal"/>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="horizontal">
-
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/fab_start"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/fab_margin"
-                android:contentDescription="@string/goto_location"
-                android:visibility="visible"
-                app:srcCompat="@drawable/baseline_add_location_24"
-                app:fabSize="mini"/>
-
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/fab_rollback"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/fab_margin"
-                android:contentDescription="@string/follow_location"
-                android:visibility="visible"
-                app:srcCompat="@drawable/baseline_rollback_24"
-                app:fabSize="mini"/>
-
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/fab_complete"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/fab_margin"
-                android:contentDescription="@string/goto_location"
-                android:visibility="visible"
-                app:srcCompat="@drawable/baseline_complete_24"
-                app:fabSize="mini"/>
-
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/fab_my_location"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/fab_margin"
-                android:contentDescription="@string/follow_location"
-                android:visibility="visible"
-                app:srcCompat="@drawable/baseline_my_location_24"
-                app:fabSize="mini"/>
-        </LinearLayout>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingHorizontal="12dp">
+        <EditText android:id="@+id/query" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
+            android:hint="搜索地点，再设为起点或终点" android:inputType="text" android:singleLine="true" />
+        <Button android:id="@+id/search" android:layout_width="wrap_content" android:layout_height="48dp" android:text="搜索" />
     </LinearLayout>
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+    <RadioGroup android:id="@+id/endpoint" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal">
+        <RadioButton android:id="@+id/select_start" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:checked="true" android:text="点击地图设置起点" />
+        <RadioButton android:id="@+id/select_end" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="点击地图设置终点" />
+    </RadioGroup>
+    <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="12dp" android:maxLines="4" />
+    <com.amap.api.maps.MapView android:id="@+id/amap_view" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <Button android:id="@+id/plan" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="规划 / 重新规划" />
+        <Button android:id="@+id/cancel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="取消路线" />
+        <Button android:id="@+id/confirm" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="确认路线" />
+    </LinearLayout>
+</LinearLayout>

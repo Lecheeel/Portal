@@ -342,6 +342,19 @@ object MockServiceHelper {
         return commandClient.connected
     }
 
+    fun publishSample(locationManager: LocationManager, sample: com.system.location.service.core.location.LocationSample): Boolean {
+        val request = Bundle()
+        request.putString("command_id", "publish_sample")
+        com.system.location.service.hook.security.SampleWire.write(request, sample)
+        return commandClient.send(locationManager, request)
+    }
+
+    fun runtimeStatus(locationManager: LocationManager): Bundle? {
+        val request = Bundle()
+        request.putString("command_id", "get_runtime_status")
+        return if (commandClient.send(locationManager, request)) request else null
+    }
+
 
     private fun broadcastInterval(context: Context): Long {
         val interval = context.reportDuration.toLong().coerceIn(50, 1000)

@@ -54,6 +54,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":core"))
     compileOnly(libs.xposed.api)
     compileOnly(project(":system-api"))
     implementation(project(":nmea"))

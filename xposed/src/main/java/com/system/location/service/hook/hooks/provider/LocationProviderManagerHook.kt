@@ -1,5 +1,7 @@
 package com.system.location.service.hook.hooks.provider
 
+import com.system.location.service.hook.utils.toLocation
+
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build

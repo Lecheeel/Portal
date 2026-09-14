@@ -18,12 +18,15 @@ object LocationTicker {
 
     @Synchronized
     fun start() {
-        if (!FakeLoc.isSystemServerProcess) return
         future?.cancel(false)
         val interval = FakeLoc.reportIntervalMs.coerceIn(50, 1000)
         future = executor.scheduleWithFixedDelay({
             runCatching {
-                if (FakeLoc.enable) LocationServiceHook.callOnLocationChanged()
+                if (RemoteCommandHandler.expirePublication(android.os.SystemClock.elapsedRealtimeNanos())) {
+                    stop()
+                } else if (FakeLoc.enable && FakeLoc.isSystemServerProcess && !FakeLoc.externallyDriven) {
+                    LocationServiceHook.callOnLocationChanged()
+                }
             }.onFailure { Logger.error("Location publisher failed", it) }
         }, interval, interval, TimeUnit.MILLISECONDS)
     }

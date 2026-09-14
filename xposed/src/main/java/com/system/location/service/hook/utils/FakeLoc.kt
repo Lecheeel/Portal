@@ -8,6 +8,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import android.os.SystemClock
 import kotlin.math.asin
+import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.location.LocationSample
 
 object FakeLoc {
     /**
@@ -112,6 +114,8 @@ object FakeLoc {
     @Volatile var bearing = 0.0
     @Volatile var reportIntervalMs = 100L
     private var sample: LocationSample? = null
+    @Volatile var externallyDriven = false
+        private set
     private var lastSampleNanos = 0L
     private var lastMovementNanos = 0L
     private var movementSpeed = 0f
@@ -123,17 +127,31 @@ object FakeLoc {
         movementSpeed = movingSpeed.coerceAtLeast(0f)
         lastMovementNanos = nowNanos
         sample = null
+        externallyDriven = false
+    }
+
+    @Synchronized
+    fun acceptSample(fix: LocationSample) {
+        coordinates = fix.latitude to fix.longitude
+        altitude = fix.altitude
+        accuracy = fix.accuracy
+        speed = fix.speed.toDouble()
+        bearing = fix.bearing.toDouble()
+        hasBearings = true
+        sample = fix
+        externallyDriven = true
     }
 
     @Synchronized
     fun snapshot(force: Boolean = false, now: Long = SystemClock.elapsedRealtimeNanos(), timeMillis: Long = System.currentTimeMillis()): LocationSample {
         sample?.let {
+            if (externallyDriven) return it
             if (!force && now - it.elapsedNanos < reportIntervalMs.coerceIn(50, 1000) * 1_000_000) return it
         }
         val point = coordinates
         lastSampleNanos = maxOf(now, lastSampleNanos + 1)
         return LocationSample(
-            point.first, point.second, altitude, accuracy.coerceAtLeast(0.1f),
+            Wgs84(point.first, point.second), altitude, accuracy.coerceAtLeast(0.1f),
             if (now - lastMovementNanos <= maxOf(500L, reportIntervalMs * 2) * 1_000_000) movementSpeed else 0f,
             ((bearing % 360 + 360) % 360).toFloat(),
             timeMillis, lastSampleNanos,

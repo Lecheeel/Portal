@@ -4,6 +4,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SnapshotTest {
+    @Test fun externallyPublishedFixIsSharedWithoutRewritingItsFieldsOrTime() {
+        val fix = com.system.location.service.core.location.LocationSample(
+            com.system.location.service.core.geo.Wgs84(25.123456789123, 119.123456789123), 82.0, 4f, 8f, 92f, 100, 100)
+        FakeLoc.acceptSample(fix)
+        assertSame(fix, FakeLoc.snapshot(true, 150, 150))
+        assertSame(fix, FakeLoc.snapshot(false, 200, 200))
+        assertEquals(fix.coordinate.latitude, FakeLoc.coordinatePair().first, 0.0)
+        FakeLoc.updateCoordinates(0.0, 0.0, nowNanos = 201)
+        assertFalse(FakeLoc.externallyDriven)
+    }
     @Test fun fixedPositionHasNoNoiseAndTimeAlwaysAdvances() {
         FakeLoc.accuracy = 1000f
         FakeLoc.updateCoordinates(39.9, 116.4, nowNanos = 0)

@@ -1,7 +1,10 @@
 @file:Suppress("KotlinConstantConditions")
+
 @file:OptIn(ExperimentalUuidApi::class)
 
 package com.system.location.service.hook.hooks
+
+import com.system.location.service.hook.utils.toLocation
 
 import android.location.Location
 import android.os.Build

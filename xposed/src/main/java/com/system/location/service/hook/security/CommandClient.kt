@@ -6,7 +6,7 @@ import android.os.SystemClock
 
 /** Serializes requests so sequence allocation and Binder delivery have the same order. */
 class CommandClient {
-    private var token: String? = null
+    @Volatile private var token: String? = null
     private var sequence = 0L
     val connected: Boolean get() = token != null
 

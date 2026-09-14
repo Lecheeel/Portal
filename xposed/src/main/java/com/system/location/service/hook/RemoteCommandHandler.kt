@@ -99,7 +99,10 @@ object RemoteCommandHandler {
                         val data = Parcel.obtain()
                         try {
                             data.writeBundle(rely)
-                            it.transact(1, data, null, 0)
+                            // Forward as system_server, not as the app identity inherited by this Binder call.
+                            val identity = Binder.clearCallingIdentity()
+                            try { it.transact(1, data, null, 0) }
+                            finally { Binder.restoreCallingIdentity(identity) }
                         } finally { data.recycle() }
                         false
                     } else true

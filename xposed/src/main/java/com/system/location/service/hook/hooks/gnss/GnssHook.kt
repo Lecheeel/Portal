@@ -41,19 +41,19 @@ object GnssHook: BaseLocationHook() {
         }
 
         // AGPS Listener?
-        XposedBridge.hookAllMethods(cGnssManagerService, "addGnssAntennaInfoListener", doNothingMethod)
-        XposedBridge.hookAllMethods(cGnssManagerService, "addGnssMeasurementsListener", doNothingMethod)
-        XposedBridge.hookAllMethods(cGnssManagerService, "addGnssNavigationMessageListener", doNothingMethod)
-        XposedBridge.hookAllMethods(cGnssManagerService, "removeGnssAntennaInfoListener", doNothingMethod)
-        XposedBridge.hookAllMethods(cGnssManagerService, "removeGnssMeasurementsListener", doNothingMethod)
-        XposedBridge.hookAllMethods(cGnssManagerService, "removeGnssNavigationMessageListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "addGnssAntennaInfoListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "addGnssMeasurementsListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "addGnssNavigationMessageListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "removeGnssAntennaInfoListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "removeGnssMeasurementsListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "removeGnssNavigationMessageListener", doNothingMethod)
 
         run {
             val hookedGnssCallback = Collections.synchronizedSet(HashSet<String>())
             val unhooks = cGnssManagerService.declaredMethods.filter {
                 it.name == "registerGnssNmeaCallback" && it.parameterTypes.size > 1
             }.map { method ->
-                XposedBridge.hookMethod(method, object : XC_MethodHook() {
+                com.system.location.service.hook.scope.HookInstaller.hookMethod(method, object : XC_MethodHook() {
                     override fun beforeHookedMethod(param: MethodHookParam?) {
                         if (param == null || param.args[0] == null) return
                         val classListener = param.args[0].javaClass
@@ -64,7 +64,8 @@ object GnssHook: BaseLocationHook() {
                         if (FakeLoc.enableDebugLog)
                             Logger.debug("registerGnssNmeaCallback: $classListener")
                         kotlin.runCatching {
-                            XposedHelpers.findAndHookMethod(classListener, "onNmeaReceived", Long::class.java, String::class.java, object: XC_MethodHook() {
+                            com.system.location.service.hook.scope.HookInstaller.findMethod(classListener, "onNmeaReceived", Long::class.java, String::class.java)?.let { method ->
+                            com.system.location.service.hook.scope.HookInstaller.hookMethod(method, object: XC_MethodHook() {
                                 override fun beforeHookedMethod(param: MethodHookParam) {
                                     if (FakeLoc.enable && FakeLoc.enableMockGnss && !FakeLoc.enableAGPS) {
                                         if (FakeLoc.enableDebugLog)
@@ -77,6 +78,7 @@ object GnssHook: BaseLocationHook() {
                                     param.args[1] = injectNMEA(nmea) ?: nmea
                                 }
                             })
+                            }
                         }.onFailure {
                             Logger.error("[onNmeaReceived hook failed: ${it.message} from GnssManagerService, please issue?", it)
                         }

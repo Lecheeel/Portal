@@ -443,7 +443,7 @@ internal object LocationServiceHook: BaseLocationHook() {
             }
         })
 
-        if(XposedBridge.hookAllMethods(cILocationManager, "registerGnssStatusCallback", object: XC_MethodHook() {
+        if(com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cILocationManager, "registerGnssStatusCallback", object: XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam?) {
                     if(param == null || param.args.isEmpty() || param.args[0] == null) return
 
@@ -747,7 +747,7 @@ internal object LocationServiceHook: BaseLocationHook() {
 
         if(
         // boolean isProviderEnabledForUser(String provider, int userId); from android 9.0.0
-            XposedBridge.hookAllMethods(
+            com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
                 cILocationManager,
                 "isProviderEnabledForUser",
                 object : XC_MethodHook() {
@@ -774,7 +774,7 @@ internal object LocationServiceHook: BaseLocationHook() {
                 }).isEmpty()
         ) {
             // boolean isProviderEnabled(String provider);
-            XposedBridge.hookAllMethods(
+            com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
                 cILocationManager,
                 "isProviderEnabled",
                 object : XC_MethodHook() {
@@ -796,7 +796,7 @@ internal object LocationServiceHook: BaseLocationHook() {
 
 
         // F**k You! AMAP Service!
-        XposedBridge.hookAllMethods(cILocationManager, "setExtraLocationControllerPackageEnabled", object: XC_MethodHook() {
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cILocationManager, "setExtraLocationControllerPackageEnabled", object: XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (FakeLoc.enable) {
                     param.args[0] = false
@@ -804,7 +804,7 @@ internal object LocationServiceHook: BaseLocationHook() {
             }
         })
 
-        XposedBridge.hookAllMethods(cILocationManager, "setExtraLocationControllerPackage", object: XC_MethodHook() {
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cILocationManager, "setExtraLocationControllerPackage", object: XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (FakeLoc.enable) {
                     param.result = null
@@ -819,7 +819,7 @@ internal object LocationServiceHook: BaseLocationHook() {
         if (FakeLoc.enableDebugLog)
             Logger.debug("will hook ILocationListener: ${classListener.name}")
 
-        if(XposedBridge.hookAllMethods(classListener, "onLocationChanged", object: XC_MethodHook() {
+        if(com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classListener, "onLocationChanged", object: XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     if (param.args.isEmpty()) return
                     if (!FakeLoc.enable) return
@@ -954,7 +954,7 @@ internal object LocationServiceHook: BaseLocationHook() {
         }.onSuccess {
             fun hookOnTransactForServiceInstance(m: Method) {
                 val isHooked = AtomicBoolean(false)
-                XposedBridge.hookMethod(m, object : XC_MethodHook() {
+                com.system.location.service.hook.scope.HookInstaller.hookMethod(m, object : XC_MethodHook() {
                     override fun beforeHookedMethod(param: MethodHookParam?) {
                         if (param?.thisObject == null || param.args.size < 4) return
 

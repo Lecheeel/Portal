@@ -32,12 +32,12 @@ object LocationNMEAHook: BaseLocationHook() {
             }
         }
 
-        XposedBridge.hookAllMethods(classILocationManager, "addGnssMeasurementsListener", doNothingMethod)
-        XposedBridge.hookAllMethods(classILocationManager, "removeGnssMeasurementsListener", doNothingMethod)
-        XposedBridge.hookAllMethods(classILocationManager, "addGnssNavigationMessageListener", doNothingMethod)
-        XposedBridge.hookAllMethods(classILocationManager, "removeGnssNavigationMessageListener", doNothingMethod)
-        XposedBridge.hookAllMethods(classILocationManager, "addGnssAntennaInfoListener", doNothingMethod)
-        XposedBridge.hookAllMethods(classILocationManager, "removeGnssAntennaInfoListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "addGnssMeasurementsListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "removeGnssMeasurementsListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "addGnssNavigationMessageListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "removeGnssNavigationMessageListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "addGnssAntennaInfoListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "removeGnssAntennaInfoListener", doNothingMethod)
     }
 
     private fun hookGnssNmea(classILocationManager: Class<*>) {

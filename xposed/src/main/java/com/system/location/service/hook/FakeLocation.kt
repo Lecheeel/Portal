@@ -45,62 +45,61 @@ class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
      * @throws Throwable Everything the callback throws is caught and logged.
      */
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam?) {
-        if (lpparam?.packageName != "android" && lpparam?.packageName != "com.android.phone") {
+        lpparam ?: return
+        val identity = com.system.location.service.hook.scope.ProcessIdentity(
+            lpparam.packageName, lpparam.processName, lpparam.appInfo?.uid ?: android.os.Process.myUid(),
+            android.os.Build.VERSION.SDK_INT, android.os.Build.MANUFACTURER,
+        )
+        // This callback is already restricted by the framework's explicitly selected scope.
+        val targets = if (lpparam.packageName != "com.system.location.service" &&
+            lpparam.appInfo?.flags?.and(android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0)
+            setOf(lpparam.packageName) else emptySet()
+        val scope = com.system.location.service.hook.scope.HookScopeResolver.resolve(identity, targets)
+        val status = com.system.location.service.hook.scope.HookStatusRegistry
+        if (scope == null) {
+            status.record("process:${identity.processName}", com.system.location.service.hook.scope.HookStatus(
+                skipped = true, reason = "Outside supported process scope (SDK ${identity.sdk})"))
             return
         }
-
-        val systemClassLoader = (kotlin.runCatching {
-            lpparam.classLoader.loadClass("android.app.ActivityThread")
-                ?: Class.forName("android.app.ActivityThread")
-        }.onFailure {
-            Logger.error("Failed to find ActivityThread", it)
-        }.getOrNull() ?: return)
-            .getMethod("currentActivityThread")
-            .invoke(null)
-            .javaClass
-            .getClassLoader()
-
-        if (systemClassLoader == null) {
-            Logger.error("Failed to get system class loader")
-            return
-        }
-
-        val injectedKey = "_lp.${Integer.toHexString(lpparam.packageName.hashCode())}"
-        if(System.getProperty(injectedKey) == "1") {
-            return
-        } else {
-            System.setProperty(injectedKey, "1")
-        }
-
-        when (lpparam.packageName) {
-            "com.android.phone" -> {
-                Logger.info("Found com.android.phone")
-                TelephonyHook(lpparam.classLoader)
-                MiuiTelephonyManagerHook(lpparam.classLoader)
+        status.record("process:${identity.processName}", com.system.location.service.hook.scope.HookStatus(supported = true))
+        val loader = lpparam.classLoader
+        fun install(name: String, action: () -> Unit) {
+            runCatching(action).onFailure {
+                status.record(name, com.system.location.service.hook.scope.HookStatus(supported = true,
+                    failed = true, reason = it.javaClass.simpleName))
+                Logger.error("Hook installation failed: $name", it)
             }
-            "android" -> {
-                Logger.info("Debug Log Status: ${FakeLoc.enableDebugLog}")
+        }
+        when (scope) {
+            com.system.location.service.hook.scope.HookScope.SYSTEM_SERVER -> {
                 FakeLoc.isSystemServerProcess = true
-                startFakeLocHook(systemClassLoader)
-                TelephonyHook.hookSubOnTransact(lpparam.classLoader)
-                WlanHook(systemClassLoader)
-                AndroidFusedLocationProviderHook(lpparam.classLoader)
-                SystemSensorManagerHook(lpparam.classLoader)
-
-                ThirdPartyLocationHook(lpparam.classLoader)
+                install("system-location") { startFakeLocHook(loader) }
+                install("telephony-registry") { TelephonyHook.hookSubOnTransact(loader) }
+                install("wifi") { WlanHook(loader) }
+                install("fused") { AndroidFusedLocationProviderHook(loader) }
+                install("sensor") { SystemSensorManagerHook(loader) }
+                install("system-sdk") { ThirdPartyLocationHook(loader) }
             }
-            "com.android.location.fused" -> {
-                AndroidFusedLocationProviderHook(lpparam.classLoader)
+            com.system.location.service.hook.scope.HookScope.PHONE_PROCESS -> {
+                install("phone") { TelephonyHook(loader) }
             }
-            "com.xiaomi.location.fused" -> {
-                ThirdPartyLocationHook(lpparam.classLoader)
+            com.system.location.service.hook.scope.HookScope.FUSED_PROCESS -> {
+                install("fused") { AndroidFusedLocationProviderHook(loader) }
             }
-            "com.oplus.location" -> {
-                OplusLocationHook(lpparam.classLoader)
+            com.system.location.service.hook.scope.HookScope.VENDOR_LOCATION_PROCESS -> {
+                if (identity.packageName == "com.oplus.location") {
+                    install("oplus") { OplusLocationHook(loader) }
+                } else {
+                    install("xiaomi") { ThirdPartyLocationHook(loader) }
+                }
+            }
+            com.system.location.service.hook.scope.HookScope.TARGET_APP -> {
+                // App-specific IPC is intentionally unavailable until a caller allowlist is configured.
+                status.record("target-app", com.system.location.service.hook.scope.HookStatus(
+                    skipped = true, reason = "Target-app IPC unsupported; use the system location backend"))
             }
         }
     }
-
     private fun startFakeLocHook(classLoader: ClassLoader) {
         cServiceManager = XposedHelpers.findClass("android.os.ServiceManager", classLoader)
 

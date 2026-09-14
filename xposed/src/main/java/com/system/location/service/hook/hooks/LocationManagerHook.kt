@@ -30,9 +30,9 @@ object LocationManagerHook: BaseLocationHook() {
         if(cLocationManager.declaredMethods.filter {
             it.name == "getLastKnownLocation" && it.parameterTypes.size > 1
         }.map {
-            XposedBridge.hookMethod(it, hookGetLastKnownLocation)
+            com.system.location.service.hook.scope.HookInstaller.hookMethod(it, hookGetLastKnownLocation)
         }.isEmpty()) {
-            XposedBridge.hookAllMethods(cLocationManager, "getLastLocation", hookGetLastKnownLocation)
+            com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cLocationManager, "getLastLocation", hookGetLastKnownLocation)
         }
 
         val hookOnLocation = object: XC_MethodHook() {
@@ -63,7 +63,7 @@ object LocationManagerHook: BaseLocationHook() {
         if(cLocationManager.declaredMethods.filter {
                 it.name == "requestFlush"
             }.map {
-                XposedBridge.hookMethod(it, object : XC_MethodHook() {
+                com.system.location.service.hook.scope.HookInstaller.hookMethod(it, object : XC_MethodHook() {
                     override fun beforeHookedMethod(param: MethodHookParam?) {
                         if (param == null || param.args.size > 1 || param.args[1] == null) return
 
@@ -93,7 +93,7 @@ object LocationManagerHook: BaseLocationHook() {
         if(cLocationManager.declaredMethods.filter {
                 it.name == "requestLocationUpdates"
             }.map {
-                XposedBridge.hookMethod(it, hookRequestLocationUpdates)
+                com.system.location.service.hook.scope.HookInstaller.hookMethod(it, hookRequestLocationUpdates)
             }.isEmpty()) {
             Logger.error("Hook requestLocationUpdates failed")
         }
@@ -101,7 +101,7 @@ object LocationManagerHook: BaseLocationHook() {
         if(cLocationManager.declaredMethods.filter {
                 it.name == "requestSingleUpdate"
             }.map {
-                XposedBridge.hookMethod(it, hookRequestLocationUpdates)
+                com.system.location.service.hook.scope.HookInstaller.hookMethod(it, hookRequestLocationUpdates)
             }.isEmpty()) {
             Logger.error("Hook requestSingleUpdate failed")
         }

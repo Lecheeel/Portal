@@ -73,7 +73,7 @@ object LocationProviderManagerHook {
             val cInternalState = XposedHelpers.findClassIfExists("com.android.server.location.provider.AbstractLocationProvider\$InternalState", classLoader)
                 ?: return@run
 
-            XposedBridge.hookAllConstructors(cInternalState, object: XC_MethodHook() {
+            com.system.location.service.hook.scope.HookInstaller.hookAllConstructors(cInternalState, object: XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     val listener = param.args[0] ?: return
 
@@ -134,7 +134,7 @@ object LocationProviderManagerHook {
             ?: return
         BlindHookLocation(cLocationProviderManager, classLoader)
 
-        XposedBridge.hookAllMethods(cLocationProviderManager, "setRealProvider", object: XC_MethodHook() {
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cLocationProviderManager, "setRealProvider", object: XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val locationProvider = param.args[0]
                 if (FakeLoc.enableDebugLog) {
@@ -142,7 +142,7 @@ object LocationProviderManagerHook {
                 }
             }
         })
-        XposedBridge.hookAllMethods(cLocationProviderManager, "setMockProvider", object: XC_MethodHook() {
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cLocationProviderManager, "setMockProvider", object: XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val locationProvider = param.args[0]
                 if (FakeLoc.enableDebugLog) {
@@ -150,7 +150,7 @@ object LocationProviderManagerHook {
                 }
             }
         })
-        XposedBridge.hookAllMethods(cLocationProviderManager, "sendExtraCommand", object: XC_MethodHook() {
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cLocationProviderManager, "sendExtraCommand", object: XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if(param.args.size < 4) return
                 val command = param.args[2]
@@ -185,7 +185,7 @@ object LocationProviderManagerHook {
 
                     val classCallback = callback.javaClass
                     if (hookedListeners.contains(classCallback.name)) return // Prevent repeated hooking
-                    if (XposedBridge.hookAllMethods(classCallback, "onLocation", object: XC_MethodHook() {
+                    if (com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classCallback, "onLocation", object: XC_MethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam?) {
                             if (param == null || param.args.isEmpty()) return
                             val location = (param.args[0] ?: return) as Location

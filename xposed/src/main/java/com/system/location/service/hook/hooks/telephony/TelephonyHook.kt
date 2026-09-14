@@ -135,12 +135,12 @@ object TelephonyHook: BaseTelephonyHook() {
                     result = cResult
                 }
             }
-            if (XposedBridge.hookMethod(it, hookGetAllCellInfo) == null) {
+            if (com.system.location.service.hook.scope.HookInstaller.hookMethod(it, hookGetAllCellInfo) == null) {
                 Logger.error("Hook PhoneInterfaceManager.getAllCellInfo failed")
             }
         }
 
-        if(XposedBridge.hookAllMethods(cPhoneInterfaceManager, "getCellLocation", afterHook {
+        if(com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cPhoneInterfaceManager, "getCellLocation", afterHook {
                 if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) {
                     return@afterHook
                 }

@@ -37,10 +37,11 @@ private fun <T> ifNotHook(
 fun Method.onceHook(callback: XC_MethodHook): XC_MethodHook.Unhook? {
     return ifNotHook(declaringClass.name, name, parameterTypes) {
         hookOnceLock.lock()
-        hookedMethods.add(it)
-        val unhook = XposedBridge.hookMethod(this, callback)
-        hookOnceLock.unlock()
-        return@ifNotHook unhook
+        try {
+            val unhook = com.system.location.service.hook.scope.HookInstaller.hookMethod(this, callback)
+            hookedMethods.add(it)
+            unhook
+        } finally { hookOnceLock.unlock() }
     }
 }
 
@@ -107,7 +108,7 @@ fun <T> Class<T>.onceHookAllMethod(methodName: String, callback: XC_MethodHook):
  * @return Unhook object, you can use it to unhook the method.
  */
 fun <T> Class<T>.onceHookMethod(methodName: String, vararg parameterTypes: Class<*>, callback: XC_MethodHook): XC_MethodHook.Unhook? {
-    return XposedHelpers.findMethodExactIfExists(this, methodName, *parameterTypes)?.onceHook(callback)
+    return com.system.location.service.hook.scope.HookInstaller.findMethod(this, methodName, *parameterTypes)?.onceHook(callback)
 }
 
 /**
@@ -118,7 +119,7 @@ fun <T> Class<T>.onceHookMethod(methodName: String, vararg parameterTypes: Class
  * @return Unhook object, you can use it to unhook the method.
  */
 fun <T> Class<T>.onceHookMethodBefore(methodName: String, vararg parameterTypes: Class<*>, callback: XC_MethodHook.MethodHookParam.() -> Unit): XC_MethodHook.Unhook? {
-    return XposedHelpers.findMethodExactIfExists(this, methodName, *parameterTypes)?.onceHookBefore(callback)
+    return com.system.location.service.hook.scope.HookInstaller.findMethod(this, methodName, *parameterTypes)?.onceHookBefore(callback)
 }
 
 /**
@@ -127,7 +128,7 @@ fun <T> Class<T>.onceHookMethodBefore(methodName: String, vararg parameterTypes:
  * @return Unhook object, you can use it to unhook the method.
  */
 fun <T> Class<T>.onceHookMethodAfter(methodName: String, vararg parameterTypes: Class<*>, callback: XC_MethodHook.MethodHookParam.() -> Unit): XC_MethodHook.Unhook? {
-    return XposedHelpers.findMethodExactIfExists(this, methodName, *parameterTypes)?.onceHookAfter(callback)
+    return com.system.location.service.hook.scope.HookInstaller.findMethod(this, methodName, *parameterTypes)?.onceHookAfter(callback)
 }
 
 /**
@@ -150,7 +151,7 @@ fun <T> Class<T>.onceHookDoNothingMethod(methodName: String, vararg parameterTyp
  * @return set of Unhook object, you can use it to unhook the method
  */
 fun <T> Class<T>.hookAllMethods(methodName: String, callback: XC_MethodHook): Set<XC_MethodHook.Unhook> {
-    return XposedBridge.hookAllMethods(this, methodName, callback)
+    return com.system.location.service.hook.scope.HookInstaller.hookAllMethods(this, methodName, callback)
 }
 
 /**
@@ -193,7 +194,7 @@ fun <T> Class<T>.hookAllMethodsAfter(methodName: String, callback: XC_MethodHook
  * @return Unhook object, you can use it to unhook the method
  */
 fun Method.hook(callback: XC_MethodHook): XC_MethodHook.Unhook? {
-    return XposedBridge.hookMethod(this, callback)
+    return com.system.location.service.hook.scope.HookInstaller.hookMethod(this, callback)
 }
 
 /**
@@ -236,7 +237,7 @@ fun Method.hookAfter(callback: XC_MethodHook.MethodHookParam.() -> Unit): XC_Met
  * @return Unhook object, you can use it to unhook the method
  */
 fun <T> Class<T>.hookMethod(methodName: String, vararg parameterTypes: Class<*>, callback: XC_MethodHook): XC_MethodHook.Unhook? {
-    return XposedHelpers.findMethodExactIfExists(this, methodName, *parameterTypes)?.hook(callback)
+    return com.system.location.service.hook.scope.HookInstaller.findMethod(this, methodName, *parameterTypes)?.hook(callback)
 }
 
 /**
@@ -244,7 +245,7 @@ fun <T> Class<T>.hookMethod(methodName: String, vararg parameterTypes: Class<*>,
  * but the callback will only be executed before the original method
  */
 fun <T> Class<T>.hookMethodBefore(methodName: String, vararg parameterTypes: Class<*>, callback: XC_MethodHook.MethodHookParam.() -> Unit): XC_MethodHook.Unhook? {
-    return XposedHelpers.findMethodExactIfExists(this, methodName, *parameterTypes)?.hookBefore(callback)
+    return com.system.location.service.hook.scope.HookInstaller.findMethod(this, methodName, *parameterTypes)?.hookBefore(callback)
 }
 
 /**
@@ -252,7 +253,7 @@ fun <T> Class<T>.hookMethodBefore(methodName: String, vararg parameterTypes: Cla
  * but the callback will only be executed after the original method
  */
 fun <T> Class<T>.hookMethodAfter(methodName: String, vararg parameterTypes: Class<*>, callback: XC_MethodHook.MethodHookParam.() -> Unit): XC_MethodHook.Unhook? {
-    return XposedHelpers.findMethodExactIfExists(this, methodName, *parameterTypes)?.hookAfter(callback)
+    return com.system.location.service.hook.scope.HookInstaller.findMethod(this, methodName, *parameterTypes)?.hookAfter(callback)
 }
 
 /**
@@ -334,7 +335,10 @@ fun <T> Class<T>.callStaticMethod(methodName: String, vararg args: Any?): Any? {
  * @return The class if it exists, or `null` if it does not.
  */
 fun String.toClass(classLoader: ClassLoader?): Class<*>? {
-    return XposedHelpers.findClassIfExists(this, classLoader)
+    return XposedHelpers.findClassIfExists(this, classLoader).also {
+        if (it == null) com.system.location.service.hook.scope.HookStatusRegistry.record(this,
+            com.system.location.service.hook.scope.HookStatus(skipped = true, reason = "Class absent"))
+    }
 }
 
 /**
@@ -372,7 +376,7 @@ fun Method.diyHook(
         }
     }
     val baseHooker = {
-        unhook = XposedBridge.hookMethod(this, object: XC_MethodHook() {
+        unhook = com.system.location.service.hook.scope.HookInstaller.hookMethod(this, object: XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 kotlin.runCatching {
                     if (before(param)) {

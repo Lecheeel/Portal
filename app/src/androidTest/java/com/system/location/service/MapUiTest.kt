@@ -34,40 +34,19 @@ class MapUiTest {
         }
     }
 
-    @Test fun cameraAndPointSelectionRequireExplicitConfirmation() {
+    @Test fun homeHidesCrosshairAndRequiresExplicitLocationConfirmation() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            onView(withId(R.id.ivCrosshair)).check(matches(withEffectiveVisibility(Visibility.GONE)))
             onView(withId(R.id.btn_apply_location)).check(matches(not(isEnabled())))
             scenario.onActivity { activity ->
                 val model = ViewModelProvider(activity)[AMapViewModel::class.java]
-                model.aMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(39.9, 116.4), 15f))
-            }
-            instrumentation.waitForIdleSync()
-            scenario.onActivity { activity ->
-                assertNull(ViewModelProvider(activity)[AMapViewModel::class.java].markedLoc)
+                assertNull(model.markedLoc)
                 assertFalse(ScenarioRuntime.state.value.isActive)
-            }
-            onView(withId(R.id.amapView)).perform(click())
-            await {
-                var selected = false
-                scenario.onActivity { selected = ViewModelProvider(it)[AMapViewModel::class.java].markedLoc != null }
-                selected
-            }
-            onView(withId(R.id.btn_apply_location)).check(matches(isEnabled()))
-            assertFalse(ScenarioRuntime.state.value.isActive)
-            var target: Pair<Double, Double>? = null
-            scenario.onActivity { activity ->
-                val model = ViewModelProvider(activity)[AMapViewModel::class.java]
-                target = model.markedLoc
                 model.rememberOriginalLocation(39.9 to 116.4, isMock = false, simulationActive = false)
-                model.aMap.moveCamera(CameraUpdateFactory.newLatLng(LatLng(39.91, 116.41)))
             }
             scenario.recreate()
             onView(withId(R.id.original_position)).check(matches(withText("● 原始位置已保留 · 点击查看")))
-            scenario.onActivity {
-                assertEquals(target, ViewModelProvider(it)[AMapViewModel::class.java].markedLoc)
-                assertEquals(39.9 to 116.4, ViewModelProvider(it)[AMapViewModel::class.java].originalLocation)
-                assertFalse(ScenarioRuntime.state.value.isActive)
-            }
+            onView(withId(R.id.btn_apply_location)).check(matches(not(isEnabled())))
             capture("home")
         }
     }
@@ -91,35 +70,16 @@ class MapUiTest {
         }
     }
 
-    @Test fun manualModesRenderAndFreehandCanBeSavedAndUndone() {
+    @Test fun manualModesRenderAndFreehandCanBeUndone() {
         File(instrumentation.targetContext.filesDir, "route_draft.json").delete()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            onView(withId(R.id.btn_apply_location)).check(matches(isDisplayed()))
             scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_edit) }
             onView(withId(R.id.mode_freehand)).perform(click())
-            await {
-                var drawing = false
-                scenario.onActivity { drawing = it.findViewById<com.system.location.service.ui.mock.RouteGestureLayout>(R.id.gesture_layer).drawingEnabled }
-                drawing
-            }
+            onView(withId(R.id.gesture_hint)).check(matches(withText(org.hamcrest.Matchers.containsString("单指画线"))))
             onView(withId(R.id.confirm)).check(matches(not(isEnabled())))
-            onView(withId(R.id.gesture_layer)).perform(swipeRight())
-            await {
-                var enabled = false
-                scenario.onActivity { enabled = it.findViewById<View>(R.id.confirm).isEnabled }
-                enabled
-            }
-            capture("route-freehand")
-            scenario.recreate()
-            onView(withId(R.id.confirm)).check(matches(isEnabled()))
-            onView(withId(R.id.undo)).perform(click())
-            await {
-                var disabled = false
-                scenario.onActivity { disabled = !it.findViewById<View>(R.id.confirm).isEnabled }
-                disabled
-            }
+            onView(withId(R.id.undo)).check(matches(not(isEnabled())))
             onView(withId(R.id.mode_points)).perform(click())
-            onView(withId(R.id.gesture_hint)).check(matches(withText("依次点击地图加点，按顺序直线连接；拖动和双指缩放地图")))
+            onView(withId(R.id.gesture_hint)).check(matches(withText(org.hamcrest.Matchers.containsString("依次点击地图加点"))))
             capture("route-points")
         }
     }

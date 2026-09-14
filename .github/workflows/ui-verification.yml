@@ -46,7 +46,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             ./gradlew :app:connectedX64DebugAndroidTest --stacktrace
-            adb pull /sdcard/Android/data/com.system.location.service/files/ui-captures app/build/ui-captures
+            adb pull /sdcard/Android/data/com.system.location.service/files/ui-captures app/build/ui-captures || true
       - name: Upload device reports
         if: always()
         uses: actions/upload-artifact@v4

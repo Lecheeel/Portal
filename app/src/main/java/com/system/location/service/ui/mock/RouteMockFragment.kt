@@ -23,6 +23,13 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
     private val model by viewModels<LibraryViewModel>()
     private var importKind = LibraryKind.ROUTES
     private var exportKind = LibraryKind.ROUTES
+    private var exportRouteId: String? = null
+    private val importGpx = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) model.importGpx(uri)
+    }
+    private val exportGpx = registerForActivityResult(ActivityResultContracts.CreateDocument("application/gpx+xml")) { uri ->
+        if (uri != null) model.exportGpx(uri, exportRouteId)
+    }
     private val importFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) model.import(uri, importKind)
     }
@@ -33,6 +40,7 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
         super.onCreate(savedInstanceState)
         importKind = runCatching { LibraryKind.valueOf(savedInstanceState?.getString("importKind") ?: "ROUTES") }.getOrDefault(LibraryKind.ROUTES)
         exportKind = runCatching { LibraryKind.valueOf(savedInstanceState?.getString("exportKind") ?: "ROUTES") }.getOrDefault(LibraryKind.ROUTES)
+        exportRouteId = savedInstanceState?.getString("exportRouteId")
     }
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val ui = FragmentRouteMockBinding.bind(view)
@@ -45,6 +53,8 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
         ui.addRoute.setOnClickListener { findNavController().navigate(R.id.nav_route_edit) }
         ui.importLibrary.setOnClickListener { importKind = model.state.value.kind; importFile.launch(arrayOf("application/json", "text/*")) }
         ui.exportLibrary.setOnClickListener { exportKind = model.state.value.kind; exportFile.launch("location-${exportKind.name.lowercase()}.json") }
+        ui.importGpx.setOnClickListener { importGpx.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) }
+        ui.exportGpx.setOnClickListener { exportRouteId = null; exportGpx.launch("location-routes.gpx") }
         ui.pauseResume.setOnClickListener { if (ScenarioRuntime.state.value.phase == RuntimePhase.PAUSED) ScenarioRuntime.resume() else ScenarioRuntime.pause() }
         ui.stopScene.setOnClickListener { ScenarioRuntime.stop() }
         ui.libraryItems.setOnItemClickListener { _, _, position, _ -> model.state.value.items.getOrNull(position)?.let(::actions) }
@@ -55,6 +65,9 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
                     ui.libraryItems.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, state.items.map { "${it.title}\n${it.detail}" })
                     ui.libraryItems.isEnabled = !state.busy
                     ui.libraryKind.isEnabled = !state.busy
+                    if (ui.libraryKind.selectedItemPosition != state.kind.ordinal) ui.libraryKind.setSelection(state.kind.ordinal)
+                    ui.importGpx.isEnabled = !state.busy
+                    ui.exportGpx.isEnabled = !state.busy && state.kind == LibraryKind.ROUTES && state.items.isNotEmpty()
                 } }
                 launch { ScenarioRuntime.state.collect { state ->
                     ui.runtimeStatus.text = "${state.backend} · ${state.phase} · ${state.scenarioName.orEmpty()}" +
@@ -69,9 +82,11 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
         val choices = mutableListOf("启动", "重命名", "复制", "删除")
         if (model.state.value.kind != LibraryKind.SCENARIOS) choices += "收藏 / 取消收藏"
         if (model.state.value.kind != LibraryKind.LOCATIONS) choices += "播放模式"
+        if (model.state.value.kind == LibraryKind.ROUTES) choices += "导出 GPX"
         MaterialAlertDialogBuilder(requireContext()).setTitle(item.title).setItems(choices.toTypedArray()) { _, which ->
             when (choices[which]) {
                 "启动" -> model.start(item.id)
+                "导出 GPX" -> { exportRouteId = item.id; exportGpx.launch("route.gpx") }
                 "重命名", "复制" -> {
                     val name = EditText(requireContext()).apply { setText(item.title.removePrefix("★ ")); inputType = android.text.InputType.TYPE_CLASS_TEXT }
                     MaterialAlertDialogBuilder(requireContext()).setTitle(choices[which]).setView(name)
@@ -90,6 +105,7 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
     override fun onResume() { super.onResume(); model.refresh() }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("importKind", importKind.name); outState.putString("exportKind", exportKind.name)
+        outState.putString("exportRouteId", exportRouteId)
         super.onSaveInstanceState(outState)
     }
 }

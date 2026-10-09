@@ -125,5 +125,28 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             ?: error("无法写入导出文件")
         mutable.value = state.value.copy(message = "导出完成")
     }
+    fun importGpx(uri: Uri) = submit {
+        val text = getApplication<Application>().contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+            val buffer = CharArray(8192); val output = StringBuilder()
+            while (true) {
+                val count = reader.read(buffer)
+                if (count < 0) break
+                require(output.length + count <= com.system.location.service.core.gpx.GpxCodec.MAX_CHARS) { "GPX 文件过大" }
+                output.append(buffer, 0, count)
+            }
+            output.toString()
+        } ?: error("无法读取 GPX")
+        val routes = com.system.location.service.core.gpx.GpxCodec.decode(text).map { SavedRoute(it) }
+        LibraryRepositories.routes.replaceAll(LibraryRepositories.routes.list() + routes)
+        mutable.value = state.value.copy(kind = LibraryKind.ROUTES, message = "已导入 ${routes.size} 条 GPX 路线（WGS84）；不同轨迹段分别保存")
+    }
+    fun exportGpx(uri: Uri, id: String? = null) = submit {
+        val routes = if (id == null) LibraryRepositories.routes.list().map { it.route }
+            else listOf(LibraryRepositories.routes.get(id)?.route ?: error("路线不存在"))
+        val text = com.system.location.service.core.gpx.GpxCodec.encode(routes)
+        getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { it.write(text) }
+            ?: error("无法写入 GPX")
+        mutable.value = state.value.copy(message = "GPX 导出完成；仅路线名称与 WGS84 坐标，播放参数请使用 JSON")
+    }
     override fun onCleared() { events.close(); super.onCleared() }
 }

@@ -47,6 +47,7 @@ class Rocker(private val context: Context) {
     private val speedText = root.findViewById<TextView>(R.id.speed)
     private var displayedSpeed = 0.0
     private var draggingSpeed = false
+    private var presetsDialog: androidx.appcompat.app.AlertDialog? = null
     var onSpeedChanged: ((Double) -> Unit)? = null
 
     init {
@@ -61,7 +62,8 @@ class Rocker(private val context: Context) {
         root.findViewById<View>(R.id.speed_down).setOnClickListener { changeSpeed(displayedSpeed - 0.1) }
         root.findViewById<View>(R.id.speed_up).setOnClickListener { changeSpeed(displayedSpeed + 0.1) }
         root.findViewById<View>(R.id.speed_presets).setOnClickListener {
-            MaterialAlertDialogBuilder(context).setTitle(R.string.speed_presets)
+            presetsDialog?.dismiss()
+            presetsDialog = MaterialAlertDialogBuilder(context).setTitle(R.string.speed_presets)
                 .setItems(context.resources.getStringArray(R.array.speed_preset_names)) { _, index ->
                     changeSpeed(doubleArrayOf(1.4, 2.8, 5.5, 13.9)[index])
                 }.create().apply {
@@ -101,6 +103,8 @@ class Rocker(private val context: Context) {
     }
 
     fun hide() {
+        presetsDialog?.dismiss()
+        presetsDialog = null
         resetMovement()
         if (isStart) windowManager.removeViewImmediate(root)
         isStart = false

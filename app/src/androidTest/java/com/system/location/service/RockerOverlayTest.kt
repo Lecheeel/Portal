@@ -64,7 +64,8 @@ class RockerOverlayTest {
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.15) > 0.001) delay(10) } }
                 overlay(R.id.speed).check(matches(withText(containsString(context.getString(R.string.overlay_speed_value, context.speed)))))
                 overlay(R.id.speed_presets).perform(click())
-                onView(withText("步行 · 1.4 m/s")).perform(click())
+                onView(withText("步行 · 1.4 m/s")).inRoot(
+                    withDecorView(hasDescendant(withText("步行 · 1.4 m/s")))).perform(click())
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 1.4) > 0.001) delay(10) } }
                 overlay(R.id.expand_menu).perform(click())
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))

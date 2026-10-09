@@ -229,7 +229,8 @@
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
-                <Button
+                <com.google.android.material.button.MaterialButton
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:id="@+id/speed_down"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
@@ -245,7 +246,8 @@
                     android:textSize="12sp"
                     android:gravity="center"
                     android:textColor="@color/text_primary" />
-                <Button
+                <com.google.android.material.button.MaterialButton
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:id="@+id/speed_up"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
@@ -263,7 +265,7 @@
                     android:valueTo="50.0"
                     app:tickVisible="false"
                     app:trackHeight="4dp" />
-                <Button android:id="@+id/speed_presets" android:layout_width="match_parent" android:layout_height="48dp" android:text="@string/speed_presets" />
+                <com.google.android.material.button.MaterialButton style="@style/Widget.Material3.Button.OutlinedButton" android:id="@+id/speed_presets" android:layout_width="match_parent" android:layout_height="48dp" android:text="@string/speed_presets" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 

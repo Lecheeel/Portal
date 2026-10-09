@@ -1,5 +1,6 @@
 package com.system.location.service.ui.home
 import com.system.location.service.ui.displayStates
+import com.system.location.service.ui.setTextIfChanged
 
 import android.annotation.SuppressLint
 import android.graphics.Color
@@ -459,11 +460,13 @@ class HomeFragment : Fragment() {
         if (_binding == null) return
         val isRunning = mockServiceViewModel.isServiceStart()
         binding.btnApplyLocation.isEnabled = aMapViewModel.markedLoc != null && !isApplyingLocation
-        binding.btnApplyLocation.text = if (isApplyingLocation) "正在切换…" else if (isRunning) "切换到所选位置" else "在所选位置开始模拟"
+        binding.btnApplyLocation.setTextIfChanged(if (isApplyingLocation) "正在切换…" else if (isRunning) "切换到所选位置" else "在所选位置开始模拟")
         binding.btnQuickMock.isEnabled = !isApplyingLocation && isRunning
-        binding.btnQuickMock.text = "停止模拟"
-        binding.btnQuickMock.setIconResource(R.drawable.baseline_stop_24)
-        binding.btnQuickRocker.text = if (RockerOverlay.isEnabled) "关闭悬浮窗" else "开启悬浮窗"
+        if (binding.btnQuickMock.text != "停止模拟") {
+            binding.btnQuickMock.text = "停止模拟"
+            binding.btnQuickMock.setIconResource(R.drawable.baseline_stop_24)
+        }
+        binding.btnQuickRocker.setTextIfChanged(if (RockerOverlay.isEnabled) "关闭悬浮窗" else "开启悬浮窗")
     }
 
     @SuppressLint("SetTextI18n")

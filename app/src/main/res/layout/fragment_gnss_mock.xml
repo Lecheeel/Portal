@@ -5,6 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/page_background"
     tools:context=".ui.gnss.GnssMockFragment">
 
     <androidx.core.widget.NestedScrollView
@@ -21,7 +22,8 @@
                 android:id="@+id/mock_gnss_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="4dp"
+                app:cardCornerRadius="20dp"
+                app:cardBackgroundColor="@color/card_surface"
                 android:layout_margin="8dp"
                 app:cardPreventCornerOverlap="false"
                 app:contentPadding="8dp">
@@ -98,7 +100,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="@string/zero"
                                     android:gravity="center"
-                                    android:textColor="@color/black"
+                                    android:textColor="@color/text_primary"
                                     android:textStyle="bold"
                                     android:textSize="10sp"
                                     app:layout_constraintHorizontal_weight="1"
@@ -133,7 +135,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="@string/zero"
                                     android:gravity="center"
-                                    android:textColor="@color/black"
+                                    android:textColor="@color/text_primary"
                                     android:textStyle="bold"
                                     android:textSize="10sp"
                                     app:layout_constraintHorizontal_weight="1"
@@ -168,7 +170,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="0 dB-Hz"
                                     android:gravity="center"
-                                    android:textColor="@color/black"
+                                    android:textColor="@color/text_primary"
                                     android:textStyle="bold"
                                     android:textSize="10sp"
                                     app:layout_constraintHorizontal_weight="1"
@@ -182,7 +184,8 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_margin="4dp"
-                                app:cardCornerRadius="4dp"
+                                app:cardCornerRadius="20dp"
+                app:cardBackgroundColor="@color/card_surface"
                                 app:cardElevation="1dp">
 
                                 <LinearLayout
@@ -318,7 +321,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="未知"
                                     android:gravity="center"
-                                    android:textColor="@color/black"
+                                    android:textColor="@color/text_primary"
                                     android:textStyle="bold"
                                     android:textSize="10sp"
                                     app:layout_constraintHorizontal_weight="1"
@@ -389,7 +392,8 @@
                 android:id="@+id/settings_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="4dp"
+                app:cardCornerRadius="20dp"
+                app:cardBackgroundColor="@color/card_surface"
                 android:layout_margin="8dp"
                 app:cardPreventCornerOverlap="false"
                 app:contentPadding="8dp">

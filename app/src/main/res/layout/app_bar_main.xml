@@ -11,10 +11,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:elevation="0dp"
-        android:background="@android:color/transparent"
+        android:background="@color/page_background"
         app:elevation="0dp">
 
-        <androidx.appcompat.widget.Toolbar
+        <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
@@ -22,6 +22,7 @@
             app:theme="@style/AppTheme.LocationService.ToolBarOverlay"
             app:popupTheme="@style/AppTheme.LocationService.PopupTheme"
             app:titleTextColor="@color/text_primary"
+            app:navigationIconTint="@color/text_primary"
             app:subtitleTextColor="@color/text_secondary"
             android:visibility="gone"
             app:collapseIcon="@drawable/baseline_arrow_back_24" />

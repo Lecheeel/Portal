@@ -23,8 +23,22 @@ import com.system.location.service.databinding.FragmentRuntimeBinding
 import com.system.location.service.runtime.ScenarioRuntime
 import kotlinx.coroutines.launch
 import java.util.Locale
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
+    private val exportLog = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        val context = context?.applicationContext
+        if (uri != null && context != null) lifecycleScope.launch {
+            try {
+                val report = ScenarioRuntime.diagnosticReport()
+                withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { it.write(report) } ?: error("无法写入日志") }
+                Toast.makeText(context, "诊断日志已导出", Toast.LENGTH_SHORT).show()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) { Toast.makeText(context, error.message ?: "日志导出失败", Toast.LENGTH_LONG).show() }
+        }
+    }
     private val expanded = mutableMapOf<String, Boolean>()
     private var clearedAt = 0L
     private var logLimit = 20
@@ -76,6 +90,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             }
         }
         binding.moreLogs.setOnClickListener { logLimit += 20; renderLogs() }
+        binding.exportLogs.setOnClickListener { exportLog.launch("location-diagnostics.txt") }
         binding.clearLogs.setOnClickListener { clearedAt = System.currentTimeMillis(); logLimit = 20; renderLogs() }
         binding.copyLogs.setOnClickListener {
             (requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
@@ -139,6 +154,10 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
                         binding.applyBackend.isEnabled = !state.isActive
                         binding.stopRuntime.isEnabled = state.isActive || state.phase == RuntimePhase.ERROR
                         binding.runtimeState.text = buildString {
+                            val health = state.submissionHealth
+                            appendLine("提交 ${health.count} 次 · 最近间隔 ${health.lastGapMs.toLong()}ms · 最大间隔 ${health.maxGapMs.toLong()}ms")
+                            appendLine("最近耗时 ${health.lastLatencyMs.toLong()}ms · 最大耗时 ${health.maxLatencyMs.toLong()}ms · 延迟 ${health.delayedCount} 次")
+                            appendLine("提交成功不代表目标 App 已采用定位")
                             appendLine("当前后端：${backendLabel(state.backend)}\n状态：${binding.phaseTitle.text}")
                             appendLine("场景：${state.scenarioName ?: "未选择"}\n路线：${state.routeId ?: "—"}")
                             state.sample?.let {

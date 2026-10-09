@@ -14,16 +14,21 @@ interface MockProviderPort {
     fun remove(provider: String)
 }
 
+class MissingMockProviderException(provider: String, cause: Exception? = null) : IllegalStateException("模拟 Provider 丢失: $provider", cause)
+
 class MockProviderBackend(private val port: MockProviderPort) : LocationBackend {
     enum class Phase { IDLE, PREPARED, RUNNING, PAUSED, STOPPED, ERROR }
     var phase = Phase.IDLE
         private set
     private val owned = linkedSetOf<String>()
+    private val lastRecovery = mutableMapOf<String, Long>()
+    private var recoveryCount = 0
     override val type = BackendType.MOCK_PROVIDER
     override suspend fun diagnose() = listOf(
         BackendDiagnostic("MOCK_PERMISSION", if (port.permissionGranted()) "AVAILABLE" else "REQUIRES_ACTION",
             "标准模拟位置授权；Provider 状态：$phase", "在开发者选项中选择本应用"),
-        BackendDiagnostic("PROVIDER_OWNERSHIP", "INFO", "待清理 Provider：${port.pendingProviders().joinToString().ifEmpty { "无" }}")) + port.diagnostics()
+        BackendDiagnostic("PROVIDER_OWNERSHIP", "INFO", "待清理 Provider：${port.pendingProviders().joinToString().ifEmpty { "无" }}"),
+        BackendDiagnostic("PROVIDER_RECOVERY", "INFO", "本次会话重新注册次数：$recoveryCount（仅恢复明确丢失的 Provider；最多3次）")) + port.diagnostics()
     override val capabilities get() = Capability.entries.associateWith {
         when (it) {
             Capability.STANDARD_MOCK -> CapabilityStatus(
@@ -59,6 +64,8 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
                 port.enable(provider, true)
             }
             phase = Phase.RUNNING
+            lastRecovery.clear()
+            recoveryCount = 0
             BackendResult.Success
         }
     }
@@ -67,7 +74,19 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
         if (phase !in setOf(Phase.RUNNING, Phase.PAUSED)) return failure("PUBLISH", "Provider 未启动")
         return guarded("PUBLISH") {
             val fix = if (phase == Phase.PAUSED) sample.copy(speed = 0f) else sample
-            owned.forEach { port.publish(it, fix) }
+            owned.forEach { provider ->
+                try { port.publish(provider, fix) }
+                catch (missing: MissingMockProviderException) {
+                    val previous = lastRecovery[provider]
+                    if (!port.permissionGranted() || recoveryCount >= 3 ||
+                        previous != null && fix.elapsedNanos - previous < 5_000_000_000) throw missing
+                    lastRecovery[provider] = fix.elapsedNanos
+                    recoveryCount++
+                    port.register(provider)
+                    port.enable(provider, true)
+                    port.publish(provider, fix)
+                }
+            }
             BackendResult.Success
         }
     }

@@ -19,11 +19,15 @@ class MockProviderBackendTest {
         var failEnable: String? = null
         var failPublish = false
         var failRemove = false
+        var missing: String? = null
+        var missingAlways = false
+        var registrations = 0
         var extraDiagnostics: List<BackendDiagnostic> = emptyList()
         override fun diagnostics() = extraDiagnostics
         override fun permissionGranted() = allowed
         override fun pendingProviders() = registered.toSet()
         override fun register(provider: String) {
+            registrations++
             registered += provider
             if (failRegister == provider) error("register failed after allocation")
         }
@@ -32,6 +36,7 @@ class MockProviderBackendTest {
             if (enabled) this.enabled += provider else this.enabled -= provider
         }
         override fun publish(provider: String, sample: LocationSample) {
+            if (missing == provider) { if (!missingAlways) missing = null; throw MissingMockProviderException(provider) }
             if (failPublish) throw SecurityException("mock authorization revoked")
             fixes += provider to sample
         }
@@ -41,6 +46,25 @@ class MockProviderBackendTest {
         }
     }
     private val sample = LocationSample(Wgs84(25.123456789123, 119.12345678912), 15.0, 2f, 3f, 45f, 1, 1)
+    @Test fun missingProviderRetriesOnceButPermissionFailureNeverRetries() = runBlocking {
+        val port = Port(); val backend = MockProviderBackend(port)
+        backend.prepare(); backend.start(); port.missing = "gps"
+        assertEquals(BackendResult.Success, backend.publish(sample))
+        assertEquals(3, port.registrations)
+        port.failPublish = true
+        assertTrue(backend.publish(sample) is BackendResult.Failure)
+        assertEquals(3, port.registrations)
+        assertTrue(port.registered.isEmpty())
+    }
+    @Test fun recoveryIsBoundedAndCannotReviveAStoppedSession() = runBlocking {
+        val port = Port(); val backend = MockProviderBackend(port)
+        backend.prepare(); backend.start(); port.missing = "gps"; port.missingAlways = true
+        assertTrue(backend.publish(sample) is BackendResult.Failure)
+        assertEquals(3, port.registrations)
+        backend.stop()
+        assertTrue(backend.publish(sample) is BackendResult.Failure)
+        assertEquals(3, port.registrations)
+    }
 
     @Test fun reflectionDiagnosticDoesNotClaimDownstreamAcceptanceOrBlockPublishing() = runBlocking {
         val port = Port()

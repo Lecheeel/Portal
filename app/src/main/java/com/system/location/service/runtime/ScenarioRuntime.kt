@@ -15,6 +15,10 @@ import com.system.location.service.ext.experimentalOrbitMotion
 import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.orbitPeriodSeconds
+import com.system.location.service.data.persistence.AtomicDocumentStore
+import com.system.location.service.BuildConfig
+import android.os.Build
+import java.io.File
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -25,6 +29,7 @@ object ScenarioRuntime {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val commands = Mutex()
     private val preferences get() = context.getSharedPreferences("scenario_runtime", Context.MODE_PRIVATE)
+    private val journal by lazy { DiagnosticJournal(AtomicDocumentStore(File(context.noBackupFilesDir, "runtime-diagnostics.json"))) }
     val controller = ScenarioController({ type ->
         when (type) {
             BackendType.XPOSED -> XposedBackend(context)
@@ -34,7 +39,7 @@ object ScenarioRuntime {
     }, object : RuntimeClock {
         override fun nanos() = SystemClock.elapsedRealtimeNanos()
         override fun millis() = System.currentTimeMillis()
-    })
+    }, { event -> journal.append(event) })
     val state = controller.state
     val diagnostics = controller.diagnostics
     @Volatile private var service: ScenarioService? = null
@@ -42,6 +47,10 @@ object ScenarioRuntime {
     private val serviceStarts = ServiceStartGate()
     private val initialized by lazy {
         scope.async {
+            withContext(Dispatchers.IO) {
+                runCatching { journal.read() }.onSuccess { controller.restoreDiagnostics(it) }
+                    .onFailure { controller.note("DIAGNOSTIC_STORAGE", "FAILED", it.message ?: "历史日志读取失败") }
+            }
             val selected = runCatching { BackendType.valueOf(preferences.getString("backend", "MOCK_PROVIDER")!!) }
                 .getOrDefault(BackendType.MOCK_PROVIDER)
             controller.selectBackend(selected)
@@ -87,6 +96,19 @@ object ScenarioRuntime {
     }
     fun pause() = command { controller.pause() }
     fun refreshDiagnostics() = command { controller.refreshDiagnostics(); true }
+    suspend fun diagnosticReport(): String = withContext(Dispatchers.IO) {
+        initialized.await()
+        commands.withLock {
+            buildString {
+                appendLine("LocationService ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) revision=${BuildConfig.GIT_REVISION}")
+                appendLine("Android ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT} ROM=${Build.DISPLAY}")
+                appendLine(BackgroundGuidance.status(context))
+                appendLine("状态=${state.value.phase} 后端=${state.value.backend} 配置间隔=${controller.intervalMs}ms")
+                appendLine("以下是 API 提交及运行诊断，不能证明目标 App 接受定位。")
+                controller.diagnostics.value.forEach { appendLine("${java.time.Instant.ofEpochMilli(it.timestamp)} ${it.backend} ${it.stage} ${it.result}: ${it.reason} ${it.suggestion}") }
+            }
+        }
+    }
     fun resume() = command { controller.resume() }
     fun motion(bearing: Double, moving: Boolean, strength: Double = 1.0) = command { controller.setMotion(bearing, moving, strength) }
     fun setSpeed(speed: Double): Deferred<Boolean> {

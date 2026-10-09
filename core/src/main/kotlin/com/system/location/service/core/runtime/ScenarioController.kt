@@ -12,7 +12,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Owns the only runtime state. A service supplies ticks; UI only sends commands and observes. */
-class ScenarioController(private val factory: (BackendType) -> LocationBackend, private val clock: RuntimeClock) {
+class ScenarioController(private val factory: (BackendType) -> LocationBackend, private val clock: RuntimeClock,
+    private val diagnosticSink: (DiagnosticEvent) -> Unit = {}) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(RuntimeState())
     val state = mutableState.asStateFlow()
@@ -23,6 +24,10 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     private var orbitEnabled = false
     private var orbitRadiusMeters = 0.2
     private var orbitPeriodSeconds = 20.0
+    private var previousSubmissionNanos: Long? = null
+    private var healthRecordedAt: Long? = null
+    private var storageFailureReported = false
+    private val lastRecords = mutableMapOf<Pair<BackendType, String>, Pair<DiagnosticEvent, Long>>()
     @Volatile var intervalMs = 500L
         private set
 
@@ -47,8 +52,11 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         engine = next
         next.setOrbit(orbitEnabled, orbitRadiusMeters, orbitPeriodSeconds)
         intervalMs = next.scenario.profile.intervalMs
+        previousSubmissionNanos = null
+        healthRecordedAt = null
         mutableState.value = RuntimeState(RuntimePhase.PREPARING, type, input.id, input.name,
             input.route?.id, capabilities = instance.capabilities, configuredSpeedMps = next.scenario.profile.speedMps)
+        record("SCENARIO_PARAMETERS", "INFO", "场景=${input.name}；路线点数=${input.route?.points?.size ?: 0}；速度上限=${input.profile.speedMps}m/s；平滑运动=${input.profile.smoothMotion}；间隔=${intervalMs}ms；圆周=$orbitEnabled 半径=${orbitRadiusMeters}m 周期=${orbitPeriodSeconds}s")
         if (!step("PREPARE") { instance.prepare() }) return@withLock false
         mutableState.value = state.value.copy(phase = RuntimePhase.READY, capabilities = instance.capabilities)
         if (!step("START") { instance.start() }) return@withLock false
@@ -57,6 +65,10 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     }
 
     suspend fun tick(): Boolean = mutex.withLock { publishLocked() }
+    suspend fun restoreDiagnostics(history: List<DiagnosticEvent>) = mutex.withLock {
+        mutableDiagnostics.value = (history + mutableDiagnostics.value).takeLast(300)
+    }
+    suspend fun note(stage: String, result: String, reason: String) = mutex.withLock { record(stage, result, reason) }
 
     suspend fun pause(): Boolean = mutex.withLock {
         if (state.value.phase != RuntimePhase.RUNNING) return@withLock false
@@ -150,10 +162,25 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     private suspend fun publishLocked(): Boolean {
         if (state.value.phase !in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) return false
         val frame = engine!!.tick(clock.nanos(), clock.millis())
+        val started = clock.nanos()
         if (!step("PUBLISH") { backend!!.publish(frame.sample) }) return false
+        val ended = clock.nanos()
+        val gap = previousSubmissionNanos?.let { (frame.sample.elapsedNanos - it).coerceAtLeast(0) / 1_000_000.0 } ?: 0.0
+        val latency = (ended - started).coerceAtLeast(0) / 1_000_000.0
+        previousSubmissionNanos = frame.sample.elapsedNanos
+        val old = state.value.submissionHealth
+        val health = SubmissionHealth(old.count + 1, gap, maxOf(old.maxGapMs, gap), latency, maxOf(old.maxLatencyMs, latency),
+            old.delayedCount + if (gap > maxOf(1000.0, intervalMs * 3.0)) 1 else 0)
         mutableState.value = state.value.copy(sample = frame.sample, currentPoint = frame.segment,
-            progress = frame.progress, lastUpdateAt = frame.sample.timeMillis)
+            progress = frame.progress, lastUpdateAt = frame.sample.timeMillis, submissionHealth = health)
         record("PUBLISH", "SUCCESS", "最近定位样本已提交至后端")
+        if (healthRecordedAt == null || ended - healthRecordedAt!! >= 5_000_000_000) {
+            healthRecordedAt = ended
+            record("SUBMISSION_HEALTH", "INFO", "提交=${health.count}；设定间隔=${intervalMs}ms；最近间隔=${gap.toLong()}ms；最大间隔=${health.maxGapMs.toLong()}ms；最近耗时=${latency.toLong()}ms；延迟次数=${health.delayedCount}；仅表示后端 API 提交，不表示目标应用采用")
+            try { backend!!.diagnose().forEach { record(it.stage, it.result, it.reason, it.suggestion) } }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { record("DIAGNOSE", "FAILED", error.message ?: "诊断失败") }
+        }
         if (frame.completed) return stopLocked()
         return true
     }
@@ -199,9 +226,20 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     }
     private fun record(stage: String, result: String, reason: String, suggestion: String = "") {
         val now = clock.millis()
-        val previous = mutableDiagnostics.value.lastOrNull { it.stage == stage && it.result == result && it.reason == reason }
-        if (previous != null && now - previous.timestamp < 5000) return
-        mutableDiagnostics.value = (mutableDiagnostics.value + DiagnosticEvent(now, state.value.backend,
-            stage, result, reason, suggestion)).takeLast(100)
+        val key = state.value.backend to stage
+        val monotonic = clock.nanos()
+        val previous = lastRecords[key]
+        if (previous != null && previous.first.result == result && previous.first.reason == reason &&
+            monotonic - previous.second in 0 until 5_000_000_000 && stage !in setOf("PREPARE", "START", "CLEANUP", "SCENARIO_PARAMETERS")) return
+        val event = DiagnosticEvent(now, state.value.backend, stage, result, reason, suggestion)
+        lastRecords[key] = event to monotonic
+        try { diagnosticSink(event) }
+        catch (error: Exception) {
+            if (!storageFailureReported) {
+                storageFailureReported = true
+                mutableDiagnostics.value += DiagnosticEvent(now, state.value.backend, "DIAGNOSTIC_STORAGE", "FAILED", error.message ?: "诊断日志保存失败")
+            }
+        }
+        mutableDiagnostics.value = (mutableDiagnostics.value + event).takeLast(300)
     }
 }

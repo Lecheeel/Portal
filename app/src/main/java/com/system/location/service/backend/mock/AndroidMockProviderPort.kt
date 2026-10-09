@@ -68,7 +68,12 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
             lastFlagOutcome = null
         }
         experimentWasEnabled = enabled
-        manager.setTestProviderLocation(provider, location)
+        try { manager.setTestProviderLocation(provider, location) }
+        catch (error: IllegalArgumentException) {
+            val message = error.message.orEmpty().lowercase(java.util.Locale.ROOT)
+            if (listOf("not a test provider", "doesn't exist", "does not exist", "unknown provider").any { message.contains(it) }) throw MissingMockProviderException(provider, error)
+            throw error
+        }
     }
     override fun remove(provider: String) {
         try { manager.removeTestProvider(provider) }

@@ -41,6 +41,7 @@
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                 <com.google.android.material.button.MaterialButton android:id="@+id/toggle_logs" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="运行日志 ▾" />
                 <LinearLayout android:id="@+id/log_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/export_logs" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="导出完整诊断日志" />
                     <Spinner android:id="@+id/log_filter" android:layout_width="match_parent" android:layout_height="48dp" android:contentDescription="日志筛选" />
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                         <com.google.android.material.button.MaterialButton android:id="@+id/copy_logs" style="@style/Widget.Material3.Button.TextButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="复制日志" />

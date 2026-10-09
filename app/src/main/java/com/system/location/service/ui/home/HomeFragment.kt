@@ -1,4 +1,5 @@
 package com.system.location.service.ui.home
+import com.system.location.service.ui.displayStates
 
 import android.annotation.SuppressLint
 import android.graphics.Color
@@ -221,7 +222,7 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                mockServiceViewModel.runtimeState.collect { state ->
+                mockServiceViewModel.runtimeState.displayStates().collect { state ->
                     val running = state.isActive
                     val position = state.sample?.coordinate?.let { it.latitude to it.longitude }
                     updateMockButtonState()

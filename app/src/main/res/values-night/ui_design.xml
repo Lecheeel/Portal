@@ -1,0 +1,15 @@
+<resources>
+    <color name="page_background">#0D1422</color>
+    <color name="card_surface">#172133</color>
+    <color name="primary_container">#293350</color>
+    <color name="on_primary">#172044</color>
+    <color name="primary">#A5B4FC</color>
+    <color name="accent">#C4B5FD</color>
+    <color name="status_success">#6EE7B7</color>
+    <color name="status_error">#FDA4AF</color>
+    <color name="lse_mini_title_color">#CBD5E1</color>
+    <color name="lse_hint_color">#94A3B8</color>
+    <color name="lse_text_color">#F1F5F9</color>
+    <color name="lse_location_detail_background">#1E293B</color>
+    <color name="lse_location_detail_block">#172133</color>
+</resources>

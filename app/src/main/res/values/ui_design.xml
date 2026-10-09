@@ -1,0 +1,44 @@
+<resources>
+    <color name="page_background">#F5F7FC</color>
+    <color name="card_surface">#FFFFFF</color>
+    <color name="primary_container">#EEF0FF</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="status_success">#087F5B</color>
+    <color name="status_error">#B42338</color>
+    <dimen name="page_spacing">16dp</dimen>
+    <style name="Portal.Card" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardBackgroundColor">@color/card_surface</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/card_border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+    <style name="Portal.Title" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Portal.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:lineSpacingExtra">3dp</item>
+    </style>
+    <style name="Portal.Section" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Portal.Button" parent="Widget.Material3.Button">
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="iconSize">20dp</item>
+    </style>
+    <style name="Portal.SectionButton" parent="Widget.Material3.Button.TextButton">
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="iconGravity">end</item>
+        <item name="iconTint">@color/text_secondary</item>
+        <item name="icon">@drawable/baseline_keyboard_arrow_down_24</item>
+        <item name="cornerRadius">12dp</item>
+    </style>
+</resources>

@@ -10,6 +10,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import androidx.core.widget.addTextChangedListener
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.system.location.service.R
 import com.system.location.service.core.runtime.RuntimePhase
@@ -17,13 +19,25 @@ import com.system.location.service.core.scenario.RouteMode
 import com.system.location.service.databinding.FragmentRouteMockBinding
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.viewmodel.*
+import com.system.location.service.ui.displayLabel
+import com.system.location.service.ui.displayStates
+import com.system.location.service.ui.setTextIfChanged
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
     private val model by viewModels<LibraryViewModel>()
     private var importKind = LibraryKind.ROUTES
     private var exportKind = LibraryKind.ROUTES
     private var exportRouteId: String? = null
+    private val query = MutableStateFlow("")
     private val importGpx = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) model.importGpx(uri)
     }
@@ -44,41 +58,70 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
     }
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val ui = FragmentRouteMockBinding.bind(view)
-        ui.libraryKind.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, listOf("路线库", "场景库", "收藏位置"))
-        ui.libraryKind.setSelection(model.state.value.kind.ordinal)
-        ui.libraryKind.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) { model.kind(LibraryKind.entries[position]) }
+        val kindIds = listOf(R.id.kind_routes, R.id.kind_scenarios, R.id.kind_locations)
+        ui.libraryKind.check(kindIds[model.state.value.kind.ordinal])
+        ui.libraryKind.addOnButtonCheckedListener { _, id, checked ->
+            if (checked && kindIds.indexOf(id) != model.state.value.kind.ordinal) model.kind(LibraryKind.entries[kindIds.indexOf(id)])
         }
+        ui.librarySearch.setText(query.value)
+        ui.librarySearch.addTextChangedListener { query.value = it.toString() }
+        val adapter = LibraryAdapter(::actions)
+        ui.libraryItems.layoutManager = LinearLayoutManager(requireContext())
+        ui.libraryItems.adapter = adapter
+        ui.libraryItems.itemAnimator = null
         ui.addRoute.setOnClickListener { findNavController().navigate(R.id.nav_route_edit) }
-        ui.importLibrary.setOnClickListener { importKind = model.state.value.kind; importFile.launch(arrayOf("application/json", "text/*")) }
-        ui.exportLibrary.setOnClickListener { exportKind = model.state.value.kind; exportFile.launch("location-${exportKind.name.lowercase()}.json") }
-        ui.importGpx.setOnClickListener { importGpx.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) }
-        ui.exportGpx.setOnClickListener { exportRouteId = null; exportGpx.launch("location-routes.gpx") }
+        ui.libraryMore.setOnClickListener {
+            val routes = model.state.value.kind == LibraryKind.ROUTES
+            val choices = if (routes) arrayOf("导入 JSON", "导出 JSON", "导入 GPX", "导出 GPX") else arrayOf("导入 JSON", "导出 JSON")
+            MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.ui_library_more).setItems(choices) { _, index ->
+                when (index) {
+                    0 -> { importKind = model.state.value.kind; importFile.launch(arrayOf("application/json", "text/*")) }
+                    1 -> { exportKind = model.state.value.kind; exportFile.launch("location-${exportKind.name.lowercase()}.json") }
+                    2 -> importGpx.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream"))
+                    3 -> { exportRouteId = null; exportGpx.launch("location-routes.gpx") }
+                }
+            }.show()
+        }
         ui.pauseResume.setOnClickListener { if (ScenarioRuntime.state.value.phase == RuntimePhase.PAUSED) ScenarioRuntime.resume() else ScenarioRuntime.pause() }
         ui.stopScene.setOnClickListener { ScenarioRuntime.stop() }
-        ui.libraryItems.setOnItemClickListener { _, _, position, _ -> model.state.value.items.getOrNull(position)?.let(::actions) }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { model.state.collect { state ->
-                    ui.libraryStatus.text = state.message ?: if (state.busy) "正在读取/保存…" else "${state.items.size} 条记录"
-                    ui.libraryItems.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, state.items.map { "${it.title}\n${it.detail}" })
-                    ui.libraryItems.isEnabled = !state.busy
+                    ui.libraryStatus.setTextIfChanged(state.message ?: if (state.busy) "正在读取／保存…" else getString(R.string.ui_library_count, state.items.size))
+                    ui.libraryLoading.visibility = if (state.busy) View.VISIBLE else View.GONE
                     ui.libraryKind.isEnabled = !state.busy
-                    if (ui.libraryKind.selectedItemPosition != state.kind.ordinal) ui.libraryKind.setSelection(state.kind.ordinal)
-                    ui.importGpx.isEnabled = !state.busy
-                    ui.exportGpx.isEnabled = !state.busy && state.kind == LibraryKind.ROUTES && state.items.isNotEmpty()
+                    kindIds.forEach { ui.libraryKind.findViewById<View>(it).isEnabled = !state.busy }
+                    if (ui.libraryKind.checkedButtonId != kindIds[state.kind.ordinal]) ui.libraryKind.check(kindIds[state.kind.ordinal])
+                    ui.libraryMore.isEnabled = !state.busy
+                    ui.addRoute.isEnabled = !state.busy
+                    ui.addRoute.visibility = if (state.kind == LibraryKind.ROUTES) View.VISIBLE else View.GONE
                 } }
-                launch { ScenarioRuntime.state.collect { state ->
-                    ui.runtimeStatus.text = "${state.backend} · ${state.phase} · ${state.scenarioName.orEmpty()}" +
+                launch {
+                    combine(model.state.map { it.kind to it.items }.distinctUntilChanged(), query) { data, text -> data to text }
+                        .mapLatest { (data, text) -> withContext(Dispatchers.Default) {
+                            data.second.filter { text.isBlank() || it.title.contains(text, true) || it.detail.contains(text, true) }
+                                .map { LibraryRow(data.first, it) }
+                        } }.collect { rows ->
+                            adapter.submitList(rows)
+                            ui.libraryEmpty.visibility = if (rows.isEmpty()) View.VISIBLE else View.GONE
+                            ui.emptyTitle.setText(if (query.value.isBlank()) R.string.ui_library_empty else R.string.ui_library_no_match)
+                            ui.emptyDescription.setText(if (query.value.isBlank()) R.string.ui_library_empty_desc else R.string.ui_library_no_match_desc)
+                        }
+                }
+                launch { ScenarioRuntime.state.displayStates().collect { state ->
+                    ui.libraryRuntimeCard.visibility = if (state.isActive || state.error != null) View.VISIBLE else View.GONE
+                    ui.runtimeStatus.setTextIfChanged("${state.backend.displayLabel()} · ${state.phase.displayLabel()} · ${state.scenarioName.orEmpty()}" +
                         (state.error?.let { "\n${it.stage}: ${it.reason}\n${it.suggestion}" } ?: "")
+                    )
                     ui.pauseResume.isEnabled = state.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)
-                    ui.pauseResume.text = if (state.phase == RuntimePhase.PAUSED) "恢复" else "暂停"
+                    ui.pauseResume.setTextIfChanged(if (state.phase == RuntimePhase.PAUSED) "继续" else "暂停")
+                    ui.pauseResume.setIconResource(if (state.phase == RuntimePhase.PAUSED) R.drawable.baseline_play_24 else R.drawable.ic_pause)
                 } }
             }
         }
     }
     private fun actions(item: LibraryItem) {
+        if (model.state.value.busy || model.state.value.items.none { it.id == item.id }) return
         val choices = mutableListOf("启动", "重命名", "复制", "删除")
         if (model.state.value.kind != LibraryKind.SCENARIOS) choices += "收藏 / 取消收藏"
         if (model.state.value.kind != LibraryKind.LOCATIONS) choices += "播放模式"

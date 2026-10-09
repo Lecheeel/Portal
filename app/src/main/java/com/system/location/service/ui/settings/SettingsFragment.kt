@@ -47,6 +47,8 @@ import com.system.location.service.update.UpdateDialogFragment
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 import com.system.location.service.ui.viewmodel.SettingsViewModel
 import kotlin.getValue
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 class SettingsFragment : Fragment() {
     private var _binding: FragmentSettingsBinding? = null
@@ -285,8 +287,9 @@ class SettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
-                com.system.location.service.runtime.ScenarioRuntime.state.collect { state ->
-                    val hooks = state.backend != com.system.location.service.core.backend.BackendType.MOCK_PROVIDER
+                com.system.location.service.runtime.ScenarioRuntime.state
+                    .map { it.backend != com.system.location.service.core.backend.BackendType.MOCK_PROVIDER }
+                    .distinctUntilChanged().collect { hooks ->
                     listOf(binding.debugSwitch, binding.dgcSwitch, binding.rllSwitch, binding.dfusedSwitch,
                         binding.cdmaSwitch, binding.disableWlanScanSwitch, binding.loopBroadcastLocationSwitch).forEach {
                         it.isEnabled = hooks

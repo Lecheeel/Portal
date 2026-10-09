@@ -16,6 +16,9 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.system.location.service.ui.displayStates
+import com.system.location.service.ui.setTextIfChanged
+import com.system.location.service.ui.displayLabel
 import com.system.location.service.R
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.runtime.RuntimePhase
@@ -53,7 +56,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             else it.backend == ScenarioRuntime.state.value.backend) }.asReversed()
         fun renderLogs() {
             val visible = visibleEvents()
-            binding.toggleLogs.text = "运行日志 · ${visible.size} 条 ${if (binding.logDetails.visibility == View.VISIBLE) "▴" else "▾"}"
+            binding.toggleLogs.setTextIfChanged("运行日志 · ${visible.size} 条")
             if (binding.logDetails.visibility != View.VISIBLE) return
             val dateFormat = java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault())
             val migration = com.system.location.service.data.repository.LibraryRepositories.migrationIssues()
@@ -66,15 +69,17 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             }
             binding.moreLogs.visibility = if (visible.size > logLimit) View.VISIBLE else View.GONE
         }
+        var renderRuntime: () -> Unit = {}
         fun section(key: String, button: MaterialButton, content: View, title: String) {
             fun update(open: Boolean) {
                 expanded[key] = open
                 content.visibility = if (open) View.VISIBLE else View.GONE
-                button.text = "$title ${if (open) "▴" else "▾"}"
+                button.setTextIfChanged(title)
+                button.setIconResource(if (open) R.drawable.baseline_keyboard_arrow_up_24 else R.drawable.baseline_keyboard_arrow_down_24)
                 button.contentDescription = "$title，${if (open) "已展开，点击收起" else "已收起，点击展开"}"
             }
             update(savedInstanceState?.getBoolean(key) ?: expanded[key] ?: false)
-            button.setOnClickListener { update(content.visibility != View.VISIBLE); renderLogs() }
+            button.setOnClickListener { update(content.visibility != View.VISIBLE); renderRuntime(); renderLogs() }
         }
         section("state", binding.toggleState, binding.stateDetails, "运行详情")
         section("backend", binding.toggleBackend, binding.backendDetails, "后端设置")
@@ -131,50 +136,46 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
         }
         binding.stopRuntime.setOnClickListener { ScenarioRuntime.stop() }
         binding.refreshDiagnostics.setOnClickListener { ScenarioRuntime.refreshDiagnostics() }
+        fun renderState(state: com.system.location.service.core.runtime.RuntimeState) {
+            binding.phaseTitle.setTextIfChanged(state.phase.displayLabel())
+            binding.phaseTitle.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(),
+                when (state.phase) { RuntimePhase.RUNNING -> R.color.status_success; RuntimePhase.ERROR -> R.color.status_error; else -> R.color.text_primary }))
+            binding.overview.setTextIfChanged("${backendLabel(state.backend)} · ${state.scenarioName ?: "未选择场景"}" +
+                (state.error?.let { "\n${it.reason}\n${it.suggestion}" } ?: ""))
+            binding.routeProgress.visibility = if (state.routeId != null) View.VISIBLE else View.GONE
+            val progress = (state.progress * 1000).toInt().coerceIn(0, 1000)
+            if (binding.routeProgress.progress != progress) binding.routeProgress.progress = progress
+            binding.applyBackend.isEnabled = !state.isActive
+            binding.stopRuntime.isEnabled = state.isActive || state.phase == RuntimePhase.ERROR
+            if (binding.stateDetails.visibility == View.VISIBLE) binding.runtimeState.setTextIfChanged(buildString {
+                val health = state.submissionHealth
+                appendLine("提交 ${health.count} 次 · 最近间隔 ${health.lastGapMs.toLong()}ms · 最大间隔 ${health.maxGapMs.toLong()}ms")
+                appendLine("最近耗时 ${health.lastLatencyMs.toLong()}ms · 最大耗时 ${health.maxLatencyMs.toLong()}ms · 延迟 ${health.delayedCount} 次")
+                appendLine("提交成功不代表目标 App 已采用定位")
+                appendLine("当前后端：${backendLabel(state.backend)}\n状态：${binding.phaseTitle.text}")
+                appendLine("场景：${state.scenarioName ?: "未选择"}\n路线：${state.routeId ?: "—"}")
+                state.sample?.let {
+                    appendLine(String.format(Locale.ROOT, "WGS84：%.6f, %.6f", it.latitude, it.longitude))
+                    appendLine(String.format(Locale.ROOT, "速度：%.2f km/h　进度：%.1f%%", it.speed * 3.6, state.progress * 100))
+                }
+                state.error?.let { appendLine("${it.stage}\n${it.reason}\n${it.suggestion}") }
+            })
+            binding.pauseResume.isEnabled = state.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)
+            binding.pauseResume.setTextIfChanged(if (state.phase == RuntimePhase.PAUSED) "继续" else "暂停")
+            if (binding.capabilityDetails.visibility == View.VISIBLE) binding.capabilities.setTextIfChanged(
+                state.capabilities.entries.joinToString("\n\n") { (capability, status) ->
+                    "${capabilityLabel(capability)}：${when (status.availability) {
+                        Availability.AVAILABLE -> "可用"; Availability.REQUIRES_ACTION -> "需要设置"
+                        Availability.UNAVAILABLE -> "不可用"; Availability.EXPERIMENTAL -> "实验性"
+                    }}\n${status.reason}"
+                })
+        }
+        renderRuntime = { renderState(ScenarioRuntime.state.value) }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    ScenarioRuntime.state.collect { state ->
-                        binding.phaseTitle.text = when (state.phase) {
-                            RuntimePhase.IDLE -> "尚未开始"
-                            RuntimePhase.PREPARING -> "准备中"
-                            RuntimePhase.READY -> "准备就绪"
-                            RuntimePhase.RUNNING -> "正在模拟"
-                            RuntimePhase.PAUSED -> "已暂停"
-                            RuntimePhase.STOPPING -> "正在停止"
-                            RuntimePhase.STOPPED -> "已停止"
-                            RuntimePhase.ERROR -> "需要处理"
-                        }
-                        binding.phaseTitle.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(),
-                            when (state.phase) { RuntimePhase.RUNNING -> R.color.green500; RuntimePhase.ERROR -> R.color.red500; else -> R.color.text_primary }))
-                        binding.overview.text = "${backendLabel(state.backend)} · ${state.scenarioName ?: "未选择场景"}" +
-                            (state.error?.let { "\n${it.reason}\n${it.suggestion}" } ?: "")
-                        binding.routeProgress.visibility = if (state.routeId != null) View.VISIBLE else View.GONE
-                        binding.routeProgress.progress = (state.progress * 1000).toInt().coerceIn(0, 1000)
-                        binding.applyBackend.isEnabled = !state.isActive
-                        binding.stopRuntime.isEnabled = state.isActive || state.phase == RuntimePhase.ERROR
-                        binding.runtimeState.text = buildString {
-                            val health = state.submissionHealth
-                            appendLine("提交 ${health.count} 次 · 最近间隔 ${health.lastGapMs.toLong()}ms · 最大间隔 ${health.maxGapMs.toLong()}ms")
-                            appendLine("最近耗时 ${health.lastLatencyMs.toLong()}ms · 最大耗时 ${health.maxLatencyMs.toLong()}ms · 延迟 ${health.delayedCount} 次")
-                            appendLine("提交成功不代表目标 App 已采用定位")
-                            appendLine("当前后端：${backendLabel(state.backend)}\n状态：${binding.phaseTitle.text}")
-                            appendLine("场景：${state.scenarioName ?: "未选择"}\n路线：${state.routeId ?: "—"}")
-                            state.sample?.let {
-                                appendLine("WGS84：${it.latitude}, ${it.longitude}")
-                                appendLine(String.format(Locale.ROOT, "速度：%.2f km/h　进度：%.1f%%", it.speed * 3.6, state.progress * 100))
-                            }
-                            state.error?.let { appendLine("${it.stage}\n${it.reason}\n${it.suggestion}") }
-                        }
-                        binding.pauseResume.isEnabled = state.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)
-                        binding.pauseResume.text = if (state.phase == RuntimePhase.PAUSED) "恢复" else "暂停"
-                        binding.capabilities.text = state.capabilities.entries.joinToString("\n\n") { (capability, status) ->
-                            "${capabilityLabel(capability)}：${when (status.availability) {
-                                Availability.AVAILABLE -> "可用"; Availability.REQUIRES_ACTION -> "需要设置"
-                                Availability.UNAVAILABLE -> "不可用"; Availability.EXPERIMENTAL -> "实验性"
-                            }}\n${status.reason}"
-                        }
-                        renderLogs()
+                    ScenarioRuntime.state.displayStates().collect { state ->
+                        renderState(state)
                     }
                 }
                 launch {

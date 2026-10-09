@@ -14,6 +14,9 @@ import com.system.location.service.core.runtime.RuntimePhase
 import com.system.location.service.databinding.FragmentMockBinding
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.viewmodel.PointViewModel
+import com.system.location.service.ui.displayStates
+import com.system.location.service.ui.displayLabel
+import com.system.location.service.ui.setTextIfChanged
 import kotlinx.coroutines.launch
 
 class MockFragment : Fragment(R.layout.fragment_mock) {
@@ -32,12 +35,15 @@ class MockFragment : Fragment(R.layout.fragment_mock) {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { model.message.collect { ui.message.text = it.orEmpty() } }
-                launch { ScenarioRuntime.state.collect { state ->
-                    ui.pointStatus.text = "${state.backend} · ${state.phase}\n${state.scenarioName.orEmpty()}\n" +
-                        (state.sample?.let { "${it.latitude}, ${it.longitude}" } ?: "") +
+                launch { ScenarioRuntime.state.displayStates().collect { state ->
+                    ui.pointRuntimeCard.visibility = if (state.isActive || state.error != null) View.VISIBLE else View.GONE
+                    ui.pointStatus.setTextIfChanged("${state.backend.displayLabel()} · ${state.phase.displayLabel()}\n${state.scenarioName.orEmpty()}\n" +
+                        (state.sample?.let { java.lang.String.format(java.util.Locale.ROOT, "%.6f, %.6f", it.latitude, it.longitude) } ?: "") +
                         (state.error?.let { "\n${it.stage}: ${it.reason}\n${it.suggestion}" } ?: "")
+                    )
                     ui.pauseResume.isEnabled = state.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)
-                    ui.pauseResume.text = if (state.phase == RuntimePhase.PAUSED) "恢复" else "暂停"
+                    ui.pauseResume.setTextIfChanged(if (state.phase == RuntimePhase.PAUSED) "继续" else "暂停")
+                    ui.stopPoint.isEnabled = state.isActive || state.error != null
                 } }
             }
         }

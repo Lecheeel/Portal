@@ -1,22 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent"
-    android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp">
-    <Spinner android:id="@+id/library_kind" android:layout_width="match_parent" android:layout_height="48dp" android:contentDescription="资料库类型" />
-    <TextView android:id="@+id/library_status" android:layout_width="match_parent" android:layout_height="wrap_content" />
-    <TextView android:id="@+id/runtime_status" android:layout_width="match_parent" android:layout_height="wrap_content" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/add_route" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="地图建路线" />
-        <Button android:id="@+id/import_library" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="导入 JSON" />
-        <Button android:id="@+id/export_library" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="导出 JSON" />
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp" android:background="@color/page_background">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_library_title" android:textAppearance="@style/Portal.Title" android:accessibilityHeading="true" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:layout_marginBottom="16dp" android:text="@string/ui_library_desc" android:textAppearance="@style/Portal.Body" />
+    <com.google.android.material.button.MaterialButtonToggleGroup android:id="@+id/library_kind" android:layout_width="match_parent" android:layout_height="wrap_content" app:singleSelection="true" app:selectionRequired="true">
+        <com.google.android.material.button.MaterialButton android:id="@+id/kind_routes" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_library_routes" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/kind_scenarios" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_library_scenarios" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/kind_locations" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_library_locations" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+    <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="@string/ui_library_search" app:boxBackgroundMode="outline" app:boxCornerRadiusTopStart="14dp" app:boxCornerRadiusTopEnd="14dp" app:boxCornerRadiusBottomStart="14dp" app:boxCornerRadiusBottomEnd="14dp" app:startIconDrawable="@drawable/baseline_search_24" app:endIconMode="clear_text">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/library_search" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:singleLine="true" />
+    </com.google.android.material.textfield.TextInputLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginVertical="8dp">
+        <TextView android:id="@+id/library_status" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:textAppearance="@style/Portal.Body" android:textSize="13sp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/add_route" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/ui_create_route" app:icon="@drawable/baseline_add_location_alt_24" app:iconSize="18dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/library_more" style="@style/Widget.Material3.Button.TextButton" android:layout_width="48dp" android:layout_height="48dp" android:minWidth="0dp" android:padding="0dp" app:icon="@drawable/ic_more_horizontal" app:iconGravity="textStart" app:iconPadding="0dp" android:contentDescription="@string/ui_library_more" />
     </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/pause_resume" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="暂停 / 恢复" />
-        <Button android:id="@+id/stop_scene" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="停止场景" />
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/import_gpx" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="导入 GPX" />
-        <Button android:id="@+id/export_gpx" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="导出 GPX" />
-    </LinearLayout>
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="点击记录可开始、重命名、复制或修改播放模式。GPX 使用 WGS84，各轨迹段分别保存；仅含路线坐标，不含播放参数。" />
-    <ListView android:id="@+id/library_items" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <com.google.android.material.progressindicator.LinearProgressIndicator android:id="@+id/library_loading" android:layout_width="match_parent" android:layout_height="4dp" android:indeterminate="true" android:visibility="gone" />
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/library_items" android:layout_width="match_parent" android:layout_height="match_parent" android:clipToPadding="false" android:paddingBottom="12dp" />
+        <LinearLayout android:id="@+id/library_empty" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:orientation="vertical" android:padding="24dp" android:visibility="gone">
+            <ImageView android:layout_width="112dp" android:layout_height="112dp" android:src="@drawable/ic_library_empty" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/empty_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:gravity="center" android:text="@string/ui_library_empty" android:textAppearance="@style/Portal.Section" />
+            <TextView android:id="@+id/empty_description" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center" android:text="@string/ui_library_empty_desc" android:textAppearance="@style/Portal.Body" />
+        </LinearLayout>
+    </FrameLayout>
+    <com.google.android.material.card.MaterialCardView android:id="@+id/library_runtime_card" style="@style/Portal.Card" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
+            <TextView android:id="@+id/runtime_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:textAppearance="@style/Portal.Body" android:maxLines="3" android:ellipsize="end" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <com.google.android.material.button.MaterialButton android:id="@+id/pause_resume" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginEnd="8dp" android:layout_height="wrap_content" android:minHeight="48dp" android:text="暂停" app:icon="@drawable/ic_pause" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/stop_scene" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="停止" app:icon="@drawable/baseline_stop_24" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 </LinearLayout>

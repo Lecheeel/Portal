@@ -1,0 +1,35 @@
+<resources>
+    <string name="ui_library_title">ライブラリ</string>
+    <string name="ui_library_desc">場所とルートを整理して、シナリオを開始。</string>
+    <string name="ui_library_search">名前または座標で検索</string>
+    <string name="ui_library_empty">保存した項目はありません</string>
+    <string name="ui_library_empty_desc">地図でルートを作成するか、データを読み込んでください。</string>
+    <string name="ui_library_no_match">一致する項目はありません</string>
+    <string name="ui_library_no_match_desc">別の名前や座標で検索してください。</string>
+    <string name="ui_library_routes">ルート</string>
+    <string name="ui_library_scenarios">シナリオ</string>
+    <string name="ui_library_locations">場所</string>
+    <string name="ui_library_more">読み込みと書き出し</string>
+    <string name="ui_create_route">ルートを作成</string>
+    <string name="ui_library_count">%1$d 件</string>
+    <string name="ui_settings_title">設定</string>
+    <string name="ui_settings_desc">よく使う項目をまとめて調整し、実験機能は必要に応じて有効にします。</string>
+    <string name="ui_settings_basic">位置情報のパラメータ</string>
+    <string name="ui_settings_motion">移動とジョイスティック</string>
+    <string name="ui_settings_channels">位置情報と実験機能</string>
+    <string name="ui_settings_hooks">システム Hook 設定</string>
+    <string name="ui_settings_hooks_desc">Xposed バックエンド専用の設定です。</string>
+    <string name="ui_settings_app">バックグラウンドとバージョン</string>
+    <string name="ui_point_title">座標による位置指定</string>
+    <string name="ui_point_desc">場所を入力して保存するか、すぐに開始します。</string>
+    <string name="ui_point_coordinates">WGS84 座標</string>
+    <string name="ui_point_name">場所の名前</string>
+    <string name="ui_point_latitude">緯度 · −90 から 90</string>
+    <string name="ui_point_longitude">経度 · −180 から 180</string>
+    <string name="ui_point_hint">地図サービスなしで GPS 座標を使用します。</string>
+    <string name="ui_runtime_title">実行状況</string>
+    <string name="ui_runtime_desc">状態の確認、再生の操作、問題の診断。</string>
+    <string name="ui_drawer_open">ナビゲーションを開く</string>
+    <string name="ui_search_clear">検索をクリア</string>
+    <string name="ui_search_submit">場所を検索</string>
+</resources>

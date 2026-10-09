@@ -6,7 +6,13 @@
         <item name="colorSecondary">@color/accent</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/text_primary</item>
-        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorPrimaryContainer">@color/primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/primary</item>
+        <item name="colorOutline">@color/card_border</item>
+        <item name="android:windowBackground">@color/page_background</item>
+        <item name="materialButtonStyle">@style/Portal.Button</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -26,10 +32,10 @@
     <style name="LocationService.SearchViewStyle" parent="Widget.AppCompat.SearchView">
     </style>
 
-    <style name="AppTheme.LocationService.ToolBarOverlay" parent="ThemeOverlay.Material3.Light">
+    <style name="AppTheme.LocationService.ToolBarOverlay" parent="ThemeOverlay.Material3.ActionBar">
     </style>
 
-    <style name="AppTheme.LocationService.PopupTheme" parent="ThemeOverlay.Material3.Light">
+    <style name="AppTheme.LocationService.PopupTheme" parent="ThemeOverlay.Material3">
     </style>
 
     <style name="AppTheme.Dark" parent="Theme.Material3.Dark.NoActionBar">

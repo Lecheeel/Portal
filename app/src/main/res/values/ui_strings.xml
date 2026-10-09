@@ -1,0 +1,35 @@
+<resources>
+    <string name="ui_library_title">我的资料库</string>
+    <string name="ui_library_desc">保存地点，整理路线，随时启动场景。</string>
+    <string name="ui_library_search">搜索名称或坐标</string>
+    <string name="ui_library_empty">还没有保存的记录</string>
+    <string name="ui_library_empty_desc">从地图创建路线，或导入已有资料。</string>
+    <string name="ui_library_no_match">没有匹配的记录</string>
+    <string name="ui_library_no_match_desc">试试其他名称或坐标。</string>
+    <string name="ui_library_routes">路线</string>
+    <string name="ui_library_scenarios">场景</string>
+    <string name="ui_library_locations">地点</string>
+    <string name="ui_library_more">导入与导出</string>
+    <string name="ui_create_route">创建路线</string>
+    <string name="ui_library_count">%1$d 条记录</string>
+    <string name="ui_settings_title">偏好设置</string>
+    <string name="ui_settings_desc">常用参数集中调整，实验功能按需开启。</string>
+    <string name="ui_settings_basic">定位参数</string>
+    <string name="ui_settings_motion">运动与摇杆</string>
+    <string name="ui_settings_channels">定位通道与实验</string>
+    <string name="ui_settings_hooks">系统 Hook 设置</string>
+    <string name="ui_settings_hooks_desc">这些选项仅供 Xposed 后端使用。</string>
+    <string name="ui_settings_app">后台与版本</string>
+    <string name="ui_point_title">坐标定位</string>
+    <string name="ui_point_desc">输入一个地点，保存或立即开始模拟。</string>
+    <string name="ui_point_coordinates">WGS84 坐标</string>
+    <string name="ui_point_name">位置名称</string>
+    <string name="ui_point_latitude">纬度 · −90 至 90</string>
+    <string name="ui_point_longitude">经度 · −180 至 180</string>
+    <string name="ui_point_hint">直接使用 GPS 坐标，无需地图服务。</string>
+    <string name="ui_runtime_title">运行中心</string>
+    <string name="ui_runtime_desc">查看模拟状态，控制播放和排查问题。</string>
+    <string name="ui_drawer_open">打开导航菜单</string>
+    <string name="ui_search_clear">清除搜索</string>
+    <string name="ui_search_submit">搜索地点</string>
+</resources>

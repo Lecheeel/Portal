@@ -131,7 +131,8 @@ class UiDesignTest {
                         Triple(R.id.nav_mock, "point", R.id.point_name),
                         Triple(R.id.nav_settings, "settings", R.id.altitude_value),
                         Triple(R.id.nav_runtime, "runtime", R.id.phase_title),
-                        Triple(R.id.nav_route_gallery, "library", R.id.library_search))) {
+                        Triple(R.id.nav_route_gallery, "library", R.id.library_search),
+                        Triple(R.id.nav_gnss_mock, "satellites", R.id.satellite_rada_view))) {
                         scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(destination) }
                         onView(withId(marker)).check(matches(isDisplayed()))
                         capture("$name-$suffix")

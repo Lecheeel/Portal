@@ -56,10 +56,13 @@ class RockerOverlayTest {
                     assertTrue(RockerOverlay.isEnabled)
                     assertTrue("Grant overlay permission on the test device", RockerOverlay.isVisible)
                 }
-                overlay(R.id.rocker_minimized).check(matches(isDisplayed())).perform(click())
+                overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
+                captureUi("overlay-minimized")
+                overlay(R.id.rocker_minimized).perform(click())
                 overlay(R.id.rocker).check(matches(isDisplayed()))
                 overlay(R.id.speed_title).check(matches(withText(R.string.rocker_speed)))
                 overlay(R.id.speed_slider).check(matches(isDisplayed()))
+                captureUi("overlay-expanded")
                 overlay(R.id.speed_up).perform(click())
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.15) > 0.001) delay(10) } }
                 overlay(R.id.speed).check(matches(withText(containsString(context.getString(R.string.overlay_speed_value, context.speed)))))

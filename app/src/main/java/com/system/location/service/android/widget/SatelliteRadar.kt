@@ -21,6 +21,8 @@ import android.view.MotionEvent
 import android.view.View
 import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.system.location.service.R
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -40,8 +42,10 @@ data class SatelliteData(
 
 class SatelliteRadarView(context: Context, attributeSet: AttributeSet): View(context, attributeSet), SensorEventListener {
     private var satellites = emptyList<SatelliteData>()
-    private val radarPoint = Paint()
-    private val satellitePaint = Paint()
+    private val radarPoint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val satellitePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val usedColor = ContextCompat.getColor(context, R.color.status_success)
+    private val visibleColor = ContextCompat.getColor(context, R.color.primary)
     private var centerX: Int = 0
     private var centerY: Int = 0
     private var radius: Float = 0f
@@ -67,10 +71,10 @@ class SatelliteRadarView(context: Context, attributeSet: AttributeSet): View(con
         initSensors(context)
 
         radarPoint.style = Paint.Style.STROKE
-        radarPoint.color = Color.BLACK
+        radarPoint.color = ContextCompat.getColor(context, R.color.text_secondary)
 
         satellitePaint.style = Paint.Style.FILL
-        satellitePaint.color = 0xFF2196F3.toInt() // 蓝色
+        satellitePaint.color = visibleColor
     }
 
     private fun initSensors(context: Context) {
@@ -172,9 +176,9 @@ class SatelliteRadarView(context: Context, attributeSet: AttributeSet): View(con
 
             // 根据是否用于定位改变颜色
             if (satellite.usedInFix) {
-                satellitePaint.color = 0xFF4CAF50.toInt() // 绿色表示用于定位
+                satellitePaint.color = usedColor
             } else {
-                satellitePaint.color = 0xFF2196F3.toInt() // 蓝色表示未用于定位
+                satellitePaint.color = visibleColor
             }
 
             canvas.drawCircle(x, y, pointSize, satellitePaint)

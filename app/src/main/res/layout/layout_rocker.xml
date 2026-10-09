@@ -69,6 +69,7 @@
                     android:padding="12dp"
                     android:contentDescription="拖动悬浮窗"
                     android:src="@drawable/baseline_adjust_24"
+                    app:tint="@color/text_primary"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 

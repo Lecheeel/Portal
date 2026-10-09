@@ -5,6 +5,7 @@ import com.system.location.service.core.location.LocationSample
 
 /** Android operations are injected so partial registration and cleanup can be tested on the JVM. */
 interface MockProviderPort {
+    fun optionalProviders(): Set<String> = emptySet()
     fun diagnostics(): List<BackendDiagnostic> = emptyList()
     fun permissionGranted(): Boolean
     fun pendingProviders(): Set<String>
@@ -23,12 +24,14 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
     private val owned = linkedSetOf<String>()
     private val lastRecovery = mutableMapOf<String, Long>()
     private var recoveryCount = 0
+    private val optionalFailures = mutableMapOf<String, String>()
     override val type = BackendType.MOCK_PROVIDER
     override suspend fun diagnose() = listOf(
         BackendDiagnostic("MOCK_PERMISSION", if (port.permissionGranted()) "AVAILABLE" else "REQUIRES_ACTION",
             "标准模拟位置授权；Provider 状态：$phase", "在开发者选项中选择本应用"),
         BackendDiagnostic("PROVIDER_OWNERSHIP", "INFO", "待清理 Provider：${port.pendingProviders().joinToString().ifEmpty { "无" }}"),
-        BackendDiagnostic("PROVIDER_RECOVERY", "INFO", "本次会话重新注册次数：$recoveryCount（仅恢复明确丢失的 Provider；最多3次）")) + port.diagnostics()
+        BackendDiagnostic("PROVIDER_RECOVERY", "INFO", "本次会话重新注册次数：$recoveryCount（仅恢复明确丢失的 Provider；最多3次）")) +
+        optionalFailures.map { BackendDiagnostic("OPTIONAL_${it.key.uppercase()}", "UNAVAILABLE", it.value) } + port.diagnostics()
     override val capabilities get() = Capability.entries.associateWith {
         when (it) {
             Capability.STANDARD_MOCK -> CapabilityStatus(
@@ -63,6 +66,15 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
                 port.register(provider)
                 port.enable(provider, true)
             }
+            optionalFailures.clear()
+            for (provider in port.optionalProviders().filter { it == "fused" }) {
+                try { owned += provider; port.register(provider); port.enable(provider, true) }
+                catch (error: Exception) {
+                    optionalFailures[provider] = "可选通道启动失败：${error.message}；GPS/Network 继续运行"
+                    // Retain ownership on cleanup failure so stop can retry it.
+                    runCatching { port.remove(provider) }.onSuccess { owned.remove(provider) }
+                }
+            }
             phase = Phase.RUNNING
             lastRecovery.clear()
             recoveryCount = 0
@@ -74,20 +86,28 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
         if (phase !in setOf(Phase.RUNNING, Phase.PAUSED)) return failure("PUBLISH", "Provider 未启动")
         return guarded("PUBLISH") {
             val fix = if (phase == Phase.PAUSED) sample.copy(speed = 0f) else sample
-            owned.forEach { provider ->
-                try { port.publish(provider, fix) }
-                catch (missing: MissingMockProviderException) {
-                    val previous = lastRecovery[provider]
-                    if (!port.permissionGranted() || recoveryCount >= 3 ||
-                        previous != null && fix.elapsedNanos - previous < 5_000_000_000) throw missing
-                    lastRecovery[provider] = fix.elapsedNanos
-                    recoveryCount++
-                    port.register(provider)
-                    port.enable(provider, true)
-                    port.publish(provider, fix)
+            owned.toList().filterNot { it in optionalFailures }.forEach { provider ->
+                try { publishWithRecovery(provider, fix) }
+                catch (error: Exception) {
+                    if (provider != "fused") throw error
+                    optionalFailures[provider] = "可选通道提交失败：${error.message}；GPS/Network 继续运行"
+                    runCatching { port.remove(provider) }.onSuccess { owned.remove(provider) }
                 }
             }
             BackendResult.Success
+        }
+    }
+    private fun publishWithRecovery(provider: String, fix: LocationSample) {
+        try { port.publish(provider, fix) }
+        catch (missing: MissingMockProviderException) {
+            val previous = lastRecovery[provider]
+            if (!port.permissionGranted() || recoveryCount >= 3 ||
+                previous != null && fix.elapsedNanos - previous < 5_000_000_000) throw missing
+            lastRecovery[provider] = fix.elapsedNanos
+            recoveryCount++
+            port.register(provider)
+            port.enable(provider, true)
+            port.publish(provider, fix)
         }
     }
     override suspend fun pause(): BackendResult {
@@ -101,7 +121,7 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
         return BackendResult.Success
     }
     override suspend fun stop(): BackendResult {
-        owned += port.pendingProviders().filter { it == "gps" || it == "network" }
+        owned += port.pendingProviders().filter { it in setOf("gps", "network", "fused") }
         return cleanup()
     }
     override suspend fun release(): BackendResult = stop()

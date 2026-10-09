@@ -19,6 +19,9 @@ import com.system.location.service.data.persistence.AtomicDocumentStore
 import com.system.location.service.BuildConfig
 import android.os.Build
 import java.io.File
+import com.system.location.service.backend.mock.FusedMockBackend
+import com.system.location.service.backend.mock.AndroidGmsMockPort
+import com.system.location.service.ext.startupBurstEnabled
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,7 +36,7 @@ object ScenarioRuntime {
     val controller = ScenarioController({ type ->
         when (type) {
             BackendType.XPOSED -> XposedBackend(context)
-            BackendType.MOCK_PROVIDER -> MockProviderBackend(AndroidMockProviderPort(context))
+            BackendType.MOCK_PROVIDER -> FusedMockBackend(MockProviderBackend(AndroidMockProviderPort(context)), AndroidGmsMockPort(context))
             BackendType.NATIVE -> com.system.location.service.backend.native.NativeBackend(context)
         }
     }, object : RuntimeClock {
@@ -45,6 +48,7 @@ object ScenarioRuntime {
     @Volatile private var service: ScenarioService? = null
     @Volatile private var ready = CompletableDeferred<Unit>()
     private val serviceStarts = ServiceStartGate()
+    private var startupBurst: StartupBurst? = null
     private val initialized by lazy {
         scope.async {
             withContext(Dispatchers.IO) {
@@ -80,7 +84,12 @@ object ScenarioRuntime {
                 }
                 check(preferences.edit().putBoolean("interrupted", true).commit()) { "无法持久化运行标记" }
                 controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
-                controller.start(frozen).also { if (!state.value.isActive) finishService() }
+                controller.start(frozen).also { started ->
+                    startupBurst = if (started && context.startupBurstEnabled && state.value.backend == BackendType.MOCK_PROVIDER)
+                        StartupBurst(state.value.scenarioId, state.value.startedAt) else null
+                    service?.reschedule()
+                    if (!state.value.isActive) finishService()
+                }
             } catch (cancelled: CancellationException) {
                 if (cancelled !is TimeoutCancellationException) throw cancelled
                 failStart(cancelled)
@@ -94,7 +103,7 @@ object ScenarioRuntime {
         finishService()
         return false
     }
-    fun pause() = command { controller.pause() }
+    fun pause() = command { startupBurst = null; controller.pause() }
     fun refreshDiagnostics() = command { controller.refreshDiagnostics(); true }
     suspend fun diagnosticReport(): String = withContext(Dispatchers.IO) {
         initialized.await()
@@ -128,6 +137,7 @@ object ScenarioRuntime {
         }
     }
     fun stop() = command {
+        startupBurst = null
         val stopped = controller.stop()
         if (stopped) {
             preferences.edit().putBoolean("interrupted", false).commit()
@@ -158,8 +168,12 @@ object ScenarioRuntime {
             false
         }
     }
+    internal suspend fun nextTickDelay(instance: ScenarioService): Long = commands.withLock {
+        if (service !== instance) controller.intervalMs else startupBurst?.nextDelay(state.value, controller.intervalMs) ?: controller.intervalMs
+    }
     internal suspend fun tick(instance: ScenarioService) = commands.withLock {
         if (service === instance && state.value.isActive) {
+            startupBurst?.accept(state.value)
             controller.tick()
             if (!state.value.isActive) {
                 if (state.value.phase == RuntimePhase.STOPPED) preferences.edit().putBoolean("interrupted", false).commit()
@@ -168,6 +182,7 @@ object ScenarioRuntime {
         }
     }
     private suspend fun finishService() = withContext(Dispatchers.Main) {
+        startupBurst = null
         serviceStarts.cancel()
         service?.let { instance -> service = null; instance.finishPlayback() }
     }

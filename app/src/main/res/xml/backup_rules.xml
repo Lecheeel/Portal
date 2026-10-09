@@ -8,6 +8,7 @@
 <full-backup-content>
     <exclude domain="sharedpref" path="scenario_runtime.xml" />
     <exclude domain="sharedpref" path="mock_provider_ownership.xml" />
+    <exclude domain="sharedpref" path="gms_mock_ownership.xml" />
     <!--
    <include domain="sharedpref" path="."/>
    <exclude domain="sharedpref" path="device.xml"/>

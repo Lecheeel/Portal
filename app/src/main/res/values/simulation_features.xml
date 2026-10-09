@@ -21,4 +21,10 @@
     <string name="background_settings">后台设置入口</string>
     <string-array name="background_settings_options"><item>小米自启动管理（不支持时打开应用详情）</item><item>应用详情／耗电管理</item><item>本应用通知设置</item></string-array>
     <string name="settings_unavailable">无法打开此设置，请在系统设置中手动查找本应用</string>
+    <string name="gms_mock_channel">Google 融合定位通道（实验性）</string>
+    <string name="gms_mock_channel_desc">默认关闭；需要可用的 Google Play 服务。失败时继续使用 GPS／Network。仅影响下次启动，不保证高德等应用采用；状态与异常可在运行诊断中查看。</string>
+    <string name="platform_fused_channel">系统 Fused 通道（实验性）</string>
+    <string name="platform_fused_channel_desc">默认关闭；额外注册系统 fused 模拟 Provider，与 Google 通道独立，兼容性取决于 ROM。失败时继续使用 GPS／Network。</string>
+    <string name="startup_burst">启动时密集提交</string>
+    <string name="startup_burst_desc">标准模式启动后额外提交5次，目标间隔80毫秒，然后恢复设定间隔。后台调度可能延迟；暂停、停止或切换场景取消本次密集提交。</string>
 </resources>

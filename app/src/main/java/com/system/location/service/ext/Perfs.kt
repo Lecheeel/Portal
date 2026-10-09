@@ -110,6 +110,16 @@ var Context.smoothRouteMotion: Boolean
     get() = sharedPrefs.getBoolean("smoothRouteMotion", false)
     set(value) = sharedPrefs.edit { putBoolean("smoothRouteMotion", value) }
 
+var Context.gmsMockEnabled: Boolean
+    get() = sharedPrefs.getBoolean("gmsMockEnabled", false)
+    set(value) = sharedPrefs.edit { putBoolean("gmsMockEnabled", value) }
+var Context.platformFusedEnabled: Boolean
+    get() = sharedPrefs.getBoolean("platformFusedEnabled", false)
+    set(value) = sharedPrefs.edit { putBoolean("platformFusedEnabled", value) }
+var Context.startupBurstEnabled: Boolean
+    get() = sharedPrefs.getBoolean("startupBurstEnabled", true)
+    set(value) = sharedPrefs.edit { putBoolean("startupBurstEnabled", value) }
+
 fun Context.movementProfile() = com.system.location.service.core.scenario.MovementProfile(
     speed, altitude, accuracy.coerceAtLeast(0.1f), reportDuration.toLong(), smoothRouteMotion)
 

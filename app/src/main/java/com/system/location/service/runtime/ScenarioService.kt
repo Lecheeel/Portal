@@ -10,12 +10,18 @@ import androidx.core.app.ServiceCompat
 import com.system.location.service.MainActivity
 import com.system.location.service.R
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.selects.onTimeout
 
 /** The service owns the tick loop and wake lock, never a Fragment or ViewModel. */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ScenarioService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var wakeLock: PowerManager.WakeLock? = null
     private var startupError: Exception? = null
+    private val scheduleChanges = Channel<Unit>(Channel.CONFLATED)
+    internal fun reschedule() { scheduleChanges.trySend(Unit) }
     override fun onCreate() {
         super.onCreate()
         val notifications = getSystemService(NotificationManager::class.java)
@@ -36,7 +42,12 @@ class ScenarioService : Service() {
             scope.launch {
                 var renewedAt = android.os.SystemClock.elapsedRealtime()
                 while (isActive) {
-                    delay(ScenarioRuntime.controller.intervalMs)
+                    val interval = ScenarioRuntime.nextTickDelay(this@ScenarioService)
+                    val tickDue = select<Boolean> {
+                        scheduleChanges.onReceive { false }
+                        onTimeout(interval) { true }
+                    }
+                    if (!tickDue) continue
                     ScenarioRuntime.tick(this@ScenarioService)
                     val now = android.os.SystemClock.elapsedRealtime()
                     if (ScenarioRuntime.state.value.isActive && now - renewedAt >= 300_000) {

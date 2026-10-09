@@ -38,6 +38,9 @@ import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.smoothRouteMotion
 import com.system.location.service.ext.orbitPeriodSeconds
+import com.system.location.service.ext.gmsMockEnabled
+import com.system.location.service.ext.platformFusedEnabled
+import com.system.location.service.ext.startupBurstEnabled
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.update.UpdateChecker
 import com.system.location.service.update.UpdateDialogFragment
@@ -64,6 +67,12 @@ class SettingsFragment : Fragment() {
         val root: View = binding.root
 
         val context = requireContext()
+        binding.gmsMockSwitch.isChecked = context.gmsMockEnabled
+        binding.gmsMockSwitch.setOnCheckedChangeListener { _, enabled -> context.gmsMockEnabled = enabled; showToast("下次启动场景生效") }
+        binding.platformFusedSwitch.isChecked = context.platformFusedEnabled
+        binding.platformFusedSwitch.setOnCheckedChangeListener { _, enabled -> context.platformFusedEnabled = enabled; showToast("下次启动场景生效") }
+        binding.startupBurstSwitch.isChecked = context.startupBurstEnabled
+        binding.startupBurstSwitch.setOnCheckedChangeListener { _, enabled -> context.startupBurstEnabled = enabled }
         binding.backgroundGuidance.setOnClickListener { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) }
         binding.smoothRouteSwitch.isChecked = context.smoothRouteMotion
         binding.smoothRouteSwitch.setOnCheckedChangeListener { _, enabled -> context.smoothRouteMotion = enabled }

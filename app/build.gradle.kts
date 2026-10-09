@@ -177,6 +177,7 @@ dependencies {
 
     implementation(libs.amap.map3d.location.search)
     implementation(libs.geotools)
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

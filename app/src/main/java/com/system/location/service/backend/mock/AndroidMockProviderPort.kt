@@ -10,6 +10,7 @@ import android.util.Log
 import com.system.location.service.core.backend.BackendDiagnostic
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.ext.experimentalClearMockFlag
+import com.system.location.service.ext.platformFusedEnabled
 
 /** Standard mock APIs, with an opt-in local reflection experiment before submission. */
 class AndroidMockProviderPort(context: Context) : MockProviderPort {
@@ -19,10 +20,12 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
     private val mockFlagExperiment = MockFlagExperiment()
     @Volatile private var lastFlagOutcome: MockFlagExperiment.Outcome? = null
     private var experimentWasEnabled = false
+    override fun optionalProviders() = if (context.platformFusedEnabled) setOf("fused") else emptySet()
     override fun diagnostics(): List<BackendDiagnostic> {
         val enabled = context.experimentalClearMockFlag
         val outcome = lastFlagOutcome
-        return listOf(BackendDiagnostic("MOCK_FLAG_EXPERIMENT",
+        return listOf(BackendDiagnostic("PLATFORM_FUSED", if (context.platformFusedEnabled) "EXPERIMENTAL" else "DISABLED",
+            "系统 fused Test Provider：${if (context.platformFusedEnabled) "已选择，实际状态见所有权及异常记录" else "已关闭"}；与 Google 融合定位通道独立"), BackendDiagnostic("MOCK_FLAG_EXPERIMENT",
             if (!enabled) "DISABLED" else if (outcome == null) "PENDING" else if (outcome.invoked) "LOCAL_ONLY" else "UNAVAILABLE",
             if (!enabled) "提交前反射清除实验已关闭" else outcome?.detail ?: "实验已开启，等待定位提交",
             "Android 可能重新标记 mock；不能据此判断高德是否接受定位"))

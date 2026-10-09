@@ -22,6 +22,8 @@ class MockProviderBackendTest {
         var missing: String? = null
         var missingAlways = false
         var registrations = 0
+        var optional = false
+        override fun optionalProviders() = if (optional) setOf("fused") else emptySet()
         var extraDiagnostics: List<BackendDiagnostic> = emptyList()
         override fun diagnostics() = extraDiagnostics
         override fun permissionGranted() = allowed
@@ -46,6 +48,15 @@ class MockProviderBackendTest {
         }
     }
     private val sample = LocationSample(Wgs84(25.123456789123, 119.12345678912), 15.0, 2f, 3f, 45f, 1, 1)
+    @Test fun optionalPlatformFusedFailureDoesNotDisableGpsOrNetworkAndStillCleans() = runBlocking {
+        val port = Port().apply { optional = true; failRegister = "fused" }
+        val backend = MockProviderBackend(port)
+        backend.prepare(); assertEquals(BackendResult.Success, backend.start())
+        assertEquals(BackendResult.Success, backend.publish(sample))
+        assertEquals(setOf("gps", "network"), port.enabled)
+        assertTrue(backend.diagnose().any { it.stage == "OPTIONAL_FUSED" })
+        assertEquals(BackendResult.Success, backend.stop()); assertTrue(port.registered.isEmpty())
+    }
     @Test fun missingProviderRetriesOnceButPermissionFailureNeverRetries() = runBlocking {
         val port = Port(); val backend = MockProviderBackend(port)
         backend.prepare(); backend.start(); port.missing = "gps"

@@ -172,7 +172,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         val health = SubmissionHealth(old.count + 1, gap, maxOf(old.maxGapMs, gap), latency, maxOf(old.maxLatencyMs, latency),
             old.delayedCount + if (gap > maxOf(1000.0, intervalMs * 3.0)) 1 else 0)
         mutableState.value = state.value.copy(sample = frame.sample, currentPoint = frame.segment,
-            progress = frame.progress, lastUpdateAt = frame.sample.timeMillis, submissionHealth = health)
+            progress = frame.progress, lastUpdateAt = frame.sample.timeMillis, submissionHealth = health, capabilities = backend!!.capabilities)
         record("PUBLISH", "SUCCESS", "最近定位样本已提交至后端")
         if (healthRecordedAt == null || ended - healthRecordedAt!! >= 5_000_000_000) {
             healthRecordedAt = ended

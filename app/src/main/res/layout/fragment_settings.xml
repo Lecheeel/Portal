@@ -17,6 +17,12 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
+            <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/gms_mock_switch" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:padding="8dp" android:text="@string/gms_mock_channel" app:useMaterialThemeColors="true" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="8dp" android:text="@string/gms_mock_channel_desc" android:textSize="12sp" />
+            <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/platform_fused_switch" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:padding="8dp" android:text="@string/platform_fused_channel" app:useMaterialThemeColors="true" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="8dp" android:text="@string/platform_fused_channel_desc" android:textSize="12sp" />
+            <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/startup_burst_switch" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:padding="8dp" android:text="@string/startup_burst" app:useMaterialThemeColors="true" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="8dp" android:text="@string/startup_burst_desc" android:textSize="12sp" />
 
             <com.google.android.material.button.MaterialButton android:id="@+id/background_guidance" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/background_guidance" />
 

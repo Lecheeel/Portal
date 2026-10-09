@@ -5,6 +5,7 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="sharedpref" path="gms_mock_ownership.xml" />
         <exclude domain="sharedpref" path="scenario_runtime.xml" />
         <exclude domain="sharedpref" path="mock_provider_ownership.xml" />
         <!-- TODO: Use <include> and <exclude> to control what is backed up.
@@ -13,6 +14,7 @@
         -->
     </cloud-backup>
     <device-transfer>
+        <exclude domain="sharedpref" path="gms_mock_ownership.xml" />
         <exclude domain="sharedpref" path="scenario_runtime.xml" />
         <exclude domain="sharedpref" path="mock_provider_ownership.xml" />
     </device-transfer>

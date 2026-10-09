@@ -131,6 +131,37 @@ class UiDesignTest {
         } finally { instrumentation.runOnMainSync { AppCompatDelegate.setDefaultNightMode(oldMode) } }
     }
 
+    @Test fun settingsAndLibraryRemainUsableWithLargeTextAndLandscape() {
+        permissions()
+        val oldScale = android.provider.Settings.System.getFloat(instrumentation.targetContext.contentResolver, "font_scale", 1f)
+        fun fontScale(value: Float) {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
+                "settings put system font_scale $value")).use { it.readBytes() }
+        }
+        try {
+            fontScale(1.3f)
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_settings) }
+                onView(withId(R.id.accuracy_value)).perform(scrollTo()).check(matches(isDisplayed()))
+                capture("settings-large-text")
+                scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_gallery) }
+                onView(withId(R.id.library_more)).check(matches(isDisplayed()))
+                capture("library-large-text")
+                scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+                await {
+                    var landscape = false
+                    scenario.onActivity { landscape = it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
+                    landscape
+                }
+                onView(withId(R.id.library_search)).check(matches(isDisplayed()))
+                onView(withId(R.id.library_more)).perform(click())
+                onView(withText("导入 JSON")).check(matches(isDisplayed()))
+                androidx.test.espresso.Espresso.pressBack()
+                capture("library-landscape")
+            }
+        } finally { fontScale(oldScale) }
+    }
+
     private fun capture(name: String) {
         instrumentation.waitForIdleSync()
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "ui-captures").apply { mkdirs() }

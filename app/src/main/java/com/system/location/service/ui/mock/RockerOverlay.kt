@@ -30,6 +30,7 @@ object RockerOverlay {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var rocker: Rocker? = null
     private var observing = false
+    private var overlayNightMode: Int? = null
     private var moving = false
     private var locked = false
     private var bearing = 0.0
@@ -48,6 +49,15 @@ object RockerOverlay {
             rocker?.hide()
             return false
         }
+        val nightMode = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        if (rocker != null && overlayNightMode != nightMode) {
+            moving = false
+            locked = false
+            publishMotion()
+            rocker?.hide()
+            rocker = null
+        }
+        overlayNightMode = nightMode
         if (!observing) {
             observing = true
             context.sharedPrefs.registerOnSharedPreferenceChangeListener(speedPreferenceListener)

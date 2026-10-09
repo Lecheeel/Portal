@@ -13,6 +13,7 @@ import android.content.Context
 import com.google.android.material.button.MaterialButton
 import com.system.location.service.core.runtime.DiagnosticEvent
 import androidx.fragment.app.Fragment
+import androidx.core.view.doOnLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -84,7 +85,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
                 update(open)
                 renderRuntime()
                 renderLogs()
-                if (open) content.post {
+                if (open) content.doOnLayout {
                     // Reveal the first controls after expanding a section near the bottom edge.
                     val height = minOf(content.height, (240 * resources.displayMetrics.density).toInt())
                     content.requestRectangleOnScreen(android.graphics.Rect(0, 0, content.width, height), true)

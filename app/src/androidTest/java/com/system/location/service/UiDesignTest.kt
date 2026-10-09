@@ -116,8 +116,15 @@ class UiDesignTest {
     @Test fun primaryPagesRenderInLightAndDarkThemes() {
         permissions()
         val oldMode = AppCompatDelegate.getDefaultNightMode()
+        val oldSystemMode = android.provider.Settings.Secure.getInt(instrumentation.targetContext.contentResolver, "ui_night_mode", 1)
+        fun systemTheme(mode: String) {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
+                "cmd uimode night $mode")).use { it.readBytes() }
+        }
         try {
             for ((mode, suffix) in listOf(AppCompatDelegate.MODE_NIGHT_NO to "light", AppCompatDelegate.MODE_NIGHT_YES to "dark")) {
+                // Portal follows device theme; exercise SystemUI and app together.
+                systemTheme(if (mode == AppCompatDelegate.MODE_NIGHT_YES) "yes" else "no")
                 instrumentation.runOnMainSync { AppCompatDelegate.setDefaultNightMode(mode) }
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                     onView(withId(R.id.btn_apply_location)).check(matches(isDisplayed()))
@@ -139,7 +146,10 @@ class UiDesignTest {
                     }
                 }
             }
-        } finally { instrumentation.runOnMainSync { AppCompatDelegate.setDefaultNightMode(oldMode) } }
+        } finally {
+            systemTheme(when (oldSystemMode) { 2 -> "yes"; 0 -> "auto"; else -> "no" })
+            instrumentation.runOnMainSync { AppCompatDelegate.setDefaultNightMode(oldMode) }
+        }
     }
 
     @Test fun settingsAndLibraryRemainUsableWithLargeTextAndLandscape() {

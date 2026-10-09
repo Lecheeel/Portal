@@ -28,4 +28,6 @@
 
 截图前确认目标页面控件，等待窗口提交新帧及两次显示帧回调，避免把切页前画面当作验收结果。深色／浅色测试同时检查系统栏图标模式；横屏测试检查资料库装饰内容收起及返回竖屏后恢复。
 
+浅色／深色截图通过系统夜间模式同时切换应用和 SystemUI，与应用跟随设备主题的实际入口一致，测试后恢复设备原设置。
+
 Android 15 强制边到边布局会从窗口背景推导导航栏图标模式，因此在 AppCompat 应用夜间资源后重新设置窗口背景，再设置系统栏外观。平台行为依据 [AOSP DecorView](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/core/java/com/android/internal/policy/DecorView.java) 的 `setWindowBackground`。

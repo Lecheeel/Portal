@@ -31,13 +31,13 @@ internal class RouteSpeedPlan(points: List<Wgs84>, lengths: DoubleArray, cruise:
         val d = arrayListOf(0.0); val v = arrayListOf(0.0)
         var offset = 0.0
         fun add(distance: Double, speed: Double) {
-            if (distance - d.last() > 1e-9) { d += distance; v += speed }
+            if (distance > d.last()) { d += distance; v += speed }
             else v[v.lastIndex] = min(v.last(), speed)
         }
         for (i in lengths.indices) {
             val length = lengths[i]
             // Enough knots to reach cruise on long straights and accelerate on two-point routes.
-            val ramp = min(length / 2, cruise * cruise / (2 * ACCELERATION))
+            val ramp = min(length / 2, max(cruise * cruise / (2 * ACCELERATION), max(1e-6, Math.ulp(offset + length) * 4)))
             add(offset + ramp, cruise)
             add(offset + length - ramp, cruise)
             offset += length

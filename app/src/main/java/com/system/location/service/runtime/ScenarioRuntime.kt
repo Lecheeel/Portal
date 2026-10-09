@@ -22,6 +22,10 @@ import java.io.File
 import com.system.location.service.backend.mock.FusedMockBackend
 import com.system.location.service.backend.mock.AndroidGmsMockPort
 import com.system.location.service.ext.startupBurstEnabled
+import com.system.location.service.ext.gmsMockEnabled
+import com.system.location.service.ext.platformFusedEnabled
+import com.system.location.service.ext.experimentalClearMockFlag
+import com.system.location.service.ext.smoothRouteMotion
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -113,6 +117,7 @@ object ScenarioRuntime {
                 appendLine("Android ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT} ROM=${Build.DISPLAY}")
                 appendLine(BackgroundGuidance.status(context))
                 appendLine("状态=${state.value.phase} 后端=${state.value.backend} 配置间隔=${controller.intervalMs}ms")
+                appendLine("当前偏好（运行场景可能持有启动时快照）：GMS=${context.gmsMockEnabled} 系统Fused=${context.platformFusedEnabled} 密集启动=${context.startupBurstEnabled} 清除标记=${context.experimentalClearMockFlag} 平滑运动=${context.smoothRouteMotion} 圆周=${context.experimentalOrbitMotion} 半径=${context.experimentalOrbitRadius}m 周期=${context.orbitPeriodSeconds}s")
                 appendLine("以下是 API 提交及运行诊断，不能证明目标 App 接受定位。")
                 controller.diagnostics.value.forEach { appendLine("${java.time.Instant.ofEpochMilli(it.timestamp)} ${it.backend} ${it.stage} ${it.result}: ${it.reason} ${it.suggestion}") }
             }

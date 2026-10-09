@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speed_presets">速度プリセット</string>
+    <string name="speed_kmh">%1$.1f km/h</string>
+    <string-array name="speed_preset_names"><item>歩行 · 1.4 m/s</item><item>ランニング · 2.8 m/s</item><item>自転車 · 5.5 m/s</item><item>自動車 · 13.9 m/s</item></string-array>
+    <string name="smooth_route_motion">ルートの滑らかな移動</string>
+    <string name="smooth_route_motion_desc">カーブで減速し、滑らかに加減速します。設定速度は上限です。ルートの始点と終点では停止し、ループの接続点でも速度がゼロになります。次回の開始時に適用され、保存済みシナリオは自身の設定を使用します。</string>
+    <string name="orbit_period">円運動の周期</string>
+    <string name="orbit_period_value">%1$.0f 秒／周</string>
+    <string name="orbit_period_desc">微小移動の速度は半径と周期で決まり、ジョイスティックの速度とは独立しています。速度がゼロまたは一時停止中は停止します。指を離した位置を中心に移動します。</string>
+    <string name="background_guidance">バックグラウンド設定と確認</string>
+    <string name="background_status">端末：%1$s %2$s\nバッテリー最適化：%3$s\n正確な位置情報：%4$s\n通知：%5$s</string>
+    <string name="battery_unrestricted">システムのバッテリー最適化から除外済み</string>
+    <string name="battery_restricted">システムのバッテリー最適化の対象</string>
+    <string name="permission_granted">有効</string>
+    <string name="permission_missing">無効</string>
+    <string name="background_guidance_desc">バッテリー使用を「制限なし」に設定し、バックグラウンド自動起動を許可して、最近使ったアプリで本アプリをロックすることを推奨します。Xiaomi／HyperOS ではアプリ情報のバッテリーと自動起動設定を確認してください。他のメーカーではアプリ情報のバックグラウンド、バッテリー、起動管理を確認してください。\n\n本アプリを前面に表示してから開始してください。通知、フローティングウィンドウ、これらの設定は制限を軽減しますが、プロセスの終了を防ぐ保証はありません。中断後は手動でシナリオを再開してください。</string>
+    <string name="battery_settings">バッテリー最適化設定</string>
+    <string name="background_settings">バックグラウンド設定</string>
+    <string-array name="background_settings_options"><item>Xiaomi 自動起動（非対応時はアプリ情報）</item><item>アプリ情報／バッテリー管理</item><item>本アプリの通知設定</item></string-array>
+    <string name="settings_unavailable">設定を開けません。システム設定から本アプリを探してください</string>
+    <string name="gms_mock_channel">Google 融合位置情報（実験的）</string>
+    <string name="gms_mock_channel_desc">初期状態では無効です。利用可能な Google Play 開発者サービスが必要です。失敗時も GPS／Network を継続します。次回開始時に適用され、対象アプリによる採用は保証されません。状態とエラーは実行診断で確認できます。</string>
+    <string name="platform_fused_channel">システム Fused（実験的）</string>
+    <string name="platform_fused_channel_desc">初期状態では無効です。システムの fused モック Provider を追加します。Google の経路とは独立しており、ROM により互換性が異なります。失敗時も GPS／Network を継続します。</string>
+    <string name="startup_burst">開始直後の集中送信</string>
+    <string name="startup_burst_desc">標準モードの開始後、目標間隔80ミリ秒で5回追加送信し、その後は設定間隔に戻ります。システムにより遅延する場合があります。一時停止、停止、シナリオ変更で残りの集中送信を取り消します。</string>
+</resources>

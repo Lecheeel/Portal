@@ -172,7 +172,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         val health = SubmissionHealth(old.count + 1, gap, maxOf(old.maxGapMs, gap), latency, maxOf(old.maxLatencyMs, latency),
             old.delayedCount + if (gap > maxOf(1000.0, intervalMs * 3.0)) 1 else 0)
         mutableState.value = state.value.copy(sample = frame.sample, currentPoint = frame.segment,
-            progress = frame.progress, lastUpdateAt = frame.sample.timeMillis, submissionHealth = health, capabilities = backend!!.capabilities)
+            progress = frame.progress, lastUpdateAt = frame.sample.timeMillis, submissionHealth = health)
         record("PUBLISH", "SUCCESS", "最近定位样本已提交至后端")
         if (healthRecordedAt == null || ended - healthRecordedAt!! >= 5_000_000_000) {
             healthRecordedAt = ended
@@ -180,6 +180,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
             try { backend!!.diagnose().forEach { record(it.stage, it.result, it.reason, it.suggestion) } }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { record("DIAGNOSE", "FAILED", error.message ?: "诊断失败") }
+            mutableState.value = state.value.copy(capabilities = backend!!.capabilities)
         }
         if (frame.completed) return stopLocked()
         return true

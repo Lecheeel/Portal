@@ -55,6 +55,16 @@ class MotionModelTest {
             assertEquals(mode == RouteMode.ONCE, frame.completed)
         }
     }
+    @Test fun extremelySlowSpeedsAndSpeedChangesDoNotProduceNanOrResetProgress() {
+        val e = engine()
+        e.tick(0, 0); val before = e.tick(10_000_000_000, 10000)
+        e.setSpeed(0.00001)
+        val same = e.tick(10_000_000_000, 10000)
+        assertEquals(before.progress, same.progress, 1e-12)
+        val after = e.tick(20_000_000_000, 20000)
+        assertTrue(after.progress.isFinite()); assertTrue(after.sample.speed <= 0.00001f)
+        assertTrue(after.progress > before.progress)
+    }
     @Test fun joystickHasDeadZoneFiniteCenterAndFineResponse() {
         assertEquals(0.0, JoystickInput.evaluate(0.0, 0.0, 100.0).strength, 0.0)
         assertEquals(0.0, JoystickInput.evaluate(5.0, 0.0, 100.0).strength, 0.0)

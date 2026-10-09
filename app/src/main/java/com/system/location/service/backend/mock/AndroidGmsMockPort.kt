@@ -29,7 +29,7 @@ class AndroidGmsMockPort(context: Context) : FusedMockPort {
     private var coalesced = 0L
     private var lastSuccessNanos: Long? = null
     private val requested = context.gmsMockEnabled
-    private val available get() = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
+    private val available by lazy { GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS }
     override val capability get() = when {
         !requested -> CapabilityStatus(Availability.REQUIRES_ACTION, "可选 GMS 通道已关闭，在设置中启用")
         !available -> CapabilityStatus(Availability.UNAVAILABLE, "此设备没有可用的 Google Play 服务")

@@ -1,33 +1,173 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/page_background">
-<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ui_point_title" android:textAppearance="@style/Portal.Title" android:accessibilityHeading="true" />
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:layout_marginBottom="20dp" android:text="@string/ui_point_desc" android:textAppearance="@style/Portal.Body" />
-    <com.google.android.material.card.MaterialCardView style="@style/Portal.Card" android:layout_width="match_parent" android:layout_height="wrap_content">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-        <ImageView android:layout_width="44dp" android:layout_height="44dp" android:padding="10dp" android:background="@drawable/bg_icon_tile" android:src="@drawable/baseline_location_on_24" app:tint="@color/primary" android:importantForAccessibility="no" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:layout_marginBottom="12dp" android:text="@string/ui_point_coordinates" android:textAppearance="@style/Portal.Section" />
-        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/ui_point_name">
-            <com.google.android.material.textfield.TextInputEditText android:id="@+id/point_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:singleLine="true" />
-        </com.google.android.material.textfield.TextInputLayout>
-        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="@string/ui_point_latitude">
-            <com.google.android.material.textfield.TextInputEditText android:id="@+id/latitude" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal|numberSigned" android:singleLine="true" />
-        </com.google.android.material.textfield.TextInputLayout>
-        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="@string/ui_point_longitude">
-            <com.google.android.material.textfield.TextInputEditText android:id="@+id/longitude" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal|numberSigned" android:singleLine="true" />
-        </com.google.android.material.textfield.TextInputLayout>
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginVertical="12dp" android:text="@string/ui_point_hint" android:textAppearance="@style/Portal.Body" android:textSize="13sp" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/start_point" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="开始模拟" app:icon="@drawable/baseline_play_24" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/save_point" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="保存至位置库" app:icon="@drawable/baseline_save_24" />
-    </LinearLayout></com.google.android.material.card.MaterialCardView>
-    <com.google.android.material.button.MaterialButton android:id="@+id/library" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginVertical="8dp" android:minHeight="48dp" android:text="打开资料库" app:icon="@drawable/baseline_route_24" />
-    <com.google.android.material.card.MaterialCardView android:id="@+id/point_runtime_card" style="@style/Portal.Card" android:layout_width="match_parent" android:layout_height="wrap_content">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-        <TextView android:id="@+id/point_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:textAppearance="@style/Portal.Body" android:textIsSelectable="true" />
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">
-            <com.google.android.material.button.MaterialButton android:id="@+id/pause_resume" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="0dp" android:layout_weight="1" android:layout_marginEnd="8dp" android:layout_height="wrap_content" android:minHeight="48dp" android:text="暂停" app:icon="@drawable/ic_pause" />
-            <com.google.android.material.button.MaterialButton android:id="@+id/stop_point" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp" android:text="停止" app:icon="@drawable/baseline_stop_24" />
-        </LinearLayout>
-    </LinearLayout></com.google.android.material.card.MaterialCardView>
-    <TextView android:id="@+id/message" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="12dp" android:textAppearance="@style/Portal.Body" android:textIsSelectable="true" android:accessibilityLiveRegion="polite" />
-</LinearLayout></ScrollView>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/page_background">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/ui_point_title"
+            android:textAppearance="@style/Portal.Title"
+            android:accessibilityHeading="true" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="20dp"
+            android:text="@string/ui_point_desc"
+            android:textAppearance="@style/Portal.Body" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Portal.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <ImageView
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:padding="10dp"
+                    android:background="@drawable/bg_icon_tile"
+                    android:src="@drawable/baseline_location_on_24"
+                    app:tint="@color/primary"
+                    android:importantForAccessibility="no" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:text="@string/ui_point_coordinates"
+                    android:textAppearance="@style/Portal.Section" />
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/ui_point_name">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/point_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/ui_point_latitude">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/latitude"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal|numberSigned"
+                        android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/ui_point_longitude">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/longitude"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal|numberSigned"
+                        android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="12dp"
+                    android:text="@string/ui_point_hint"
+                    android:textAppearance="@style/Portal.Body"
+                    android:textSize="13sp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/start_point"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="开始模拟"
+                    app:icon="@drawable/baseline_play_24" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/save_point"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="保存至位置库"
+                    app:icon="@drawable/baseline_save_24" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/library"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="8dp"
+            android:minHeight="48dp"
+            android:text="打开资料库"
+            app:icon="@drawable/baseline_route_24" />
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/point_runtime_card"
+            style="@style/Portal.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:id="@+id/point_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/Portal.Body"
+                    android:textIsSelectable="true" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/pause_resume"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="暂停"
+                        app:icon="@drawable/ic_pause" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/stop_point"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="停止"
+                        app:icon="@drawable/baseline_stop_24" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <TextView
+            android:id="@+id/message"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingVertical="12dp"
+            android:textAppearance="@style/Portal.Body"
+            android:textIsSelectable="true"
+            android:accessibilityLiveRegion="polite" />
+    </LinearLayout>
+</ScrollView>

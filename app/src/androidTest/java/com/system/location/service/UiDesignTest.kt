@@ -28,6 +28,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import android.widget.TextView
 
 @RunWith(AndroidJUnit4::class)
 class UiDesignTest {
@@ -59,9 +60,19 @@ class UiDesignTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_gallery) }
             onView(withId(R.id.library_search)).perform(replaceText("不会匹配的记录"), closeSoftKeyboard())
+            await {
+                var text = ""
+                scenario.onActivity { text = it.findViewById<TextView>(R.id.empty_title).text.toString() }
+                text == instrumentation.targetContext.getString(R.string.ui_library_no_match)
+            }
             onView(withId(R.id.empty_title)).check(matches(withText(R.string.ui_library_no_match)))
             onView(withId(R.id.library_search)).perform(replaceText(""), closeSoftKeyboard())
             onView(withId(R.id.kind_locations)).perform(click())
+            await {
+                var enabled = false
+                scenario.onActivity { enabled = it.findViewById<android.view.View>(R.id.library_more).isEnabled }
+                enabled
+            }
             onView(withId(R.id.library_more)).perform(click())
             onView(withText("导入 JSON")).check(matches(isDisplayed()))
             androidx.test.espresso.Espresso.pressBack()
@@ -126,6 +137,14 @@ class UiDesignTest {
         instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
             File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             bitmap.recycle()
+        }
+    }
+
+    private fun await(predicate: () -> Boolean) {
+        val deadline = android.os.SystemClock.uptimeMillis() + 5_000
+        while (!predicate()) {
+            check(android.os.SystemClock.uptimeMillis() < deadline) { "UI did not settle" }
+            Thread.sleep(50)
         }
     }
 }

@@ -48,8 +48,10 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            ./gradlew :app:connectedX64DebugAndroidTest --stacktrace
+            test_status=0
+            ./gradlew :app:connectedX64DebugAndroidTest --stacktrace || test_status=$?
             adb pull /sdcard/Android/data/com.system.location.service/files/ui-captures app/build/ui-captures || true
+            exit "$test_status"
       - name: Upload device reports
         if: always()
         uses: actions/upload-artifact@v4

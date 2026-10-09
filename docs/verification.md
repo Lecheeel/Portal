@@ -1,5 +1,22 @@
 # 多后端升级验收记录
 
+## v1.6.0（2026-10-09）
+
+本机核心、NMEA、app Arm64Debug、Xposed JVM 报告合计 113 个用例，0 失败；完整 `test` 也检查其他 app flavor。独立 `lint --max-workers=1` 通过，appDebug 0 error / 310 warnings；既有 Bugly x86_64 16KB 页对齐警告仍存在。三种 Release 构建／导出通过，versionName 1.6.0、versionCode 1790000006，all 包含 arm64-v8a 与 x86_64，其余分别只含对应 ABI。本地产物未配置发行签名，实际发布使用 CI 签名产物。
+
+| 新能力 | 验证证据与边界 |
+|---|---|
+| GPX | `GpxCodecTest`：名称／坐标往返、分段、仅 waypoint 拒绝、坏坐标／XML／实体拒绝、扩展隔离；`SimulationFeaturesTest` 验证 Android SAX 和界面入口 |
+| 运动与摇杆 | `MotionModelTest`：实际时间分割不影响位置、加速度／速度上限、暂停、改速保持进度、往返方向、重复点、低速数值边界、死区／幅度响应、独立微动周期与松手圆心；`RockerOverlayTest` 覆盖悬浮速度预设 |
+| 后台引导 | `SimulationFeaturesTest` 覆盖设置及对话框；厂商设置入口按可用性回退。没有连接小米手机，厂商调度策略未验证 |
+| 日志与健康统计 | `DiagnosticJournalTest`：跨实例恢复、条数／大小限制、失败写入保持旧数据、损坏显式报错、实际间隔／耗时；`SimulationFeaturesTest` 检查导出入口及报告元数据 |
+| Provider 恢复 | `MockProviderBackendTest`：明确丢失有限恢复、权限错误不重试、失败清理、停止不能复活、可选 fused 失败仍保留 GPS/Network |
+| 融合通道与密集启动 | `FusedMockBackendTest`：可选失败降级并清理、清理重试、标准后端失败优先；`StartupBurstTest`：五次后恢复间隔、暂停／停止／新会话取消。真实 GMS 与高德采纳未验证 |
+
+CI 对发布提交执行 JVM／lint／Release 门禁及 API 35 模拟器测试。首次 CI 在 setup-android 默认安装已移除的 `tools` 包时失败，工作流已改为显式 `platform-tools`。最终门禁及 APK 签名／校验和在发行时核对，不以旧提交结果代替。
+
+以下为早期架构版本的历史验收记录，旧计数与版本不代表 v1.6.0。
+
 验收日期：2026-09-14。目标依据：参考目录中的《Codex Goal：LocationService 多后端定位架构升级、无 Root 模式与核心问题修复》。本轮最终代码检查点为 `6a8ecc6`；随后只提交文档。实现提交见 [提交清单](implementation-commits.md)，核心文件与调用关系见 [架构](architecture.md)。
 
 ## 证据等级

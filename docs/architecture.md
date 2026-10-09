@@ -57,4 +57,10 @@ HookStatusRegistry 分别记录 supported/installed/matched/skipped/failed；ins
 
 ## 后续扩展边界
 
-可以增加 GMS 适配器、GPX 转换器或新发布后端，不需要重写播放引擎。当前未集成 GMS mock、GPX UI、按 App 场景、SharedMemory、ptrace。Native 只是在 Xposed 外包一层可选传感器能力，不是无需框架的第三套定位发布器。当前固定偏移实现未做 ROM 白名单认证，始终标为 experimental。
+GPX 转换器独立于资料库与地图，保留独立轨迹段和 WGS84。`MovementProfile.smoothMotion` 默认 false，旧 JSON 无此字段仍兼容；`RouteSpeedPlan` 预计算曲率速度上限、前后向加速度限制、距离／时间表，以二分查找和解析积分推进。摇杆幅度经过纯领域死区／响应曲线，配置上限与实际速度分开。圆周周期独立于摇杆速度，松手更新圆心。
+
+标准 Mock 后端可额外注册系统 fused；`FusedMockBackend` 装饰标准后端并使用 `AndroidGmsMockPort`。GMS 只有一个异步提交在途，超时或失败降级；启用超时后排队补偿禁用，停止等待在途任务后禁用，失败保留持久化所有权并阻止无清理的新场景。运行资源记录不参与备份。`StartupBurst` 捕获场景和启动时间；服务收到重排信号后采用五次 80ms 目标间隔，退出运行态／替换场景作废。
+
+`DiagnosticJournal` 原子保留最多 300 条及 300000 字符，位于 `noBackupFilesDir`。Controller 在后台工作线程输出限频事件、实际提交间隔／耗时，文件写入失败仅记录告警；导出通过 SAF，不向外部服务传送。明确缺失的 Provider 可有限恢复，权限／普通异常不会循环重试。
+
+当前未提供按 App 场景、SharedMemory、ptrace。Native 是 Xposed 外的一层可选传感器能力，不是无需框架的第三套定位发布器。当前固定偏移实现未做 ROM 白名单认证，始终标为 experimental。

@@ -88,7 +88,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
     fun start(id: String) = submit {
         val context = getApplication<Application>()
-        fun profile() = MovementProfile(context.speed, context.altitude, context.accuracy.coerceAtLeast(0.1f), context.reportDuration.toLong())
+        fun profile() = context.movementProfile()
         val scene = when (state.value.kind) {
             LibraryKind.ROUTES -> LibraryRepositories.routes.get(id)!!.let { Scenario(it.route.id, it.route.name, route = it.route, mode = it.mode, profile = profile()) }
             LibraryKind.SCENARIOS -> LibraryRepositories.scenarios.get(id)!!

@@ -30,8 +30,7 @@ class PointViewModel(application: Application) : AndroidViewModel(application) {
                 val id = UUID.randomUUID().toString()
                 if (start) {
                     val context = getApplication<Application>()
-                    val scene = Scenario(id, title, point = point, profile = MovementProfile(context.speed, context.altitude,
-                        context.accuracy.coerceAtLeast(0.1f), context.reportDuration.toLong()))
+                    val scene = Scenario(id, title, point = point, profile = context.movementProfile())
                     mutableMessage.value = if (ScenarioRuntime.start(scene).await()) "单点场景已启动" else
                         ScenarioRuntime.state.value.error?.let { "${it.stage}: ${it.reason}\n${it.suggestion}" } ?: "启动失败"
                 } else {

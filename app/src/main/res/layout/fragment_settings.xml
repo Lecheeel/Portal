@@ -18,6 +18,9 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/smooth_route_switch" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:padding="8dp" android:text="@string/smooth_route_motion" app:useMaterialThemeColors="true" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="8dp" android:text="@string/smooth_route_motion_desc" android:textSize="12sp" />
+
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/clear_mock_flag_switch"
                 android:layout_width="match_parent"
@@ -72,6 +75,9 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <com.google.android.material.button.MaterialButton android:id="@+id/orbit_period_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/orbit_period" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="8dp" android:text="@string/orbit_period_desc" android:textSize="12sp" />
 
             <LinearLayout
                 android:id="@+id/selinux_layout"

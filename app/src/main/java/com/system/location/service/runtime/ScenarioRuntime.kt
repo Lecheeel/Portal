@@ -14,6 +14,7 @@ import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.ext.experimentalOrbitMotion
 import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
+import com.system.location.service.ext.orbitPeriodSeconds
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -69,7 +70,7 @@ object ScenarioRuntime {
                     withTimeout(10_000) { ready.await() }
                 }
                 check(preferences.edit().putBoolean("interrupted", true).commit()) { "无法持久化运行标记" }
-                controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius)
+                controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
                 controller.start(frozen).also { if (!state.value.isActive) finishService() }
             } catch (cancelled: CancellationException) {
                 if (cancelled !is TimeoutCancellationException) throw cancelled
@@ -87,7 +88,7 @@ object ScenarioRuntime {
     fun pause() = command { controller.pause() }
     fun refreshDiagnostics() = command { controller.refreshDiagnostics(); true }
     fun resume() = command { controller.resume() }
-    fun motion(bearing: Double, moving: Boolean) = command { controller.setMotion(bearing, moving) }
+    fun motion(bearing: Double, moving: Boolean, strength: Double = 1.0) = command { controller.setMotion(bearing, moving, strength) }
     fun setSpeed(speed: Double): Deferred<Boolean> {
         val expected = state.value
         return command {

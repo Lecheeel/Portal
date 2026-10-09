@@ -11,6 +11,7 @@ import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.TextView
 import com.google.android.material.slider.Slider
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.system.location.service.R
 import com.system.location.service.android.widget.RockerView
 import com.system.location.service.ext.rockerCoords
@@ -59,6 +60,15 @@ class Rocker(private val context: Context) {
         })
         root.findViewById<View>(R.id.speed_down).setOnClickListener { changeSpeed(displayedSpeed - 0.1) }
         root.findViewById<View>(R.id.speed_up).setOnClickListener { changeSpeed(displayedSpeed + 0.1) }
+        root.findViewById<View>(R.id.speed_presets).setOnClickListener {
+            MaterialAlertDialogBuilder(context).setTitle(R.string.speed_presets)
+                .setItems(context.resources.getStringArray(R.array.speed_preset_names)) { _, index ->
+                    changeSpeed(doubleArrayOf(1.4, 2.8, 5.5, 13.9)[index])
+                }.create().apply {
+                    window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+                    show()
+                }
+        }
         compact.setOnClickListener { minimize(false) }
         root.findViewById<View>(R.id.expand_menu).setOnClickListener { minimize(true) }
         attachDrag(compact)
@@ -138,7 +148,7 @@ class Rocker(private val context: Context) {
 
     private fun renderSpeed(speed: Double) {
         displayedSpeed = speed.coerceIn(0.0, 1000.0)
-        speedText.text = context.getString(R.string.overlay_speed_value, displayedSpeed)
+        speedText.text = context.getString(R.string.overlay_speed_value, displayedSpeed) + "\n" + context.getString(R.string.speed_kmh, displayedSpeed * 3.6)
         // Keep a useful range for walking/driving without truncating a faster saved scenario.
         val upper = maxOf(50.0, ceil(displayedSpeed / 10.0) * 10.0).toFloat()
         if (speedSlider.value > upper) speedSlider.value = upper

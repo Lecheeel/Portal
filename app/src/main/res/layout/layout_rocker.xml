@@ -262,6 +262,7 @@
                     android:valueTo="50.0"
                     app:tickVisible="false"
                     app:trackHeight="4dp" />
+                <Button android:id="@+id/speed_presets" android:layout_width="match_parent" android:layout_height="48dp" android:text="@string/speed_presets" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 

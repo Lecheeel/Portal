@@ -36,6 +36,8 @@ import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.experimentalOrbitMotion
 import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
+import com.system.location.service.ext.smoothRouteMotion
+import com.system.location.service.ext.orbitPeriodSeconds
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.update.UpdateChecker
 import com.system.location.service.update.UpdateDialogFragment
@@ -62,6 +64,19 @@ class SettingsFragment : Fragment() {
         val root: View = binding.root
 
         val context = requireContext()
+        binding.smoothRouteSwitch.isChecked = context.smoothRouteMotion
+        binding.smoothRouteSwitch.setOnCheckedChangeListener { _, enabled -> context.smoothRouteMotion = enabled }
+        fun periodLabel() { binding.orbitPeriodButton.text = getString(R.string.orbit_period) + " · " + getString(R.string.orbit_period_value, context.orbitPeriodSeconds) }
+        periodLabel()
+        binding.orbitPeriodButton.setOnClickListener {
+            showDialog(getString(R.string.orbit_period), context.orbitPeriodSeconds.toString()) {
+                val value = it.toDoubleOrNull()
+                if (value == null || !value.isFinite() || value !in 5.0..120.0) { showToast("周期需在5至120秒之间"); return@showDialog }
+                context.orbitPeriodSeconds = value
+                periodLabel()
+                showToast("已保存，下次启动生效")
+            }
+        }
         binding.selinuxLayout.visibility = View.GONE
         binding.sensorHookLayout.visibility = View.GONE
         binding.altitudeValue.text = "%.2f米".format(context.altitude)

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speed_presets">速度预设</string>
+    <string name="speed_kmh">%1$.1f km/h</string>
+    <string-array name="speed_preset_names">
+        <item>步行 · 1.4 m/s</item><item>跑步 · 2.8 m/s</item><item>骑行 · 5.5 m/s</item><item>驾车 · 13.9 m/s</item>
+    </string-array>
+    <string name="smooth_route_motion">路线平滑运动</string>
+    <string name="smooth_route_motion_desc">按路线弯曲程度减速、平滑加减速；设定速度作为上限。每次行程起终点减速至静止，循环接缝也会停速。用于下次启动；已保存场景保留自身参数。</string>
+    <string name="orbit_period">圆周运动周期</string>
+    <string name="orbit_period_value">%1$.0f 秒／圈</string>
+    <string name="orbit_period_desc">微动速度由半径和周期决定，与摇杆速度独立；摇杆速度设为零或暂停时停止微动。松手后围绕当前位置微动。</string>
+</resources>

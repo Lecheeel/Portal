@@ -15,7 +15,7 @@ import java.util.Collections
 }
 
 @Serializable data class MovementProfile(val speedMps: Double = 3.05, val altitudeMeters: Double = 80.0,
-    val accuracyMeters: Float = 25f, val intervalMs: Long = 500) {
+    val accuracyMeters: Float = 25f, val intervalMs: Long = 500, val smoothMotion: Boolean = false) {
     init {
         require(speedMps.isFinite() && speedMps in 0.0..1000.0)
         require(altitudeMeters.isFinite())

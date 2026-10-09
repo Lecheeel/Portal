@@ -23,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.hamcrest.Matchers.containsString
 
 /** Integration test for overlay ownership and the user's persisted visibility choice. */
 @RunWith(AndroidJUnit4::class)
@@ -61,11 +62,14 @@ class RockerOverlayTest {
                 overlay(R.id.speed_slider).check(matches(isDisplayed()))
                 overlay(R.id.speed_up).perform(click())
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.15) > 0.001) delay(10) } }
-                overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_value, context.speed))))
+                overlay(R.id.speed).check(matches(withText(containsString(context.getString(R.string.overlay_speed_value, context.speed)))))
+                overlay(R.id.speed_presets).perform(click())
+                onView(withText("步行 · 1.4 m/s")).perform(click())
+                runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 1.4) > 0.001) delay(10) } }
                 overlay(R.id.expand_menu).perform(click())
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
                 overlay(R.id.rocker_minimized).perform(click())
-                overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_value, context.speed))))
+                overlay(R.id.speed).check(matches(withText(containsString(context.getString(R.string.overlay_speed_value, context.speed)))))
                 overlay(R.id.expand_menu).perform(click())
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
                 scenario.recreate()

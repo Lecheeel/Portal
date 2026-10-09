@@ -22,6 +22,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     private var engine: PlaybackEngine? = null
     private var orbitEnabled = false
     private var orbitRadiusMeters = 0.2
+    private var orbitPeriodSeconds = 20.0
     @Volatile var intervalMs = 500L
         private set
 
@@ -44,7 +45,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         val instance = createBackend(type) ?: return@withLock false
         backend = instance
         engine = next
-        next.setOrbit(orbitEnabled, orbitRadiusMeters)
+        next.setOrbit(orbitEnabled, orbitRadiusMeters, orbitPeriodSeconds)
         intervalMs = next.scenario.profile.intervalMs
         mutableState.value = RuntimeState(RuntimePhase.PREPARING, type, input.id, input.name,
             input.route?.id, capabilities = instance.capabilities, configuredSpeedMps = next.scenario.profile.speedMps)
@@ -75,18 +76,19 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         publishLocked()
     }
 
-    suspend fun setMotion(bearing: Double, moving: Boolean): Boolean = mutex.withLock {
-        if (engine?.scenario?.route != null || !state.value.isActive || !bearing.isFinite()) return@withLock false
+    suspend fun setMotion(bearing: Double, moving: Boolean, strength: Double = 1.0): Boolean = mutex.withLock {
+        if (engine?.scenario?.route != null || !state.value.isActive || !bearing.isFinite() || !strength.isFinite() || strength !in 0.0..1.0) return@withLock false
         if (!publishLocked()) return@withLock false
-        engine?.setMotion(bearing, moving)
+        engine?.setMotion(bearing, moving, strength)
         true
     }
 
-    suspend fun configureOrbit(enabled: Boolean, radiusMeters: Double): Boolean = mutex.withLock {
-        if (!radiusMeters.isFinite() || radiusMeters !in 0.05..5.0) return@withLock false
+    suspend fun configureOrbit(enabled: Boolean, radiusMeters: Double, periodSeconds: Double = 20.0): Boolean = mutex.withLock {
+        if (!radiusMeters.isFinite() || radiusMeters !in 0.05..5.0 || !periodSeconds.isFinite() || periodSeconds !in 5.0..120.0) return@withLock false
         orbitEnabled = enabled
         orbitRadiusMeters = radiusMeters
-        engine?.setOrbit(enabled, radiusMeters)
+        orbitPeriodSeconds = periodSeconds
+        engine?.setOrbit(enabled, radiusMeters, periodSeconds)
         true
     }
     suspend fun setSpeed(speed: Double): Boolean = mutex.withLock {

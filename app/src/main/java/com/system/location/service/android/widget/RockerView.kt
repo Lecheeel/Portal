@@ -20,7 +20,10 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.drawable.toBitmap
 import com.system.location.service.R
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.acos
+import kotlin.math.atan2
+import android.animation.ValueAnimator
+import android.view.HapticFeedbackConstants
+import com.system.location.service.core.playback.JoystickInput
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -41,6 +44,7 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
     private val lockBitmap: Bitmap
     private var handler = Handler(Looper.getMainLooper())
     private var lockRunnable: Runnable? = null
+    private var returnAnimator: ValueAnimator? = null
 
     private var mAreaRadius = 0.0f
     private var mRockerInnerCircleRadius = 0.0f
@@ -198,6 +202,7 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
         if (event == null || !isEnabled) return false
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                returnAnimator?.cancel()
                 listener?.onStarted()
 
                 val moveX = event.x
@@ -231,6 +236,7 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
                         lockRunnable = Runnable {
                             isLocked.set(true)
                             listener?.onLockChanged(true)
+                            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             Toast.makeText(context, "方向锁定", Toast.LENGTH_SHORT).show()
                             lockRunnable = null
                             invalidate()
@@ -246,25 +252,19 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
             }
 
             MotionEvent.ACTION_UP -> {
+                cancelPendingLock()
                 if (!isLocked.get()) {
-                    //listener?.onAngle(0.0)
                     listener?.onFinished()
-                    moveRocker(mCenterPoint.x, mCenterPoint.y)
-                    lockRunnable?.let {
-                        handler.removeCallbacks(it)
-                    }
+                    animateReturn()
                 }
             }
 
             MotionEvent.ACTION_CANCEL -> {
-                if (!isLocked.get()) {
-                    listener?.onFinished()
-                    moveRocker(mCenterPoint.x, mCenterPoint.y)
-
-                    lockRunnable?.let {
-                        handler.removeCallbacks(it)
-                    }
-                }
+                cancelPendingLock()
+                isLocked.set(false)
+                listener?.onLockChanged(false)
+                listener?.onFinished()
+                animateReturn()
             }
         }
         return true
@@ -306,9 +306,10 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
         val lenX = (touchPoint.x - centerPoint.x).toFloat()
         val lenY = (touchPoint.y - centerPoint.y).toFloat()
         val lenXY = sqrt((lenX * lenX + lenY * lenY).toDouble()).toFloat()
-        val radian = acos((lenX / lenXY).toDouble()) * (if (touchPoint.y < centerPoint.y) -1 else 1)
-        val tmp = Math.round(radian / Math.PI * 180).toDouble()
-        val angle = ((if (tmp >= 0) tmp else 360 + tmp) + 90) % 360
+        val radian = atan2(lenY.toDouble(), lenX.toDouble())
+        val motion = JoystickInput.evaluate(lenX.toDouble(), lenY.toDouble(), (regionRadius - rockerRadius).coerceAtLeast(1f).toDouble())
+        val angle = motion.bearing
+        listener?.onStrength(motion.strength)
         if (lenXY + rockerRadius <= regionRadius) {
             listener?.onAngle(angle)
             return touchPoint to (false to angle)
@@ -321,6 +322,7 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
     }
 
     fun reset() {
+        returnAnimator?.cancel()
         // joystick back to center
         lockRunnable?.let { handler.removeCallbacks(it) }
         lockRunnable = null
@@ -328,6 +330,28 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
         isLocked.set(false)
         listener?.onLockChanged(false)
         invalidate()
+    }
+
+    private fun cancelPendingLock() {
+        lockRunnable?.let { handler.removeCallbacks(it) }
+        lockRunnable = null
+    }
+    private fun animateReturn() {
+        returnAnimator?.cancel()
+        val x = mRockerPosition.x; val y = mRockerPosition.y
+        returnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 160
+            addUpdateListener { animation ->
+                val f = animation.animatedValue as Float
+                moveRocker((x + (mCenterPoint.x - x) * f).toInt(), (y + (mCenterPoint.y - y) * f).toInt())
+            }
+            start()
+        }
+    }
+    override fun onDetachedFromWindow() {
+        reset()
+        listener?.onFinished()
+        super.onDetachedFromWindow()
     }
 
     fun auto(enable: Boolean) {
@@ -343,6 +367,7 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
             fun onStarted() {}
 
             fun onAngle(angle: Double)
+            fun onStrength(strength: Double) {}
 
             fun onLockChanged(isLocked: Boolean)
 

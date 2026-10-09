@@ -102,6 +102,17 @@ var Context.experimentalOrbitRadius: Double
     get() = sharedPrefs.getFloat("experimentalOrbitRadius", 0.2f).toDouble().coerceIn(0.05, 5.0)
     set(value) = sharedPrefs.edit { putFloat("experimentalOrbitRadius", value.toFloat()) }
 
+var Context.orbitPeriodSeconds: Double
+    get() = sharedPrefs.getFloat("orbitPeriodSeconds", 20f).toDouble().coerceIn(5.0, 120.0)
+    set(value) = sharedPrefs.edit { putFloat("orbitPeriodSeconds", value.toFloat()) }
+
+var Context.smoothRouteMotion: Boolean
+    get() = sharedPrefs.getBoolean("smoothRouteMotion", false)
+    set(value) = sharedPrefs.edit { putBoolean("smoothRouteMotion", value) }
+
+fun Context.movementProfile() = com.system.location.service.core.scenario.MovementProfile(
+    speed, altitude, accuracy.coerceAtLeast(0.1f), reportDuration.toLong(), smoothRouteMotion)
+
 var Context.minSatelliteCount: Int
     get() = sharedPrefs.getInt("minSatelliteCount", 12)
     set(value) = sharedPrefs.edit {

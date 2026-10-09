@@ -26,31 +26,51 @@ class PlaybackEngine(input: Scenario) {
     private var point = points.first()
     private var manualBearing = 0.0
     private var manualMoving = false
+    private var manualStrength = 1.0
     private var speedMps = scenario.profile.speedMps
+    private var plan: RouteSpeedPlan? = makePlan(speedMps)
+    private var routeSeconds = 0.0
     private var orbitEnabled = false
     private var orbitRadiusMeters = 0.2
     private var orbitPhase = 0.0
-    private val orbitCenter = points.first()
+    private var orbitCenter = points.first()
+    private var orbitPeriodSeconds = 20.0
 
     init { require(scenario.route == null || totalDistance > 0.001) { "Route has no movement" } }
 
     fun pause() { paused = true }
     fun resume(nowNanos: Long) { paused = false; previousNanos = nowNanos }
-    fun setMotion(bearing: Double, moving: Boolean) {
-        require(bearing.isFinite())
+    fun setMotion(bearing: Double, moving: Boolean, strength: Double = 1.0) {
+        require(bearing.isFinite() && strength.isFinite() && strength in 0.0..1.0)
+        if (manualMoving && !moving) { orbitCenter = point; orbitPhase = 0.0 }
         manualBearing = (bearing % 360 + 360) % 360
         manualMoving = moving
+        manualStrength = strength
     }
 
-    fun setOrbit(enabled: Boolean, radiusMeters: Double) {
+    fun setOrbit(enabled: Boolean, radiusMeters: Double, periodSeconds: Double = 20.0) {
         require(radiusMeters.isFinite() && radiusMeters in 0.05..5.0)
+        require(periodSeconds.isFinite() && periodSeconds in 5.0..120.0)
         orbitEnabled = enabled
         orbitRadiusMeters = radiusMeters
+        orbitPeriodSeconds = periodSeconds
     }
     fun setSpeed(speed: Double) {
         require(speed.isFinite() && speed in 0.0..1000.0)
+        if (scenario.route != null && scenario.profile.smoothMotion && speed > 0) {
+            val old = plan
+            val time = old?.let {
+                if (scenario.mode == RouteMode.ONCE) routeSeconds.coerceAtMost(it.duration)
+                else routeSeconds % (it.duration * if (scenario.mode == RouteMode.PING_PONG) 2 else 1)
+            } ?: 0.0
+            val reverse = old != null && time > old.duration
+            val distance = old?.at(if (reverse) 2 * old.duration - time else time)?.first ?: travelled
+            plan = makePlan(speed)
+            plan?.let { routeSeconds = if (reverse) 2 * it.duration - it.timeAt(distance) else it.timeAt(distance) }
+        }
         speedMps = speed
     }
+    private fun makePlan(speed: Double) = if (scenario.route != null && scenario.profile.smoothMotion && speed > 0) RouteSpeedPlan(points, lengths, speed) else null
 
     fun tick(nowNanos: Long, wallTimeMillis: Long): PlaybackFrame {
         require(nowNanos >= 0 && wallTimeMillis >= 0)
@@ -60,22 +80,36 @@ class PlaybackEngine(input: Scenario) {
         if (scenario.route == null) {
             val moving = manualMoving && !paused
             if (moving && dt > 0) {
-                val fix = Geodesic.WGS84.Direct(point.latitude, point.longitude, manualBearing, speedMps * dt)
+                val fix = Geodesic.WGS84.Direct(point.latitude, point.longitude, manualBearing, speedMps * manualStrength * dt)
                 point = Wgs84(fix.lat2, fix.lon2)
             } else if (orbitEnabled && !paused && !manualMoving && speedMps > 0 && dt > 0) {
-                val angularSpeed = speedMps / orbitRadiusMeters
+                val angularSpeed = 2.0 * Math.PI / orbitPeriodSeconds
                 orbitPhase = (orbitPhase + angularSpeed * dt) % (2.0 * Math.PI)
                 val bearing = Math.toDegrees(orbitPhase)
                 val fix = Geodesic.WGS84.Direct(orbitCenter.latitude, orbitCenter.longitude,
                     bearing, orbitRadiusMeters)
                 point = Wgs84(fix.lat2, fix.lon2)
             }
-            val orbiting = orbitEnabled && !paused && !manualMoving
+            val orbiting = orbitEnabled && !paused && !manualMoving && speedMps > 0
             val outputBearing = if (orbiting) (Math.toDegrees(orbitPhase) + 90.0) else manualBearing
-            return frame(point, outputBearing, if (moving) speedMps else if (orbiting) speedMps else 0.0,
+            return frame(point, outputBearing, if (moving) speedMps * manualStrength else if (orbiting) 2 * Math.PI * orbitRadiusMeters / orbitPeriodSeconds else 0.0,
                 now, wallTimeMillis, 0, 0.0, false)
         }
-        if (!paused) travelled += speedMps * dt
+        var outputSpeed = speedMps
+        if (scenario.profile.smoothMotion) {
+            plan?.let {
+                if (!paused && speedMps > 0) routeSeconds += dt
+                val time = when (scenario.mode) {
+                    RouteMode.ONCE -> routeSeconds.coerceAtMost(it.duration)
+                    RouteMode.LOOP -> routeSeconds % it.duration
+                    RouteMode.PING_PONG -> routeSeconds % (2 * it.duration)
+                }
+                val backwards = scenario.mode == RouteMode.PING_PONG && time > it.duration
+                val (distance, speed) = it.at(if (backwards) 2 * it.duration - time else time)
+                travelled = if (backwards) 2 * totalDistance - distance else distance
+                outputSpeed = if (speedMps > 0) speed else 0.0
+            }
+        } else if (!paused) travelled += speedMps * dt
         val finished = scenario.mode == RouteMode.ONCE && travelled >= totalDistance
         val cycle = when (scenario.mode) {
             RouteMode.ONCE -> travelled.coerceAtMost(totalDistance)
@@ -97,7 +131,7 @@ class PlaybackEngine(input: Scenario) {
         val result = Geodesic.WGS84.Direct(from.latitude, from.longitude, inverse.azi1, distance - cumulative[segment])
         val coordinate = if (distance >= totalDistance) points.last() else Wgs84(result.lat2, result.lon2)
         val bearing = result.azi2 + if (backwards) 180 else 0
-        return frame(coordinate, bearing, if (paused || finished) 0.0 else speedMps,
+        return frame(coordinate, bearing, if (paused || finished) 0.0 else outputSpeed,
             now, wallTimeMillis, segment, distance / totalDistance, finished)
     }
 

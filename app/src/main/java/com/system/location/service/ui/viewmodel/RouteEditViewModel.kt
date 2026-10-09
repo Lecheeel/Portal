@@ -66,7 +66,7 @@ class RouteEditViewModel(application: Application) : AndroidViewModel(applicatio
             with(LibraryRepositories.routes) { if (get(frozen.id) == null) create(saved) else update(saved) }
             val context = getApplication<Application>()
             val scene = Scenario(frozen.id, name, route = frozen, mode = mode,
-                profile = MovementProfile(context.speed, context.altitude, context.accuracy.coerceAtLeast(0.1f), context.reportDuration.toLong()))
+                profile = context.movementProfile())
             with(LibraryRepositories.scenarios) { if (get(scene.id) == null) create(scene) else update(scene) }
             context.selectRoute = saved.toHistorical()
             mutableMessage.value = if (start) {

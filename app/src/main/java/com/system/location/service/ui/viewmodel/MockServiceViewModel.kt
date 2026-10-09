@@ -24,7 +24,7 @@ class MockServiceViewModel : ViewModel() {
     var selectedRoute: HistoricalRoute? = null
     val runtimeState = ScenarioRuntime.state
     private fun profile() = with(LocationServiceApp.appContext) {
-        MovementProfile(speed, altitude, accuracy.coerceAtLeast(0.1f), reportDuration.toLong().coerceIn(50, 1000))
+        movementProfile()
     }
     suspend fun startPoint(point: Pair<Double, Double>, name: String = "单点场景"): Boolean {
         return ScenarioRuntime.start(Scenario(UUID.randomUUID().toString(), name.ifBlank { "单点场景" },

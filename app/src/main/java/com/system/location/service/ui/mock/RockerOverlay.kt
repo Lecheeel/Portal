@@ -33,6 +33,7 @@ object RockerOverlay {
     private var moving = false
     private var locked = false
     private var bearing = 0.0
+    private var strength = 0.0
     private val speedPreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "speed") scope.launch { updateSpeedState() }
     }
@@ -90,6 +91,7 @@ object RockerOverlay {
                         bearing = angle
                         publishMotion()
                     }
+                    override fun onStrength(strength: Double) { this@RockerOverlay.strength = strength }
                     override fun onLockChanged(isLocked: Boolean) { locked = isLocked }
                     override fun onFinished() {
                         if (!locked) {
@@ -121,7 +123,7 @@ object RockerOverlay {
 
     private fun publishMotion() {
         if (ScenarioRuntime.state.value.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) {
-            ScenarioRuntime.motion(bearing, moving)
+            ScenarioRuntime.motion(bearing, moving, strength)
         }
     }
 

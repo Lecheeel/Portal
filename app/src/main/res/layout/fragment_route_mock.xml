@@ -8,6 +8,7 @@
     android:padding="16dp"
     android:background="@color/page_background">
     <TextView
+        android:id="@+id/library_heading"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/ui_library_title"
@@ -18,6 +19,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:layout_marginBottom="16dp"
+        android:id="@+id/library_description"
         android:text="@string/ui_library_desc"
         android:textAppearance="@style/Portal.Body" />
     <com.google.android.material.button.MaterialButtonToggleGroup
@@ -129,6 +131,7 @@
             android:padding="24dp"
             android:visibility="gone">
             <ImageView
+                android:id="@+id/empty_artwork"
                 android:layout_width="112dp"
                 android:layout_height="112dp"
                 android:src="@drawable/ic_library_empty"

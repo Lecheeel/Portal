@@ -58,6 +58,12 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
     }
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val ui = FragmentRouteMockBinding.bind(view)
+        if (resources.configuration.screenHeightDp < 480) {
+            ui.libraryHeading.visibility = View.GONE
+            ui.libraryDescription.visibility = View.GONE
+            ui.emptyArtwork.visibility = View.GONE
+            ui.emptyDescription.visibility = View.GONE
+        }
         val kindIds = listOf(R.id.kind_routes, R.id.kind_scenarios, R.id.kind_locations)
         ui.libraryKind.check(kindIds[model.state.value.kind.ordinal])
         ui.libraryKind.addOnButtonCheckedListener { _, id, checked ->
@@ -114,8 +120,11 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
                         (state.error?.let { "\n${it.stage}: ${it.reason}\n${it.suggestion}" } ?: "")
                     )
                     ui.pauseResume.isEnabled = state.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)
-                    ui.pauseResume.setTextIfChanged(if (state.phase == RuntimePhase.PAUSED) "继续" else "暂停")
-                    ui.pauseResume.setIconResource(if (state.phase == RuntimePhase.PAUSED) R.drawable.baseline_play_24 else R.drawable.ic_pause)
+                    val action = if (state.phase == RuntimePhase.PAUSED) "继续" else "暂停"
+                    if (ui.pauseResume.text != action) {
+                        ui.pauseResume.text = action
+                        ui.pauseResume.setIconResource(if (state.phase == RuntimePhase.PAUSED) R.drawable.baseline_play_24 else R.drawable.ic_pause)
+                    }
                 } }
             }
         }

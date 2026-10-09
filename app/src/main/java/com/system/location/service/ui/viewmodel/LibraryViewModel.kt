@@ -42,13 +42,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private fun reload() {
         val items = when (state.value.kind) {
             LibraryKind.ROUTES -> LibraryRepositories.routes.list().sortedWith(compareByDescending<SavedRoute> { it.favorite }.thenBy { it.route.name })
-                .map { LibraryItem(it.route.id, (if (it.favorite) "★ " else "") + it.route.name, "${it.route.points.size} 个点 · ${it.mode}") }
+                .map { LibraryItem(it.route.id, (if (it.favorite) "★ " else "") + it.route.name, "${it.route.points.size} 个点 · ${modeLabel(it.mode)}") }
             LibraryKind.SCENARIOS -> LibraryRepositories.scenarios.list().map { LibraryItem(it.id, it.name,
-                "${if (it.route != null) "路线" else "单点"} · ${it.mode} · ${it.profile.speedMps} m/s") }
+                "${if (it.route != null) "路线" else "单点"} · ${modeLabel(it.mode)} · ${it.profile.speedMps} m/s") }
             LibraryKind.LOCATIONS -> LibraryRepositories.locations.list().map { LibraryItem(it.id, (if (it.favorite) "★ " else "") + it.name,
                 "${it.coordinate.latitude}, ${it.coordinate.longitude}\n${it.address}") }
         }
         mutable.value = state.value.copy(items = items)
+    }
+    private fun modeLabel(mode: RouteMode) = when (mode) {
+        RouteMode.ONCE -> "单次"
+        RouteMode.LOOP -> "循环"
+        RouteMode.PING_PONG -> "往返"
     }
     fun rename(id: String, name: String) = submit {
         require(name.isNotBlank()) { "名称不能为空" }

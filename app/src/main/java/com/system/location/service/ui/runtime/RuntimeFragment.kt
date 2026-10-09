@@ -79,7 +79,17 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
                 button.contentDescription = "$title，${if (open) "已展开，点击收起" else "已收起，点击展开"}"
             }
             update(savedInstanceState?.getBoolean(key) ?: expanded[key] ?: false)
-            button.setOnClickListener { update(content.visibility != View.VISIBLE); renderRuntime(); renderLogs() }
+            button.setOnClickListener {
+                val open = content.visibility != View.VISIBLE
+                update(open)
+                renderRuntime()
+                renderLogs()
+                if (open) content.post {
+                    // Reveal the first controls after expanding a section near the bottom edge.
+                    val height = minOf(content.height, (240 * resources.displayMetrics.density).toInt())
+                    content.requestRectangleOnScreen(android.graphics.Rect(0, 0, content.width, height), true)
+                }
+            }
         }
         section("state", binding.toggleState, binding.stateDetails, "运行详情")
         section("backend", binding.toggleBackend, binding.backendDetails, "后端设置")
@@ -161,7 +171,11 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
                 state.error?.let { appendLine("${it.stage}\n${it.reason}\n${it.suggestion}") }
             })
             binding.pauseResume.isEnabled = state.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)
-            binding.pauseResume.setTextIfChanged(if (state.phase == RuntimePhase.PAUSED) "继续" else "暂停")
+            val action = if (state.phase == RuntimePhase.PAUSED) "继续" else "暂停"
+            if (binding.pauseResume.text != action) {
+                binding.pauseResume.text = action
+                binding.pauseResume.setIconResource(if (state.phase == RuntimePhase.PAUSED) R.drawable.baseline_play_24 else R.drawable.ic_pause)
+            }
             if (binding.capabilityDetails.visibility == View.VISIBLE) binding.capabilities.setTextIfChanged(
                 state.capabilities.entries.joinToString("\n\n") { (capability, status) ->
                     "${capabilityLabel(capability)}：${when (status.availability) {

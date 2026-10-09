@@ -18,6 +18,8 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <com.google.android.material.button.MaterialButton android:id="@+id/background_guidance" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/background_guidance" />
+
             <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/smooth_route_switch" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:padding="8dp" android:text="@string/smooth_route_motion" app:useMaterialThemeColors="true" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="8dp" android:text="@string/smooth_route_motion_desc" android:textSize="12sp" />
 

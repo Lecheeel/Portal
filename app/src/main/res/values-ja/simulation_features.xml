@@ -17,7 +17,8 @@
     <string name="background_guidance_desc">バッテリー使用を「制限なし」に設定し、バックグラウンド自動起動を許可して、最近使ったアプリで本アプリをロックすることを推奨します。Xiaomi／HyperOS ではアプリ情報のバッテリーと自動起動設定を確認してください。他のメーカーではアプリ情報のバックグラウンド、バッテリー、起動管理を確認してください。\n\n本アプリを前面に表示してから開始してください。通知、フローティングウィンドウ、これらの設定は制限を軽減しますが、プロセスの終了を防ぐ保証はありません。中断後は手動でシナリオを再開してください。</string>
     <string name="battery_settings">バッテリー最適化設定</string>
     <string name="background_settings">バックグラウンド設定</string>
-    <string-array name="background_settings_options"><item>Xiaomi 自動起動（非対応時はアプリ情報）</item><item>アプリ情報／バッテリー管理</item><item>本アプリの通知設定</item></string-array>
+    <string name="open_background_settings">設定を開く</string>
+    <string-array name="background_settings_options"><item>バッテリー最適化設定</item><item>Xiaomi 自動起動（非対応時はアプリ情報）</item><item>アプリ情報／バッテリー管理</item><item>本アプリの通知設定</item></string-array>
     <string name="settings_unavailable">設定を開けません。システム設定から本アプリを探してください</string>
     <string name="gms_mock_channel">Google 融合位置情報（実験的）</string>
     <string name="gms_mock_channel_desc">初期状態では無効です。利用可能な Google Play 開発者サービスが必要です。失敗時も GPS／Network を継続します。次回開始時に適用され、対象アプリによる採用は保証されません。状態とエラーは実行診断で確認できます。</string>

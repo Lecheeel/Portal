@@ -29,14 +29,14 @@ object BackgroundGuidance {
         MaterialAlertDialogBuilder(context).setTitle(R.string.background_guidance)
             .setMessage(status(context) + "\n\n" + context.getString(R.string.background_guidance_desc))
             .setNegativeButton(android.R.string.cancel, null)
-            .setNeutralButton(R.string.battery_settings) { _, _ -> open(context, listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS), details(context))) }
-            .setPositiveButton(R.string.background_settings) { _, _ ->
+            .setPositiveButton(R.string.open_background_settings) { _, _ ->
                 MaterialAlertDialogBuilder(context).setTitle(R.string.background_settings)
                     .setItems(context.resources.getStringArray(R.array.background_settings_options)) { _, index ->
                         when (index) {
-                            0 -> open(context, listOf(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")), details(context)))
-                            1 -> open(context, listOf(details(context)))
-                            2 -> open(context, listOf(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName), details(context)))
+                            0 -> open(context, listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS), details(context)))
+                            1 -> open(context, listOf(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")), details(context)))
+                            2 -> open(context, listOf(details(context)))
+                            3 -> open(context, listOf(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName), details(context)))
                         }
                     }.show()
             }.show()

@@ -34,7 +34,7 @@ class FusedMockBackend(private val base: LocationBackend, private val fused: Fus
         useFused = false
         try { fused.start(); useFused = true }
         catch (cancelled: CancellationException) { throw cancelled }
-        catch (error: Exception) { failure = error.message ?: "GMS 通道启动失败，继续使用标准 Provider" }
+        catch (error: Exception) { degrade(error, "GMS 通道启动失败，继续使用标准 Provider") }
         return BackendResult.Success
     }
     override suspend fun publish(sample: LocationSample): BackendResult {
@@ -42,8 +42,16 @@ class FusedMockBackend(private val base: LocationBackend, private val fused: Fus
         if (result is BackendResult.Failure) return result
         if (useFused) try { fused.publish(sample) }
         catch (cancelled: CancellationException) { throw cancelled }
-        catch (error: Exception) { useFused = false; failure = error.message ?: "GMS 提交失败，继续使用标准 Provider" }
+        catch (error: Exception) { degrade(error, "GMS 提交失败，继续使用标准 Provider") }
         return BackendResult.Success
+    }
+    private suspend fun degrade(error: Exception, fallback: String) {
+        useFused = false
+        failure = error.message ?: fallback
+        // A stale fused mock fix can mask healthy platform providers: disable it on degradation.
+        try { fused.stop() }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (cleanup: Exception) { failure += "; GMS 清理待重试：${cleanup.message}" }
     }
     override suspend fun pause() = base.pause()
     override suspend fun resume() = base.resume()

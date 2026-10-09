@@ -37,6 +37,7 @@ class FusedMockBackendTest {
             backend.prepare(); assertEquals(BackendResult.Success, backend.start())
             repeat(3) { assertEquals(BackendResult.Success, backend.publish(sample)) }
             assertEquals(3, base.published); assertEquals(if (onStart) 0 else 1, fused.published)
+            assertFalse("Degradation must disable stale fused mock data", fused.pending)
             assertTrue(backend.diagnose().any { it.stage == "GMS_DEGRADED" })
             assertEquals(BackendResult.Success, backend.stop()); assertFalse(fused.pending)
         }

@@ -202,6 +202,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applySystemBarTheme() {
+        // Android 15 edge-to-edge also derives navigation icon contrast from the
+        // window background. Resolve it after AppCompat applies local night mode.
+        window.setBackgroundDrawableResource(R.color.page_background)
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT

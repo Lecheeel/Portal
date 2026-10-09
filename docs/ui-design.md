@@ -27,3 +27,5 @@
 截图由 Android API 35 CI 模拟器生成并上传 `ui-verification-*`，用于逐张检查排版；实际显示以最终提交的截图为准。JVM 测试与 lint／release 构建继续沿用现有 CI。没有用模拟器证据声称小米真机帧率、厂商保活或高德接受定位已验证。
 
 截图前确认目标页面控件，等待窗口提交新帧及两次显示帧回调，避免把切页前画面当作验收结果。深色／浅色测试同时检查系统栏图标模式；横屏测试检查资料库装饰内容收起及返回竖屏后恢复。
+
+Android 15 强制边到边布局会从窗口背景推导导航栏图标模式，因此在 AppCompat 应用夜间资源后重新设置窗口背景，再设置系统栏外观。平台行为依据 [AOSP DecorView](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/core/java/com/android/internal/policy/DecorView.java) 的 `setWindowBackground`。

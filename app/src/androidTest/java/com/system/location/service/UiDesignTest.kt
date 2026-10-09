@@ -163,12 +163,7 @@ class UiDesignTest {
     }
 
     private fun capture(name: String) {
-        instrumentation.waitForIdleSync()
-        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "ui-captures").apply { mkdirs() }
-        instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
-            File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            bitmap.recycle()
-        }
+        captureUi(name)
     }
 
     private fun await(predicate: () -> Boolean) {

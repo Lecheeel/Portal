@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">LocationService</string>
-    <string name="navigation_drawer_open">Open navigation drawer</string>
-    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="navigation_drawer_open">打开导航菜单</string>
+    <string name="navigation_drawer_close">关闭导航菜单</string>
     <string name="nav_header_title">LocationService</string>
     <string name="nav_header_subtitle">仅提供学习与交流，请3小时内删除</string>
     <string name="nav_header_desc">Navigation header</string>
@@ -9,12 +9,12 @@
     <string name="action_search">搜索</string>
     <string name="action_info">信息</string>
 
-    <string name="menu_home">Home</string>
-    <string name="menu_mock">Location Mock</string>
-    <string name="menu_route_mock">Route Mock</string>
-    <string name="menu_gnss_mock">Gnss Mock</string>
-    <string name="menu_route_mock_edit">Route Mock Edit</string>
-    <string name="menu_setting">Setting</string>
+    <string name="menu_home">首页地图</string>
+    <string name="menu_mock">位置模拟</string>
+    <string name="menu_route_mock">资料库</string>
+    <string name="menu_gnss_mock">卫星模拟</string>
+    <string name="menu_route_mock_edit">编辑路线</string>
+    <string name="menu_setting">设置</string>
     <string name="request_permission">能否给我一个权限呢？</string>
     <string name="follow_location">镜头跟随</string>
     <string name="add_route">创建路线</string>

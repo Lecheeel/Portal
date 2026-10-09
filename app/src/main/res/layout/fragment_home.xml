@@ -164,7 +164,7 @@
             android:layout_height="wrap_content"
             app:fabSize="normal"
             app:backgroundTint="@color/primary"
-            app:tint="@color/white"
+            app:tint="@color/on_primary"
             app:srcCompat="@drawable/baseline_my_location_24"
             app:elevation="6dp"
             android:contentDescription="@string/follow_location" />

@@ -1,4 +1,5 @@
 <resources>
+    <bool name="light_system_bars">false</bool>
     <color name="page_background">#0D1422</color>
     <color name="card_surface">#172133</color>
     <color name="primary_container">#293350</color>

@@ -121,14 +121,6 @@ class MainActivity : AppCompatActivity() {
 
         // Edge-to-Edge full immersion layout
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        val lightSystemBars = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES
-        controller.isAppearanceLightStatusBars = lightSystemBars
-        controller.isAppearanceLightNavigationBars = lightSystemBars
-
-        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
 
         CrashReport.setUserSceneTag(this, 261771)
 
@@ -141,6 +133,7 @@ class MainActivity : AppCompatActivity() {
 
                 binding = ActivityMainBinding.inflate(layoutInflater)
                 setContentView(binding.root)
+                applySystemBarTheme()
 
                 setSupportActionBar(binding.appBarMain.toolbar)
 
@@ -204,7 +197,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        applySystemBarTheme()
         com.system.location.service.ui.mock.RockerOverlay.refresh()
+    }
+
+    private fun applySystemBarTheme() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        window.isNavigationBarContrastEnforced = false
+        val light = resources.getBoolean(R.bool.light_system_bars)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = light
+            isAppearanceLightNavigationBars = light
+        }
+        if (::binding.isInitialized) {
+            binding.drawerLayout.setStatusBarBackgroundColor(ContextCompat.getColor(this, R.color.page_background))
+        }
     }
 
     override fun onStop() {

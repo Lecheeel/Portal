@@ -1,6 +1,7 @@
 package com.system.location.service.ui.mock
 
 import android.os.Bundle
+import android.content.res.Configuration
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,12 +59,7 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
     }
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val ui = FragmentRouteMockBinding.bind(view)
-        if (resources.configuration.screenHeightDp < 480) {
-            ui.libraryHeading.visibility = View.GONE
-            ui.libraryDescription.visibility = View.GONE
-            ui.emptyArtwork.visibility = View.GONE
-            ui.emptyDescription.visibility = View.GONE
-        }
+        applyCompactLayout(ui)
         val kindIds = listOf(R.id.kind_routes, R.id.kind_scenarios, R.id.kind_locations)
         ui.libraryKind.check(kindIds[model.state.value.kind.ordinal])
         ui.libraryKind.addOnButtonCheckedListener { _, id, checked ->
@@ -129,6 +125,19 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
             }
         }
     }
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        view?.let { applyCompactLayout(FragmentRouteMockBinding.bind(it)) }
+    }
+
+    private fun applyCompactLayout(ui: FragmentRouteMockBinding) {
+        val visibility = if (resources.configuration.screenHeightDp < 480) View.GONE else View.VISIBLE
+        ui.libraryHeading.visibility = visibility
+        ui.libraryDescription.visibility = visibility
+        ui.emptyArtwork.visibility = visibility
+        ui.emptyDescription.visibility = visibility
+    }
+
     private fun actions(item: LibraryItem) {
         if (model.state.value.busy || model.state.value.items.none { it.id == item.id }) return
         val choices = mutableListOf("启动", "重命名", "复制", "删除")

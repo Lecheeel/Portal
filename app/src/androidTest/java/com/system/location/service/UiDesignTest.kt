@@ -120,10 +120,20 @@ class UiDesignTest {
             for ((mode, suffix) in listOf(AppCompatDelegate.MODE_NIGHT_NO to "light", AppCompatDelegate.MODE_NIGHT_YES to "dark")) {
                 instrumentation.runOnMainSync { AppCompatDelegate.setDefaultNightMode(mode) }
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    onView(withId(R.id.btn_apply_location)).check(matches(isDisplayed()))
                     capture("home-$suffix")
-                    for ((destination, name) in listOf(R.id.nav_mock to "point", R.id.nav_settings to "settings", R.id.nav_runtime to "runtime", R.id.nav_route_gallery to "library")) {
+                    scenario.onActivity { activity ->
+                        val controller = androidx.core.view.WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+                        assertEquals(mode == AppCompatDelegate.MODE_NIGHT_NO, controller.isAppearanceLightStatusBars)
+                        assertEquals(mode == AppCompatDelegate.MODE_NIGHT_NO, controller.isAppearanceLightNavigationBars)
+                    }
+                    for ((destination, name, marker) in listOf(
+                        Triple(R.id.nav_mock, "point", R.id.point_name),
+                        Triple(R.id.nav_settings, "settings", R.id.altitude_value),
+                        Triple(R.id.nav_runtime, "runtime", R.id.phase_title),
+                        Triple(R.id.nav_route_gallery, "library", R.id.library_search))) {
                         scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(destination) }
-                        instrumentation.waitForIdleSync()
+                        onView(withId(marker)).check(matches(isDisplayed()))
                         capture("$name-$suffix")
                     }
                 }
@@ -154,10 +164,19 @@ class UiDesignTest {
                     landscape
                 }
                 onView(withId(R.id.library_search)).check(matches(isDisplayed()))
+                onView(withId(R.id.library_heading)).check(matches(withEffectiveVisibility(Visibility.GONE)))
+                onView(withId(R.id.empty_artwork)).check(matches(withEffectiveVisibility(Visibility.GONE)))
                 onView(withId(R.id.library_more)).perform(click())
                 onView(withText("导入 JSON")).check(matches(isDisplayed()))
                 androidx.test.espresso.Espresso.pressBack()
                 capture("library-landscape")
+                scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+                await {
+                    var portrait = false
+                    scenario.onActivity { portrait = it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT }
+                    portrait
+                }
+                onView(withId(R.id.library_heading)).check(matches(isDisplayed()))
             }
         } finally { fontScale(oldScale) }
     }

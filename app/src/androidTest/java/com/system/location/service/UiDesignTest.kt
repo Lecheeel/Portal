@@ -32,6 +32,55 @@ import android.widget.TextView
 
 @RunWith(AndroidJUnit4::class)
 class UiDesignTest {
+    @Test fun homeHasNoToolbarGapAfterReturningFromEveryOtherPage() {
+        permissions()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            fun homeGeometry(): List<Int> {
+                onView(withId(R.id.topSearchBarContainer)).check(matches(isDisplayed()))
+                var geometry = emptyList<Int>()
+                scenario.onActivity { activity ->
+                    val map = activity.findViewById<android.view.View>(R.id.amapView)
+                    val mapPosition = IntArray(2).also { map.getLocationOnScreen(it) }
+                    val rootPosition = IntArray(2).also { activity.binding.drawerLayout.getLocationOnScreen(it) }
+                    val search = activity.findViewById<android.view.View>(R.id.topSearchBarContainer)
+                    val searchPosition = IntArray(2).also { search.getLocationOnScreen(it) }
+                    val bottom = activity.findViewById<android.view.View>(R.id.bottomControlCard)
+                    val bottomPosition = IntArray(2).also { bottom.getLocationOnScreen(it) }
+                    assertEquals(rootPosition[1], mapPosition[1])
+                    assertEquals(activity.binding.drawerLayout.height, map.height)
+                    assertEquals(android.view.View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
+                    geometry = listOf(mapPosition[1], map.height, searchPosition[1], bottomPosition[1] + bottom.height)
+                }
+                return geometry
+            }
+            val initial = homeGeometry()
+            for (destination in listOf(R.id.nav_mock, R.id.nav_runtime, R.id.nav_gnss_mock,
+                R.id.nav_route_gallery, R.id.nav_settings, R.id.nav_route_edit)) {
+                for (useDrawer in listOf(true, false)) {
+                    scenario.onActivity { activity ->
+                        activity.findNavController(R.id.nav_host_fragment_content_main).navigate(destination)
+                    }
+                    onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
+                    if (useDrawer) {
+                        scenario.onActivity { activity ->
+                            activity.binding.navView.menu.performIdentifierAction(R.id.nav_home, 0)
+                        }
+                    } else {
+                        androidx.test.espresso.Espresso.pressBack()
+                    }
+                    assertEquals("Home geometry changed after destination $destination (drawer=$useDrawer)", initial, homeGeometry())
+                }
+            }
+            scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_mock) }
+            onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
+            scenario.recreate()
+            onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
+            androidx.test.espresso.Espresso.pressBack()
+            assertEquals(initial, homeGeometry())
+            capture("home-after-navigation")
+        }
+    }
+
     @Test fun drawerReturnsToMockAfterOpeningLibraryAndAfterRecreation() {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->

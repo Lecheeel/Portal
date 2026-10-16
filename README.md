@@ -9,7 +9,6 @@
 | Native + Xposed（实验性） | Xposed 条件、Root、arm64、明确选择实验后端 | 基于 Xposed 发布定位，按需安装原有 Dobby 传感器扩展 | 固定系统库路径、符号与结构偏移；不保证兼容；停止禁用行为，卸载已装 Hook 需重启系统 |
 | 仅有 Root | 可使用标准 Mock 模式 | Root 本身不是定位发布后端 | 不等价于已安装 Xposed；不会自动关闭 SELinux |
 
-无 Root 模式不是 Xposed 的等价替代。本项目不承诺不可检测、全部应用支持或所有 ROM 兼容。
 
 ## 使用
 
@@ -88,4 +87,4 @@ Windows 使用 `gradlew.bat`，PowerShell 用 `$env:JAVA_TOOL_OPTIONS='--enable-
 
 参考项目用于学习领域分层、Provider 生命周期、资料库与诊断设计，本次未复制参考目录中 GPL/AGPL 项目的实现；未引入 SharedMemory、ptrace、Compose 重写或默认噪声。保留 Portal、LSPosed、Dobby 与地图 SDK 的来源和依赖关系。原 README 声明 Apache 2.0；实际再分发仍须核对仓库和各第三方组件的许可证、版权与 NOTICE 要求。
 
-保留原有致谢：[Portal](https://github.com/fuqiuluo/Portal)、[GoGoGo](https://github.com/ZCShou/GoGoGo)、[百度地图 SDK](https://lbsyun.baidu.com/faq/api?title=androidsdk)、[LSPosed](https://github.com/LSPosed/LSPosed)、[Dobby](https://github.com/jmpews/Dobby)。当前地图适配使用高德 SDK。
+致谢：[Portal](https://github.com/fuqiuluo/Portal)、[GoGoGo](https://github.com/ZCShou/GoGoGo)、[百度地图 SDK](https://lbsyun.baidu.com/faq/api?title=androidsdk)、[LSPosed](https://github.com/LSPosed/LSPosed)、[Dobby](https://github.com/jmpews/Dobby)

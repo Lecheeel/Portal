@@ -212,7 +212,10 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         suspend fun cleanup(action: suspend () -> BackendResult): BackendResult = try { action() }
         catch (error: Exception) { BackendResult.Failure("CLEANUP", error.message ?: error.javaClass.simpleName) }
         val stopped = cleanup { active.stop() }
-        val released = cleanup { active.release() }
+        // Backends use stop() as the authoritative external cleanup operation. Only retry
+        // through release() after a failed stop; calling both on success duplicates Binder/API
+        // cleanup for every current backend implementation.
+        val released = if (stopped is BackendResult.Failure) cleanup { active.release() } else BackendResult.Success
         val failure = (released as? BackendResult.Failure) ?: (stopped as? BackendResult.Failure)
         if (released is BackendResult.Success) { backend = null; engine = null }
         mutableState.value = state.value.copy(phase = if (failure == null) RuntimePhase.STOPPED else RuntimePhase.ERROR,

@@ -28,7 +28,10 @@ class ScenarioControllerTest {
             calls += "publish"
             return if (failPublish) BackendResult.Failure("PUBLISH", "injected failure") else BackendResult.Success
         }
-        override suspend fun stop() = BackendResult.Success.also { calls += "stop" }
+        override suspend fun stop(): BackendResult {
+            calls += "stop"
+            return if (failCleanup) BackendResult.Failure("CLEANUP", "denied") else BackendResult.Success
+        }
         override suspend fun release(): BackendResult {
             calls += "release"
             return if (failCleanup) BackendResult.Failure("CLEANUP", "denied") else BackendResult.Success
@@ -102,7 +105,7 @@ class ScenarioControllerTest {
         assertTrue(c.resume()); assertEquals(point, c.state.value.sample!!.coordinate)
         clock.time = 51000; c.tick(); assertNotEquals(point, c.state.value.sample!!.coordinate)
         assertTrue(c.stop()); assertEquals(RuntimePhase.STOPPED, c.state.value.phase)
-        assertEquals(listOf("stop", "release"), backend.calls.takeLast(2))
+        assertEquals(listOf("stop"), backend.calls.takeLast(1))
         assertTrue(c.stop())
     }
 
@@ -110,7 +113,7 @@ class ScenarioControllerTest {
         val backend = Backend(); val c = ScenarioController({ backend }, Clock())
         backend.failPublish = true
         assertFalse(c.start(scenario)); assertEquals(RuntimePhase.ERROR, c.state.value.phase)
-        assertEquals(listOf("stop", "release"), backend.calls.takeLast(2))
+        assertEquals(listOf("stop"), backend.calls.takeLast(1))
         assertEquals("PUBLISH", c.diagnostics.value.last { it.result == "FAILED" }.stage)
         backend.failPublish = false
         assertTrue(c.start(scenario))

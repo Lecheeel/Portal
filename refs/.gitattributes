@@ -1,0 +1,2 @@
+# Preserve exact upstream bytes for source and manifest checksum verification.
+**/aosp/** -text linguist-vendored

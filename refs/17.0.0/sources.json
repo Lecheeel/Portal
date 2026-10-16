@@ -1,0 +1,381 @@
+{
+  "format_version": 1,
+  "repository": "https://android.googlesource.com/platform/frameworks/base",
+  "tag": "android-17.0.0_r1",
+  "commit": "94b4c163b7dfe5ce3607f7bb8456f9573f7de57d",
+  "retrieved_on": "2026-10-16",
+  "scope": [
+    "location/java/android/location/",
+    "services/core/java/com/android/server/location/",
+    "core/java/android/os/Build.java",
+    "NOTICE"
+  ],
+  "files": [
+    {
+      "path": "NOTICE",
+      "git_blob": "4e699635e0418df49ba5b11631d001ad6a641ca6",
+      "sha256": "cf4dd7cea5b6bcd2622ddd3529b3c74d16ba2b4db444575bc6f5c33f8a960530",
+      "size": 18182
+    },
+    {
+      "path": "core/java/android/os/Build.java",
+      "git_blob": "25912a0a53436489a76a8a327c2a85e9a0301909",
+      "sha256": "710f5dedfc70541f5bac3427f206e19d561038e8f8df51134909e3353e98ca42",
+      "size": 87675
+    },
+    {
+      "path": "location/java/android/location/Address.aidl",
+      "git_blob": "5be1498b73beebd180e5ec4a5b9bd2c4a42165a9",
+      "sha256": "390816af8f37af710d8ede9de2e54a7d54a9646dc8c3bd2129640d2bdd1d232a",
+      "size": 677
+    },
+    {
+      "path": "location/java/android/location/Country.aidl",
+      "git_blob": "c83d645aa869d3e91b51de0faf54565aa016f45c",
+      "sha256": "f1647c9ddabe6fec90b4bd30de56f689b6b7fae150bdf150c689b1c03482e837",
+      "size": 667
+    },
+    {
+      "path": "location/java/android/location/Criteria.aidl",
+      "git_blob": "b9a88798fc1458db65191fe9d48f97dc167b9f64",
+      "sha256": "6f4933d2ab6e466a5ccfc8ef113fc3bf83d918962a5225af8902779d1533dff9",
+      "size": 678
+    },
+    {
+      "path": "location/java/android/location/FusedBatchOptions.aidl",
+      "git_blob": "94cb6e1fc087774deeec7e823fbd7b8dbc9b8158",
+      "sha256": "ad861dd40324de91c74ce9ac62876ad873381e0898c26f02f1211c2680bb04e7",
+      "size": 677
+    },
+    {
+      "path": "location/java/android/location/Geofence.aidl",
+      "git_blob": "a5c6aa05347593a65c4da6952d4cdce8c77419ee",
+      "sha256": "5094060336d372a5a6b20d24db8ca09f4a88faab5356a5845d7c223dba03d8b5",
+      "size": 669
+    },
+    {
+      "path": "location/java/android/location/GnssAntennaInfo.aidl",
+      "git_blob": "2b956afda01f0940d05dd706b45bdb90b3e4d2e4",
+      "sha256": "7fea1af86e7e88137a980cc2f8c844527521821681955e7bafe9717a51b774ae",
+      "size": 675
+    },
+    {
+      "path": "location/java/android/location/GnssAssistance.aidl",
+      "git_blob": "2745683ec330ca4f6823f05337ea38517411e622",
+      "sha256": "e5e570332291642227924ec01816085d3ad0719583e65fe2d7b396c2b0bd184b",
+      "size": 673
+    },
+    {
+      "path": "location/java/android/location/GnssAutomaticGainControl.aidl",
+      "git_blob": "8298cb7110645b139069d71f7159fde225f7b374",
+      "sha256": "fe3381e939cd6c200fdd1ab63883f348a7a16a21c1a38623f91d87bab211b783",
+      "size": 685
+    },
+    {
+      "path": "location/java/android/location/GnssCapabilities.aidl",
+      "git_blob": "bdf301483a5f2d26daa815a09cbe38547c570e1a",
+      "sha256": "3704cd669c024cf8da408ae6aac0f2b967a2d532ecf8849d8d2383da40187b25",
+      "size": 676
+    },
+    {
+      "path": "location/java/android/location/GnssMeasurement.java",
+      "git_blob": "d11573c098ed87a30a880d09a5122c579df089ea",
+      "sha256": "143b968fac37d0772753cb1da81edc66ca83e6487312acf4934280c0c74d7b5f",
+      "size": 79446
+    },
+    {
+      "path": "location/java/android/location/GnssMeasurementCorrections.aidl",
+      "git_blob": "b05eb5455c826d3c34f9ed4ef75c32d56484f8f8",
+      "sha256": "973003285f0d0583ffc3dd990b187d427375f3679d7f5464975b588f1ecd3d10",
+      "size": 686
+    },
+    {
+      "path": "location/java/android/location/GnssMeasurementRequest.aidl",
+      "git_blob": "7e507281c013a967af9616c8f8187a58e2ccd6e9",
+      "sha256": "be7d8b1b76c6bea2f89fdf7f4da7f5dfadfd7c8bf670b9d2b69ca6ddc0d566b5",
+      "size": 683
+    },
+    {
+      "path": "location/java/android/location/GnssMeasurementsEvent.aidl",
+      "git_blob": "5ce594da372fed53bfae6470b49d73bc4f6d85cf",
+      "sha256": "8599bad59cb6ee90c5011823f436509595717ed065c17a110ea204f04eacb627",
+      "size": 682
+    },
+    {
+      "path": "location/java/android/location/GnssMeasurementsEvent.java",
+      "git_blob": "8cdfd013130a860eeb7e906fea3632ffc96bd05a",
+      "sha256": "f8d228349b1ce382f19cc053d75c0908cba242003b959993c0ebc9ec4a793133",
+      "size": 13377
+    },
+    {
+      "path": "location/java/android/location/GnssNavigationMessage.aidl",
+      "git_blob": "1cdd51066b8865a54a1fbe1667f64dd366a8fa61",
+      "sha256": "bc6477821db63973f6d4ae6f750bf06c8aa46ba104de8004d8438bfc994204f5",
+      "size": 682
+    },
+    {
+      "path": "location/java/android/location/GnssNavigationMessage.java",
+      "git_blob": "7a667ae4ef6cd2a90a58a5453be711a9394efec2",
+      "sha256": "887d4681b944022886f6c0128d66da3acb6d906d27538d26ddba38cdecea7519",
+      "size": 19545
+    },
+    {
+      "path": "location/java/android/location/GnssRequest.aidl",
+      "git_blob": "581abcce6651e4efe9810b0db498004ea864432a",
+      "sha256": "ea50a6d7eb3c0280fe80f599b3e67a4f318889da13d0963a3fae38c21369b709",
+      "size": 689
+    },
+    {
+      "path": "location/java/android/location/GnssSignalType.aidl",
+      "git_blob": "1c43fe5f93c9860d36495cfd4f1c215d731f9a6f",
+      "sha256": "f43d3676d52613f125ae1c8a8a67e0e18a479c257e74ecc9e11fac1dbad2cedd",
+      "size": 675
+    },
+    {
+      "path": "location/java/android/location/GnssStatus.aidl",
+      "git_blob": "e49618bf0f9ecafcdb3c9ff061ce232b70f187d8",
+      "sha256": "7ba26bd18b4ba3af2080ceb8715f93840030ed8135f2f1bb5b84793066747918",
+      "size": 671
+    },
+    {
+      "path": "location/java/android/location/GnssStatus.java",
+      "git_blob": "391dee1ac1bc4d316e7868f8ed2447c0b1d4f893",
+      "sha256": "b49f0955627b2006d79adea4b695f19ae10f7cf4578078efd4642ce061bcea05",
+      "size": 35622
+    },
+    {
+      "path": "location/java/android/location/ICountryDetector.aidl",
+      "git_blob": "7c9fb3651d210c022ea7dbb9ad290baff4d19e4a",
+      "sha256": "949e3e91fb6791c989c1106a3cb1e1c18ff638e62274871420e06953468bb889",
+      "size": 1296
+    },
+    {
+      "path": "location/java/android/location/ICountryListener.aidl",
+      "git_blob": "01ecf78312796239d9d992b55fdbe96d9c71629a",
+      "sha256": "62786a15061b4ca26d00243ce16b6413186fcb78f78bf419fea45d97b71f13c0",
+      "size": 784
+    },
+    {
+      "path": "location/java/android/location/IGeofenceProvider.aidl",
+      "git_blob": "6abfc676c5a4b0db71eaaed65c373fa5203525af",
+      "sha256": "6f2e90278ad827437b195bf78ebb0d9524445362ec4e6ff0f97e618b2b8e80d9",
+      "size": 962
+    },
+    {
+      "path": "location/java/android/location/IGnssAntennaInfoListener.aidl",
+      "git_blob": "e55c758f150247a2a9fa7d96f878ed49d93610f1",
+      "sha256": "e453c9a3230adea39678960bde57476ea86b11a02858330db7b8f326130fc6d9",
+      "size": 827
+    },
+    {
+      "path": "location/java/android/location/IGnssMeasurementsListener.aidl",
+      "git_blob": "d235a0db5ca8e69e2183a3f7fc6161105943dbed",
+      "sha256": "80902a2978d7b0c382881d3ecca13acb4cf20952bf37bb7b1ba2a0d4e1760041",
+      "size": 870
+    },
+    {
+      "path": "location/java/android/location/IGnssNavigationMessageListener.aidl",
+      "git_blob": "740f0aaf32bb09c3cea0a34c8621c5e896e225a7",
+      "sha256": "0f9c1bc86b611d2c8eb9aa1ef644e4f5ec3ea07d73489d4448e478205e32f1ce",
+      "size": 880
+    },
+    {
+      "path": "location/java/android/location/IGnssNmeaListener.aidl",
+      "git_blob": "edc2c0eb3d811e99b8316fe8a02febf7d7bd2ef7",
+      "sha256": "adb9112590f8e96701dfe31bb6b9404c4f1f9ea7318c3e5a5de3aedd28ba2e42",
+      "size": 757
+    },
+    {
+      "path": "location/java/android/location/IGnssStatusListener.aidl",
+      "git_blob": "01ae1983cf67c3971f76f70af430e7c12c1dca7e",
+      "sha256": "08b32fcbaa5889492bc5a1b805bfa27c585e3f8d4879c1beb1d2836bf147a7f1",
+      "size": 880
+    },
+    {
+      "path": "location/java/android/location/ILocationCallback.aidl",
+      "git_blob": "b0a2a70dc0fe39198f634f1476f60ae3b4c6e87a",
+      "sha256": "15e5dd724e9d0ec156bf78b925d0efbec974b4f2b7e6ceb71e55e055075346f7",
+      "size": 826
+    },
+    {
+      "path": "location/java/android/location/ILocationListener.aidl",
+      "git_blob": "d025cacc982a42f943a844d5c749f00e45e0d909",
+      "sha256": "f8c66e5955648c8a9dc8075db51ede3af0ea31cb51572353ddd9d4e780cfde4e",
+      "size": 992
+    },
+    {
+      "path": "location/java/android/location/ILocationManager.aidl",
+      "git_blob": "c96c118986718795fe516581e616ff9146b89c9f",
+      "sha256": "cfde445866d384b34f4bc0f6f36bc34bb322034562bcdf74b7f817a88d2ab3b4",
+      "size": 7672
+    },
+    {
+      "path": "location/java/android/location/INetInitiatedListener.aidl",
+      "git_blob": "60cb26579d96b262d570c83cc036c2bee58e911f",
+      "sha256": "6faadb30aa82324d65c1e482f1a777aa7abc4d81b5c28cae8f4dbcf8880bb85d",
+      "size": 783
+    },
+    {
+      "path": "location/java/android/location/LastLocationRequest.aidl",
+      "git_blob": "30c90a9a47bdd23744f5a6beeb6ec5e962f4df1d",
+      "sha256": "cd1f2f8639715a097575dc1540b5e4f88f0fce7e1ef24735b7143af6820bdea6",
+      "size": 680
+    },
+    {
+      "path": "location/java/android/location/LocationListener.java",
+      "git_blob": "031642b752e559f1fcda2532177b0c294b756730",
+      "sha256": "26fe7c86cb205bb5bda94f3d1051528a8e951df2a84e49600a759d0beac54793",
+      "size": 4917
+    },
+    {
+      "path": "location/java/android/location/LocationManager.java",
+      "git_blob": "43cd5cf28cb7d14e8fd67752e70e84eae3ad8c5b",
+      "sha256": "695c2f66b46646e0a0f33462bf2d4b889dbfcbafbd9898f540bcbe0ae6946852",
+      "size": 154417
+    },
+    {
+      "path": "location/java/android/location/LocationProvider.java",
+      "git_blob": "26cf0188f046f0d269effd38a591cf0f44aad6e8",
+      "sha256": "9efb90f06340a1a6c80e37906d74d2a512c12e6d1790c1e0c671073c61241652",
+      "size": 6906
+    },
+    {
+      "path": "location/java/android/location/LocationRequest.aidl",
+      "git_blob": "b1a8647d0eb81412a437e6ce8ce1d2446f25556c",
+      "sha256": "40f39ad1dce6f882930f994eea699e5d66d087bd6c1fdc464f89c926504bdd91",
+      "size": 676
+    },
+    {
+      "path": "location/java/android/location/LocationRequest.java",
+      "git_blob": "1ded1d49151c8f289f2596db8cdab277e45f48a8",
+      "sha256": "b201fc7cb0f3c352443a023743e08014c9e151fb44bf405faedc1f3cd8568700",
+      "size": 45885
+    },
+    {
+      "path": "location/java/android/location/LocationResult.aidl",
+      "git_blob": "3bb894f175031c79cf7c894694852dfda6745944",
+      "sha256": "136d5a4acb230cebf293c8849d5a2e0b1f2816f8fcdb1c5d698a342b6ad42fa9",
+      "size": 675
+    },
+    {
+      "path": "location/java/android/location/LocationResult.java",
+      "git_blob": "c520e02cecb05f1bc31301608e58c6d596de3d54",
+      "sha256": "d64776f2e9e66a6a159997284cea5dd09dfb7e09efd32b41a49b2cba082a231d",
+      "size": 12597
+    },
+    {
+      "path": "location/java/android/location/LocationTime.aidl",
+      "git_blob": "f6263637bb33307d3a5d74383e685d90f6740452",
+      "sha256": "2d9b7b1354ece27ee5092aa5fb0efe46b4273051745fd4237ce21b817e74e923",
+      "size": 673
+    },
+    {
+      "path": "location/java/android/location/OnNmeaMessageListener.java",
+      "git_blob": "def688cacedcdfdbe9c814b4fd453015f665631c",
+      "sha256": "534ee00cb9572faf843cf024437faa159ca2c27f341bda5eeca7550f54d8a986",
+      "size": 1562
+    },
+    {
+      "path": "location/java/android/location/provider/ForwardGeocodeRequest.aidl",
+      "git_blob": "acd6190aeec8201943b5d4db5354b6e79851d7d3",
+      "sha256": "9ba877eb9ab3fbe9dfc903b562f3f8b4fb64838be8d1968b1df4b08c6e019d34",
+      "size": 691
+    },
+    {
+      "path": "location/java/android/location/provider/IGeocodeCallback.aidl",
+      "git_blob": "cf527130bcc3e706fae47f8ceae79b52f3d5895f",
+      "sha256": "37a84dfe8d8a7e3d976fbca3e9aadfb15cb95c9ba88980addeb8eddfbd0849c7",
+      "size": 869
+    },
+    {
+      "path": "location/java/android/location/provider/IGeocodeProvider.aidl",
+      "git_blob": "92174387c5783ac60c9d0218bd5b0a3804a850fc",
+      "sha256": "8fa68c44c6daf80c8c59d211a70c2bee627f5782097ed9f6072b12f4068a13dc",
+      "size": 1200
+    },
+    {
+      "path": "location/java/android/location/provider/IGnssAssistanceCallback.aidl",
+      "git_blob": "ea38d08df6c203de6d3e19efe0afee72ce2cbf49",
+      "sha256": "9babb235f5810b49c7543724525e4d0eecf4e461f8befdb6d014f08092119835",
+      "size": 876
+    },
+    {
+      "path": "location/java/android/location/provider/IGnssAssistanceProvider.aidl",
+      "git_blob": "1796e9edb347a41792b87ce5a73eea459418201d",
+      "sha256": "bad92db2e289357a55bc4c814d54c20973fa54ca19fa1e075a7aefcc36324c27",
+      "size": 994
+    },
+    {
+      "path": "location/java/android/location/provider/ILocationProvider.aidl",
+      "git_blob": "f9995d5cf8b83759e705ff2bad355bf0cf8e1cf3",
+      "sha256": "590859f7ca59001d0957b27d6aff1eddddecdb97e7cb73b10c49383a9ef2a7f3",
+      "size": 1222
+    },
+    {
+      "path": "location/java/android/location/provider/ILocationProviderManager.aidl",
+      "git_blob": "092ec67ff146ca23dc530679934afe2ad4867ee5",
+      "sha256": "a4f46cdf6eb2ab10a93afd2da314aabb8e97527973c5c641bc968fb9f28f8456",
+      "size": 1202
+    },
+    {
+      "path": "location/java/android/location/provider/IPopulationDensityProvider.aidl",
+      "git_blob": "41fe5006983d3473a68b489ec9e9d4c209ba0849",
+      "sha256": "dd0cfbd3ba77fd1accebdbd852bdf210318a6853853089b3543156ab98a42cc1",
+      "size": 1825
+    },
+    {
+      "path": "location/java/android/location/provider/IProviderRequestListener.aidl",
+      "git_blob": "ad68ef80b00de902bdc987e47051e0e2f70a0f17",
+      "sha256": "b57dc719b4d5b95ea9101be036f4bd352524b2f1580da430e27d3f47743bc564",
+      "size": 851
+    },
+    {
+      "path": "location/java/android/location/provider/IS2CellIdsCallback.aidl",
+      "git_blob": "f583045ebb2664428b89696962faaa5f0e4f31ff",
+      "sha256": "e277e996dcf4eae67b29da5b3c35317cf7595a123ce17a21e30e771daf6e61f9",
+      "size": 1187
+    },
+    {
+      "path": "location/java/android/location/provider/IS2LevelCallback.aidl",
+      "git_blob": "49f96ef7e3e2e5d5d2323ca49190cd5f392dffc8",
+      "sha256": "57227499cad24014ea87c295bc289cd3b249a77103cb8b3d419eb02598b11014",
+      "size": 1078
+    },
+    {
+      "path": "location/java/android/location/provider/ProviderProperties.aidl",
+      "git_blob": "fd5a614b4fc83082bedd9bdb06056de2121e5692",
+      "sha256": "075c972b326f442bd8b2f69d042c5b8976cd9986ca45b497d2c860fd13b1fa50",
+      "size": 688
+    },
+    {
+      "path": "location/java/android/location/provider/ProviderRequest.aidl",
+      "git_blob": "b98f3018fe2bbae57856bcc610ffb240d13635a2",
+      "sha256": "d27ad81067b3a1b3a349e1a6b67df3a7c9830628826d0a77eb6fafe8c816a25f",
+      "size": 685
+    },
+    {
+      "path": "location/java/android/location/provider/ReverseGeocodeRequest.aidl",
+      "git_blob": "015757ad5d2dccaa015a54a934706fa4fe75ccb0",
+      "sha256": "5efa98d4305c2b8a0779ccce7871e9f69fba461c99de691626081bf9f86330db",
+      "size": 656
+    },
+    {
+      "path": "services/core/java/com/android/server/location/LocationManagerService.java",
+      "git_blob": "ebc8ce5d5a7a6d2f81de71f49f94dd0043f39bd0",
+      "sha256": "49217437e30357ac1569a4c8a08e57288f26b9cf93aa83d4e98a90675b916405",
+      "size": 88312
+    },
+    {
+      "path": "services/core/java/com/android/server/location/LocationPermissions.java",
+      "git_blob": "ee41759551096f2f7106a7369add40e7c6158514",
+      "sha256": "fdb8e61c8ac9b798dee1050b58d71eee3de8d44363a69b25a72d8ed7cca35180",
+      "size": 8353
+    },
+    {
+      "path": "services/core/java/com/android/server/location/LocationShellCommand.java",
+      "git_blob": "9c85d18515af614c5eb6b9b5ce9dcfb5ae0eca24",
+      "sha256": "2e6942f033afc9fa2586d0d6ed8e519755799a6a2105ab363c6e3aa5329cf7cd",
+      "size": 16712
+    }
+  ]
+}

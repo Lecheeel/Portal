@@ -1,13 +1,9 @@
 # ===== Build Output =====
-/build
-app/build
-xposed/build
-nmea/build
-system-api/build
 **/build/
+/build_*.log
+/release-artifacts/
 
 # ===== Gradle =====
-.gradle
 **/.gradle/
 local.properties
 
@@ -23,6 +19,7 @@ local.properties
 /.idea/assetWizardSettings.xml
 /.idea/.name
 /.idea/deploymentTargetDropDown.xml
+/.idea/deploymentTargetSelector.xml
 /.idea/migrations.xml
 /.idea/render.experimental.xml
 /.idea/kotlinc.xml
@@ -31,7 +28,6 @@ local.properties
 
 # ===== macOS =====
 .DS_Store
-**/.DS_Store
 
 # ===== Windows =====
 Thumbs.db
@@ -44,13 +40,13 @@ apk-keys/
 *.jks
 keystore.properties
 signing.properties
-app/google-services.json
 google-services.json
 *.env
+.env.*
+!.env.example
 
 # ===== Native Build Artifacts =====
 **/*.so.tmp
-/app/src/main/jniLibs/
 
 # ===== Captures / Profiling =====
 /captures

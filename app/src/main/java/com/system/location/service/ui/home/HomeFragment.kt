@@ -15,6 +15,10 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -91,6 +95,37 @@ class HomeFragment : Fragment() {
         realPositionFilter = PositionFilter()
         binding.amapView.onCreate(savedInstanceState)
         val root: View = binding.root
+        val search = binding.topSearchBarContainer
+        val searchLeft = search.paddingLeft
+        val searchTop = search.paddingTop
+        val searchRight = search.paddingRight
+        val actions = binding.mapActions
+        val actionMargins = actions.layoutParams as ViewGroup.MarginLayoutParams
+        val actionTop = actionMargins.topMargin
+        val actionRight = actionMargins.rightMargin
+        val actionLeft = actionMargins.leftMargin
+        val bottom = binding.bottomControlCard
+        val bottomMargins = bottom.layoutParams as ViewGroup.MarginLayoutParams
+        val bottomLeft = bottomMargins.leftMargin
+        val bottomRight = bottomMargins.rightMargin
+        val bottomSpace = bottomMargins.bottomMargin
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+            search.updatePadding(left = searchLeft + safe.left, top = searchTop + safe.top, right = searchRight + safe.right)
+            actions.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                topMargin = actionTop + safe.top
+                leftMargin = actionLeft + safe.left
+                rightMargin = actionRight + safe.right
+            }
+            bottom.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                leftMargin = bottomLeft + safe.left
+                rightMargin = bottomRight + safe.right
+                bottomMargin = bottomSpace + maxOf(safe.bottom, keyboard.bottom)
+            }
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
 
         with(aMapViewModel) {
             isExists = true

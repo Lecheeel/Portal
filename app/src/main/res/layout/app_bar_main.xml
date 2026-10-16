@@ -24,7 +24,6 @@
             app:titleTextColor="@color/text_primary"
             app:navigationIconTint="@color/text_primary"
             app:subtitleTextColor="@color/text_secondary"
-            android:visibility="gone"
             app:collapseIcon="@drawable/baseline_arrow_back_24" />
 
     </com.google.android.material.appbar.AppBarLayout>

@@ -12,7 +12,7 @@
 
 ## 使用
 
-v1.7.2 提供可搜索的分类资料库、矢量空状态、分组设置和统一的浅色／深色卡片。导入／导出位于资料库右侧菜单；列表按差量更新，高频定位样本仅在显示层限频。设计来源与性能验证见 [界面设计说明](docs/ui-design.md)。
+v1.7.3 提供可搜索的分类资料库、矢量空状态、分组设置和统一的浅色／深色卡片。导入／导出位于资料库右侧菜单；列表按差量更新，高频定位样本仅在显示层限频。设计来源与性能验证见 [界面设计说明](docs/ui-design.md)。
 
 1. 在侧栏打开“后端与运行状态”，选择后端。默认是标准 Mock Provider。
 2. 无 Root 模式：在系统开发者选项的“选择模拟位置信息应用”中选择 LocationService，授予精确位置权限，从应用前台启动场景。悬浮窗仅用于首页摇杆，不是启动定位的前置条件。
@@ -77,9 +77,9 @@ Windows 使用 `gradlew.bat`，PowerShell 用 `$env:JAVA_TOOL_OPTIONS='--enable-
 
 本机编译、打包及 JVM 单元测试不依赖 Android Emulator；设备界面测试需要模拟器或测试手机。CI 的界面验证工作流继续使用独立安装的模拟器。
 
-版本由显式输入确定：`APP_VERSION_NAME` 默认 `1.7.2`、`APP_VERSION_CODE` 默认 `1790000009`、`BUILD_REVISION` 默认 `unknown`。版本码沿用比旧时间戳版本更大的固定起点，后续发布必须递增；不再用版本码推断构建时间。构建配置不查询公网 IP、主机名、工作目录或当前时间，不执行 Git 命令。依赖、SDK 下载仍可能需要网络。未声称跨机器 APK 字节完全相同。
+版本由显式输入确定：`APP_VERSION_NAME` 默认 `1.7.3`、`APP_VERSION_CODE` 默认 `1790000010`、`BUILD_REVISION` 默认 `unknown`。版本码沿用比旧时间戳版本更大的固定起点，后续发布必须递增；不再用版本码推断构建时间。构建配置不查询公网 IP、主机名、工作目录或当前时间，不执行 Git 命令。依赖、SDK 下载仍可能需要网络。未声称跨机器 APK 字节完全相同。
 
-导出目录 `app/build/outputs/distribution/`：`LocationService-v1.7.2-all.apk`、`-arm64.apk`、`-x86_64.apk`。导出使用 AGP 公共 artifacts API。未配置签名时 Release APK 未签名；分发安装请设置 `KEYSTORE_PATH`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`。PR CI 不依赖签名或地图 secrets。
+导出目录 `app/build/outputs/distribution/`：`LocationService-v1.7.3-all.apk`、`-arm64.apk`、`-x86_64.apk`。导出使用 AGP 公共 artifacts API。未配置签名时 Release APK 未签名；分发安装请设置 `KEYSTORE_PATH`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`。PR CI 不依赖签名或地图 secrets。
 
 ## 验证边界与来源
 

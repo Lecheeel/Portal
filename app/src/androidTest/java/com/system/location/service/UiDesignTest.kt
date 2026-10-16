@@ -32,6 +32,64 @@ import android.widget.TextView
 
 @RunWith(AndroidJUnit4::class)
 class UiDesignTest {
+    @Test fun drawerReturnsToMockAfterOpeningLibraryAndAfterRecreation() {
+        permissions()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            fun openMock() {
+                scenario.onActivity { activity ->
+                    activity.binding.navView.menu.performIdentifierAction(R.id.nav_mock, 0)
+                }
+                onView(withId(R.id.point_name)).perform(scrollTo()).check(matches(isDisplayed()))
+                scenario.onActivity {
+                    assertEquals(R.id.nav_mock, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
+                }
+            }
+            openMock()
+            repeat(2) {
+                onView(withId(R.id.library)).perform(scrollTo(), click())
+                onView(withId(R.id.library_search)).check(matches(isDisplayed()))
+                if (it == 0) scenario.recreate()
+                openMock()
+            }
+            onView(withId(R.id.library)).perform(scrollTo(), click())
+            androidx.test.espresso.Espresso.pressBack()
+            onView(withId(R.id.point_name)).perform(scrollTo()).check(matches(isDisplayed()))
+        }
+    }
+
+    @Test fun edgeToEdgeKeepsMapFullSizeAndControlsInsideSafeInsets() {
+        permissions()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            onView(withId(R.id.topSearchBarContainer)).check(matches(isDisplayed()))
+            scenario.onActivity { activity ->
+                val container = activity.binding.appBarMain.root
+                val insets = androidx.core.view.WindowInsetsCompat.Builder()
+                    .setInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars(), androidx.core.graphics.Insets.of(12, 48, 16, 32))
+                    .build()
+                val search = activity.findViewById<android.view.View>(R.id.topSearchBarContainer)
+                androidx.core.view.ViewCompat.dispatchApplyWindowInsets(container, insets)
+                assertEquals(0, container.paddingTop)
+                assertEquals(0, container.paddingBottom)
+                assertTrue(search.paddingTop >= 48)
+                val appliedTop = search.paddingTop
+                androidx.core.view.ViewCompat.dispatchApplyWindowInsets(container, insets)
+                assertEquals(appliedTop, search.paddingTop)
+                val bottom = activity.findViewById<android.view.View>(R.id.bottomControlCard)
+                assertTrue((bottom.layoutParams as android.view.ViewGroup.MarginLayoutParams).bottomMargin >= 32)
+                val map = activity.findViewById<android.view.View>(R.id.amapView)
+                assertEquals(activity.binding.drawerLayout.height, map.height)
+                assertEquals(android.view.View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
+                activity.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_mock)
+                androidx.core.view.ViewCompat.dispatchApplyWindowInsets(container, insets)
+                assertEquals(48, container.paddingTop)
+                assertEquals(32, container.paddingBottom)
+                assertEquals(12, container.paddingLeft)
+                assertEquals(16, container.paddingRight)
+                assertEquals(android.view.View.VISIBLE, activity.binding.appBarMain.toolbar.visibility)
+            }
+        }
+    }
+
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private fun permissions() {
         listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,

@@ -110,6 +110,7 @@
 
     <!-- 4. Quick Action Floating Island on Top-Right -->
     <LinearLayout
+        android:id="@+id/map_actions"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"

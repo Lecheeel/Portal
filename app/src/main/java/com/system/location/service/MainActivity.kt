@@ -28,15 +28,18 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.GravityCompat
+import androidx.core.view.updatePadding
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.NavController
-import androidx.navigation.NavDestination
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.navOptions
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
@@ -149,14 +152,38 @@ class MainActivity : AppCompatActivity() {
 
                 setupActionBarWithNavController(navController, appBarConfiguration)
                 navView.setupWithNavController(navController)
+                // Drawer items name an exact screen. Restoring a saved top-level stack
+                // could instead restore the library opened from the mock screen.
+                navView.setNavigationItemSelectedListener { item ->
+                    navController.navigate(item.itemId, null, navOptions {
+                        launchSingleTop = true
+                        popUpTo(navController.graph.findStartDestination().id)
+                    })
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+
+                ViewCompat.setOnApplyWindowInsetsListener(binding.appBarMain.root) { view, insets ->
+                    val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+                    val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+                    val home = navController.currentDestination?.id == R.id.nav_home
+                    view.updatePadding(
+                        left = if (home) 0 else safe.left,
+                        top = if (home) 0 else safe.top,
+                        right = if (home) 0 else safe.right,
+                        bottom = if (home) 0 else maxOf(safe.bottom, keyboard.bottom)
+                    )
+                    insets
+                }
 
                 navController.addOnDestinationChangedListener { _, destination, _ ->
                     // Show standard toolbar for secondary screens, hide for home full-screen map
                     if (destination.id == R.id.nav_home) {
-                        binding.appBarMain.toolbar.visibility = View.GONE
+                        binding.appBarMain.appBarLayout.visibility = View.GONE
                     } else {
-                        binding.appBarMain.toolbar.visibility = View.VISIBLE
+                        binding.appBarMain.appBarLayout.visibility = View.VISIBLE
                     }
+                    ViewCompat.requestApplyInsets(binding.appBarMain.root)
                 }
                 startupUpdateViewModel.check()
             }
@@ -215,7 +242,7 @@ class MainActivity : AppCompatActivity() {
             isAppearanceLightNavigationBars = light
         }
         if (::binding.isInitialized) {
-            binding.drawerLayout.setStatusBarBackgroundColor(ContextCompat.getColor(this, R.color.page_background))
+            binding.drawerLayout.setStatusBarBackgroundColor(Color.TRANSPARENT)
         }
     }
 

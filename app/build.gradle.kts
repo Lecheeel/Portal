@@ -6,8 +6,8 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.serialization)
 }
 
-val releaseVersionName = providers.gradleProperty("APP_VERSION_NAME").orElse("1.7.1")
-val releaseVersionCode = providers.gradleProperty("APP_VERSION_CODE").orElse("1790000008").map(String::toInt)
+val releaseVersionName = providers.gradleProperty("APP_VERSION_NAME").orElse("1.7.2")
+val releaseVersionCode = providers.gradleProperty("APP_VERSION_CODE").orElse("1790000009").map(String::toInt)
 val revision = providers.gradleProperty("BUILD_REVISION").orElse("unknown")
 require(releaseVersionName.get().matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+"))) { "APP_VERSION_NAME must be major.minor.patch" }
 require(releaseVersionCode.get() in 1..2_100_000_000) { "Invalid APP_VERSION_CODE" }

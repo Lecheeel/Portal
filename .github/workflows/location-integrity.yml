@@ -1,0 +1,164 @@
+name: Location Integrity
+
+"on":
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['location-integrity-v*']
+    paths:
+      - 'integrity-app/**'
+      - 'integrity-core/**'
+      - 'scripts/*integrity*'
+      - '.github/workflows/location-integrity.yml'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+  pull_request:
+    paths:
+      - 'integrity-app/**'
+      - 'integrity-core/**'
+      - 'scripts/*integrity*'
+      - '.github/workflows/location-integrity.yml'
+
+permissions:
+  contents: read
+
+env:
+  JAVA_TOOL_OPTIONS: --enable-native-access=ALL-UNNAMED
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Core rules and release verifier tests
+        run: |
+          chmod +x gradlew
+          ./gradlew :integrity-core:test --console=plain
+          python3 -m unittest discover -s scripts -p 'test_verify_integrity_apk.py'
+      - name: Android lint
+        run: ./gradlew :integrity-app:lint --max-workers=1 --console=plain
+      - name: Build standalone APKs
+        run: ./gradlew :integrity-app:assembleRelease :integrity-app:assembleDebug :integrity-app:assembleDebugAndroidTest -PBUILD_REVISION="$GITHUB_SHA" --console=plain
+      - name: Check package and permissions
+        run: python3 scripts/verify_integrity_apk.py integrity-app/build/outputs/apk/release/integrity-app-release-unsigned.apk --unsigned
+      - uses: actions/upload-artifact@v4
+        with:
+          name: integrity-unsigned-${{ github.sha }}
+          path: integrity-app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: integrity-device-${{ github.sha }}
+          path: |
+            integrity-app/build/outputs/apk/debug/*.apk
+            integrity-app/build/outputs/apk/androidTest/debug/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integrity-reports-${{ github.sha }}
+          path: |
+            integrity-core/build/reports/
+            integrity-app/build/reports/
+
+  emulator:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v4
+        with:
+          name: integrity-device-${{ github.sha }}
+          path: device-apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 scripts/run_integrity_device_tests.py --apk device-apks/debug/integrity-app-debug.apk --test-apk device-apks/androidTest/debug/integrity-app-debug-androidTest.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integrity-screenshots-${{ github.sha }}
+          path: integrity-screenshots/
+          if-no-files-found: warn
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/location-integrity-v')
+    needs: [verify, emulator]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager 'build-tools;37.0.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: integrity-unsigned-${{ github.sha }}
+          path: unsigned
+      - name: Sign the verified APK with the independent identity
+        env:
+          INTEGRITY_KEYSTORE_BASE64: ${{ secrets.INTEGRITY_KEYSTORE_BASE64 }}
+          INTEGRITY_KEYSTORE_PASSWORD: ${{ secrets.INTEGRITY_KEYSTORE_PASSWORD }}
+          INTEGRITY_KEY_ALIAS: ${{ secrets.INTEGRITY_KEY_ALIAS }}
+          INTEGRITY_KEY_PASSWORD: ${{ secrets.INTEGRITY_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = 'location-integrity-v0.1.0'
+          umask 077
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          for name in ('INTEGRITY_KEYSTORE_BASE64', 'INTEGRITY_KEYSTORE_PASSWORD', 'INTEGRITY_KEY_ALIAS', 'INTEGRITY_KEY_PASSWORD'):
+              if not os.environ.get(name):
+                  raise SystemExit('Missing signing secret: ' + name)
+          (Path(os.environ['RUNNER_TEMP']) / 'integrity-release.p12').write_bytes(base64.b64decode(os.environ['INTEGRITY_KEYSTORE_BASE64'], validate=True))
+          PY
+          mkdir -p distribution
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" sign --ks "$RUNNER_TEMP/integrity-release.p12" --ks-key-alias "$INTEGRITY_KEY_ALIAS" --ks-pass env:INTEGRITY_KEYSTORE_PASSWORD --key-pass env:INTEGRITY_KEY_PASSWORD --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true --v4-signing-enabled false --out distribution/LocationIntegrity-v0.1.0.apk unsigned/integrity-app-release-unsigned.apk
+          python3 scripts/verify_integrity_apk.py distribution/LocationIntegrity-v0.1.0.apk --out distribution/verification.json
+          cp integrity-app/release-certificate.sha256 distribution/certificate-sha256.txt
+          cd distribution
+          sha256sum LocationIntegrity-v0.1.0.apk > SHA256SUMS
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" distribution/LocationIntegrity-v0.1.0.apk distribution/SHA256SUMS distribution/verification.json distribution/certificate-sha256.txt --verify-tag --title 'Location Integrity v0.1.0' --notes-file docs/releases/location-integrity-v0.1.0.md --latest=false
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/integrity-release.p12"

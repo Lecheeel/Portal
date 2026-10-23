@@ -38,6 +38,8 @@ desktop.ini
 apk-keys/
 *.keystore
 *.jks
+*.p12
+*.pfx
 keystore.properties
 signing.properties
 google-services.json

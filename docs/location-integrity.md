@@ -52,6 +52,8 @@
 本机签名构建：python scripts/integrity_signing.py build。请保留当前 Windows 用户的恢复能力；DPAPI 备份不等于可跨机器导入的备份。
 
 GitHub Actions 工作流 Location Integrity 对独立模块执行 JVM、发布检查器、lint、Release 构建和 API35 模拟器 UI/近似权限服务测试。
+独立正例测试由模拟器 Shell 添加临时 GPS Test Provider，普通权限检测 App 订阅并确认收到带 Mock 标记的实时回调，最后清理测试 Provider。
+Shell 权限属于可丢弃的 CI 测试环境，不进入应用 APK；检测 App 始终不申请模拟位置权限。
 location-integrity-v0.1.0 tag 在上述门禁通过后签名，核对 APK 包名/版本/权限/证书、生成校验和并发布 Release。
 发布不改变 Portal 原有签名 Secrets，也不覆盖 Portal 的 latest 发布入口。
 

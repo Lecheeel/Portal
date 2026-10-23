@@ -6,8 +6,7 @@
 
 ## ✨ 功能亮点
 
-- 无 Root 模拟定位
-- Xposed 系统定位
+- 无 Root / Root / Xposed 模拟定位
 - Root + Xposed Native 扩展（实验性）
 - 提交前反射清除模拟标记（实验性）
 - 单点定位 · 悬浮摇杆

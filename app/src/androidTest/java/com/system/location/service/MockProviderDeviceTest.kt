@@ -11,6 +11,7 @@ import android.location.LocationManager
 import android.os.Process
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.backend.mock.AndroidMockProviderPort
 import com.system.location.service.backend.mock.MockAuthorizationException
@@ -71,6 +72,9 @@ class MockProviderDeviceTest {
     }
 
     @Test fun submittedLocationIsMarkedMockAfterSystemRoundTrip() = withAuthorization { port ->
+        // Foreground-only location permission must be exercised with a resumed activity.
+        ActivityScenario.launch(MainActivity::class.java).use {
+        instrumentation.waitForIdleSync()
         assertTrue("Location must be enabled for delivery", manager.isLocationEnabled)
         port.register(provider); port.enable(provider, true)
         val received = AtomicReference<Location>()
@@ -92,6 +96,7 @@ class MockProviderDeviceTest {
             assertEquals(outgoing.elapsedRealtimeNanos, incoming.elapsedRealtimeNanos)
             assertTrue(manager.getLastKnownLocation(provider)!!.isMock)
         } finally { manager.removeUpdates(listener) }
+        }
     }
 
     @Test fun ignoredAuthorizationCannotDiscardPendingProviderCleanup() = withAuthorization { port ->
@@ -116,9 +121,17 @@ class MockProviderDeviceTest {
             context.startActivity(Intent(context, LocationProbeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             val activities = context.getSystemService(ActivityManager::class.java)
             val deadline = SystemClock.uptimeMillis() + 10_000
-            while (activities.getRunningTasks(5).none { it.topActivity?.className == LocationProbeActivity::class.java.name } && SystemClock.uptimeMillis() < deadline) {
+            fun ready(): Boolean {
+                val attached = activities.runningAppProcesses.any { it.processName == "${context.packageName}:location_probe" }
+                val visible = instrumentation.uiAutomation.rootInActiveWindow
+                    ?.findAccessibilityNodeInfosByText(context.getString(R.string.probe_title))
+                    ?.any { it.isVisibleToUser } == true
+                return attached && visible
+            }
+            while (!ready() && SystemClock.uptimeMillis() < deadline) {
                 Thread.sleep(50)
             }
+            assertTrue("Observer process and rendered diagnostic page must be ready", ready())
             assertTrue(activities.getRunningTasks(5).any { it.topActivity?.className == LocationProbeActivity::class.java.name })
             val process = activities.runningAppProcesses.single { it.processName == "${context.packageName}:location_probe" }
             assertNotEquals(Process.myPid(), process.pid)

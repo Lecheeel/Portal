@@ -29,18 +29,28 @@ jobs:
       - name: Install Android toolchain
         run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;30.0.16248370' 'cmake;4.1.2'
       - uses: gradle/actions/setup-gradle@v4
-      - name: Prepare optional release signing
+      - name: Prepare required release signing
         env:
           SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
+          SIGN_KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
+          SIGN_ALIAS: ${{ secrets.SIGN_ALIAS }}
+          SIGN_KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
         run: |
-          if [ -n "$SIGN_KEYSTORE_BASE64" ]; then
-            printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > keystore.jks
-            echo "KEYSTORE_PATH=../keystore.jks" >> "$GITHUB_ENV"
-          fi
+          set -euo pipefail
+          for name in SIGN_KEYSTORE_BASE64 SIGN_KEYSTORE_PASSWORD SIGN_ALIAS SIGN_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing signing secret: $name"
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/portal-release.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/portal-release.jks" >> "$GITHUB_ENV"
       - name: Unit tests
         run: |
           chmod +x ./gradlew
           ./gradlew test :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest --build-cache --stacktrace
+          python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Lint
         # Run separately to avoid a reproduced Kotlin FIR analysis failure during combined builds.
         run: ./gradlew lint --max-workers=1 --build-cache --stacktrace
@@ -51,11 +61,20 @@ jobs:
           KEY_ALIAS: ${{ secrets.SIGN_ALIAS }}
           KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
           AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
+      - name: Verify signed APKs and upgrade certificate
+        run: python3 scripts/verify_release_apks.py --version 1.7.5 --version-code 1790000012
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: LocationService-${{ github.sha }}
-          path: app/build/outputs/distribution/*.apk
+          path: |
+            app/build/outputs/distribution/*.apk
+            app/build/outputs/distribution/SHA256SUMS
+            app/build/outputs/distribution/verification.json
+          if-no-files-found: error
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/portal-release.jks"
       - name: Upload verification reports
         if: always()
         uses: actions/upload-artifact@v4

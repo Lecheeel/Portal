@@ -146,6 +146,18 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             if (ScenarioRuntime.state.value.phase == RuntimePhase.PAUSED) ScenarioRuntime.resume() else ScenarioRuntime.pause()
         }
         binding.stopRuntime.setOnClickListener { ScenarioRuntime.stop() }
+        binding.rebuildProviders.setOnClickListener {
+            binding.rebuildProviders.isEnabled = false
+            viewLifecycleOwner.lifecycleScope.launch {
+                val rebuilt = ScenarioRuntime.rebuildMockProviders().await()
+                binding.rebuildProviders.isEnabled = ScenarioRuntime.state.value.isActive &&
+                    ScenarioRuntime.state.value.backend == BackendType.MOCK_PROVIDER
+                Toast.makeText(context, if (rebuilt) "通道已重建，场景进度已保留" else "重建失败，请查看运行日志并检查授权", Toast.LENGTH_LONG).show()
+            }
+        }
+        binding.openLocationProbe.setOnClickListener {
+            startActivity(Intent(requireContext(), com.system.location.service.ui.diagnostics.LocationProbeActivity::class.java))
+        }
         binding.refreshDiagnostics.setOnClickListener { ScenarioRuntime.refreshDiagnostics() }
         fun renderState(state: com.system.location.service.core.runtime.RuntimeState) {
             binding.phaseTitle.setTextIfChanged(state.phase.displayLabel())
@@ -157,6 +169,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             val progress = (state.progress * 1000).toInt().coerceIn(0, 1000)
             if (binding.routeProgress.progress != progress) binding.routeProgress.progress = progress
             binding.applyBackend.isEnabled = !state.isActive
+            binding.rebuildProviders.isEnabled = state.isActive && state.backend == BackendType.MOCK_PROVIDER
             binding.stopRuntime.isEnabled = state.isActive || state.phase == RuntimePhase.ERROR
             if (binding.stateDetails.visibility == View.VISIBLE) binding.runtimeState.setTextIfChanged(buildString {
                 val health = state.submissionHealth

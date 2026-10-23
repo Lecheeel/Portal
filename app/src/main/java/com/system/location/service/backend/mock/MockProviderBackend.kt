@@ -16,6 +16,7 @@ interface MockProviderPort {
 }
 
 class MissingMockProviderException(provider: String, cause: Exception? = null) : IllegalStateException("模拟 Provider 丢失: $provider", cause)
+class MockAuthorizationException(operation: String) : SecurityException("模拟位置授权已失效（$operation）；请恢复授权后重新启动场景")
 
 class MockProviderBackend(private val port: MockProviderPort) : LocationBackend {
     enum class Phase { IDLE, PREPARED, RUNNING, PAUSED, STOPPED, ERROR }
@@ -60,6 +61,7 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
     override suspend fun start(): BackendResult {
         if (phase != Phase.PREPARED) return failure("START_PROVIDER", "后端尚未准备完成")
         return guarded("START_PROVIDER") {
+            requireAuthorization("启动 Provider")
             for (provider in listOf("gps", "network")) {
                 // Track attempted registration too: a platform operation may fail after allocating.
                 owned += provider
@@ -85,10 +87,13 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
     override suspend fun publish(sample: LocationSample): BackendResult {
         if (phase !in setOf(Phase.RUNNING, Phase.PAUSED)) return failure("PUBLISH", "Provider 未启动")
         return guarded("PUBLISH") {
+            requireAuthorization("提交位置")
             val fix = if (phase == Phase.PAUSED) sample.copy(speed = 0f) else sample
             owned.toList().filterNot { it in optionalFailures }.forEach { provider ->
-                try { publishWithRecovery(provider, fix) }
+                requireAuthorization("提交 $provider 前")
+                try { publishWithRecovery(provider, fix); requireAuthorization("提交 $provider 后") }
                 catch (error: Exception) {
+                    if (error is MockAuthorizationException) throw error
                     if (provider != "fused") throw error
                     optionalFailures[provider] = "可选通道提交失败：${error.message}；GPS/Network 继续运行"
                     runCatching { port.remove(provider) }.onSuccess { owned.remove(provider) }
@@ -125,12 +130,15 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
         return cleanup()
     }
     override suspend fun release(): BackendResult = stop()
+    private fun requireAuthorization(operation: String) {
+        if (!port.permissionGranted()) throw MockAuthorizationException(operation)
+    }
 
     private inline fun guarded(stage: String, action: () -> BackendResult): BackendResult = try { action() }
     catch (error: Exception) {
         val cleanup = cleanup()
         phase = Phase.ERROR
-        failure(stage, (error.message ?: error.javaClass.simpleName) +
+        failure(if (error is MockAuthorizationException) "MOCK_PERMISSION_REVOKED" else stage, (error.message ?: error.javaClass.simpleName) +
             if (cleanup is BackendResult.Failure) "; 清理未完成: ${cleanup.reason}" else "")
     }
     private fun cleanup(): BackendResult {

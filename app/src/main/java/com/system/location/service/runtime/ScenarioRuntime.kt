@@ -124,6 +124,13 @@ object ScenarioRuntime {
         }
     }
     fun resume() = command { controller.resume() }
+    fun rebuildMockProviders() = command {
+        startupBurst = null
+        controller.rebuildMockProviders().also {
+            service?.reschedule()
+            if (!state.value.isActive) finishService()
+        }
+    }
     fun motion(bearing: Double, moving: Boolean, strength: Double = 1.0) = command { controller.setMotion(bearing, moving, strength) }
     fun setSpeed(speed: Double): Deferred<Boolean> {
         val expected = state.value

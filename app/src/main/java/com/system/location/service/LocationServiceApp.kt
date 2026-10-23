@@ -11,6 +11,9 @@ class LocationServiceApp: Application() {
 
     override fun onCreate() {
         super.onCreate()
+        appContext = applicationContext
+        // The receiver must not initialize playback or clean the main process's providers.
+        if (getProcessName() == "$packageName:location_probe") return
 
         // 高德 SDK 隐私合规（必须最先调用，否则 SDK 无法启动）
         MapsInitializer.updatePrivacyShow(this, true, true)
@@ -25,7 +28,6 @@ class LocationServiceApp: Application() {
         CrashReport.setDeviceModel(applicationContext, Bugly.getDeviceModel())
         CrashReport.setCollectPrivacyInfo(applicationContext, true)
 
-        appContext = applicationContext
         com.system.location.service.runtime.ScenarioRuntime.initialize()
 
         //CrashReport.setAllThreadStackEnable(applicationContext, true, true)

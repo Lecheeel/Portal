@@ -24,6 +24,7 @@ class ScenarioControllerTest {
         var failCleanup = false
         override suspend fun prepare() = BackendResult.Success.also { calls += "prepare" }
         override suspend fun start() = BackendResult.Success.also { calls += "start" }
+        override suspend fun pause() = BackendResult.Success.also { calls += "pause" }
         override suspend fun publish(sample: LocationSample): BackendResult {
             calls += "publish"
             return if (failPublish) BackendResult.Failure("PUBLISH", "injected failure") else BackendResult.Success
@@ -38,6 +39,38 @@ class ScenarioControllerTest {
         }
     }
     private val scenario = Scenario("s", "test", route = Route("r", "route", listOf(Wgs84(0.0, 0.0), Wgs84(0.01, 0.01))))
+
+    @Test fun rebuildRetainsRouteProgressSessionAndPauseState() = runBlocking {
+        val clock = Clock(); val backend = Backend(); val c = ScenarioController({ backend }, clock)
+        assertFalse(c.rebuildMockProviders())
+        assertTrue(c.start(scenario))
+        clock.time = 2000; c.tick(); c.pause()
+        val previous = c.state.value
+        backend.calls.clear()
+        clock.time = 4000
+        assertTrue(c.rebuildMockProviders())
+        assertEquals(listOf("stop", "prepare", "start", "pause", "publish"), backend.calls)
+        assertEquals(RuntimePhase.PAUSED, c.state.value.phase)
+        assertEquals(previous.scenarioId, c.state.value.scenarioId)
+        assertEquals(previous.startedAt, c.state.value.startedAt)
+        assertEquals(previous.sample!!.coordinate, c.state.value.sample!!.coordinate)
+        assertEquals(previous.progress, c.state.value.progress, 0.0)
+        assertTrue(c.resume())
+        clock.time = 5000; assertTrue(c.tick())
+        assertTrue(c.state.value.progress > previous.progress)
+    }
+
+    @Test fun failedRebuildCleanupNeverRegistersAgain() = runBlocking {
+        val backend = Backend(); val c = ScenarioController({ backend }, Clock())
+        assertTrue(c.start(scenario)); backend.calls.clear(); backend.failCleanup = true
+        assertFalse(c.rebuildMockProviders())
+        assertFalse(backend.calls.contains("prepare"))
+        assertFalse(backend.calls.contains("start"))
+        assertEquals(RuntimePhase.ERROR, c.state.value.phase)
+        backend.failCleanup = false
+        assertTrue(c.stop())
+        assertFalse(c.rebuildMockProviders())
+    }
 
     @Test fun speedChangesSettleOldMotionForBothRoutesAndJoystick() = runBlocking {
         for (route in listOf(false, true)) {

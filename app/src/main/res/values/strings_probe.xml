@@ -1,0 +1,8 @@
+<resources>
+    <string name="probe_title">独立进程接收诊断</string>
+    <string name="probe_description">在独立进程观察缓存、单次、持续位置及可用的 Google FLP；与主程序共用包名和 UID，不能代表其他 App。仅在本页前台接收，不清除标记、不修改模拟授权。单次请求也可能返回缓存，请结合 ageMs 与时间戳判断。</string>
+    <string name="probe_back">返回运行状态</string>
+    <string name="probe_start">重新订阅 / 授予位置权限</string>
+    <string name="probe_stop">停止接收</string>
+    <string name="probe_copy">复制接收日志</string>
+</resources>

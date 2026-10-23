@@ -65,6 +65,22 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     }
 
     suspend fun tick(): Boolean = mutex.withLock { publishLocked() }
+
+    /** Explicit recovery only; retain the engine, route progress and paused state. */
+    suspend fun rebuildMockProviders(): Boolean = mutex.withLock {
+        if (state.value.backend != BackendType.MOCK_PROVIDER || !state.value.isActive) return@withLock false
+        val instance = backend ?: return@withLock false
+        val paused = state.value.phase == RuntimePhase.PAUSED
+        if (!step("REBUILD_STOP") { instance.stop() }) return@withLock false
+        if (!step("REBUILD_PREPARE") { instance.prepare() }) return@withLock false
+        if (!step("REBUILD_START") { instance.start() }) return@withLock false
+        if (paused && !step("REBUILD_PAUSE") { instance.pause() }) return@withLock false
+        previousSubmissionNanos = null
+        healthRecordedAt = null
+        publishLocked().also { published ->
+            if (published) record("REBUILD_PROVIDER", "SUCCESS", "定位通道已重建并完成首次提交；保留场景、进度及暂停状态，不代表接收端采用或标记已清除")
+        }
+    }
     suspend fun restoreDiagnostics(history: List<DiagnosticEvent>) = mutex.withLock {
         mutableDiagnostics.value = (history + mutableDiagnostics.value).takeLast(300)
     }

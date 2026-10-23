@@ -58,14 +58,10 @@ object BasicLocationHook: BaseLocationHook() {
                     return@hookAllMethodsBefore
                 }
                 mLocationsField.isAccessible = true
-                val mLocations = mLocationsField.get(locationResult) as ArrayList<*>
-
-                val originLocation = mLocations.firstOrNull() as? Location
-                    ?: Location(LocationManager.GPS_PROVIDER)
-
-                val location = FakeLoc.snapshot().toLocation(originLocation.provider)
-
-                mLocationsField.set(locationResult, arrayListOf(location))
+                val locations = mLocationsField.get(locationResult) as? List<*> ?: return@hookAllMethodsBefore
+                if (locations.isEmpty() || locations.any { it !is Location }) return@hookAllMethodsBefore
+                val sample = FakeLoc.snapshot()
+                mLocationsField.set(locationResult, locations.map { sample.toLocation((it as Location).provider) })
             }
         }.onFailure {
            Logger.error("Failed to hook LocationResult", it)

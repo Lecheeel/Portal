@@ -33,6 +33,7 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew test :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest --build-cache --stacktrace
+          python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Lint
         # Run separately to avoid a reproduced Kotlin FIR analysis failure during combined builds.
         run: ./gradlew lint --max-workers=1 --build-cache --stacktrace

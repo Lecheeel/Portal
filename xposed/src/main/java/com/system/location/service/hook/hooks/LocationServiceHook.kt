@@ -289,12 +289,12 @@ internal object LocationServiceHook: BaseLocationHook() {
 
             addLocationListenerInner(provider, listener)
 
-            if (FakeLoc.disableRegisterLocationListener || FakeLoc.enable) {
+            if (FakeLoc.enable) {
                 result = null
                 return@beforeHook
             }
 
-            if (FakeLoc.disableFusedLocation && provider == "fused") {
+            if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
                 result = null
                 return@beforeHook
             }
@@ -332,12 +332,12 @@ internal object LocationServiceHook: BaseLocationHook() {
 
             addLocationListenerInner(provider, listener)
 
-            if (FakeLoc.disableRegisterLocationListener) {
+            if (FakeLoc.enable && FakeLoc.disableRegisterLocationListener) {
                 result = null
                 return@beforeHook
             }
 
-            if (FakeLoc.disableFusedLocation && provider == "fused") {
+            if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
                 result = null
                 return@beforeHook
             }
@@ -690,7 +690,8 @@ internal object LocationServiceHook: BaseLocationHook() {
 //        })
 
         cILocationManager.hookAllMethods("getCurrentLocation", beforeHook {
-            val callback = args[2] ?: return@beforeHook
+            if (!FakeLoc.enable) return@beforeHook
+            val callback = args.getOrNull(2) ?: return@beforeHook
 
             if (FakeLoc.enableDebugLog) {
                 Logger.debug("getCurrentLocation: injected!")
@@ -717,6 +718,8 @@ internal object LocationServiceHook: BaseLocationHook() {
             if (args.size < 3) return@beforeHook
 
             val provider = args[0] as String
+            // The authenticated control channel must work before simulation starts.
+            if (provider != "fused_ext" && !FakeLoc.enable) return@beforeHook
             val command = args[1] as String
             val outResult = args[2] as? Bundle
 
@@ -763,9 +766,9 @@ internal object LocationServiceHook: BaseLocationHook() {
                                 userId = BinderUtils.getCallerUid()
                             }
                             param.result = BinderUtils.isLocationProviderEnabled(userId)
-                        } else if(provider == "network") {
-                            param.result = !FakeLoc.enable
-                        } else if (FakeLoc.disableFusedLocation && provider == "fused") {
+                        } else if (FakeLoc.enable && provider == "network") {
+                            param.result = false
+                        } else if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
                             param.result = false
                             return
                         } else {
@@ -787,9 +790,9 @@ internal object LocationServiceHook: BaseLocationHook() {
                         val userId = BinderUtils.getCallerUid()
                         if (provider == "fused_ext" && BinderUtils.isLocationProviderEnabled(userId)) {
                             param.result = true
-                        } else if(provider == "network") {
-                            param.result = !FakeLoc.enable
-                        } else if (FakeLoc.disableFusedLocation && provider == "fused") {
+                        } else if (FakeLoc.enable && provider == "network") {
+                            param.result = false
+                        } else if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
                             param.result = false
                             return
                         }

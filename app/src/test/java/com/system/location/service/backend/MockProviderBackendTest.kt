@@ -23,6 +23,8 @@ class MockProviderBackendTest {
         var missingAlways = false
         var registrations = 0
         var optional = false
+        var rejectUnauthorizedCleanup = false
+        var afterPublish: ((String) -> Unit)? = null
         override fun optionalProviders() = if (optional) setOf("fused") else emptySet()
         var extraDiagnostics: List<BackendDiagnostic> = emptyList()
         override fun diagnostics() = extraDiagnostics
@@ -41,13 +43,37 @@ class MockProviderBackendTest {
             if (missing == provider) { if (!missingAlways) missing = null; throw MissingMockProviderException(provider) }
             if (failPublish) throw SecurityException("mock authorization revoked")
             fixes += provider to sample
+            afterPublish?.invoke(provider)
         }
         override fun remove(provider: String) {
+            if (rejectUnauthorizedCleanup && !allowed) throw MockAuthorizationException("cleanup")
             if (failRemove) throw SecurityException("cleanup denied")
             registered -= provider
         }
     }
     private val sample = LocationSample(Wgs84(25.123456789123, 119.12345678912), 15.0, 2f, 3f, 45f, 1, 1)
+    @Test fun revokedAuthorizationStopsBeforeAnySubmissionAndRetainsCleanupForRetry() = runBlocking {
+        val port = Port().apply { rejectUnauthorizedCleanup = true }
+        val backend = MockProviderBackend(port)
+        backend.prepare(); backend.start(); port.allowed = false
+        val result = backend.publish(sample) as BackendResult.Failure
+        assertEquals("MOCK_PERMISSION_REVOKED", result.stage)
+        assertTrue(port.fixes.isEmpty())
+        assertEquals(2, port.registrations)
+        assertEquals(setOf("gps", "network"), port.registered)
+        port.allowed = true
+        assertEquals(BackendResult.Success, backend.stop())
+        assertTrue(port.registered.isEmpty())
+    }
+    @Test fun authorizationLossBetweenProvidersCannotReportSuccessOrReregister() = runBlocking {
+        val port = Port().apply { afterPublish = { allowed = false } }
+        val backend = MockProviderBackend(port)
+        backend.prepare(); backend.start()
+        val result = backend.publish(sample) as BackendResult.Failure
+        assertEquals("MOCK_PERMISSION_REVOKED", result.stage)
+        assertEquals(listOf("gps"), port.fixes.map { it.first })
+        assertEquals(2, port.registrations)
+    }
     @Test fun optionalPlatformFusedFailureDoesNotDisableGpsOrNetworkAndStillCleans() = runBlocking {
         val port = Port().apply { optional = true; failRegister = "fused" }
         val backend = MockProviderBackend(port)

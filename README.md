@@ -12,6 +12,8 @@
 
 ## 使用
 
+v1.7.5 增加“能力与诊断 → 独立进程接收诊断”，区分缓存、单次、持续及 Google FLP 样本，显示模拟标记、样本年龄和时间戳。接收页与主程序共用包名/UID，仅在前台接收，不能代表其他 App。标准模式增加“重建标准定位通道”，保留场景、路线进度和暂停状态；授权失效明确报错，清理失败保留重试记录。Xposed 修复监听丢失、批量参数索引及停止状态误拦截；新配置默认不屏蔽单次定位和 Fused，已有显式偏好保留。升级模块后需重启使 Hook 变更生效。
+
 v1.7.4 提供可搜索的分类资料库、矢量空状态、分组设置和统一的浅色／深色卡片。导入／导出位于资料库右侧菜单；列表按差量更新，高频定位样本仅在显示层限频。设计来源与性能验证见 [界面设计说明](docs/ui-design.md)。
 
 1. 在侧栏打开“后端与运行状态”，选择后端。默认是标准 Mock Provider。
@@ -77,9 +79,9 @@ Windows 使用 `gradlew.bat`，PowerShell 用 `$env:JAVA_TOOL_OPTIONS='--enable-
 
 本机编译、打包及 JVM 单元测试不依赖 Android Emulator；设备界面测试需要模拟器或测试手机。CI 的界面验证工作流继续使用独立安装的模拟器。
 
-版本由显式输入确定：`APP_VERSION_NAME` 默认 `1.7.4`、`APP_VERSION_CODE` 默认 `1790000011`、`BUILD_REVISION` 默认 `unknown`。版本码沿用比旧时间戳版本更大的固定起点，后续发布必须递增；不再用版本码推断构建时间。构建配置不查询公网 IP、主机名、工作目录或当前时间，不执行 Git 命令。依赖、SDK 下载仍可能需要网络。未声称跨机器 APK 字节完全相同。
+版本由显式输入确定：`APP_VERSION_NAME` 默认 `1.7.5`、`APP_VERSION_CODE` 默认 `1790000012`、`BUILD_REVISION` 默认 `unknown`。版本码沿用比旧时间戳版本更大的固定起点，后续发布必须递增；不再用版本码推断构建时间。构建配置不查询公网 IP、主机名、工作目录或当前时间，不执行 Git 命令。依赖、SDK 下载仍可能需要网络。未声称跨机器 APK 字节完全相同。
 
-导出目录 `app/build/outputs/distribution/`：`LocationService-v1.7.4-all.apk`、`-arm64.apk`、`-x86_64.apk`。导出使用 AGP 公共 artifacts API。未配置签名时 Release APK 未签名；分发安装请设置 `KEYSTORE_PATH`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`。PR CI 不依赖签名或地图 secrets。
+导出目录 `app/build/outputs/distribution/`：`LocationService-v1.7.5-all.apk`、`-arm64.apk`、`-x86_64.apk`。导出使用 AGP 公共 artifacts API。未配置签名时本地 Release APK 未签名；分发安装请设置 `KEYSTORE_PATH`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`。主分支 CI 必须具备四个 `SIGN_*` 签名 Secrets，并校验签名、与 v1.7.4 相同的公开证书 SHA-256、包名、版本和实际 ABI，生成 `SHA256SUMS` 与 `verification.json`。密钥仅在 CI 内解码使用，不写入仓库或日志，构建结束删除临时文件。PR CI 不依赖签名或地图 Secrets。
 
 ## 验证边界与来源
 

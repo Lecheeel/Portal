@@ -144,6 +144,13 @@
                         android:minHeight="48dp"
                         android:text="应用后端" />
                     <com.google.android.material.button.MaterialButton
+                        android:id="@+id/rebuild_providers"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="重建标准定位通道" />
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/mock_settings"
                         style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="match_parent"
@@ -182,6 +189,13 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:visibility="gone">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/open_location_probe"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="独立进程接收诊断" />
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/refresh_diagnostics"
                         style="@style/Widget.Material3.Button.TonalButton"

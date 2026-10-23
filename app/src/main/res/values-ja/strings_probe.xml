@@ -1,0 +1,8 @@
+<resources>
+    <string name="probe_title">別プロセスでの位置受信診断</string>
+    <string name="probe_description">別プロセスでキャッシュ、単発、継続的な位置情報と利用可能な Google FLP を観測します。メインアプリとパッケージ名・UID を共有するため、他のアプリの結果を保証するものではありません。この画面の表示中のみ受信し、モックフラグや権限は変更しません。単発リクエストでもキャッシュが返る場合があるため、ageMs とタイムスタンプを確認してください。</string>
+    <string name="probe_back">実行状態に戻る</string>
+    <string name="probe_start">再購読 / 位置情報の権限を許可</string>
+    <string name="probe_stop">受信を停止</string>
+    <string name="probe_copy">受信ログをコピー</string>
+</resources>

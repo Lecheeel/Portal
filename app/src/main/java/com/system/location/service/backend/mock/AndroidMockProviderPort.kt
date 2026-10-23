@@ -36,7 +36,11 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
     private fun record(providers: Set<String>) {
         check(journal.edit().putStringSet("providers", providers).commit()) { "无法保存 Provider 清理记录" }
     }
+    private fun requireAuthorization(operation: String) {
+        if (!permissionGranted()) throw MockAuthorizationException(operation)
+    }
     override fun register(provider: String) {
+        requireAuthorization("注册 $provider 前")
         record(pendingProviders() + provider)
         manager.addTestProvider(provider, ProviderProperties.Builder()
             .setHasNetworkRequirement(provider == LocationManager.NETWORK_PROVIDER)
@@ -44,9 +48,15 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
             .setHasAltitudeSupport(true).setHasSpeedSupport(true).setHasBearingSupport(true)
             .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
             .setAccuracy(ProviderProperties.ACCURACY_FINE).build())
+        requireAuthorization("注册 $provider 后")
     }
-    override fun enable(provider: String, enabled: Boolean) = manager.setTestProviderEnabled(provider, enabled)
+    override fun enable(provider: String, enabled: Boolean) {
+        requireAuthorization("设置 $provider 前")
+        manager.setTestProviderEnabled(provider, enabled)
+        requireAuthorization("设置 $provider 后")
+    }
     override fun publish(provider: String, sample: LocationSample) {
+        requireAuthorization("提交 $provider 前")
         val location = Location(provider).apply {
             latitude = sample.latitude
             longitude = sample.longitude
@@ -77,10 +87,14 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
             if (listOf("not a test provider", "doesn't exist", "does not exist", "unknown provider").any { message.contains(it) }) throw MissingMockProviderException(provider, error)
             throw error
         }
+        requireAuthorization("提交 $provider 后")
     }
     override fun remove(provider: String) {
+        requireAuthorization("清理 $provider 前")
         try { manager.removeTestProvider(provider) }
         catch (_: IllegalArgumentException) { /* Already removed by Android; cleanup is idempotent. */ }
+        // A denied/no-op removal must not discard the durable cleanup obligation.
+        requireAuthorization("清理 $provider 后")
         record(pendingProviders() - provider)
     }
 }

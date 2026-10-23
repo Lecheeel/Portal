@@ -58,6 +58,8 @@
 
         <service android:name=".runtime.ScenarioService" android:exported="false"
             android:foregroundServiceType="location" />
+        <activity android:name=".ui.diagnostics.LocationProbeActivity"
+            android:exported="false" android:process=":location_probe" />
 
         <!-- 高德地图定位服务 -->
         <service

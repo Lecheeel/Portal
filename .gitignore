@@ -54,6 +54,10 @@ google-services.json
 # ===== Kotlin =====
 .kotlin/
 
+# ===== Python tooling =====
+__pycache__/
+*.pyc
+
 # ===== APK Output =====
 *.apk
 *.aab

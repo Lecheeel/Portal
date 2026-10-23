@@ -24,6 +24,8 @@ android {
             keyPassword = providers.environmentVariable("INTEGRITY_KEY_PASSWORD").get()
             enableV1Signing = false
             enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = false
         }
     }
     buildTypes {

@@ -11,6 +11,8 @@ import android.location.*
 import android.os.*
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import io.github.lecheeel.integrity.core.*
 import kotlinx.coroutines.*
 import java.util.UUID
@@ -85,7 +87,7 @@ class ObservationService : Service(), SensorEventListener {
             val notification = NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_integrity)
                 .setContentTitle("Location Integrity · 正在观测").setContentText("仅记录本应用收到的数据；点击打开，或停止并保存")
                 .setContentIntent(open).setOngoing(true).addAction(0, "停止并保存", stop).build()
-            ServiceCompat.startForeground(this, 3101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            ServiceCompat.startForeground(this, 3101, notification, if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
             val now = SystemClock.elapsedRealtimeNanos()
             base = SessionReport(id = UUID.randomUUID().toString(), appVersion = BuildConfig.VERSION_NAME,
                 revision = BuildConfig.REVISION, label = intent.getStringExtra("label").orEmpty().take(80),
@@ -168,7 +170,9 @@ class ObservationService : Service(), SensorEventListener {
                 rawCallbacks = gnss.rawCallbacks + 1, lastRawElapsedNanos = SystemClock.elapsedRealtimeNanos())
             status("raw", "已收到原始测量")
         }
-        @Deprecated("Platform callback") override fun onStatusChanged(value: Int) { status("raw", when (value) { 0 -> "设备报告不支持"; 1 -> "就绪，等待测量"; 2 -> "定位已关闭"; else -> "状态 " + value }) }
+        @Deprecated("Platform callback") override fun onStatusChanged(value: Int) { status("raw", when (value) {
+            STATUS_NOT_SUPPORTED -> "设备报告不支持"; STATUS_READY -> "就绪，等待测量"; STATUS_LOCATION_DISABLED -> "定位已关闭"; else -> "状态 " + value
+        }) }
     }
     private val nmeaListener = OnNmeaMessageListener { message, timestamp ->
         if (active) {
@@ -185,7 +189,7 @@ class ObservationService : Service(), SensorEventListener {
             try {
                 val accepted = when (name) {
                     "status" -> manager.registerGnssStatusCallback(satelliteCallback, handler)
-                    "raw" -> manager.registerGnssMeasurementsCallback(measurementCallback, handler)
+                    "raw" -> LocationManagerCompat.registerGnssMeasurementsCallback(manager, ContextCompat.getMainExecutor(this), measurementCallback)
                     else -> manager.addNmeaListener(nmeaListener, handler)
                 }
                 status(name, if (accepted) "已注册，尚无回调（不代表模拟）" else "注册被系统拒绝或不支持")
@@ -234,7 +238,7 @@ class ObservationService : Service(), SensorEventListener {
     }
     private fun unregister() {
         listeners.forEach { runCatching { manager.removeUpdates(it) } }; listeners.clear()
-        runCatching { manager.unregisterGnssStatusCallback(satelliteCallback) }; runCatching { manager.unregisterGnssMeasurementsCallback(measurementCallback) }
+        runCatching { manager.unregisterGnssStatusCallback(satelliteCallback) }; runCatching { LocationManagerCompat.unregisterGnssMeasurementsCallback(manager, measurementCallback) }
         runCatching { manager.removeNmeaListener(nmeaListener) }; sensors.unregisterListener(this)
     }
     override fun onDestroy() {

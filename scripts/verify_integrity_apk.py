@@ -14,6 +14,14 @@ ALLOWED = {"android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCE
            "android.permission.POST_NOTIFICATIONS", PACKAGE + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"}
 
 
+def verify_certificate_output(text, pin):
+    # Build-tools 37 can label signers "V2 Signer" instead of "Signer #1".
+    digests = re.findall("certificate SHA-256 digest: *([a-fA-F0-9]{64})", text)
+    if "Number of signers: 1" not in text or not digests or {value.lower() for value in digests} != {pin.lower()}:
+        raise ValueError("APK signing certificate does not match the pinned release identity")
+    return digests[0].lower()
+
+
 def inspect_badging(text, permissions, version="0.1.0"):
     match = re.search("package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", text)
     if not match or match.group(1) != PACKAGE or match.group(2) != "1" or match.group(3) != version:
@@ -58,11 +66,8 @@ def main():
         result = subprocess.check_output([executable, "verify", "--verbose", "--print-certs", str(args.apk)], text=True)
         if "Verified using v2 scheme (APK Signature Scheme v2): true" not in result:
             raise ValueError("APK Signature Scheme v2 verification failed")
-        match = re.search("Signer #1 certificate SHA-256 digest: ([a-fA-F0-9]+)", result)
         pin = (Path(__file__).resolve().parents[1] / "integrity-app/release-certificate.sha256").read_text().strip()
-        if not match or match.group(1).lower() != pin.lower():
-            raise ValueError("APK signing certificate does not match the pinned release identity")
-        fingerprint = match.group(1).lower()
+        fingerprint = verify_certificate_output(result, pin)
     result = {"package": PACKAGE, "versionName": "0.1.0", "versionCode": 1, "minSdk": 26, "targetSdk": 37,
               "sha256": hashlib.sha256(args.apk.read_bytes()).hexdigest(), "certificateSha256": fingerprint,
               "permissions": permissions, "nativeLibraries": 0, "xposedBundled": False, "bytes": args.apk.stat().st_size}

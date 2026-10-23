@@ -1,5 +1,5 @@
 import unittest
-from verify_integrity_apk import inspect_badging, PACKAGE
+from verify_integrity_apk import inspect_badging, verify_certificate_output, PACKAGE
 
 
 class IntegrityApkVerificationTest(unittest.TestCase):
@@ -22,6 +22,16 @@ class IntegrityApkVerificationTest(unittest.TestCase):
     def test_wrong_package_fails(self):
         with self.assertRaises(ValueError):
             inspect_badging(self.good().replace(PACKAGE, "com.system.location.service"), self.permissions())
+    def test_current_and_legacy_apksigner_certificate_labels(self):
+        pin = "ab" * 32
+        for label in ("Signer #1", "V2 Signer", "V3 Signer"):
+            self.assertEqual(verify_certificate_output("Number of signers: 1" + chr(10) + label + ": certificate SHA-256 digest: " + pin, pin), pin)
+    def test_wrong_certificate_rejected(self):
+        with self.assertRaises(ValueError):
+            verify_certificate_output("Number of signers: 1" + chr(10) + "V2 Signer: certificate SHA-256 digest: " + "ab" * 32, "cd" * 32)
+    def test_multiple_signers_rejected(self):
+        with self.assertRaises(ValueError):
+            verify_certificate_output("Number of signers: 2" + chr(10) + "V2 Signer: certificate SHA-256 digest: " + "ab" * 32, "ab" * 32)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,5 @@
 # LocationService
 
-## Location Integrity · 独立观测应用
-
-本仓库同时提供无需 Root/Xposed 的独立定位观测 APK，包名与模拟器分开。支持定位/GNSS/传感器观测、实验保存、两次对比与 JSON 报告。
-构建模块为 :integrity-app 和 :integrity-core，详见 [使用与边界](docs/location-integrity.md)。安装包在名称以 Location Integrity 开头的 GitHub Release 中，不替换 Portal 原有 APK。
-
 基于 [Portal](https://github.com/fuqiuluo/Portal) 的 Android 定位实验应用。同一套单点或路线场景可选择标准 Mock Provider、Xposed 系统后端，或明确启用的实验性 Native 扩展。支持 Android 12 / API 31 及以上；具体 ROM 和定位消费者的行为需要设备验证。
 
 | 运行方式 | 要求 | 已实现的能力 | 限制 |

@@ -25,14 +25,14 @@ class SdkPrivacyUiTest {
 
     @Test fun freshPromptSurvivesRotationDeclineAndLaterExplicitAcceptance() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            onView(withText(R.string.map_privacy_title)).check(matches(isDisplayed()))
+            onView(withText(R.string.map_privacy_title)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isDisplayed()))
             scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
             scenario.recreate()
-            onView(withText(R.string.map_privacy_title)).check(matches(isDisplayed()))
+            onView(withText(R.string.map_privacy_title)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isDisplayed()))
             scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
             assertFalse(SdkPrivacy.mapsAccepted)
             assertFalse(SdkPrivacy.mapsReady)
-            onView(withText(R.string.map_privacy_decline)).perform(click())
+            onView(withText(R.string.map_privacy_decline)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(click())
             // finish() schedules lifecycle work; an idle main queue does not guarantee onDestroy.
             val deadline = android.os.SystemClock.uptimeMillis() + 5_000
             while (scenario.state != androidx.lifecycle.Lifecycle.State.DESTROYED &&
@@ -50,7 +50,7 @@ class SdkPrivacyUiTest {
             instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, it)
         }
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            onView(withText(R.string.map_privacy_accept)).perform(click())
+            onView(withText(R.string.map_privacy_accept)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(click())
             assertTrue(SdkPrivacy.mapsAccepted)
             assertTrue(SdkPrivacy.mapsReady)
             assertFalse(SdkPrivacy.crashReportingEnabled)

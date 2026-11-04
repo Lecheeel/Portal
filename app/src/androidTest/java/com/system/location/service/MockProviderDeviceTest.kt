@@ -28,6 +28,9 @@ import kotlinx.coroutines.runBlocking
 
 @RunWith(AndroidJUnit4::class)
 class MockProviderDeviceTest {
+    @org.junit.Before fun acceptMapConsentForThisFixture() {
+        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+    }
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val manager = context.getSystemService(LocationManager::class.java)

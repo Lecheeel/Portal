@@ -28,6 +28,9 @@ import org.hamcrest.Matchers.containsString
 /** Integration test for overlay ownership and the user's persisted visibility choice. */
 @RunWith(AndroidJUnit4::class)
 class RockerOverlayTest {
+    @org.junit.Before fun acceptMapConsentForThisFixture() {
+        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+    }
     @Test fun overlaySurvivesNavigationRecreationAndStopUntilHomeDisablesIt() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext

@@ -17,6 +17,29 @@ class DiagnosticJournalTest {
         override fun writeAtomically(text: String) { if (fail) error("disk full"); this.text = text }
     }
     private fun event(i: Long) = DiagnosticEvent(i, BackendType.MOCK_PROVIDER, "TEST", "INFO", "message $i")
+    @Test fun batchUsesOneAtomicWriteAndKeepsCacheOnFailure() {
+        var writes = 0
+        val store = object : DocumentStore {
+            var text: String? = null
+            var fail = false
+            override fun read() = text
+            override fun writeAtomically(text: String) {
+                writes++
+                if (fail) error("disk full")
+                this.text = text
+            }
+        }
+        val journal = DiagnosticJournal(store, maxEvents = 5)
+        journal.appendAll((1L..60L).map(::event))
+        assertEquals(1, writes)
+        assertEquals((56L..60L).toList(), DiagnosticJournal(store).read().map { it.timestamp })
+        store.fail = true
+        assertThrows(Exception::class.java) { journal.appendAll(listOf(event(61), event(62))) }
+        assertEquals((56L..60L).toList(), journal.read().map { it.timestamp })
+        assertEquals(journal.read(), DiagnosticJournal(store).read())
+        journal.appendAll(emptyList())
+        assertEquals(2, writes)
+    }
     @Test fun boundedHistorySurvivesRecreationAndFailedWrites() {
         val store = Store(); val journal = DiagnosticJournal(store, maxEvents = 5)
         for (i in 1L..10L) journal.append(event(i))

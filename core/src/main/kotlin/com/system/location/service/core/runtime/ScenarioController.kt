@@ -13,7 +13,8 @@ import kotlinx.coroutines.withContext
 
 /** Owns the only runtime state. A service supplies ticks; UI only sends commands and observes. */
 class ScenarioController(private val factory: (BackendType) -> LocationBackend, private val clock: RuntimeClock,
-    private val diagnosticSink: (DiagnosticEvent) -> Unit = {}) {
+    private val diagnosticSink: (DiagnosticEvent) -> Unit = {},
+    private val diagnosticBatchSink: ((List<DiagnosticEvent>) -> Unit)? = null) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(RuntimeState())
     val state = mutableState.asStateFlow()
@@ -27,7 +28,8 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     private var previousSubmissionNanos: Long? = null
     private var healthRecordedAt: Long? = null
     private var storageFailureReported = false
-    private val lastRecords = mutableMapOf<Pair<BackendType, String>, Pair<DiagnosticEvent, Long>>()
+    private var asyncStorageFailureReported = false
+    private val lastRecords = linkedMapOf<DiagnosticEvent, Long>()
     @Volatile var intervalMs = 500L
         private set
 
@@ -86,6 +88,17 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     }
     suspend fun note(stage: String, result: String, reason: String) = mutex.withLock { record(stage, result, reason) }
 
+    /** Observe writer.failure here; reporting must not enqueue into the failing writer again. */
+    suspend fun reportDiagnosticStorageFailure(error: Throwable?) = mutex.withLock {
+        if (error == null) {
+            asyncStorageFailureReported = false
+        } else if (!asyncStorageFailureReported) {
+            asyncStorageFailureReported = true
+            mutableDiagnostics.value = (mutableDiagnostics.value + DiagnosticEvent(clock.millis(), state.value.backend,
+                "DIAGNOSTIC_STORAGE", "FAILED", error.message ?: "诊断日志保存失败")).takeLast(300)
+        }
+    }
+
     suspend fun pause(): Boolean = mutex.withLock {
         if (state.value.phase != RuntimePhase.RUNNING) return@withLock false
         // Account for movement up to the pause event, then freeze it.
@@ -140,9 +153,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     suspend fun refreshDiagnostics() = mutex.withLock {
         val instance = backend ?: createBackend(state.value.backend) ?: return@withLock
         try {
-            instance.diagnose().forEach { diagnostic ->
-                record(diagnostic.stage, diagnostic.result, diagnostic.reason, diagnostic.suggestion)
-            }
+            recordDiagnostics(instance.diagnose())
             mutableState.value = state.value.copy(capabilities = instance.capabilities)
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (error: Exception) { event(BackendResult.Failure("DIAGNOSE", error.message ?: "诊断失败")) }
@@ -193,7 +204,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         if (healthRecordedAt == null || ended - healthRecordedAt!! >= 5_000_000_000) {
             healthRecordedAt = ended
             record("SUBMISSION_HEALTH", "INFO", "提交=${health.count}；设定间隔=${intervalMs}ms；最近间隔=${gap.toLong()}ms；最大间隔=${health.maxGapMs.toLong()}ms；最近耗时=${latency.toLong()}ms；延迟次数=${health.delayedCount}；仅表示后端 API 提交，不表示目标应用采用")
-            try { backend!!.diagnose().forEach { record(it.stage, it.result, it.reason, it.suggestion) } }
+            try { recordDiagnostics(backend!!.diagnose()) }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { record("DIAGNOSE", "FAILED", error.message ?: "诊断失败") }
             mutableState.value = state.value.copy(capabilities = backend!!.capabilities)
@@ -244,22 +255,55 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     private fun event(failure: BackendResult.Failure) {
         record(failure.stage, "FAILED", failure.reason, failure.suggestion)
     }
-    private fun record(stage: String, result: String, reason: String, suggestion: String = "") {
+    private fun recordDiagnostics(details: List<BackendDiagnostic>) {
+        val currentHooks = details.filter { it.stage == "HOOK_POINT" }.map {
+            DiagnosticEvent(0, state.value.backend, it.stage, it.result, it.reason, it.suggestion)
+        }.toSet()
+        // Remove disappeared/changed details so a later return to an older status is visible.
+        lastRecords.keys.removeAll { it.backend == state.value.backend && it.stage == "HOOK_POINT" && it !in currentHooks }
+        val batch = mutableListOf<DiagnosticEvent>()
+        details.forEach { record(it.stage, it.result, it.reason, it.suggestion, batch) }
+        if (batch.isNotEmpty()) persist(batch)
+    }
+
+    private fun record(stage: String, result: String, reason: String, suggestion: String = "",
+        batch: MutableList<DiagnosticEvent>? = null) {
         val now = clock.millis()
-        val key = state.value.backend to stage
         val monotonic = clock.nanos()
-        val previous = lastRecords[key]
-        if (previous != null && previous.first.result == result && previous.first.reason == reason &&
-            monotonic - previous.second in 0 until 5_000_000_000 && stage !in setOf("PREPARE", "START", "CLEANUP", "SCENARIO_PARAMETERS")) return
         val event = DiagnosticEvent(now, state.value.backend, stage, result, reason, suggestion)
-        lastRecords[key] = event to monotonic
-        try { diagnosticSink(event) }
+        // Hook details have independent content identities across polls and list reordering.
+        // Ordinary stages compare only with their latest state, so A -> B -> A stays visible.
+        val key = event.copy(timestamp = 0)
+        if (stage != "HOOK_POINT") {
+            lastRecords.keys.removeAll { it.backend == event.backend && it.stage == stage && it != key }
+        }
+        val previous = lastRecords[key]
+        val duplicate = previous != null && (stage == "HOOK_POINT" || monotonic - previous in 0 until 5_000_000_000)
+        if (duplicate && stage !in setOf("PREPARE", "START", "CLEANUP", "SCENARIO_PARAMETERS")) {
+            lastRecords.remove(key)
+            lastRecords[key] = previous
+            return
+        }
+        lastRecords.remove(key)
+        lastRecords[key] = monotonic
+        while (lastRecords.size > 300) lastRecords.remove(lastRecords.keys.first())
+        mutableDiagnostics.value = (mutableDiagnostics.value + event).takeLast(300)
+        if (batch != null) batch += event else persist(listOf(event))
+    }
+
+    /** Sinks must only enqueue in memory; never perform IO under the controller mutex. */
+    private fun persist(events: List<DiagnosticEvent>) {
+        try {
+            diagnosticBatchSink?.invoke(events) ?: events.forEach(diagnosticSink)
+            storageFailureReported = false
+        }
         catch (error: Exception) {
+            events.forEach { lastRecords.remove(it.copy(timestamp = 0)) }
             if (!storageFailureReported) {
                 storageFailureReported = true
-                mutableDiagnostics.value += DiagnosticEvent(now, state.value.backend, "DIAGNOSTIC_STORAGE", "FAILED", error.message ?: "诊断日志保存失败")
+                mutableDiagnostics.value = (mutableDiagnostics.value + DiagnosticEvent(clock.millis(), state.value.backend,
+                    "DIAGNOSTIC_STORAGE", "FAILED", error.message ?: "诊断日志保存失败")).takeLast(300)
             }
         }
-        mutableDiagnostics.value = (mutableDiagnostics.value + event).takeLast(300)
     }
 }

@@ -13,6 +13,9 @@ import org.xml.sax.helpers.DefaultHandler
 /** GPX is WGS84. Separate tracks/segments remain separate routes, never joined across gaps. */
 object GpxCodec {
     const val MAX_CHARS = 20_000_000
+    const val MAX_TOTAL_POINTS = 200_000
+    const val MAX_ROUTE_POINTS = 100_000
+    const val MAX_ROUTES = 10_000
     fun decode(text: String): List<Route> {
         require(text.length <= MAX_CHARS) { "GPX 文件过大" }
         require(!text.contains("<!DOCTYPE", ignoreCase = true) && !text.contains("<!ENTITY", ignoreCase = true)) { "GPX 不允许 DTD 或实体声明" }
@@ -37,7 +40,8 @@ object GpxCodec {
                     tag == "trkseg" && stack == listOf("gpx", "trk") -> { points = mutableListOf(); routeName = trackName }
                     tag == "name" && stack.size == 2 && parent in listOf("trk", "rte") -> nameText = StringBuilder()
                     (tag == "trkpt" && stack == listOf("gpx", "trk", "trkseg") || tag == "rtept" && stack == listOf("gpx", "rte")) -> {
-                        require(++totalPoints <= 100_000) { "GPX 最多支持 100000 个点" }
+                        require(++totalPoints <= MAX_TOTAL_POINTS) { "GPX 最多支持 $MAX_TOTAL_POINTS 个点" }
+                        require(points!!.size < MAX_ROUTE_POINTS) { "GPX 单路线最多支持 $MAX_ROUTE_POINTS 个点" }
                         val lat = attrs.getValue("lat")?.toDoubleOrNull() ?: error("GPX 缺少有效纬度")
                         val lon = attrs.getValue("lon")?.toDoubleOrNull() ?: error("GPX 缺少有效经度")
                         points!!.add(Wgs84(lat, lon))
@@ -55,7 +59,7 @@ object GpxCodec {
                 if (stack == listOf("gpx", "trk", "trkseg") || stack == listOf("gpx", "rte")) {
                     val valid = points.orEmpty().filterIndexed { i, p -> i == 0 || p != points!![i - 1] }
                     if (valid.size >= 2) {
-                        require(routes.size < 10_000) { "GPX 路线过多" }
+                        require(routes.size < MAX_ROUTES) { "GPX 路线过多" }
                         routes += Route(UUID.randomUUID().toString(), routeName.ifBlank { "GPX 路线 ${routes.size + 1}" }, valid)
                     }
                     points = null
@@ -77,7 +81,22 @@ object GpxCodec {
     }
     fun encode(routes: List<Route>): String {
         require(routes.isNotEmpty()) { "没有路线可导出" }
+        require(routes.size <= MAX_ROUTES) { "GPX 路线过多" }
+        require(routes.all { it.points.size in 2..MAX_ROUTE_POINTS }) { "GPX 单路线需要 2–$MAX_ROUTE_POINTS 个点" }
+        require(routes.all { route -> route.points.any { it != route.points.first() } }) { "GPX 单路线需要至少两个不同坐标" }
+        require(routes.sumOf { it.points.size.toLong() } <= MAX_TOTAL_POINTS) { "GPX 最多支持 $MAX_TOTAL_POINTS 个点" }
+        routes.forEach { route ->
+            var index = 0
+            while (index < route.name.length) {
+                val codePoint = Character.codePointAt(route.name, index)
+                require(codePoint == 0x9 || codePoint == 0xa || codePoint == 0xd ||
+                    codePoint in 0x20..0xd7ff || codePoint in 0xe000..0xfffd ||
+                    codePoint in 0x10000..0x10ffff) { "GPX 路线名称包含 XML 1.0 非法字符" }
+                index += Character.charCount(codePoint)
+            }
+        }
         fun escape(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
+            .replace("\r", "&#13;") // XML normalizes literal CR to LF; a reference preserves the name.
         return buildString {
             append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"LocationService\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
             routes.forEach { route ->

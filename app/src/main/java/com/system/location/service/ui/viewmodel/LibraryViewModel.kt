@@ -142,7 +142,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             output.toString()
         } ?: error("无法读取 GPX")
         val routes = com.system.location.service.core.gpx.GpxCodec.decode(text).map { SavedRoute(it) }
-        LibraryRepositories.routes.replaceAll(LibraryRepositories.routes.list() + routes)
+        LibraryRepositories.routes.importItems(routes)
         mutable.value = state.value.copy(kind = LibraryKind.ROUTES, message = "已导入 ${routes.size} 条 GPX 路线（WGS84）；不同轨迹段分别保存")
     }
     fun exportGpx(uri: Uri, id: String? = null) = submit {

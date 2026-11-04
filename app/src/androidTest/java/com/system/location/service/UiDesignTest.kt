@@ -32,6 +32,9 @@ import android.widget.TextView
 
 @RunWith(AndroidJUnit4::class)
 class UiDesignTest {
+    @org.junit.Before fun acceptMapConsentForThisFixture() {
+        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+    }
     @Test fun homeHasNoToolbarGapAfterReturningFromEveryOtherPage() {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->

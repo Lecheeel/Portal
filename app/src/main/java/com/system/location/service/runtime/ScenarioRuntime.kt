@@ -27,6 +27,7 @@ import com.system.location.service.ext.platformFusedEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.smoothRouteMotion
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -37,6 +38,7 @@ object ScenarioRuntime {
     private val commands = Mutex()
     private val preferences get() = context.getSharedPreferences("scenario_runtime", Context.MODE_PRIVATE)
     private val journal by lazy { DiagnosticJournal(AtomicDocumentStore(File(context.noBackupFilesDir, "runtime-diagnostics.json"))) }
+    private val writer by lazy { DiagnosticWriter(journal) }
     val controller = ScenarioController({ type ->
         when (type) {
             BackendType.XPOSED -> XposedBackend(context)
@@ -46,15 +48,19 @@ object ScenarioRuntime {
     }, object : RuntimeClock {
         override fun nanos() = SystemClock.elapsedRealtimeNanos()
         override fun millis() = System.currentTimeMillis()
-    }, { event -> journal.append(event) })
+    }, diagnosticBatchSink = { events -> writer.enqueue(events) })
     val state = controller.state
     val diagnostics = controller.diagnostics
     @Volatile private var service: ScenarioService? = null
     @Volatile private var ready = CompletableDeferred<Unit>()
     private val serviceStarts = ServiceStartGate()
     private var startupBurst: StartupBurst? = null
+    private val lifecycle = RuntimeCommandLifecycle({ state.value }, {
+        check(preferences.edit().putBoolean("interrupted", false).commit()) { "无法清除运行标记" }
+    }, { finishService() })
     private val initialized by lazy {
         scope.async {
+            scope.launch { writer.failure.collect { controller.reportDiagnosticStorageFailure(it) } }
             withContext(Dispatchers.IO) {
                 runCatching { journal.read() }.onSuccess { controller.restoreDiagnostics(it) }
                     .onFailure { controller.note("DIAGNOSTIC_STORAGE", "FAILED", it.message ?: "历史日志读取失败") }
@@ -92,7 +98,6 @@ object ScenarioRuntime {
                     startupBurst = if (started && context.startupBurstEnabled && state.value.backend == BackendType.MOCK_PROVIDER)
                         StartupBurst(state.value.scenarioId, state.value.startedAt) else null
                     service?.reschedule()
-                    if (!state.value.isActive) finishService()
                 }
             } catch (cancelled: CancellationException) {
                 if (cancelled !is TimeoutCancellationException) throw cancelled
@@ -104,13 +109,13 @@ object ScenarioRuntime {
     private suspend fun failStart(error: Exception): Boolean {
         controller.reportFailure(BackendResult.Failure("FOREGROUND_SERVICE", error.message ?: error.javaClass.simpleName,
             "在应用前台启动，并授予精确位置权限"))
-        finishService()
         return false
     }
     fun pause() = command { startupBurst = null; controller.pause() }
     fun refreshDiagnostics() = command { controller.refreshDiagnostics(); true }
     suspend fun diagnosticReport(): String = withContext(Dispatchers.IO) {
         initialized.await()
+        flushDiagnostics()
         commands.withLock {
             buildString {
                 appendLine("LocationService ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) revision=${BuildConfig.GIT_REVISION}")
@@ -128,7 +133,6 @@ object ScenarioRuntime {
         startupBurst = null
         controller.rebuildMockProviders().also {
             service?.reschedule()
-            if (!state.value.isActive) finishService()
         }
     }
     fun motion(bearing: Double, moving: Boolean, strength: Double = 1.0) = command { controller.setMotion(bearing, moving, strength) }
@@ -141,26 +145,24 @@ object ScenarioRuntime {
                 current.phase != expected.phase) return@command false
             val accepted = if (current.isActive) controller.setSpeed(speed) else true
             if (accepted) context.speed = speed
-            if (current.isActive && !state.value.isActive) {
-                if (state.value.phase == RuntimePhase.STOPPED) preferences.edit().putBoolean("interrupted", false).commit()
-                finishService()
-            }
             accepted
         }
     }
     fun stop() = command {
         startupBurst = null
-        val stopped = controller.stop()
-        if (stopped) {
-            preferences.edit().putBoolean("interrupted", false).commit()
-            finishService()
-        }
-        stopped
+        controller.stop()
     }
 
     private fun command(action: suspend () -> Boolean) = scope.async {
         initialized.await()
-        commands.withLock { action() }
+        try {
+            commands.withLock { lifecycle.execute(action) }
+        } finally {
+            if (!state.value.isActive) flushDiagnostics()
+        }
+    }
+    private suspend fun flushDiagnostics() {
+        controller.reportDiagnosticStorageFailure(writer.flush().exceptionOrNull())
     }
     internal fun attached(instance: ScenarioService, request: Long): Boolean {
         if (!serviceStarts.accept(request)) return false
@@ -183,14 +185,20 @@ object ScenarioRuntime {
     internal suspend fun nextTickDelay(instance: ScenarioService): Long = commands.withLock {
         if (service !== instance) controller.intervalMs else startupBurst?.nextDelay(state.value, controller.intervalMs) ?: controller.intervalMs
     }
-    internal suspend fun tick(instance: ScenarioService) = commands.withLock {
-        if (service === instance && state.value.isActive) {
-            startupBurst?.accept(state.value)
-            controller.tick()
-            if (!state.value.isActive) {
-                if (state.value.phase == RuntimePhase.STOPPED) preferences.edit().putBoolean("interrupted", false).commit()
-                finishService()
+    internal suspend fun tick(instance: ScenarioService) {
+        try {
+            commands.withLock {
+                if (service === instance) {
+                    lifecycle.execute {
+                        if (state.value.isActive) {
+                            startupBurst?.accept(state.value)
+                            controller.tick()
+                        }
+                    }
+                }
             }
+        } finally {
+            if (!state.value.isActive) flushDiagnostics()
         }
     }
     private suspend fun finishService() = withContext(Dispatchers.Main) {

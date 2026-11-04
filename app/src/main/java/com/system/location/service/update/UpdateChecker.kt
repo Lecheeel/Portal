@@ -9,23 +9,12 @@ import com.system.location.service.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import java.time.Instant
 
-/**
- * GitHub Release 检查更新
- *
- * 版本约定：Release tag 形如 v1.0.4.r7.af74379，
- * 与 BuildConfig.VERSION_NAME (1.0.4.r<count>.<hash>) 同构。
- * 先比较主版本号，再以提交和发布时间区分同版本构建。
- */
+/** GitHub Release 检查更新；已验证的 Android versionCode 是安装顺序依据。 */
 object UpdateChecker {
 
     private const val TAG = "UpdateChecker"
-    private const val RELEASES_LATEST =
-        "https://api.github.com/repos/Lecheeel/Portal/releases/latest"
+    private const val RELEASES_API = "https://api.github.com/repos/Lecheeel/Portal/releases"
     private const val RELEASES_PAGE = "https://github.com/Lecheeel/Portal/releases"
 
     data class UpdateInfo(
@@ -37,6 +26,8 @@ object UpdateChecker {
         val commitCount: Int,
         val commitHash: String,
         val publishedAt: Long = 0,
+        val prerelease: Boolean = false,
+        val draft: Boolean = false,
     )
 
     sealed class Result {
@@ -45,24 +36,38 @@ object UpdateChecker {
         data class Error(val message: String) : Result()
     }
 
-    suspend fun check(): Result = withContext(Dispatchers.IO) {
+    internal suspend fun check(channel: UpdateChannel = currentChannel()): Result = withContext(Dispatchers.IO) {
         try {
-            val conn = URL(RELEASES_LATEST).openConnection() as HttpURLConnection
-            conn.connectTimeout = 10_000
-            conn.readTimeout = 10_000
-            conn.setRequestProperty("Accept", "application/vnd.github+json")
-            conn.setRequestProperty("User-Agent", "LocationService-App")
-            try {
-                if (conn.responseCode != 200) {
-                    return@withContext Result.Error("GitHub 返回 ${conn.responseCode}")
-                }
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
-                parse(JSONObject(body))?.let { info ->
-                    if (isNewer(info)) Result.UpdateAvailable(info) else Result.UpToDate
-                } ?: Result.Error("Release 资产里没有可用的 APK")
-            } finally {
-                conn.disconnect()
+            val abi = when (Build.SUPPORTED_ABIS.firstOrNull()) {
+                "arm64-v8a" -> "arm64"
+                "x86_64" -> "x86_64"
+                else -> return@withContext Result.Error("当前设备 ABI 不受支持")
             }
+            val releases = ReleaseFeed(HttpsReleaseTransport()).load(channel, abi)
+            if (releases.isEmpty()) return@withContext Result.Error("所选通道中没有可用的 APK")
+            val candidates = releases.filter {
+                ReleaseChannelPolicy.isInstallable(channel, it.policy(), BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+            }
+            // Verified Android codes are authoritative; equal-code promotion never prompts again.
+            val selected = candidates.filter { it.versionCode != null }.maxByOrNull { it.versionCode!! }
+                ?: ReleaseChannelPolicy.select(channel, candidates.map { it.policy() })?.let { policy ->
+                    candidates.first { it.tag == policy.tag }
+                }
+            if (selected == null) return@withContext Result.UpToDate
+            val parsed = ReleaseVersion.parse(selected.tag) ?: return@withContext Result.Error("Release 版本无效")
+            Result.UpdateAvailable(UpdateInfo(
+                tagName = selected.tag,
+                versionName = selected.tag.removePrefix("v"),
+                body = selected.body,
+                // Legacy metadata cannot prove installability. Open its Release page for manual review.
+                apkUrl = if (selected.versionCode == null) null else selected.apk(abi)?.url,
+                htmlUrl = selected.htmlUrl,
+                commitCount = parsed.revision,
+                commitHash = parsed.hash,
+                publishedAt = selected.publishedAt,
+                prerelease = selected.prerelease,
+                draft = selected.draft,
+            ))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -71,42 +76,11 @@ object UpdateChecker {
         }
     }
 
-    private fun parse(json: JSONObject): UpdateInfo? {
-        val tag = json.optString("tag_name").removePrefix("v")
-        // v1.0.4.r7.af74379 / LocationService-v1.0.4.r7.af74379-arm64.apk
-        val abi = when (Build.SUPPORTED_ABIS.firstOrNull()) {
-            "arm64-v8a" -> "arm64"
-            "x86_64", "x86" -> "x86_64"
-            else -> "arm64"
-        }
-        val apkUrl = json.optJSONArray("assets")
-            ?.let { assets ->
-                (0 until assets.length())
-                    .map { assets.getJSONObject(it) }
-                    .firstOrNull { it.optString("name").endsWith("-$abi.apk") }
-                    ?.optString("browser_download_url")
-            }
-        if (ReleaseVersion.parse(tag) == null) return null
-        val parts = tag.split(".")
-        // 1.0.4.r7.af74379 → commitCount=7, hash=af74379
-        val rIndex = parts.indexOfFirst { it.startsWith("r") && it.drop(1).toIntOrNull() != null }
-        val commitCount = if (rIndex >= 0) parts[rIndex].drop(1).toInt() else 0
-        val commitHash = ReleaseVersion.parse(tag)?.hash.orEmpty()
-        return UpdateInfo(
-            tagName = json.optString("tag_name"),
-            versionName = tag,
-            body = json.optString("body"),
-            apkUrl = apkUrl,
-            htmlUrl = json.optString("html_url").ifBlank { RELEASES_PAGE },
-            commitCount = commitCount,
-            commitHash = commitHash,
-            publishedAt = runCatching { Instant.parse(json.optString("published_at")).epochSecond }.getOrDefault(0),
-        )
-    }
+    private fun applicationContext(): Context = com.system.location.service.LocationServiceApp.appContext
 
-    private fun isNewer(info: UpdateInfo): Boolean {
-        return ReleaseVersion.isNewer(info.versionName, BuildConfig.VERSION_NAME, info.publishedAt, 0)
-    }
+    internal fun currentChannel() = UpdateChannelSettings.from(applicationContext()).get()
+
+    internal fun setChannel(channel: UpdateChannel) = UpdateChannelSettings.from(applicationContext()).set(channel)
 
     fun parseLocalVersion(): UpdateInfo {
         val v = BuildConfig.VERSION_NAME  // 1.0.4.r<count>.<hash>
@@ -131,6 +105,7 @@ object UpdateChecker {
 
     fun openDownload(context: Context, url: String) {
         runCatching {
+            require(GitHubReleaseUrls.trusted(url)) { "不可信的下载地址" }
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }.onFailure {
             Log.e(TAG, "open download failed", it)

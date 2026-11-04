@@ -21,6 +21,9 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SimulationFeaturesTest {
+    @org.junit.Before fun acceptMapConsentForThisFixture() {
+        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+    }
     @Test fun androidSaxPreservesSeparatedTracksAndRejectsExternalEntities() {
         val route = Route("r", "测试 & 路线", listOf(Wgs84(1.0, 2.0), Wgs84(1.1, 2.1)))
         val xml = GpxCodec.encode(listOf(route, route.copy(id = "b", name = "第二段")))

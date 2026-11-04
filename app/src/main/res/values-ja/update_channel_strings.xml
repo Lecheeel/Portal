@@ -1,0 +1,7 @@
+<resources>
+    <string name="update_channel_label">アップデートチャンネル</string>
+    <string name="update_channel_desc">正式版は正式リリースのみを確認します。Beta は Beta と正式リリースを確認します。テスト合格後、同じ Release を正式版に昇格できます。正式チャンネルに戻しても、インストール済み Beta のダウングレードは自動で行われません。versionCode がより高い正式版をインストールしてください。</string>
+    <string name="update_channel_stable">正式版</string>
+    <string name="update_channel_beta">Beta テスト版</string>
+    <string name="update_release_beta">Beta テスト版</string>
+</resources>

@@ -1,0 +1,7 @@
+<resources>
+    <string name="update_channel_label">更新通道</string>
+    <string name="update_channel_desc">正式通道只接收正式版；Beta 通道同时接收测试版和正式版。切回正式通道不会降级，需等待更新的正式版本。</string>
+    <string name="update_channel_stable">正式版</string>
+    <string name="update_channel_beta">Beta 测试版</string>
+    <string name="update_release_beta">Beta 测试版</string>
+</resources>

@@ -5,6 +5,9 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.scenario.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class RepositoryTest {
     private class Store : DocumentStore {
@@ -44,7 +47,30 @@ class RepositoryTest {
         val imported = repo.importJson(repo.exportJson())
         assertNotEquals(route.route.id, imported.single().route.id)
         assertEquals(2, repo.list().size)
+        val appended = repo.importItems(listOf(route)).single()
+        assertNotEquals(route.route.id, appended.route.id)
+        assertEquals(route.route.points, appended.route.points)
+        assertEquals(3, repo.list().size)
         assertThrows(IllegalArgumentException::class.java) { LocationRepository(Store()).importJson(repo.exportJson()) }
+    }
+    @Test fun invalidBatchOrFailedAppendLeavesTheWholeDocumentUnchanged() {
+        val store = Store(); val repo = RouteRepository(store); repo.create(route)
+        val original = store.text
+        val mutable = points.toMutableList()
+        val invalid = SavedRoute(Route("invalid", "invalid", mutable))
+        mutable.clear()
+        assertThrows(IllegalArgumentException::class.java) { repo.importItems(listOf(route, invalid)) }
+        assertEquals(original, store.text)
+        assertThrows(IllegalArgumentException::class.java) { repo.importItems(listOf(route, route)) }
+        assertEquals(original, store.text)
+        assertThrows(IllegalArgumentException::class.java) { repo.importItems(List(10_001) { i ->
+            route.copy(route = route.route.copy(id = "batch$i"))
+        }) }
+        assertEquals(original, store.text)
+        store.fail = true
+        assertThrows(IllegalStateException::class.java) { repo.importItems(listOf(route)) }
+        assertEquals(original, store.text)
+        assertEquals(listOf(route), repo.list())
     }
     @Test fun sceneAndLocationLibrariesRoundTripAndSupportCrud() {
         val scenes = ScenarioRepository(Store())
@@ -63,5 +89,45 @@ class RepositoryTest {
         val repo = RouteRepository(Store()); repo.create(route.copy(route = route.route.copy(points = mutable)))
         mutable[0] = Wgs84(0.0, 0.0)
         assertEquals(points, repo.get("route1")!!.route.points)
+    }
+
+    @Test fun batchImportPreservesConcurrentCreateAndExistingSettings() {
+        val repo = RouteRepository(Store())
+        val original = route.copy(mode = RouteMode.PING_PONG, favorite = true)
+        repo.create(original)
+
+        val readingIncoming = CountDownLatch(1)
+        val releaseIncoming = CountDownLatch(1)
+        val creating = CountDownLatch(1)
+        val created = CountDownLatch(1)
+        val incoming = object : AbstractList<SavedRoute>() {
+            override val size = 1
+            override fun get(index: Int): SavedRoute {
+                readingIncoming.countDown()
+                check(releaseIncoming.await(5, TimeUnit.SECONDS))
+                return route.copy(route = route.route.copy(id = "imported"))
+            }
+        }
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val imported = executor.submit { repo.importItems(incoming) }
+            assertTrue(readingIncoming.await(5, TimeUnit.SECONDS))
+            val concurrent = executor.submit {
+                creating.countDown()
+                repo.create(route.copy(route = route.route.copy(id = "concurrent")))
+                created.countDown()
+            }
+            assertTrue(creating.await(5, TimeUnit.SECONDS))
+            // If import releases the lock between its snapshot and write, let create finish first.
+            created.await(200, TimeUnit.MILLISECONDS)
+            releaseIncoming.countDown()
+            imported.get(5, TimeUnit.SECONDS)
+            concurrent.get(5, TimeUnit.SECONDS)
+            assertEquals(setOf("route1", "imported", "concurrent"), repo.list().map { it.route.id }.toSet())
+            assertEquals(original, repo.get("route1"))
+        } finally {
+            releaseIncoming.countDown()
+            executor.shutdownNow()
+        }
     }
 }

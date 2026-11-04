@@ -52,7 +52,10 @@ import com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener
 import com.amap.api.services.geocoder.RegeocodeAddress
 import com.amap.api.services.geocoder.RegeocodeResult
 import com.google.android.material.navigation.NavigationView
-import com.tencent.bugly.crashreport.CrashReport
+import com.system.location.service.privacy.SdkPrivacy
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlinx.coroutines.launch
 import com.system.location.service.android.permission.RequestPermissions
 import com.system.location.service.android.root.ShellUtils
@@ -120,14 +123,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        // super restores NavHost and its MapViews synchronously.
+        // Discard old UI state unless consent is confirmed and the map SDK is ready.
+        super.onCreate(if (SdkPrivacy.mapsAccepted && SdkPrivacy.mapsReady) savedInstanceState else null)
 
         // Edge-to-Edge full immersion layout
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        CrashReport.setUserSceneTag(this, 261771)
-
         lifecycleScope.launch {
+            if (!awaitMapConsent()) { finish(); return@launch }
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 checkPermission()
                 mockServiceViewModel.locationManager = getSystemService(LOCATION_SERVICE) as? LocationManager
@@ -186,6 +190,7 @@ class MainActivity : AppCompatActivity() {
                     ViewCompat.requestApplyInsets(binding.appBarMain.root)
                 }
                 startupUpdateViewModel.check()
+                initializeGeocoder()
             }
         }
 
@@ -199,6 +204,39 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    }
+
+    private suspend fun awaitMapConsent(): Boolean {
+        if (SdkPrivacy.mapsAccepted && SdkPrivacy.mapsReady) return true
+        return suspendCancellableCoroutine { continuation ->
+            val dialog = MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.map_privacy_title)
+                .setMessage(R.string.map_privacy_message)
+                .setCancelable(false)
+                .setNegativeButton(R.string.map_privacy_decline) { _, _ ->
+                    if (continuation.isActive) continuation.resume(false)
+                }
+                .setNeutralButton(R.string.map_privacy_policy, null)
+                .setPositiveButton(R.string.map_privacy_accept, null)
+                .create()
+            dialog.setOnShowListener {
+                dialog.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).setOnClickListener {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://lbs.amap.com/pages/privacy/"))) }
+                        .onFailure { Toast.makeText(this, R.string.map_privacy_no_browser, Toast.LENGTH_LONG).show() }
+                }
+                dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                    runCatching { SdkPrivacy.acceptMaps() }.onSuccess {
+                        if (continuation.isActive) continuation.resume(true)
+                        dialog.dismiss()
+                    }.onFailure { Toast.makeText(this, it.message ?: getString(R.string.privacy_save_failed), Toast.LENGTH_LONG).show() }
+                }
+            }
+            continuation.invokeOnCancellation { dialog.dismiss() }
+            dialog.show()
+        }
+    }
+
+    private fun initializeGeocoder() {
         aMapViewModel.mGeoCoder = GeocodeSearch(this)
         aMapViewModel.mGeoCoder?.setOnGeocodeSearchListener(object : OnGeocodeSearchListener {
             override fun onGeocodeSearched(result: GeocodeResult?, code: Int) {}
@@ -215,6 +253,10 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+    }
+
+    fun onUpdateChannelChanged() {
+        startupUpdateViewModel.channelChanged()
     }
 
     override fun onStart() {

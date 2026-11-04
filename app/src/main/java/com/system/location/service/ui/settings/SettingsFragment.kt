@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 class SettingsFragment : Fragment() {
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
+    private var updateRequest = 0L
 
     private val mockServiceViewModel by activityViewModels<MockServiceViewModel>()
 
@@ -69,6 +70,40 @@ class SettingsFragment : Fragment() {
         val root: View = binding.root
 
         val context = requireContext()
+        val privacy = com.system.location.service.privacy.SdkPrivacy
+        binding.crashReportingSwitch.isChecked = privacy.crashReportingRequested
+        binding.crashReportingSwitch.contentDescription = getString(
+            if (privacy.crashReportingPendingRestart) R.string.crash_reporting_pending_restart else R.string.crash_reporting_desc
+        )
+        binding.crashReportingDescription.text = if (privacy.crashReportingPendingRestart)
+            getString(R.string.crash_reporting_pending_restart) + "\n" + getString(R.string.crash_reporting_desc)
+        else getString(R.string.crash_reporting_desc)
+        var updatingCrashSwitch = false
+        binding.crashReportingSwitch.setOnCheckedChangeListener { _, enabled ->
+            if (!updatingCrashSwitch) {
+                runCatching { com.system.location.service.privacy.SdkPrivacy.setCrashReporting(enabled) }
+                    .onSuccess {
+                        val message = when {
+                            privacy.crashReportingPendingRestart -> R.string.crash_reporting_pending_restart
+                            privacy.crashReportingEnabled -> R.string.crash_reporting_on
+                            else -> R.string.crash_reporting_off
+                        }
+                        binding.crashReportingSwitch.contentDescription = getString(message)
+                        binding.crashReportingDescription.text = getString(message) + "\n" + getString(R.string.crash_reporting_desc)
+                        showToast(getString(message))
+                    }
+                    .onFailure { _ ->
+                        updatingCrashSwitch = true
+                        binding.crashReportingSwitch.isChecked = privacy.crashReportingRequested
+                        updatingCrashSwitch = false
+                        binding.crashReportingSwitch.contentDescription = getString(R.string.crash_reporting_desc)
+                        binding.crashReportingDescription.text = getString(
+                            if (!enabled) R.string.crash_reporting_withdraw_failed else R.string.crash_reporting_enable_failed
+                        ) + "\n" + getString(R.string.crash_reporting_desc)
+                        showToast(getString(if (!enabled) R.string.crash_reporting_withdraw_failed else R.string.crash_reporting_enable_failed))
+                    }
+            }
+        }
         binding.gmsMockSwitch.isChecked = context.gmsMockEnabled
         binding.gmsMockSwitch.setOnCheckedChangeListener { _, enabled -> context.gmsMockEnabled = enabled; showToast("下次启动场景生效") }
         binding.platformFusedSwitch.isChecked = context.platformFusedEnabled
@@ -278,6 +313,33 @@ class SettingsFragment : Fragment() {
         }
 
         binding.checkUpdateDesc.text = "当前版本 ${UpdateChecker.parseLocalVersion().versionName}"
+        var settingChannel = UpdateChecker.currentChannel()
+        binding.updateChannel.adapter = android.widget.ArrayAdapter(requireContext(),
+            android.R.layout.simple_spinner_dropdown_item, listOf(getString(R.string.update_channel_stable), getString(R.string.update_channel_beta)))
+        binding.updateChannel.setSelection(if (settingChannel == com.system.location.service.update.UpdateChannel.BETA) 1 else 0)
+        binding.updateChannel.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selected = if (position == 1) com.system.location.service.update.UpdateChannel.BETA
+                    else com.system.location.service.update.UpdateChannel.STABLE
+                if (selected != settingChannel) {
+                    runCatching { UpdateChecker.setChannel(selected) }
+                        .onSuccess {
+                            settingChannel = selected
+                            updateRequest++
+                            binding.checkUpdateButton.isEnabled = true
+                            binding.checkUpdateDesc.text = "当前版本 ${UpdateChecker.parseLocalVersion().versionName}"
+                            showToast(if (selected == com.system.location.service.update.UpdateChannel.BETA)
+                                "已切换到 Beta 通道；切回正式版不会自动降级已安装的高版本" else "已切换到正式通道")
+                            (activity as? com.system.location.service.MainActivity)?.onUpdateChannelChanged()
+                        }
+                        .onFailure { error ->
+                            binding.updateChannel.setSelection(if (settingChannel == com.system.location.service.update.UpdateChannel.BETA) 1 else 0)
+                            showToast(error.message ?: "无法保存更新通道")
+                        }
+                }
+            }
+        }
         binding.checkUpdateButton.setOnClickListener { checkForUpdate() }
 
         return root
@@ -302,11 +364,13 @@ class SettingsFragment : Fragment() {
     }
 
     private fun checkForUpdate() {
+        val request = ++updateRequest
+        val channel = UpdateChecker.currentChannel()
         binding.checkUpdateButton.isEnabled = false
         binding.checkUpdateDesc.text = "正在检查更新…"
         viewLifecycleOwner.lifecycleScope.launch {
-            val result = UpdateChecker.check()
-            if (_binding == null) return@launch
+            val result = UpdateChecker.check(channel)
+            if (_binding == null || request != updateRequest || channel != UpdateChecker.currentChannel()) return@launch
             binding.checkUpdateButton.isEnabled = true
             when (result) {
                 is UpdateChecker.Result.UpdateAvailable -> {
@@ -361,6 +425,7 @@ class SettingsFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        updateRequest++
         super.onDestroyView()
         _binding = null
     }

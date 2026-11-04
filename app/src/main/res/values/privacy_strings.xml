@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="map_privacy_title">地图服务与隐私</string>
+    <string name="map_privacy_message">地图展示、地点搜索、路线规划和真实定位使用高德地图服务，使用时相关位置及设备信息会由高德按其隐私政策处理。\n\n请先阅读高德隐私政策并选择是否同意。拒绝将退出应用，之后可以重新选择。\n\n可选的 Bugly 崩溃上报默认关闭，可在设置中单独开启。</string>
+    <string name="map_privacy_policy">查看政策</string>
+    <string name="map_privacy_accept">同意并继续</string>
+    <string name="map_privacy_decline">拒绝并退出</string>
+    <string name="map_privacy_no_browser">无法打开浏览器，请访问 lbs.amap.com/pages/privacy/ 查看政策</string>
+    <string name="privacy_save_failed">隐私选择保存失败，请重试</string>
+    <string name="crash_reporting_title">发送崩溃报告</string>
+    <string name="crash_reporting_desc">默认关闭。开启后使用腾讯 Bugly 发送崩溃堆栈和应用运行诊断，帮助修复问题；使用本次安装的随机标识，不使用硬件设备标识。关闭后停止新增崩溃采集和自动任务；已经启动的上传线程（含重试）可能继续，重新启动应用后完全停用。已发送的数据无法撤回。本次运行中关闭后再次开启，将在下次启动应用时生效。</string>
+    <string name="crash_reporting_on">已开启崩溃上报</string>
+    <string name="crash_reporting_off">已关闭崩溃上报</string>
+    <string name="crash_reporting_pending_restart">已保存开启选择，下次启动应用生效；本次运行不会重新启动采集，但之前已启动的上传任务可能继续</string>
+    <string name="crash_reporting_withdraw_failed">关闭未完全完成，请重试。已优先停止新增采集和自动任务，但已启动的上传线程（含重试）可能继续；若保存失败，请再次确认关闭并重新启动应用</string>
+    <string name="crash_reporting_enable_failed">崩溃上报未开启，请重试；若服务已停止，再次开启将在下次启动应用生效</string>
+</resources>

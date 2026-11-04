@@ -22,6 +22,7 @@ interface Repository<T> {
     fun delete(id: String): Boolean
     fun copy(id: String, name: String): T
     fun importJson(text: String): List<T>
+    fun importItems(items: List<T>): List<T>
     fun exportJson(): String
     fun replaceAll(items: List<T>)
 }
@@ -58,8 +59,11 @@ abstract class VersionedRepository<T>(private val store: DocumentStore, serializ
         val source = get(id) ?: error("Record does not exist")
         return create(duplicate(source, UUID.randomUUID().toString(), name))
     }
-    @Synchronized override fun importJson(text: String): List<T> {
-        val incoming = decode(text) // Validate the entire import before writing anything.
+    @Synchronized override fun importJson(text: String): List<T> = importItems(decode(text))
+    /** Validate and append the entire batch while holding the same lock as CRUD operations. */
+    @Synchronized override fun importItems(items: List<T>): List<T> {
+        val incoming = items.map(::freeze)
+        validate(incoming)
         val old = read()
         val identifiers = old.map(::id).toMutableSet()
         val imported = incoming.map { item ->

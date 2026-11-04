@@ -24,6 +24,7 @@ import com.system.location.service.core.scenario.RouteMode
 import com.system.location.service.databinding.FragmentRouteEditBinding
 import com.system.location.service.ext.lastKnownLat
 import com.system.location.service.ext.lastKnownLng
+import com.system.location.service.ui.CallbackScheduler
 import com.system.location.service.ui.viewmodel.RouteEditViewModel
 import kotlinx.coroutines.launch
 
@@ -35,7 +36,7 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
     private var renderedGeometry: Triple<Gcj02?, Gcj02?, String?>? = null
     private var rendering = false
     private var searchGeneration = 0L
-    private val stroke = ArrayList<Gcj02>()
+    private var strokeCoordinator: StrokePreviewCoordinator<LatLng, Gcj02>? = null
     private var strokePreview: Polyline? = null
     private var lastScreenPoint: Point? = null
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -74,6 +75,22 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
                 }
             }
         }
+        strokeCoordinator = StrokePreviewCoordinator(
+            frames = object : CallbackScheduler {
+                override fun post(delayMillis: Long, callback: Runnable) { ui.gestureLayer.postOnAnimation(callback) }
+                override fun remove(callback: Runnable) { ui.gestureLayer.removeCallbacks(callback) }
+            },
+            convert = { point -> Gcj02(point.latitude, point.longitude) },
+            render = { points ->
+                if (binding === ui) {
+                    if (strokePreview == null) strokePreview = ui.amapView.map.addPolyline(
+                        PolylineOptions().addAll(points).width(10f).color(Color.rgb(16, 185, 129)))
+                    else strokePreview?.points = points
+                }
+            },
+            clearPreview = { strokePreview?.remove(); strokePreview = null },
+            commit = { points -> model.stroke(points) },
+        )
         ui.gestureLayer.onStrokeTouch = ::drawStroke
         ui.undo.setOnClickListener { model.undo() }
         ui.plan.setOnClickListener { model.plan() }
@@ -111,6 +128,7 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
         ui.undo.visibility = if (planned) View.GONE else View.VISIBLE
         ui.undo.isEnabled = draft.strokes.isNotEmpty()
         ui.gestureLayer.drawingEnabled = draft.mode == DrawingMode.FREEHAND
+        if (!ui.gestureLayer.drawingEnabled) discardStroke()
         ui.gestureHint.text = when (draft.mode) {
             DrawingMode.PLAN -> "点击地图设置起终点，沿道路规划步行路线"
             DrawingMode.POINTS -> "依次点击地图加点，按顺序直线连接；拖动和双指缩放地图"
@@ -141,29 +159,26 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
 
     private fun drawStroke(event: MotionEvent) {
         val ui = binding ?: return
-        fun discard() { stroke.clear(); lastScreenPoint = null; strokePreview?.remove(); strokePreview = null }
-        if (event.actionMasked == MotionEvent.ACTION_CANCEL) { discard(); return }
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) discard()
+        val stroke = strokeCoordinator ?: return
+        if (event.actionMasked == MotionEvent.ACTION_CANCEL) { discardStroke(); return }
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) discardStroke()
         val screen = Point(event.x.toInt(), event.y.toInt())
         val last = lastScreenPoint
         val threshold = 6 * resources.displayMetrics.density
         if (last == null || kotlin.math.hypot((screen.x - last.x).toDouble(), (screen.y - last.y).toDouble()) >= threshold || event.actionMasked == MotionEvent.ACTION_UP) {
-            if (stroke.size < 10_000) {
-                val point = ui.amapView.map.projection.fromScreenLocation(screen)
-                val gcj = Gcj02(point.latitude, point.longitude)
-                if (stroke.lastOrNull() != gcj) stroke.add(gcj)
-                lastScreenPoint = screen
-                val points = stroke.map { LatLng(it.latitude, it.longitude) }
-                if (points.size >= 2) {
-                    if (strokePreview == null) strokePreview = ui.amapView.map.addPolyline(PolylineOptions().addAll(points).width(10f).color(Color.rgb(16, 185, 129)))
-                    else strokePreview?.points = points
-                }
-            }
+            // Keep the projection's LatLng; preview frames reuse it without remapping the stroke.
+            stroke.add(ui.amapView.map.projection.fromScreenLocation(screen))
+            lastScreenPoint = screen
         }
         if (event.actionMasked == MotionEvent.ACTION_UP) {
-            if (stroke.size >= 2) model.stroke(stroke)
-            discard()
+            stroke.finish()
+            lastScreenPoint = null
         }
+    }
+
+    private fun discardStroke() {
+        strokeCoordinator?.cancel()
+        lastScreenPoint = null
     }
 
     private fun search(query: String) {
@@ -217,7 +232,8 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
     override fun onDestroyView() {
         ++searchGeneration
         binding?.gestureLayer?.onStrokeTouch = null
-        strokePreview?.remove(); strokePreview = null; stroke.clear()
+        discardStroke()
+        strokeCoordinator = null
         binding?.amapView?.apply { map.setOnMapClickListener(null); map.setOnCameraChangeListener(null); onDestroy() }
         binding = null
         super.onDestroyView()

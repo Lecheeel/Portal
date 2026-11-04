@@ -26,6 +26,9 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class MapUiTest {
+    @org.junit.Before fun acceptMapConsentForThisFixture() {
+        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+    }
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     @Before fun permissions() {
         listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,

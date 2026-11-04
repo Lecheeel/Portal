@@ -16,8 +16,14 @@ class DiagnosticJournal(private val store: DocumentStore, private val maxEvents:
         require(text == null || text.length <= maxChars) { "诊断历史文件过大" }
         return (text?.let { codec.decodeFromString(serializer, it) } ?: emptyList()).takeLast(maxEvents).also { cached = it }.toList()
     }
-    @Synchronized fun append(event: DiagnosticEvent) {
-        val bounded = event.copy(stage = event.stage.take(128), result = event.result.take(64), reason = event.reason.take(2048), suggestion = event.suggestion.take(512))
+    fun append(event: DiagnosticEvent) = appendAll(listOf(event))
+
+    /** One atomic replacement per batch; publish cache only after success. */
+    @Synchronized fun appendAll(events: List<DiagnosticEvent>) {
+        if (events.isEmpty()) return
+        val bounded = events.takeLast(maxEvents).map { event ->
+            event.copy(stage = event.stage.take(128), result = event.result.take(64), reason = event.reason.take(2048), suggestion = event.suggestion.take(512))
+        }
         var next = (read() + bounded).takeLast(maxEvents)
         var text = codec.encodeToString(serializer, next)
         while (text.length > maxChars && next.size > 1) { next = next.drop(1); text = codec.encodeToString(serializer, next) }

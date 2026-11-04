@@ -6,10 +6,10 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.serialization)
 }
 
-val releaseVersionName = providers.gradleProperty("APP_VERSION_NAME").orElse("1.7.5")
-val releaseVersionCode = providers.gradleProperty("APP_VERSION_CODE").orElse("1790000012").map(String::toInt)
+val releaseVersionName = providers.gradleProperty("APP_VERSION_NAME").orElse("1.7.6")
+val releaseVersionCode = providers.gradleProperty("APP_VERSION_CODE").orElse("1790000013").map(String::toInt)
 val revision = providers.gradleProperty("BUILD_REVISION").orElse("unknown")
-require(releaseVersionName.get().matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+"))) { "APP_VERSION_NAME must be major.minor.patch" }
+require(releaseVersionName.get().matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(?:-(?:beta|canary|rc)\\.[0-9]+)?"))) { "APP_VERSION_NAME must be major.minor.patch with optional -beta.N, -canary.N, or -rc.N" }
 require(releaseVersionCode.get() in 1..2_100_000_000) { "Invalid APP_VERSION_CODE" }
 require(revision.get().matches(Regex("[A-Za-z0-9._-]{1,64}"))) { "Invalid BUILD_REVISION" }
 
@@ -27,7 +27,7 @@ android {
         versionName = releaseVersionName.get()
         buildConfigField("String", "GIT_REVISION", "\"${revision.get()}\"")
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.system.location.service.PortalTestRunner"
 
 //        val googleServicesFile = project.file("google-services.json")
 //        if (!googleServicesFile.exists()) {

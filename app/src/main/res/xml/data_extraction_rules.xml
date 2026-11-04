@@ -5,6 +5,15 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="sharedpref" path="sdk_privacy.xml" />
+        <!-- Installation identity, queued reports and SDK state must not migrate. -->
+        <exclude domain="database" path="bugly_db_" />
+        <exclude domain="sharedpref" path="crashrecord.xml" />
+        <exclude domain="sharedpref" path="BuglySdkInfos.xml" />
+        <exclude domain="sharedpref" path="BUGLY_COMMON_VALUES.xml" />
+        <exclude domain="sharedpref" path="BUGLY_RESERVED_VALUES.xml" />
+        <exclude domain="root" path="app_bugly" />
+        <exclude domain="root" path="app_crashrecord" />
         <exclude domain="sharedpref" path="gms_mock_ownership.xml" />
         <exclude domain="sharedpref" path="scenario_runtime.xml" />
         <exclude domain="sharedpref" path="mock_provider_ownership.xml" />
@@ -15,6 +24,15 @@
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="gms_mock_ownership.xml" />
+        <exclude domain="sharedpref" path="sdk_privacy.xml" />
+        <!-- Installation identity, queued reports and SDK state must not migrate. -->
+        <exclude domain="database" path="bugly_db_" />
+        <exclude domain="sharedpref" path="crashrecord.xml" />
+        <exclude domain="sharedpref" path="BuglySdkInfos.xml" />
+        <exclude domain="sharedpref" path="BUGLY_COMMON_VALUES.xml" />
+        <exclude domain="sharedpref" path="BUGLY_RESERVED_VALUES.xml" />
+        <exclude domain="root" path="app_bugly" />
+        <exclude domain="root" path="app_crashrecord" />
         <exclude domain="sharedpref" path="scenario_runtime.xml" />
         <exclude domain="sharedpref" path="mock_provider_ownership.xml" />
     </device-transfer>

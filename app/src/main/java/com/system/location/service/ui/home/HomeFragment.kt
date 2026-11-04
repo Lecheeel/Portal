@@ -6,6 +6,8 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -63,6 +65,7 @@ import com.system.location.service.ext.wgs84
 import com.system.location.service.ui.mock.HistoricalLocation
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
+import com.system.location.service.ui.CallbackScheduler
 import java.math.BigDecimal
 import java.util.Locale
 
@@ -74,7 +77,7 @@ class HomeFragment : Fragment() {
     private val mockServiceViewModel by activityViewModels<MockServiceViewModel>()
 
     private lateinit var mLocationClient: AMapLocationClient
-    private var mInputtips: Inputtips? = null
+    private var searchCoordinator: DebouncedSearch<Pair<List<Tip>, Int>>? = null
     private var hasCenteredInitialLocation = false
     private var selectedMarker: com.amap.api.maps.model.Marker? = null
     private var originalMarker: com.amap.api.maps.model.Marker? = null
@@ -277,6 +280,32 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupSearchBar() {
+        val ui = binding
+        val handler = Handler(Looper.getMainLooper())
+        val search = DebouncedSearch<Pair<List<Tip>, Int>>(
+            scheduler = object : CallbackScheduler {
+                override fun post(delayMillis: Long, callback: Runnable) { handler.postDelayed(callback, delayMillis) }
+                override fun remove(callback: Runnable) { handler.removeCallbacks(callback) }
+            },
+            query = { ui.etSearchQuery.text?.toString().orEmpty() },
+            viewActive = { _binding === ui && isAdded && viewLifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED },
+            request = { query, complete ->
+                try {
+                    // Never reuse the SDK listener: every completion belongs to one request.
+                    Inputtips(requireContext(), InputtipsQuery(query, MainActivity.mCityString.orEmpty())).apply {
+                        setInputtipsListener { tips, code ->
+                            handler.post { complete(tips.orEmpty() to code) }
+                        }
+                        requestInputtipsAsyn()
+                    }
+                } catch (error: Exception) {
+                    Log.w("HomeFragment", "Search failed", error)
+                    complete(emptyList<Tip>() to -1)
+                }
+            },
+            render = { (tips, code) -> renderInputTips(tips, code) },
+        )
+        searchCoordinator = search
         // Menu button opens the drawer in MainActivity
         binding.btnMenu.setOnClickListener {
             val mainActivity = activity as? MainActivity
@@ -285,25 +314,19 @@ class HomeFragment : Fragment() {
         }
 
         binding.btnClearSearch.setOnClickListener {
-            binding.etSearchQuery.setText("")
+            search.select { binding.etSearchQuery.setText("") }
             binding.cardSearchResults.visibility = View.GONE
         }
 
         binding.etSearchQuery.addTextChangedListener { text ->
             val query = text?.toString()?.trim() ?: ""
             binding.btnClearSearch.visibility = if (query.isNotEmpty()) View.VISIBLE else View.GONE
-            if (query.isNotEmpty()) {
-                performInputTipsSearch(query)
-            } else {
-                binding.cardSearchResults.visibility = View.GONE
-            }
+            binding.cardSearchResults.visibility = View.GONE
+            search.textChanged()
         }
 
         binding.btnDoSearch.setOnClickListener {
-            val query = binding.etSearchQuery.text?.toString()?.trim() ?: ""
-            if (query.isNotEmpty()) {
-                performInputTipsSearch(query)
-            }
+            search.submit()
         }
 
         binding.lvSearchResults.setOnItemClickListener { _, view, _, _ ->
@@ -321,42 +344,25 @@ class HomeFragment : Fragment() {
                 binding.tvTargetName.text = nameText ?: "已选位置"
 
                 binding.cardSearchResults.visibility = View.GONE
-                binding.etSearchQuery.setText(nameText ?: "")
+                search.select { binding.etSearchQuery.setText(nameText ?: "") }
             }
         }
     }
 
-    private fun performInputTipsSearch(query: String) {
-        if (mInputtips == null) {
-            mInputtips = Inputtips(requireContext(), object : Inputtips.InputtipsListener {
-                override fun onGetInputtips(tips: MutableList<Tip>?, code: Int) {
-                    if (_binding == null) return
-                    if (code != 1000 || tips.isNullOrEmpty()) {
-                        binding.cardSearchResults.visibility = View.GONE
-                        return
-                    }
-                    val data = tips.filter { it.point != null }
-                        .toPoi(aMapViewModel.currentLocation)
-                        .map { it.toMap() }
-
-                    val adapter = SimpleAdapter(
-                        requireContext(),
-                        data,
-                        R.layout.layout_search_poi_item,
-                        arrayOf(Poi.KEY_NAME, Poi.KEY_ADDRESS, Poi.KEY_LONGITUDE_RAW, Poi.KEY_LATITUDE_RAW, Poi.KEY_TAG),
-                        intArrayOf(R.id.poi_name, R.id.poi_address, R.id.poi_longitude, R.id.poi_latitude, R.id.poi_tag)
-                    )
-                    binding.lvSearchResults.adapter = adapter
-                    binding.cardSearchResults.visibility = View.VISIBLE
-                }
-            })
+    private fun renderInputTips(tips: List<Tip>, code: Int) {
+        val ui = _binding ?: return
+        val candidates = tips.filter { it.point != null }
+        if (code != 1000 || candidates.isEmpty()) {
+            ui.cardSearchResults.visibility = View.GONE
+            return
         }
-        try {
-            mInputtips?.setQuery(InputtipsQuery(query, MainActivity.mCityString ?: ""))
-            mInputtips?.requestInputtipsAsyn()
-        } catch (e: Exception) {
-            Log.e("HomeFragment", "Search error: ")
-        }
+        val data = candidates.toPoi(aMapViewModel.currentLocation).map { it.toMap() }
+        ui.lvSearchResults.adapter = SimpleAdapter(
+            requireContext(), data, R.layout.layout_search_poi_item,
+            arrayOf(Poi.KEY_NAME, Poi.KEY_ADDRESS, Poi.KEY_LONGITUDE_RAW, Poi.KEY_LATITUDE_RAW, Poi.KEY_TAG),
+            intArrayOf(R.id.poi_name, R.id.poi_address, R.id.poi_longitude, R.id.poi_latitude, R.id.poi_tag)
+        )
+        ui.cardSearchResults.visibility = View.VISIBLE
     }
 
     private fun setupQuickActions() {
@@ -676,6 +682,8 @@ class HomeFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        searchCoordinator?.destroy()
+        searchCoordinator = null
         selectedMarker = null
         originalMarker = null
         routePreview = null

@@ -764,6 +764,22 @@
                     android:textAppearance="@style/Portal.Section"
                     android:text="@string/ui_settings_app"
                     android:accessibilityHeading="true" />
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/crash_reporting_switch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:padding="12dp"
+                    android:text="@string/crash_reporting_title"
+                    app:useMaterialThemeColors="true" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:paddingBottom="12dp"
+                    android:textAppearance="@style/Portal.Body"
+                    android:id="@+id/crash_reporting_description"
+                    android:text="@string/crash_reporting_desc" />
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/background_guidance"
                     android:layout_width="match_parent"
@@ -803,6 +819,25 @@
                         android:layout_height="wrap_content"
                         android:text="检查" />
                 </LinearLayout>
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:text="@string/update_channel_label"
+                    android:textAppearance="@style/Portal.Section" />
+                <Spinner
+                    android:id="@+id/update_channel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:paddingHorizontal="12dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:paddingBottom="12dp"
+                    android:text="@string/update_channel_desc"
+                    android:textAppearance="@style/Portal.Body" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>

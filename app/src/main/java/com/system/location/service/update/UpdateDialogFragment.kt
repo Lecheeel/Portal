@@ -11,7 +11,7 @@ class UpdateDialogFragment : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val args = requireArguments()
         return MaterialAlertDialogBuilder(requireContext())
-            .setTitle("发现新版本")
+            .setTitle(if (args.getBoolean("beta")) getString(com.system.location.service.R.string.update_release_beta) else getString(com.system.location.service.R.string.update_channel_stable))
             .setMessage(
                 "最新版本：${args.getString("version")}\n" +
                     "当前版本：${UpdateChecker.parseLocalVersion().versionName}\n\n" +
@@ -35,6 +35,7 @@ class UpdateDialogFragment : DialogFragment() {
                         "version" to info.versionName,
                         "body" to info.body,
                         "url" to (info.apkUrl ?: info.htmlUrl),
+                        "beta" to info.prerelease,
                     )
                 }.show(manager, TAG)
             }

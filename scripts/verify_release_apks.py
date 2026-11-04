@@ -8,8 +8,15 @@ import re
 import subprocess
 import zipfile
 
-# Public certificate SHA-256 verified from the published v1.7.4 arm64 APK.
-RELEASE_CERT_SHA256 = "fa4547514e795b2daca48bd05e9a5f9348e62531d791d746e0ffe93bb90247a3"
+from release_policy import (
+    RELEASE_CERT_SHA256,
+    ReleasePolicyError,
+    ensure_version_code_is_newer,
+    fetch_published_codes,
+    validate_version,
+    validate_version_code,
+)
+
 ABIS = {"all": {"arm64-v8a", "x86_64"}, "arm64": {"arm64-v8a"}, "x86_64": {"x86_64"}}
 
 
@@ -45,9 +52,18 @@ def run_tool(path, *args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
-    parser.add_argument("--version-code", type=int, required=True)
+    parser.add_argument("--version-code", required=True, type=int)
+    parser.add_argument("--channel", choices=("stable", "beta"), default="stable")
     parser.add_argument("--directory", type=Path, default=Path("app/build/outputs/distribution"))
+    parser.add_argument("--skip-remote-version-check", action="store_true", help="offline-only; bypasses the read-only published-code guard")
     args = parser.parse_args()
+    try:
+        validate_version(args.version)
+        validate_version_code(args.version_code)
+        if not args.skip_remote_version_check:
+            ensure_version_code_is_newer(args.version_code, fetch_published_codes())
+    except ReleasePolicyError as exc:
+        parser.error(str(exc))
     sdk = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
     if not sdk:
         parser.error("ANDROID_HOME or ANDROID_SDK_ROOT is required")
@@ -67,7 +83,8 @@ def main():
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         artifacts.append({"file": name, "sha256": digest, "abis": actual_abis, "bytes": apk.stat().st_size})
         print(f"Verified {name}: release signature, version, ABIs and SHA-256")
-    report = {"version": args.version, "versionCode": args.version_code, "certificateSha256": RELEASE_CERT_SHA256, "artifacts": artifacts}
+    report = {"version": args.version, "versionCode": args.version_code, "channel": args.channel,
+              "certificateSha256": RELEASE_CERT_SHA256, "artifacts": artifacts}
     (args.directory / "verification.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     (args.directory / "SHA256SUMS").write_text("".join(f"{item['sha256']}  {item['file']}\n" for item in artifacts), encoding="utf-8")
 

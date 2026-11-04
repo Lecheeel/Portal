@@ -2,10 +2,7 @@ package com.system.location.service
 
 import android.app.Application
 import android.content.Context
-import com.amap.api.location.AMapLocationClient
-import com.amap.api.maps.MapsInitializer
-import com.tencent.bugly.crashreport.CrashReport
-import com.system.location.service.android.Bugly
+import com.system.location.service.privacy.SdkPrivacy
 
 class LocationServiceApp: Application() {
 
@@ -15,22 +12,11 @@ class LocationServiceApp: Application() {
         // The receiver must not initialize playback or clean the main process's providers.
         if (getProcessName() == "$packageName:location_probe") return
 
-        // 高德 SDK 隐私合规（必须最先调用，否则 SDK 无法启动）
-        MapsInitializer.updatePrivacyShow(this, true, true)
-        MapsInitializer.updatePrivacyAgree(this, true)
-        AMapLocationClient.updatePrivacyShow(this, true, true)
-        AMapLocationClient.updatePrivacyAgree(this, true)
-
-        CrashReport.initCrashReport(applicationContext)
-
-        CrashReport.setUserId(applicationContext, Bugly.getUniqueDeviceId(applicationContext))
-        CrashReport.setDeviceId(applicationContext, Bugly.getUniqueDeviceId(applicationContext))
-        CrashReport.setDeviceModel(applicationContext, Bugly.getDeviceModel())
-        CrashReport.setCollectPrivacyInfo(applicationContext, true)
+        SdkPrivacy.initialize(this)
 
         com.system.location.service.runtime.ScenarioRuntime.initialize()
 
-        //CrashReport.setAllThreadStackEnable(applicationContext, true, true)
+        // Optional SDK restore failures are isolated by SdkPrivacy; runtime remains usable.
     }
 
     companion object {

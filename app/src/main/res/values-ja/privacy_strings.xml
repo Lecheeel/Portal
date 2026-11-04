@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="map_privacy_title">地図サービスとプライバシー</string>
+  <string name="map_privacy_message">地図表示、場所検索、ルート検索、実際の位置情報の取得には高徳地図のサービスを使用します。利用時の位置情報や端末情報は、高徳地図のプライバシーポリシーに従って処理されます。\n\nポリシーを確認し、同意するか選択してください。同意しない場合はアプリを終了します。次回起動時に選び直せます。\n\n任意の Bugly クラッシュレポートは初期状態で無効です。設定で個別に有効にできます。</string>
+  <string name="map_privacy_policy">ポリシーを確認</string>
+  <string name="map_privacy_accept">同意して続行</string>
+  <string name="map_privacy_decline">同意せず終了</string>
+  <string name="map_privacy_no_browser">ブラウザーを開けません。lbs.amap.com/pages/privacy/ でポリシーを確認してください</string>
+  <string name="privacy_save_failed">プライバシー設定を保存できませんでした。再試行してください</string>
+  <string name="crash_reporting_title">クラッシュレポートを送信</string>
+  <string name="crash_reporting_desc">初期状態では無効です。有効にすると Tencent Bugly にクラッシュのスタックトレースとアプリの診断情報を送信し、不具合の修正に役立てます。端末固有の識別子ではなく、このインストール用のランダムな識別子を使用します。無効にすると、新たなクラッシュの収集と自動タスクを停止します。ただし、開始済みのアップロードスレッドとその再試行は続く場合があります。アプリを再起動すると完全に無効になります。送信済みのデータは取り消せません。同じ起動中に再び有効にした場合は、次回のアプリ起動時に反映されます。</string>
+  <string name="crash_reporting_on">クラッシュレポートを有効にしました</string>
+  <string name="crash_reporting_off">クラッシュレポートを無効にしました</string>
+  <string name="crash_reporting_pending_restart">有効にする設定を保存しました。次回のアプリ起動時に反映されます。今回は収集を再開しませんが、開始済みのアップロードは続く場合があります</string>
+  <string name="crash_reporting_withdraw_failed">無効化が完了していません。再試行してください。新たな収集と自動タスクの停止を優先しましたが、開始済みのアップロードスレッドとその再試行は続く場合があります。保存に失敗した場合は、もう一度無効化を確認してからアプリを再起動してください</string>
+  <string name="crash_reporting_enable_failed">クラッシュレポートを有効にできませんでした。再試行してください。サービスが停止済みの場合は、次回起動時に反映されます</string>
+</resources>

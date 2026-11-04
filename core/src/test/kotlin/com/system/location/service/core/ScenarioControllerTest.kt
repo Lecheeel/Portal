@@ -20,6 +20,8 @@ class ScenarioControllerTest {
         override val type = BackendType.MOCK_PROVIDER
         override val capabilities = emptyMap<Capability, CapabilityStatus>()
         val calls = mutableListOf<String>()
+        var diagnosticDetails = emptyList<BackendDiagnostic>()
+        override suspend fun diagnose() = diagnosticDetails
         var failPublish = false
         var failCleanup = false
         override suspend fun prepare() = BackendResult.Success.also { calls += "prepare" }
@@ -39,6 +41,148 @@ class ScenarioControllerTest {
         }
     }
     private val scenario = Scenario("s", "test", route = Route("r", "route", listOf(Wgs84(0.0, 0.0), Wgs84(0.01, 0.01))))
+
+    @Test fun repeatedFailureAfterRecoveryIsRecordedWithinFiveSeconds() = runBlocking {
+        assertOrdinaryDiagnosticTransitions(listOf("FAILED", "CONNECTED", "FAILED"))
+    }
+
+    @Test fun repeatedRecoveryAfterFailureIsRecordedWithinFiveSeconds() = runBlocking {
+        assertOrdinaryDiagnosticTransitions(listOf("CONNECTED", "FAILED", "CONNECTED"))
+    }
+
+    private suspend fun assertOrdinaryDiagnosticTransitions(results: List<String>) {
+        val backend = Backend()
+        val clock = Clock()
+        val accepted = mutableListOf<DiagnosticEvent>()
+        val c = ScenarioController({ backend }, clock, diagnosticBatchSink = { accepted += it })
+        results.forEachIndexed { index, result ->
+            clock.time = index * 1000L
+            backend.diagnosticDetails = listOf(BackendDiagnostic("REMOTE_COMMAND", result,
+                if (result == "FAILED") "connection lost" else "connection restored"))
+            c.refreshDiagnostics()
+        }
+        assertEquals(results, accepted.map { it.result })
+        assertEquals(results, c.diagnostics.value.map { it.result })
+    }
+
+    @Test fun unchangedOrdinaryDiagnosticsUseTheFiveSecondWindow() = runBlocking {
+        val backend = Backend().apply {
+            diagnosticDetails = listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "connection restored"))
+        }
+        val clock = Clock()
+        val accepted = mutableListOf<DiagnosticEvent>()
+        val c = ScenarioController({ backend }, clock, diagnosticBatchSink = { accepted += it })
+        c.refreshDiagnostics()
+        clock.time = 4999
+        c.refreshDiagnostics()
+        assertEquals(1, accepted.size)
+        clock.time = 5000
+        c.refreshDiagnostics()
+        assertEquals(listOf(0L, 5000L), accepted.map { it.timestamp })
+    }
+
+    @Test fun hookDisappearanceAndReappearanceAreRecorded() = runBlocking {
+        val backend = Backend()
+        val clock = Clock()
+        val accepted = mutableListOf<DiagnosticEvent>()
+        val c = ScenarioController({ backend }, clock, diagnosticBatchSink = { accepted += it })
+        val hook = BackendDiagnostic("HOOK_POINT", "INFO", "hook A")
+        backend.diagnosticDetails = listOf(hook)
+        c.refreshDiagnostics()
+        clock.time = 1000
+        backend.diagnosticDetails = emptyList()
+        c.refreshDiagnostics()
+        clock.time = 2000
+        backend.diagnosticDetails = listOf(hook)
+        c.refreshDiagnostics()
+        assertEquals(listOf(0L, 2000L), accepted.map { it.timestamp })
+    }
+
+    @Test fun rejectedBatchCanBeRetriedOnTheNextDiagnosis() = runBlocking {
+        val backend = Backend().apply {
+            diagnosticDetails = (1..60).map { BackendDiagnostic("HOOK_POINT", "INFO", "hook $it") }
+        }
+        var reject = true
+        var hooksWritten = 0
+        val c = ScenarioController({ backend }, Clock(), diagnosticBatchSink = { batch ->
+            if (batch.any { it.stage == "HOOK_POINT" }) {
+                if (reject) throw java.util.concurrent.RejectedExecutionException("full")
+                hooksWritten += batch.size
+            }
+        })
+        assertTrue(c.start(scenario))
+        assertEquals(0, hooksWritten)
+        assertTrue(c.diagnostics.value.any { it.stage == "DIAGNOSTIC_STORAGE" })
+        reject = false
+        c.refreshDiagnostics()
+        assertEquals(60, hooksWritten)
+    }
+
+    @Test fun asynchronousStorageFailuresAreReportedWithoutReenteringTheSink() = runBlocking {
+        var submitted = 0
+        val c = ScenarioController({ Backend() }, Clock(), diagnosticBatchSink = { submitted += it.size })
+        c.reportDiagnosticStorageFailure(IllegalStateException("disk full"))
+        c.reportDiagnosticStorageFailure(IllegalStateException("still full"))
+        assertEquals(1, c.diagnostics.value.count { it.stage == "DIAGNOSTIC_STORAGE" })
+        assertEquals(0, submitted)
+        c.reportDiagnosticStorageFailure(null)
+        c.reportDiagnosticStorageFailure(IllegalStateException("another failure"))
+        assertEquals(2, c.diagnostics.value.count { it.stage == "DIAGNOSTIC_STORAGE" })
+        assertEquals(0, submitted)
+    }
+
+    @Test fun oneDiagnoseRoundIsSubmittedAsOneBatch() = runBlocking {
+        val backend = Backend().apply {
+            diagnosticDetails = (1..60).map { BackendDiagnostic("HOOK_POINT", "INFO", "hook $it") }
+        }
+        val batches = mutableListOf<List<DiagnosticEvent>>()
+        val c = ScenarioController({ backend }, Clock(), diagnosticBatchSink = { batches += it })
+        assertTrue(c.start(scenario))
+        assertEquals(1, batches.count { batch -> batch.any { it.stage == "HOOK_POINT" } })
+        assertEquals(60, batches.single { batch -> batch.any { it.stage == "HOOK_POINT" } }.size)
+    }
+
+    @Test fun unchangedHooksRemainDeduplicatedWhenPeriodicHistoryRollsOver() = runBlocking {
+        val clock = Clock()
+        val backend = Backend().apply {
+            diagnosticDetails = (1..60).map { BackendDiagnostic("HOOK_POINT", "INFO", "hook $it") }
+        }
+        var hooksWritten = 0
+        val c = ScenarioController({ backend }, clock, diagnosticBatchSink = { batch ->
+            hooksWritten += batch.count { it.stage == "HOOK_POINT" }
+        })
+        assertTrue(c.start(Scenario("p", "point", point = Wgs84(0.0, 0.0))))
+        repeat(350) { clock.time += 5000; assertTrue(c.tick()) }
+        assertEquals(60, hooksWritten)
+        assertEquals(300, c.diagnostics.value.size)
+    }
+
+    @Test fun hookDetailsKeepStableIdentityAcrossFiveSecondPolls() = runBlocking {
+        val clock = Clock()
+        val backend = Backend().apply {
+            diagnosticDetails = (1..60).map { BackendDiagnostic("HOOK_POINT", "INFO", "hook $it") }
+        }
+        val c = ScenarioController({ backend }, clock)
+        assertTrue(c.start(scenario))
+        assertEquals(60, c.diagnostics.value.count { it.stage == "HOOK_POINT" })
+        clock.time = 5000
+        assertTrue(c.tick())
+        assertEquals(60, c.diagnostics.value.count { it.stage == "HOOK_POINT" })
+        backend.diagnosticDetails = backend.diagnosticDetails.reversed()
+        clock.time = 10000
+        assertTrue(c.tick())
+        assertEquals(60, c.diagnostics.value.count { it.stage == "HOOK_POINT" })
+        backend.diagnosticDetails = backend.diagnosticDetails.map {
+            if (it.reason == "hook 30") it.copy(suggestion = "new guidance") else it
+        }
+        clock.time = 15000
+        assertTrue(c.tick())
+        assertEquals(61, c.diagnostics.value.count { it.stage == "HOOK_POINT" })
+        backend.diagnosticDetails = backend.diagnosticDetails.map { it.copy(suggestion = "") }
+        clock.time = 20000
+        assertTrue(c.tick())
+        assertEquals(62, c.diagnostics.value.count { it.stage == "HOOK_POINT" })
+    }
 
     @Test fun rebuildRetainsRouteProgressSessionAndPauseState() = runBlocking {
         val clock = Clock(); val backend = Backend(); val c = ScenarioController({ backend }, clock)

@@ -33,7 +33,13 @@ class SdkPrivacyUiTest {
             assertFalse(SdkPrivacy.mapsAccepted)
             assertFalse(SdkPrivacy.mapsReady)
             onView(withText(R.string.map_privacy_decline)).perform(click())
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            // finish() schedules lifecycle work; an idle main queue does not guarantee onDestroy.
+            val deadline = android.os.SystemClock.uptimeMillis() + 5_000
+            while (scenario.state != androidx.lifecycle.Lifecycle.State.DESTROYED &&
+                android.os.SystemClock.uptimeMillis() < deadline) {
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                android.os.SystemClock.sleep(50)
+            }
             assertEquals(androidx.lifecycle.Lifecycle.State.DESTROYED, scenario.state)
             assertFalse(SdkPrivacy.mapsAccepted)
             assertFalse(SdkPrivacy.crashReportingEnabled)

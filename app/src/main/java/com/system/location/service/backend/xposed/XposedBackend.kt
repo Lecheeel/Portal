@@ -21,12 +21,24 @@ class XposedBackend(private val context: Context) : LocationBackend {
         val expected = status.getInt("hook_expected")
         val missing = status.getInt("hook_missing")
         val missingPoints = status.getStringArrayList("hook_missing_points").orEmpty()
+        val publishSamples = status.getInt("publish_samples", 0)
+        val latency = if (publishSamples > 0) {
+            val p50 = status.getLong("publish_p50_nanos") / 1_000_000.0
+            val p95 = status.getLong("publish_p95_nanos") / 1_000_000.0
+            val max = status.getLong("publish_max_nanos") / 1_000_000.0
+            BackendDiagnostic(
+                "PUBLISH_LATENCY",
+                if (p95 > 100.0) "WARN" else "INFO",
+                "n=$publishSamples · p50=%.1f ms · p95=%.1f ms · max=%.1f ms".format(p50, p95, max),
+            )
+        } else null
         return listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "system_server 远程通道已连接"),
             BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),
             BackendDiagnostic("HOOK_OWNERSHIP", if (missing == 0) "INFO" else "WARN",
                 "scope=$scope · expected=$expected · missing=$missing" +
                     if (missingPoints.isEmpty()) "" else " · ${missingPoints.joinToString(", ")}"),
             BackendDiagnostic("LAST_PUBLISH", "INFO", "系统侧最近发布时间：${status.getLong("last_publish")}; 启用状态：${status.getBoolean("is_start")}")) +
+            listOfNotNull(latency) +
             status.getStringArrayList("hook_details").orEmpty().take(60).map { BackendDiagnostic("HOOK_POINT", "INFO", it) }
     }
     override val capabilities get() = Capability.entries.associateWith { capability ->

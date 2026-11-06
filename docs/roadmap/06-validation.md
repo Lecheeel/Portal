@@ -610,6 +610,7 @@ P0 阶段至少：
 - 变更：新增 `ConfigGate`，`put_config` 在写入 `FakeLoc` 前用 schema 拒绝非法数值/枚举。
 - 变更：`put_config` 配置逻辑拆到 `ConfigCommand.apply()`，`RemoteCommandHandler` 只负责分发；行为保持不变。
 - 变更：schema 补齐 `enable_agps`/`enable_nmea`/disable_* /`need_downgrade_to_2g`/`hide_mock`/`hook_wifi`/`enable_physical_noise`/`physical_noise_seed`/`speed_amplitude`，`ConfigGate` 同步校验。
+- 变更：`ConfigGate` 直接遍历 `PortalSettingsSchema.keys()`，不再维护重复 key 列表。
 - 变更：`get_runtime_status` 诊断逻辑拆到 `DiagnosticCommand.status()`，handler 继续只做分发。
 - 变更：native 生命周期（load/prepare/status/motion/disable）拆到 `NativeCommand`，`isLoadedLibrary` 状态从 handler 移除。
 - 变更：`publish_sample` 与 publication lease/restore/expire 拆到 `SampleCommand`，handler 只保留命令分发。

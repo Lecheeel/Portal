@@ -520,6 +520,7 @@ P0 阶段至少：
 - 变更：新增 `ListenerRouting`，在 `addLocationListenerInner` 注册时捕获 caller UID；PER_APP 配置下 denied package 不再收到假更新，其它 listener 仍用当前单场景 fake；`put_config.routing_json` 下发配置。
 - 变更：新增 `ScenarioSampleStore`（按 scenarioId 隔离、sequence/租约/上限），`publish_sample` 可携带 `scenario_id`；`LocationBackend.publish` 将 `ScenarioController` 的 `scenarioId` 传到后端，`ListenerRouting` 命中 scenario 时优先使用该场景样本，缺失则回退当前 fake。
 - 变更：`AppRoute` 新增可选 `point`（与 scenarioId 互斥），`RoutingDecision.Point` + `ListenerRouting.Route.Point` + `ProviderView` 固定点样本；命中时坐标固定、速度/航向归零。
+- 变更：`WlanHook` 与 `CellInfoSynthesis` 按调用方 package 解析固定点，WiFi/基站环境跟随该点生成；未命中继续当前场景。
 - 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 11 项 + `ScenarioSampleStoreTest` 5 项通过；`:core:test`/`:xposed`/`:app` 通过；无设备。
 - 未完成：多控制器并发、路由配置导入导出/搜索、设备验证；固定点未做传感器/环境联动。
 - 结论：`UNIT TEST VERIFIED`（存储/解析）+ `BUILD VERIFIED`（接线）；P5-02 仍 `WIP`。

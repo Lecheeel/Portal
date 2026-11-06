@@ -124,6 +124,15 @@ object RemoteCommandHandler {
                 val needsTicker = !FakeLoc.enable || !FakeLoc.externallyDriven
                 FakeLoc.acceptSample(fix)
                 rely.getString("scenario_id")?.takeIf { it.isNotBlank() }?.let { FakeLoc.acceptScenarioSample(it, fix) }
+                if (FakeLoc.isSystemServerProcess && isLoadedLibrary) {
+                    val mode = when {
+                        FakeLoc.speed < 0.3 -> 0
+                        FakeLoc.speed < 2.5 -> 1
+                        FakeLoc.speed < 7.0 -> 2
+                        else -> 3
+                    }
+                    Dobby.setMotionState(mode, FakeLoc.speed.toFloat(), FakeLoc.bearing.toFloat(), FakeLoc.altitude.toFloat())
+                }
                 FakeLoc.enable = true
                 lastPublishMillis = fix.timeMillis
                 if (needsTicker) LocationTicker.start()

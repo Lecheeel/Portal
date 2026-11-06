@@ -470,11 +470,11 @@ P0 阶段至少：
 - 检查：`GnssSkyModelTest` 6 项（确定性、多星座、集合稳定、边界/去重、方位缓慢变化、CN0-仰角相关性）通过；`GnssStatusBridge` 已从该模型生成 `GnssStatus`，`LocationServiceHook` 不再持有 BDS 星表。
 - 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P3-01 `DONE`。
 
-### P3-02 多星座 V1（部分）
+### P3-02 多星座 V1
 
-- 已覆盖：GPS/BDS/GLONASS/Galileo/QZSS 混合、按星座排序、确定性 usedInFix/CN0、DOP。
-- 未覆盖：真实可见性随地理位置/时间的遮挡、星历/年历真实性（V2）、原始测量。
-- 结论：V1 模型 `UNIT TEST VERIFIED`；detector C06 未验证。
+- 已覆盖：GPS/BDS/GLONASS/Galileo/QZSS 混合、按星座排序、确定性 usedInFix/CN0、DOP；detector C06 检查星座数、Jaccard 稳定性、CN0-仰角相关性与 usedInFix。
+- 未覆盖：真实可见性随地理位置/时间的遮挡、星历/年历真实性（V2）、原始测量；detector C06 设备未跑。
+- 结论：V1 模型 `UNIT TEST VERIFIED` + `BUILD VERIFIED`；P3-02 `DONE`。
 
 ### P3-03 NMEA 生成器
 

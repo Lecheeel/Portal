@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -24,6 +25,8 @@ import com.system.location.service.R
 import com.system.location.service.databinding.FragmentSettingsBinding
 import com.system.location.service.environment.EnvironmentCollector
 import com.system.location.service.environment.EnvironmentStore
+import com.system.location.service.core.environment.EnvironmentProfile
+import com.system.location.service.core.environment.EnvironmentProfileCodec
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -62,6 +65,22 @@ class SettingsFragment : Fragment() {
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
     private var updateRequest = 0L
+    private var environmentExport: Pair<String, EnvironmentProfile>? = null
+
+    private val createEnvironmentDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        val pending = environmentExport
+        environmentExport = null
+        if (uri == null || pending == null) return@registerForActivityResult
+        runCatching {
+            requireContext().contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(EnvironmentProfileCodec.encode(pending.second).toByteArray(Charsets.UTF_8))
+            } ?: error("无法写入文件")
+        }.onSuccess {
+            if (isAdded) showToast(getString(R.string.environment_export_success))
+        }.onFailure { error ->
+            if (isAdded) showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
+        }
+    }
 
     private val mockServiceViewModel by activityViewModels<MockServiceViewModel>()
 
@@ -119,6 +138,29 @@ class SettingsFragment : Fragment() {
         binding.startupBurstSwitch.isChecked = context.startupBurstEnabled
         binding.startupBurstSwitch.setOnCheckedChangeListener { _, enabled -> context.startupBurstEnabled = enabled }
         binding.backgroundGuidance.setOnClickListener { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) }
+        binding.environmentListButton.setOnClickListener {
+            val appContext = context.applicationContext
+            val names = EnvironmentStore(appContext).list()
+            if (names.isEmpty()) {
+                showToast(getString(R.string.environment_list_empty))
+                return@setOnClickListener
+            }
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.environment_list_title)
+                .setItems(names.toTypedArray()) { _, index ->
+                    val name = names[index]
+                    runCatching { EnvironmentStore(appContext).load(name) }
+                        .onSuccess { profile ->
+                            environmentExport = name to profile
+                            createEnvironmentDocument.launch("$name.json")
+                        }
+                        .onFailure { error ->
+                            showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
+                        }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
         binding.environmentCaptureButton.setOnClickListener {
             if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 showToast(getString(R.string.environment_capture_requires_location))

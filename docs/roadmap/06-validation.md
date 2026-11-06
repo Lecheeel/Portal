@@ -626,7 +626,8 @@ P0 阶段至少：
 - 变更：manifest 增加 MAIN/LAUNCHER `<queries>`，per-app 应用列表改用 `queryIntentActivities`，不申请 `QUERY_ALL_PACKAGES`。
 - 变更：`RemoteCommandHandler` 的 debug 命令日志改用 `SensitiveLog`，经纬度/海拔/sample 坐标/environment_json/routing_json/token 等字段输出 `<redacted>`。
 - 检查：`SensitiveLogTest` 3 项通过；`:xposed` 编译/测试通过。
-- 未完成：IPC/Binder 权限、日志脱敏、Bugly 配置、包可见性、导出组件全量清单、`allowBackup` 策略。
+- 变更：新增 `09-security-review.md`，汇总导出组件、IPC/命令、日志、Bugly、备份策略与未完成项。
+- 未完成：设备端运行时验证、其他 SDK 包可见性/网络行为、`allowBackup` 整体策略。
 - 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；P6-04 仍 `WIP`。
 
 ### P6-06 文档/默认值对齐（部分）

@@ -219,7 +219,7 @@ P0 基线
 
 > 2026-11-06：P6-06 已更新 `01-current-state.md` 中 Native 传感器、Provider 列表、NMEA、GNSS 的过期描述；README 与设置页的完整对齐清单未做。
 
-> 2026-11-06：P6-04 已做首轮检查：`APSService` 显式 `exported=false`，合并 manifest 仅 `MainActivity` 导出（launcher 必需），`environment/`/`fused_ext.xml`/`library/` 从 cloud backup 与 device transfer 排除；per-app 列表使用 MAIN/LAUNCHER `<queries>`，不申请 `QUERY_ALL_PACKAGES`；debug 命令日志已脱敏坐标/配置；其余 IPC/Bugly 审查未完成。
+> 2026-11-06：P6-04 已完成首轮静态审查：导出组件、IPC/命令、日志脱敏、Bugly 隐私、备份排除；详见 `09-security-review.md`。设备端运行时验证未做。
 
 ---
 

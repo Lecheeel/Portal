@@ -229,7 +229,7 @@
 - **P5-01 纯模型落地**：新增 `RoutingConfig`/`RoutingTable`（package 优先、UID fallback、system 绕过、deny、schemaVersion）；已接 `ListenerRouting` 与 per-app UI 的 deny/固定点。
 - **P5-02 解析层落地**：新增 `PackageUidLookup`/`CallerRouter`、`ScenarioSampleStore`、`AppRoute.point` 与 `RoutingTable` 多 package/固定点解析；新增 `ListenerRouting`（denied/scenario/fixed-point）与 per-app deny/固定点 UI；WiFi/基站/GNSS status/NMEA 按固定点生成，后端发布已携带 scenarioId，多控制器仍缺。
 - **P5-05 结论**：GMS 只做全局模拟，per-app 依赖 AOSP Provider/固定点；限制见 `08-gms-per-app.md`，未设备验证。
-- **P6-04 首轮安全加固**：`APSService` 显式不导出；合并 manifest 仅 launcher 导出；`environment/`、`fused_ext.xml`、`library/` 从备份/换机迁移排除；per-app 列表使用 MAIN/LAUNCHER `<queries>`；debug 命令日志已脱敏坐标/配置；其余 IPC/Bugly 审查未做。
+- **P6-04 首轮安全加固**：`APSService` 显式不导出；合并 manifest 仅 launcher 导出；per-app 列表使用 MAIN/LAUNCHER `<queries>`；debug 命令日志脱敏；静态审查汇总见 `09-security-review.md`，设备运行时验证未做。
 - **P5-03 纯模型落地**：新增 `ConfigEnvelope`/`ConfigCodec`（v2 编解码、v1 迁移、未知字段忽略、版本/重复校验）、`SampleEnvelope`/`SampleCodec` 与 `SampleWire` v1/v2；新增 `applyConfigNow`，per-app/回放配置可在服务运行时热更新。
 - **P5-06 纯抽象落地**：新增 `SampleStore`/`ConfigStore` 与内存实现（sequence/租约/clear），Binder/SHM 与接线未做。
 - **P5-07 纯模型落地**：新增不可变 `RuntimeSnapshot`/`RuntimeSnapshotStore`，`FakeLoc` 的样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声配置已全部迁入快照；Hooks 通过兼容属性读取，待设备验证。

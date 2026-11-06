@@ -329,7 +329,7 @@ P0 阶段至少：
 - 设备/ROM/Android/LSPosed：无设备（本机 `adb devices` 为空）
 - 变更：新增 `HookOwnership` 审计；`HookStatusRegistry` 记录当前 scope；`get_runtime_status` 返回 `hook_scope`/`hook_expected`/`hook_missing`/`hook_missing_points`；app `XposedBackend.diagnose()` 增加 `HOOK_OWNERSHIP`。
 - 检查：`./gradlew :xposed:testDebugUnitTest :app:compileAppDebugKotlin --offline` 通过；xposed 30 项 JVM 用例 0 失败（新增 `HookOwnershipTest` 5 项）。
-- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；Hook 命中/设备行为仍未验证。
+- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；Hook 状态/所有权诊断已接入 `get_runtime_status`/app 诊断；设备命中行为转入 P0-03；P0-04 `DONE`。
 
 ### P0-05 仓库护栏与许可证
 

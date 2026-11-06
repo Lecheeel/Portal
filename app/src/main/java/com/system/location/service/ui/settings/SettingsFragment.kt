@@ -2,6 +2,7 @@ package com.system.location.service.ui.settings
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -88,6 +89,16 @@ class SettingsFragment : Fragment() {
         } else if (isAdded) {
             showToast(getString(R.string.environment_ble_permission_denied))
         }
+    }
+
+    private fun launchableApps(): List<android.content.pm.ApplicationInfo> {
+        val pm = requireContext().packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return pm.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.applicationInfo }
+            .filter { it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 }
+            .distinctBy { it.packageName }
+            .sortedBy { pm.getApplicationLabel(it).toString().lowercase() }
     }
 
     private val createEnvironmentDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -248,8 +259,7 @@ class SettingsFragment : Fragment() {
         }
         fun assignPointToApps(location: SavedLocation) {
             val pm = requireContext().packageManager
-            val apps = pm.getInstalledApplications(0)
-                .filter { it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 }
+            val apps = launchableApps()
             val labels = apps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
             val existing = runCatching {
                 Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
@@ -302,8 +312,7 @@ class SettingsFragment : Fragment() {
         }
         binding.perAppRoutingButton.setOnClickListener {
             val pm = requireContext().packageManager
-            val apps = pm.getInstalledApplications(0)
-                .filter { it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 }
+            val apps = launchableApps()
             val labels = apps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
             val existing = runCatching {
                 Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)

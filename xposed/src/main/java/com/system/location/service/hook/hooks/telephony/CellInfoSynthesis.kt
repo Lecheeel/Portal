@@ -33,7 +33,8 @@ object CellInfoSynthesis {
                 result = emptyList<CellInfo>()
                 return@afterHook
             }
-            val cells = runCatching { build() }.getOrDefault(emptyList())
+            val point = com.system.location.service.hook.hooks.ListenerRouting.fixedPointFor(args.firstOrNull() as? String)
+            val cells = runCatching { build(point) }.getOrDefault(emptyList())
             if (cells.isNotEmpty()) {
                 result = cells
                 if (FakeLoc.enableDebugLog) Logger.debug("getAllCellInfo: ${cells.size} synthetic LTE cells")
@@ -44,10 +45,10 @@ object CellInfoSynthesis {
         }
     }
 
-    private fun build(): List<CellInfo> {
+    private fun build(fixedPoint: com.system.location.service.core.geo.Wgs84? = null): List<CellInfo> {
         val captured = FakeLoc.replayEnvironment?.cells?.takeIf { it.isNotEmpty() }
         val towers = captured ?: ProceduralCellSource(EnvironmentConfig(cellMode = CellMode.FULL_REPLAY)).cellsAt(
-            Wgs84(FakeLoc.latitude, FakeLoc.longitude),
+            fixedPoint ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude),
             FakeLoc.environmentSeed,
             SimProfile(mcc = 460, mnc = 0, simReady = true),
         )

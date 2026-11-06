@@ -37,6 +37,18 @@ object ListenerRouting {
         callerUids.remove(binder)
     }
 
+    /** Fixed point for an environment caller (WiFi/cell), or null when no point route matches. */
+    fun fixedPointFor(packageName: String?, uid: Int = BinderUtils.getCallerUid()): com.system.location.service.core.geo.Wgs84? {
+        val config = FakeLoc.routingConfig ?: return null
+        if (config.mode == RoutingMode.GLOBAL) return null
+        if (uid < 10_000) return null
+        val packages = packageName?.takeIf { it.isNotBlank() }?.let { listOf(it) }
+            ?: runCatching { BinderUtils.getUidPackageNames(uid = uid)?.toList().orEmpty() }.getOrDefault(emptyList())
+        if (packages.any { runCatching { BinderUtils.isSystemPackages(it) }.getOrDefault(false) }) return null
+        val table = runCatching { RoutingTable(config) }.getOrNull() ?: return null
+        return (table.decision(uid, packages, false) as? RoutingDecision.Point)?.point
+    }
+
     fun shouldDeliver(listener: android.os.IInterface): Boolean = route(listener) !is Route.Denied
 
     fun route(listener: android.os.IInterface): Route {

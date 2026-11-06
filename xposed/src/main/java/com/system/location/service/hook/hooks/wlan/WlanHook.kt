@@ -17,6 +17,7 @@ import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.ProceduralWifiSource
 import com.system.location.service.core.environment.ReplayEnvironmentSource
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.hook.hooks.ListenerRouting
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
@@ -86,7 +87,7 @@ object WlanHook {
         wifiClazz.hookAllMethods("getConnectionInfo", beforeHook {
             val packageName = args.firstOrNull() as? String
             if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@beforeHook
-            val info = buildWifiInfo(currentProfile()) ?: return@beforeHook
+            val info = buildWifiInfo(currentProfile(packageName)) ?: return@beforeHook
             result = info
             if (FakeLoc.enableDebugLog) Logger.debug("getConnectionInfo: procedural $packageName")
         })
@@ -94,7 +95,7 @@ object WlanHook {
         wifiClazz.hookAllMethods("getScanResults", afterHook {
             val packageName = args.firstOrNull() as? String
             if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@afterHook
-            val generated = buildScanResults(currentProfile())
+            val generated = buildScanResults(currentProfile(packageName))
             if (generated.isEmpty()) return@afterHook
             result = when (val existing = result) {
                 null -> {
@@ -128,8 +129,9 @@ object WlanHook {
     private fun shouldRewrite(packageName: String): Boolean =
         FakeLoc.enable && FakeLoc.enableMockWifi && !BinderUtils.isSystemPackages(packageName)
 
-    private fun currentProfile(): EnvironmentProfile {
-        val point = Wgs84(FakeLoc.latitude, FakeLoc.longitude)
+    private fun currentProfile(packageName: String? = null): EnvironmentProfile {
+        val point = ListenerRouting.fixedPointFor(packageName)
+            ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude)
         val key = "${point.latitude}:${point.longitude}:${FakeLoc.environmentSeed}"
         synchronized(profileLock) {
             cachedProfile?.let { if (cachedKey == key) return it }

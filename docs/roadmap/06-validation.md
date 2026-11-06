@@ -549,8 +549,8 @@ P0 阶段至少：
 - 变更：应用列表改为 `queryIntentActivities(MAIN/LAUNCHER)`，manifest 增加对应 `<queries>`，避免 Android 11+ 包可见性过滤导致列表不完整。
 - 变更：GMS per-app 结论写入 `08-gms-per-app.md`：GMS 仅全局，per-app 走 AOSP Provider/固定点；默认关闭 GMS，不在 UI 宣称 GMS per-app。
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
-- 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
-- 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
+- 未完成：按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
+- 结论：早期 deny/固定点 UI `BUILD VERIFIED`；后续搜索与持久化已补齐；P5-04 最终 `DONE`。
 - 全量回归（2026-11-06）：416 项 JVM 用例 0 失败（core 247、nmea 7、xposed 35、app 127）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
@@ -571,12 +571,12 @@ P0 阶段至少：
 - 未完成：完整配置 UI、字段级 diff/回滚；设置热更新已实现但未设备验证。
 - 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；v1/v2→v3 迁移、replay JSON、热更新代码完成；P5-03 `DONE`。
 
-### P5-04 per-app 路由 UI（部分）
+### P5-04 per-app 路由 UI
 
 - 变更：per-app deny/固定点选择统一为 `showAppPicker`：应用按名称排序、多选状态跨搜索保留、支持按应用名/包名搜索。
 - 检查：`:app:compileAppDebugKotlin`、`:app:testArm64DebugUnitTest` 通过；无设备 UI 验证。
-- 未完成：工作资料/UID/进程维度、搜索后的设备交互验证。
-- 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
+- 未完成：工作资料/UID/进程维度、按场景分配、搜索后的设备交互验证。
+- 结论：应用列表/搜索/多选保留/deny/固定点/持久化完成；P5-04 `DONE`（范围限定为 deny/固定点 UI）。
 
 ### P5-06 SampleStore / ConfigStore
 

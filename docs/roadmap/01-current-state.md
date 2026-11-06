@@ -229,6 +229,7 @@
 - **P4-04 Native 传感器**：`ConvertToSensorEvent` 已按 motion state 生成值并移除 -1/0 清零；4 ABI 语法+链接通过，未真机验证。
 - **P4-05 纯模型落地**：新增 `MotionMode`/`MotionState`/`SensorFrame`/`SyntheticSensorModel`（静止/步行/跑步/驾车，步数/气压/地磁/陀螺仪确定性生成）；Native 传感器 Hook（P4-04）已改为按 motion state 生成值，但未真机验证。
 - **P5-01 纯模型落地**：新增 `RoutingConfig`/`RoutingTable`（package 优先、UID fallback、system 绕过、deny、schemaVersion）；已接 `ListenerRouting` 与 per-app UI 的 deny/固定点。
+- **P5-04 per-app UI**：deny/固定点选择器支持应用名/包名搜索、多选保留；工作资料/UID/进程维度未做。
 - **P5-02 解析层落地**：新增 `PackageUidLookup`/`CallerRouter`、`ScenarioSampleStore`、`AppRoute.point` 与 `RoutingTable` 多 package/固定点解析；新增 `ListenerRouting`（denied/scenario/fixed-point）与 per-app deny/固定点 UI；WiFi/基站/GNSS status/NMEA 按固定点生成，后端发布已携带 scenarioId，多控制器仍缺。
 - **P5-05 结论**：GMS 只做全局模拟，per-app 依赖 AOSP Provider/固定点；限制见 `08-gms-per-app.md`，未设备验证。
 - **P6-04 首轮安全加固**：`APSService` 显式不导出；合并 manifest 仅 launcher 导出；per-app 列表使用 MAIN/LAUNCHER `<queries>`；debug 命令日志脱敏；备份/导出组件由脚本守卫；静态审查汇总见 `09-security-review.md`，设备运行时验证未做。

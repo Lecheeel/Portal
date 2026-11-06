@@ -568,6 +568,13 @@ P0 阶段至少：
 - 未完成：ConfigEnvelope 持久化迁移、完整配置 UI、字段级 diff/回滚；xposed 侧已支持热更新，但未设备验证。
 - 结论：`UNIT TEST VERIFIED`；P5-03 仍 `WIP`。
 
+### P5-04 per-app 路由 UI（部分）
+
+- 变更：per-app deny/固定点选择统一为 `showAppPicker`：应用按名称排序、多选状态跨搜索保留、支持按应用名/包名搜索。
+- 检查：`:app:compileAppDebugKotlin`、`:app:testArm64DebugUnitTest` 通过；无设备 UI 验证。
+- 未完成：工作资料/UID/进程维度、搜索后的设备交互验证。
+- 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
+
 ### P5-06 SampleStore / ConfigStore
 
 - 变更：`:core` 新增 `StoredSample`、`SampleStore`/`InMemorySampleStore`（单调 sequence、elapsed 租约、clear、线程安全）与 `ConfigStore`/`InMemoryConfigStore`（ConfigEnvelope 存取）。

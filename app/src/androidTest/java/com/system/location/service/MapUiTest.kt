@@ -49,20 +49,22 @@ class MapUiTest {
                 model.rememberOriginalLocation(39.9 to 116.4, isMock = false, simulationActive = false)
             }
             scenario.recreate()
-            onView(withId(R.id.original_position)).check(matches(withText("● 原始位置已保留 · 点击查看")))
+            scenario.onActivity { activity -> assertNotNull(ViewModelProvider(activity)[AMapViewModel::class.java].originalLocation) }
             onView(withId(R.id.btn_apply_location)).check(matches(not(isEnabled())))
             capture("home")
         }
     }
 
-    @Test fun runtimeStartsCollapsedAndSectionsSurviveRecreation() {
+    @Test fun runtimeShowsModeAndKeepsDeveloperToolsCollapsed() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             onView(withId(R.id.btn_apply_location)).check(matches(isDisplayed()))
             scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
             onView(withId(R.id.state_details)).check(matches(withEffectiveVisibility(Visibility.GONE)))
-            onView(withId(R.id.backend_details)).check(matches(withEffectiveVisibility(Visibility.GONE)))
+            onView(withId(R.id.backend_details)).check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
+            onView(withId(R.id.developer_details)).check(matches(withEffectiveVisibility(Visibility.GONE)))
             onView(withId(R.id.log_details)).check(matches(withEffectiveVisibility(Visibility.GONE)))
             capture("runtime-overview")
+            onView(withId(R.id.toggle_developer)).perform(scrollTo(), click())
             onView(withId(R.id.toggle_logs)).perform(scrollTo(), click())
             onView(withId(R.id.log_filter)).check(matches(isDisplayed()))
             onView(withId(R.id.clear_logs)).perform(scrollTo(), click())

@@ -222,12 +222,6 @@ class HomeFragment : Fragment() {
     private fun renderOriginalPosition() {
         if (_binding == null) return
         val original = aMapViewModel.originalLocation
-        binding.originalPosition.text = when {
-            original != null -> "● 原始位置已保留 · 点击查看"
-            mockServiceViewModel.runtimeState.value.isActive -> "原始位置未获取 · 停止模拟后重新定位"
-            else -> "原始位置 · 等待真实定位"
-        }
-        binding.originalPosition.isEnabled = original != null
         if (original == null || originalMarker != null) return
         val label = TextView(requireContext()).apply {
             text = "● 原始位置"
@@ -427,11 +421,6 @@ class HomeFragment : Fragment() {
         updateMockButtonState()
         binding.btnApplyLocation.setOnClickListener { tryOpenMock() }
         binding.targetSelection.setOnClickListener { tryOpenMock() }
-        binding.originalPosition.setOnClickListener {
-            aMapViewModel.originalLocation?.let {
-                binding.amapView.map.animateCamera(CameraUpdateFactory.newLatLngZoom(it.gcj02, 16f))
-            }
-        }
 
         binding.btnQuickMock.setOnClickListener { tryCloseMock() }
 
@@ -501,7 +490,7 @@ class HomeFragment : Fragment() {
         if (_binding == null) return
         val isRunning = mockServiceViewModel.isServiceStart()
         binding.btnApplyLocation.isEnabled = aMapViewModel.markedLoc != null && !isApplyingLocation
-        binding.btnApplyLocation.setTextIfChanged(if (isApplyingLocation) "正在切换…" else if (isRunning) "切换到所选位置" else "在所选位置开始模拟")
+        binding.btnApplyLocation.setTextIfChanged(if (isApplyingLocation) "正在切换…" else if (isRunning) "切换位置" else "开始模拟")
         binding.btnQuickMock.isEnabled = !isApplyingLocation && isRunning
         if (binding.btnQuickMock.text != "停止模拟") {
             binding.btnQuickMock.text = "停止模拟"
@@ -518,8 +507,9 @@ class HomeFragment : Fragment() {
         aMapViewModel.markName = null
         val gcj = wgsLoc.gcj02
         binding.tvTargetCoords.text = formatCoordinates(wgsLoc)
+        binding.tvTargetCoords.visibility = View.VISIBLE
         binding.tvTargetName.text = "已选位置"
-        binding.tvTargetAddress.text = "正在获取地址信息..."
+        binding.tvTargetAddress.text = "正在获取地址…"
 
         // Place marker on map
         selectedMarker?.remove()
@@ -541,7 +531,7 @@ class HomeFragment : Fragment() {
                     override fun onRegeocodeSearched(result: RegeocodeResult?, code: Int) {
                         if (_binding == null) return
                         if (result == null) {
-                            binding.tvTargetAddress.text = "地址暂不可用，坐标已选定"
+                            binding.tvTargetAddress.text = "地址暂不可用"
                             return
                         }
                         val current = aMapViewModel.markedLoc?.gcj02 ?: return
@@ -549,7 +539,7 @@ class HomeFragment : Fragment() {
                         if (kotlin.math.abs(current.latitude - queried.latitude) > 0.000001 ||
                             kotlin.math.abs(current.longitude - queried.longitude) > 0.000001) return
                         if (code != 1000) {
-                            binding.tvTargetAddress.text = "地址暂不可用，坐标已选定"
+                            binding.tvTargetAddress.text = "地址暂不可用"
                             return
                         }
                         val addr = result.regeocodeAddress.formatAddress
@@ -559,7 +549,7 @@ class HomeFragment : Fragment() {
                         } else {
                             result.regeocodeAddress.district ?: "已选位置"
                         }
-                        binding.tvTargetAddress.text = addr.ifBlank { "地址暂不可用，坐标已选定" }
+                        binding.tvTargetAddress.text = addr.ifBlank { "地址暂不可用" }
                     }
 
                     override fun onGeocodeSearched(result: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
@@ -569,7 +559,7 @@ class HomeFragment : Fragment() {
                 RegeocodeQuery(LatLonPoint(gcj.latitude, gcj.longitude), 200f, GeocodeSearch.AMAP)
             )
         } catch (e: Exception) {
-            binding.tvTargetAddress.text = "地址暂不可用，坐标已选定"
+            binding.tvTargetAddress.text = "地址暂不可用"
             Log.w("HomeFragment", "Reverse geocoding failed", e)
         }
     }

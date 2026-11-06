@@ -190,15 +190,6 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <TextView
-                android:id="@+id/original_position"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:gravity="center_vertical"
-                android:text="原始位置 · 等待真实定位"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:background="?attr/selectableItemBackground" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -213,7 +204,7 @@
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="?attr/selectableItemBackground"
-                    android:contentDescription="确认并切换到所选位置"
+                    android:contentDescription="使用所选位置模拟"
                     android:minHeight="64dp">
 
                     <TextView
@@ -232,7 +223,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="点击地图选点，再确认切换位置"
+                        android:text="点击地图选择位置"
                         android:textColor="@color/text_secondary"
                         android:textSize="12sp"
                         android:maxLines="1"
@@ -243,7 +234,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="—, —"
+                        android:visibility="gone"
                         android:textColor="@color/primary"
                         android:textSize="13sp" />
                 </LinearLayout>
@@ -268,7 +259,7 @@
                 android:layout_height="52dp"
                 android:layout_marginTop="8dp"
                 android:enabled="false"
-                android:text="在所选位置开始模拟"
+                android:text="开始模拟"
                 app:cornerRadius="16dp"
                 app:icon="@drawable/baseline_location_on_24" />
 
@@ -286,11 +277,12 @@
                     android:layout_height="48dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
-                    android:text="@string/start_mock"
+                    android:text="停止模拟"
+                    android:enabled="false"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     app:cornerRadius="22dp"
-                    app:icon="@drawable/baseline_play_24"
+                    app:icon="@drawable/baseline_stop_24"
                     app:iconSize="18dp" />
 
                 <!-- Float Rocker Toggle Button -->

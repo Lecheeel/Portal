@@ -441,8 +441,8 @@ P0 阶段至少：
 
 ### P3-04 Hook 合并（部分）
 
-- 变更：`GnssHook` 删除重复的 `registerGnssNmeaCallback`/`onNmeaReceived` 改写，只保留 measurements/nav/antenna 与 HAL 处理；`LocationNMEAHook` 成为唯一 `onNmeaReceived` 改写点，并修正 `enableNMEA` 语义（关闭时抑制真实 NMEA，开启时改写，无法映射时置空，避免泄漏真实值）。
-- 变更：新增 `GnssStatusBridge`，`LocationServiceHook` 的 `onSvStatusChanged` 从固定 `CatalogGnssSkyModel` 取帧生成 `GnssStatus` 数组；删除 BDS 星表/`shuffled()`/未播种随机；`LocationServiceHook` 从 1028 行降到 847 行，行数基线下调。
+- 变更：`GnssHook` 删除重复的 `registerGnssNmeaCallback`/`onNmeaReceived` 改写，只保留 measurements/nav/antenna 与 HAL 处理；`LocationNMEAHook` 成为唯一 `onNmeaReceived` 改写点，并修正 `enableNMEA` 语义（关闭时抑制真实 NMEA，开启时由 `NmeaBridge` 用同一 `CatalogGnssSkyModel` 帧生成 GGA/RMC/GSA/GSV/GST/ZDA，按 talker/type 一对一替换，未知类型置空避免泄漏）。
+- 变更：新增 `GnssStatusBridge`，`LocationServiceHook` 的 `onSvStatusChanged` 从固定 `CatalogGnssSkyModel` 取帧生成 `GnssStatus` 数组；删除 BDS 星表/`shuffled()`/未播种随机；`LocationServiceHook` 从 1028 行降到 847 行，行数基线下调。新增 `NmeaBridge` 生成 NMEA 并带 500ms 帧缓存。
 - 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest` 通过；`check_module_rules` 0 violation。
-- 未完成：NMEA 尚未由 `NmeaGenerator` 直接产出（`injectNMEA` 仍只改 GGA/RMC）；raw measurements 仍被屏蔽；无设备验证。
-- 结论：单入口与统一 GnssStatus 已 `BUILD VERIFIED`；P3-04 仍 `WIP`。
+- 未完成：raw measurements/navigation message 仍被屏蔽（P3-05/P7）；NMEA 依赖真实回调驱动，无设备验证“目标 App 实际收到完整序列”；跨 talker 的 GSV 轮转仅在同类型回调内循环。
+- 结论：单入口、统一 GnssStatus 与 NMEA 生成已 `BUILD VERIFIED`；P3-04 仍 `WIP`。

@@ -217,6 +217,6 @@
 - **P2-01/P2-03 纯 `:core` 基础**：新增 `EnvironmentProfile`/`WifiAp`/`CellTower`/`BleBeacon`/`EnvironmentSource` 与确定性 `ProceduralWifiSource`（约 100 m 网格、固定 seed、RSSI 路径损耗；12 项 JVM 测试）。WiFi Hook（P2-04）尚未接入。
 - **P2-04/P2-05 部分落地**：`WlanHook` 已用程序化 AP 生成 `ScanResult`/`WifiInfo`/`DhcpInfo`（仅第三方调用方）；CDMA 降级默认关闭，新增 `CellModePolicy` AUTO 策略；`TelephonyHook` 完整基站画像尚未改写。
 - **P3-01/P3-03 纯模型落地**：`:core` 新增确定性多星座 `CatalogGnssSkyModel`；`:nmea` 新增单源 `NmeaGenerator`（GGA/RMC/GSA/GSV/GST/ZDA，校验和与卫星数自洽）。
-- **P3-04 部分落地**：`GnssStatus` 已从 `GnssStatusBridge` 读取同一模型；`GnssHook` 的重复 NMEA 入口已删除，只剩 `LocationNMEAHook` 一个改写点；NMEA 仍未由 `NmeaGenerator` 直接生成。
+- **P3-04 部分落地**：`GnssStatus` 与 NMEA 都已从同一 `CatalogGnssSkyModel` 帧生成；`GnssHook` 的重复 NMEA 入口已删除，只剩 `LocationNMEAHook` 一个改写点；raw measurements 仍被屏蔽。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

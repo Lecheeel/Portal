@@ -446,6 +446,7 @@ P0 阶段至少：
 ### P2-07 环境设置（部分）
 
 - 变更：设置页新增“每格 AP 数（1–8，默认 4）”和“基站模式（AUTO/FULL_REPLAY/NO_SIM_WIFI_ONLY/LEGACY_CDMA）”；`put_config` 下发 `environment_ap_count` / `cell_mode`。
+- 变更：新增 `EnvironmentSourceMode`（AUTO/PROCEDURAL/REPLAY）与“环境来源”设置；`WlanHook`/`CellInfoSynthesis` 按该模式选择捕获 profile 或程序化来源。
 - 变更：`WlanHook` 按 AP 数动态重建 `ProceduralWifiSource` 并使缓存失效；`CellInfoSynthesis` 使用配置的 `cellMode`，`NO_SIM_WIFI_ONLY` 返回空小区。
 - 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest`、`:app:compileAppDebugKotlin` / `:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：环境来源选择、实验开关完整清单、采集 UI 的高级参数、默认值设备确认。

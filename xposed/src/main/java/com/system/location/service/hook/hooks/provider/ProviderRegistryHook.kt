@@ -7,6 +7,7 @@ import com.system.location.service.hook.scope.HookStatus
 import com.system.location.service.hook.scope.HookStatusRegistry
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
+import com.system.location.service.core.providers.ProviderRegistryPolicy
 
 /**
  * Keeps Portal's private control provider and test providers out of the public provider registry
@@ -68,13 +69,7 @@ object ProviderRegistryHook {
         return hooked
     }
 
-    private fun isSuspiciousProvider(name: String): Boolean {
-        val lower = name.lowercase()
-        return lower.contains("fused_ext") ||
-            lower.contains("test") ||
-            lower.contains("mock") ||
-            lower.contains("portal")
-    }
+    private fun isSuspiciousProvider(name: String): Boolean = ProviderRegistryPolicy.isHidden(name)
 
     private val LIST_METHODS = listOf("getAllProviders", "getProviders")
 }

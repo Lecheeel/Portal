@@ -34,6 +34,7 @@ object HookOwnership {
         HookScope.PHONE_PROCESS to listOf("phone"),
         HookScope.FUSED_PROCESS to listOf("fused"),
         HookScope.VENDOR_LOCATION_PROCESS to listOf("oplus", "xiaomi"),
+        HookScope.SETTINGS_PROVIDER to listOf("settings"),
         HookScope.TARGET_APP to emptyList(),
     )
 

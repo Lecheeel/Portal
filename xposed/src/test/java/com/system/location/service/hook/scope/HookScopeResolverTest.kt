@@ -13,6 +13,7 @@ class HookScopeResolverTest {
         assertEquals(HookScope.FUSED_PROCESS, resolve("com.android.location.fused"))
         assertEquals(HookScope.VENDOR_LOCATION_PROCESS, resolve("com.xiaomi.location.fused"))
         assertEquals(HookScope.VENDOR_LOCATION_PROCESS, resolve("com.oplus.location"))
+        assertEquals(HookScope.SETTINGS_PROVIDER, resolve("com.android.providers.settings"))
     }
 
     @Test fun unrelatedProcessesAndSubstringMatchesAreRejected() {

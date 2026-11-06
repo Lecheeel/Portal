@@ -1,6 +1,6 @@
 package com.system.location.service.hook.scope
 
-enum class HookScope { SYSTEM_SERVER, PHONE_PROCESS, FUSED_PROCESS, VENDOR_LOCATION_PROCESS, TARGET_APP }
+enum class HookScope { SYSTEM_SERVER, PHONE_PROCESS, FUSED_PROCESS, VENDOR_LOCATION_PROCESS, SETTINGS_PROVIDER, TARGET_APP }
 
 data class ProcessIdentity(val packageName: String, val processName: String, val uid: Int,
     val sdk: Int, val manufacturer: String)
@@ -13,6 +13,7 @@ object HookScopeResolver {
             packageName == "com.android.phone" && processName == packageName -> HookScope.PHONE_PROCESS
             packageName == "com.android.location.fused" && processName == packageName -> HookScope.FUSED_PROCESS
             packageName in setOf("com.xiaomi.location.fused", "com.oplus.location") && processName == packageName -> HookScope.VENDOR_LOCATION_PROCESS
+            packageName == "com.android.providers.settings" && processName == packageName -> HookScope.SETTINGS_PROVIDER
             packageName in targets && processName == packageName && uid % 100000 >= 10000 -> HookScope.TARGET_APP
             else -> null
         }

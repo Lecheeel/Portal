@@ -15,6 +15,7 @@ import com.system.location.service.hook.hooks.sensor.SystemSensorManagerHook
 import com.system.location.service.hook.hooks.telephony.TelephonyHook
 import com.system.location.service.hook.hooks.wlan.WlanHook
 import com.system.location.service.hook.privacy.AppOpsHook
+import com.system.location.service.hook.privacy.SettingsHook
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 
@@ -95,6 +96,9 @@ class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
                 } else {
                     install("xiaomi") { ThirdPartyLocationHook(loader) }
                 }
+            }
+            com.system.location.service.hook.scope.HookScope.SETTINGS_PROVIDER -> {
+                install("settings") { SettingsHook.hook(loader) }
             }
             com.system.location.service.hook.scope.HookScope.TARGET_APP -> {
                 // App-specific IPC is intentionally unavailable until a caller allowlist is configured.

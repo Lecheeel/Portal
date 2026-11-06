@@ -664,7 +664,8 @@ P0 阶段至少：
 ### P6-06 文档/默认值对齐（部分）
 
 - 变更：更新 `01-current-state.md` 的 Native 传感器、Provider 列表、NMEA、GNSS 行，移除“传感器 -1/0”“双重 NMEA”“随机 BDS”等过期描述。
-- 检查：文档内容与当前 `sensor_hook.cpp`、`NmeaBridge`、`CatalogGnssSkyModel`、`ProviderRegistryHook` 对照；无构建影响。
+- 变更：README 功能亮点补充“WiFi/基站环境采集与回放（实验性）”“per-app 路由与固定点（实验性）”，与已落地能力一致。
+- 检查：文档内容与当前 `sensor_hook.cpp`、`NmeaBridge`、`CatalogGnssSkyModel`、`ProviderRegistryHook`、环境/per-app UI 对照；无构建影响。
 - 未完成：README 与设置页的完整实验标记/默认值清单、逐项验收表。
 - 结论：`SOURCE VERIFIED`；P6-06 仍 `WIP`。
 

@@ -312,6 +312,7 @@ object RemoteCommandHandler {
                 return true
             }
             "put_config" -> {
+                if (!com.system.location.service.hook.security.ConfigGate.valid(rely)) return false
                 val enable = rely.getBoolean("enable", FakeLoc.enable)
                 val speed = rely.getDouble("speed", FakeLoc.speed)
                 val altitude = rely.getDouble("altitude", FakeLoc.altitude)

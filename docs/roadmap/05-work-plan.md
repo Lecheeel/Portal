@@ -178,7 +178,7 @@ P0 基线
 
 **Phase 4 退出**：Provider 不再“三份一样”；静止自然；传感器不再是空壳；Native 默认关但可用。
 
-> 2026-11-06：P4-01 `ProviderProfile`/`StationaryPolicy`/`ProviderMixer`、P4-02 `PhysicalNoise`、P4-03 provider 发布与 P4-05 `SyntheticSensorModel` 已落地（JVM 测试通过）；P4-04 Native 传感器重写与 P4-06 设备回归未做。
+> 2026-11-06：P4-01 `ProviderProfile`/`StationaryPolicy`/`ProviderMixer`、P4-02 `PhysicalNoise`（现已在 `ProviderView` 可选启用，设置页开关默认关）、P4-03 provider 发布与 P4-05 `SyntheticSensorModel` 已落地（JVM 测试通过）；P4-04 Native 传感器重写与 P4-06 设备回归未做。
 
 ---
 

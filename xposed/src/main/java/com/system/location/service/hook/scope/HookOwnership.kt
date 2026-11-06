@@ -26,6 +26,7 @@ object HookOwnership {
             "system-location",
             "appops",
             "provider-registry",
+            "availability",
             "telephony-registry",
             "wifi",
             "fused",

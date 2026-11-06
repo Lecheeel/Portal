@@ -1,7 +1,10 @@
 package com.system.location.service.hook.hooks.provider
 
 import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.scope.HookInstaller
+import com.system.location.service.hook.scope.HookStatus
+import com.system.location.service.hook.scope.HookStatusRegistry
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 
@@ -18,6 +21,19 @@ import com.system.location.service.hook.utils.Logger
  * - `getProviderProperties` throws the same IllegalArgumentException a missing provider would.
  */
 object ProviderRegistryHook {
+    fun hook(classLoader: ClassLoader): Boolean {
+        val service = XposedHelpers.findClassIfExists(
+            "com.android.server.location.LocationManagerService",
+            classLoader,
+        )
+        if (service == null) {
+            HookStatusRegistry.record("provider-registry", HookStatus(
+                supported = true, skipped = true, reason = "LocationManagerService absent"))
+            return false
+        }
+        return hook(service)
+    }
+
     fun hook(locationManagerService: Class<*>): Boolean {
         val filterHook = object : XC_MethodHook() {
             override fun afterHookedMethod(param: MethodHookParam) {

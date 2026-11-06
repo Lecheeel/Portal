@@ -25,6 +25,7 @@ import com.system.location.service.ext.simReady
 import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.cellMode
+import com.system.location.service.ext.environmentSourceMode
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.loopBroadcastlocation
@@ -344,6 +345,7 @@ object MockServiceHelper {
         rely.putString("gnss_model", if (context.gnssOrbital) "ORBITAL" else "ANALYTIC")
         rely.putInt("environment_ap_count", context.environmentApCount)
         rely.putString("cell_mode", context.cellMode)
+        rely.putString("environment_source", context.environmentSourceMode)
         context.routingJson.takeIf { it.isNotBlank() }?.let { rely.putString("routing_json", it) }
         context.environmentReplayJson.takeIf { it.isNotBlank() }?.let { rely.putString("environment_json", it) }
 

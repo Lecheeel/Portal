@@ -224,6 +224,12 @@ var Context.cellMode: String
         putString("cellMode", value)
     }
 
+var Context.environmentSourceMode: String
+    get() = sharedPrefs.getString("environmentSourceMode", "AUTO") ?: "AUTO"
+    set(value) = sharedPrefs.edit {
+        putString("environmentSourceMode", value)
+    }
+
 var Context.routingJson: String
     get() = sharedPrefs.getString("routingJson", "").orEmpty()
     set(value) = sharedPrefs.edit {

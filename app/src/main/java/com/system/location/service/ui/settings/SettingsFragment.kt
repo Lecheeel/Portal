@@ -54,6 +54,7 @@ import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.needOpenSELinux
 import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.cellMode
+import com.system.location.service.ext.environmentSourceMode
 import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.gnssOrbital
@@ -371,6 +372,24 @@ class SettingsFragment : Fragment() {
                 .setSingleChoiceItems(modes, modes.indexOf(context.cellMode).coerceAtLeast(0)) { dialog, which ->
                     context.cellMode = modes[which]
                     cellLabel()
+                    dialog.dismiss()
+                    showToast("下次启动场景生效")
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+        fun sourceLabel() {
+            binding.environmentSourceButton.text =
+                getString(R.string.environment_source_value, context.environmentSourceMode)
+        }
+        sourceLabel()
+        binding.environmentSourceButton.setOnClickListener {
+            val modes = arrayOf("AUTO", "PROCEDURAL", "REPLAY")
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.environment_source_title)
+                .setSingleChoiceItems(modes, modes.indexOf(context.environmentSourceMode).coerceAtLeast(0)) { dialog, which ->
+                    context.environmentSourceMode = modes[which]
+                    sourceLabel()
                     dialog.dismiss()
                     showToast("下次启动场景生效")
                 }

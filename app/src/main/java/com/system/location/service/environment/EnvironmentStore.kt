@@ -34,6 +34,16 @@ class EnvironmentStore(private val directory: File) {
 
     fun delete(name: String): Boolean = File(directory, "${sanitize(name)}$EXTENSION").delete()
 
+    fun rename(oldName: String, newName: String): File {
+        ensureDirectory()
+        val source = File(directory, "${sanitize(oldName)}$EXTENSION")
+        val target = File(directory, "${sanitize(newName)}$EXTENSION")
+        require(source.isFile) { "Environment not found" }
+        require(!target.exists()) { "Environment already exists" }
+        if (!source.renameTo(target)) error("Cannot rename environment")
+        return target
+    }
+
     private fun ensureDirectory() {
         if (!directory.exists() && !directory.mkdirs()) error("Cannot create environment directory")
     }

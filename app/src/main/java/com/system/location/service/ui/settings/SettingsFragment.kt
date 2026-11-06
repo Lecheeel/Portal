@@ -214,12 +214,37 @@ class SettingsFragment : Fragment() {
                         .setItems(arrayOf(
                             getString(R.string.environment_export),
                             getString(R.string.environment_replay),
+                            getString(R.string.environment_rename),
                             getString(R.string.environment_delete),
                         )) { _, action ->
-                            if (action == 2) {
+                            if (action == 3) {
                                 val deleted = EnvironmentStore(appContext).delete(name)
                                 showToast(if (deleted) getString(R.string.environment_deleted)
                                     else getString(R.string.environment_delete_failed))
+                            } else if (action == 2) {
+                                val input = TextInputEditText(requireContext()).apply {
+                                    setText(name)
+                                    setSelection(name.length)
+                                }
+                                MaterialAlertDialogBuilder(requireContext())
+                                    .setTitle(R.string.environment_rename)
+                                    .setView(input)
+                                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                                        runCatching {
+                                            EnvironmentStore(appContext).rename(
+                                                name, input.text?.toString().orEmpty().trim(),
+                                            )
+                                        }.onSuccess {
+                                            showToast(getString(R.string.environment_renamed))
+                                        }.onFailure { error ->
+                                            showToast(getString(
+                                                R.string.environment_rename_failed,
+                                                error.message ?: "unknown",
+                                            ))
+                                        }
+                                    }
+                                    .setNegativeButton(android.R.string.cancel, null)
+                                    .show()
                             } else {
                                 runCatching { EnvironmentStore(appContext).load(name) }
                                     .onSuccess { profile ->

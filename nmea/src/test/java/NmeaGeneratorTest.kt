@@ -104,6 +104,27 @@ class NmeaGeneratorTest {
     }
 
     @Test
+    fun gstAndZdaAreGenerated() {
+        val lines = NmeaGenerator.generate(fix)
+        val gst = lines.single { it.startsWith("\$GPGST") }
+        val zda = lines.single { it.startsWith("\$GPZDA") }
+
+        val gstFields = gst.trim().removePrefix("$").substringBefore('*').split(",")
+        assertEquals(9, gstFields.size)
+        assertEquals("GPGST", gstFields[0])
+        assertEquals("GPGST", gst.substring(1).substringBefore(','))
+        assertTrue(gstFields.drop(2).all { it.isNotBlank() })
+
+        val zdaFields = zda.trim().removePrefix("$").substringBefore('*').split(",")
+        assertEquals(7, zdaFields.size)
+        assertEquals("GPZDA", zdaFields[0])
+        val utc = java.time.Instant.ofEpochMilli(fix.timeMillis).atZone(java.time.ZoneOffset.UTC)
+        assertEquals("%02d".format(utc.dayOfMonth), zdaFields[2])
+        assertEquals("%02d".format(utc.monthValue), zdaFields[3])
+        assertEquals("%04d".format(utc.year), zdaFields[4])
+    }
+
+    @Test
     fun invalidFixIsRejected() {
         assertThrows { fix.copy(latitude = 91.0) }
         assertThrows { fix.copy(speedMps = -1.0) }

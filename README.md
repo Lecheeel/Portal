@@ -1,5 +1,7 @@
 # LocationService
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Lecheeel/Portal)
+
 基于 [Portal](https://github.com/fuqiuluo/Portal) 的 Android 定位模拟应用，支持单点定位、路线播放和摇杆控制。
 
 [下载 APK](https://github.com/Lecheeel/Portal/releases/latest) · [更新日志](https://github.com/Lecheeel/Portal/releases)

@@ -404,9 +404,10 @@ P0 阶段至少：
 
 - 变更：新增 `ReplayEnvironmentSource`：接受 REPLAY profile，按原 origin 与目标点距离做确定性 RSSI 重标定，保留 BSSID/SSID/信道与 connected 标记，结果 clamp 到合法范围；无 origin 时不改 RSSI。
 - 变更：新增 `EnvironmentProfileCodec`：REPLAY/PROCEDURAL profile 的 JSON 导入导出，`EnvironmentProfile.schemaVersion` 校验，未知字段忽略、未来版本拒绝。
-- 检查：`ReplayEnvironmentSourceTest` 5 项（同点保持、远离降低、极远 clamp、无 origin、非 REPLAY 拒绝）通过；`EnvironmentProfileCodecTest` 5 项（roundtrip、未知字段、非法 JSON/未来版本、schema 校验、默认版本）通过。
-- 未完成：WiFi/基站/BLE 实际采集、存储与导入导出 UI、构造器兼容、IPC 传输。
-- 结论：`UNIT TEST VERIFIED`；P2-02 仍 `WIP`。
+- 变更：新增 app `EnvironmentCollector`（FINE_LOCATION 保护下采集 WiFi scanResults + Telephony `allCellInfo`，映射 LTE/NR/GSM/WCDMA，异常/权限失败返回空列表）与 `EnvironmentStore`（JSON 文件保存/读取/列表/删除，文件名净化、临时文件替换）；BLE 采集暂空。
+- 检查：`ReplayEnvironmentSourceTest` 5 项（同点保持、远离降低、极远 clamp、无 origin、非 REPLAY 拒绝）通过；`EnvironmentProfileCodecTest` 5 项（roundtrip、未知字段、非法 JSON/未来版本、schema 校验、默认版本）通过；`EnvironmentStoreTest` 3 项（保存/读取/列表/删除、文件名净化、替换）通过。
+- 未完成：BLE 采集、采集 UI、构造器兼容、IPC 传输、真机采集验证。
+- 结论：`UNIT TEST VERIFIED`（存储/回放）；采集器仅 `BUILD VERIFIED`；P2-02 仍 `WIP`。
 - 全量回归（2026-11-06）：`./gradlew :core:test :nmea:test :xposed:testDebugUnitTest :app:testArm64DebugUnitTest :detector:assembleDebug` → `BUILD SUCCESSFUL`，249 项 JVM 用例 0 失败（core 95、nmea 2、xposed 30、app 122）。
 
 ### P2-04 WiFi Hook 重写
@@ -498,7 +499,7 @@ P0 阶段至少：
 - 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项通过。
 - 未完成：Android `PackageManager` 实现、system_server `ILocationManager`/listener 到路由的实际接线、多场景并存。
 - 结论：`UNIT TEST VERIFIED`；P5-02 仍 `WIP`。
-- 全量回归（2026-11-06）：330 项 JVM 用例 0 失败（core 169、nmea 7、xposed 32、app 122）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：333 项 JVM 用例 0 失败（core 169、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 

@@ -521,6 +521,7 @@ P0 阶段至少：
 - 变更：新增 `ScenarioSampleStore`（按 scenarioId 隔离、sequence/租约/上限），`publish_sample` 可携带 `scenario_id`；`LocationBackend.publish` 将 `ScenarioController` 的 `scenarioId` 传到后端，`ListenerRouting` 命中 scenario 时优先使用该场景样本，缺失则回退当前 fake。
 - 变更：`AppRoute` 新增可选 `point`（与 scenarioId 互斥），`RoutingDecision.Point` + `ListenerRouting.Route.Point` + `ProviderView` 固定点样本；命中时坐标固定、速度/航向归零。
 - 变更：`WlanHook` 与 `CellInfoSynthesis` 按调用方 package 解析固定点，WiFi/基站环境跟随该点生成；未命中继续当前场景。
+- 变更：新增 `GnssListenerRouting`，`registerGnssStatusCallback` 记录 listener→package/UID；`onSvStatusChanged` 用该调用方的固定点生成 `CatalogGnssSkyModel` 几何。
 - 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 11 项 + `ScenarioSampleStoreTest` 5 项通过；`:core:test`/`:xposed`/`:app` 通过；无设备。
 - 未完成：多控制器并发、路由配置导入导出/搜索、设备验证；固定点未做传感器/环境联动。
 - 结论：`UNIT TEST VERIFIED`（存储/解析）+ `BUILD VERIFIED`（接线）；P5-02 仍 `WIP`。

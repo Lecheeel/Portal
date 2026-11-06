@@ -413,6 +413,7 @@ P0 阶段至少：
 - 变更：设置页新增“导入环境 JSON”，通过 SAF `OpenDocument` 读取并用 `EnvironmentProfileCodec` 校验，保存到 `EnvironmentStore`。
 - 变更：已保存环境操作菜单新增“删除环境”，直接删除 `EnvironmentStore` 文件。
 - 变更：已保存环境操作菜单新增“重命名环境”，`EnvironmentStore.rename` 校验源存在/目标不存在后改名。
+- 变更：环境列表新增“搜索环境”，按名称包含过滤后重新打开列表；无匹配时提示。
 - 检查：`ReplayEnvironmentSourceTest` 5 项（同点保持、远离降低、极远 clamp、无 origin、非 REPLAY 拒绝）通过；`EnvironmentProfileCodecTest` 5 项（roundtrip、未知字段、非法 JSON/未来版本、schema 校验、默认版本）通过；`EnvironmentStoreTest` 3 项（保存/读取/列表/删除、文件名净化、替换）通过。
 - 未完成：BLE 回放 Hook、采集 UI 的 BLE 开关、构造器兼容、真机采集验证。
 - 结论：`UNIT TEST VERIFIED`（存储/回放）；采集器/列表/导出/回放接线/BLE 仅 `BUILD VERIFIED`；P2-02 仍 `WIP`。

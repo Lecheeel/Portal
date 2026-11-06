@@ -587,8 +587,9 @@ P0 阶段至少：
 
 - 变更：`:core` 新增 `SettingType`/`SettingSpec`/`SettingsSchema`/`PortalSettingsSchema`，覆盖 altitude/speed/accuracy/report_interval/min_satellites/AP 数/cell_mode/environment_source/gnss_model 等 key，提供默认值、范围、枚举和 `coerce`。
 - 变更：新增 `ConfigGate`，`put_config` 在写入 `FakeLoc` 前用 schema 拒绝非法数值/枚举。
+- 变更：`put_config` 配置逻辑拆到 `ConfigCommand.apply()`，`RemoteCommandHandler` 只负责分发；行为保持不变。
 - 检查：`SettingsSchemaTest` 5 项（默认值、数值/枚举/布尔校验、null 默认、coerce fallback、重复/非法 spec）通过；`:xposed` 编译/测试通过。
-- 未完成：命令拆分、全部旧配置迁移、schema 默认值/coerce 的完整接线。
+- 未完成：sample/control/diagnostic 命令拆分、全部旧配置迁移。
 - 结论：`UNIT TEST VERIFIED`；P5-08 仍 `WIP`。
 
 ### P3-04 Hook 合并（部分）

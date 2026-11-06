@@ -519,17 +519,19 @@ P0 阶段至少：
 - 变更：`:core` 新增 `PackageUidLookup`/`CallerRouter`；`RoutingTable` 支持多 package（共享 UID）解析，任一 package 命中路由即可；system package 优先绕过；denied 优先。
 - 变更：新增 `ListenerRouting`，在 `addLocationListenerInner` 注册时捕获 caller UID；PER_APP 配置下 denied package 不再收到假更新，其它 listener 仍用当前单场景 fake；`put_config.routing_json` 下发配置。
 - 变更：新增 `ScenarioSampleStore`（按 scenarioId 隔离、sequence/租约/上限），`publish_sample` 可携带 `scenario_id`；`LocationBackend.publish` 将 `ScenarioController` 的 `scenarioId` 传到后端，`ListenerRouting` 命中 scenario 时优先使用该场景样本，缺失则回退当前 fake。
-- 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项 + `ScenarioSampleStoreTest` 5 项通过；`:core:test`/`:xposed`/`:app` 通过；无设备。
-- 未完成：per-app 场景分配 UI、多个并发场景控制器、设备验证；当前单控制器只发布一个 scenario id。
+- 变更：`AppRoute` 新增可选 `point`（与 scenarioId 互斥），`RoutingDecision.Point` + `ListenerRouting.Route.Point` + `ProviderView` 固定点样本；命中时坐标固定、速度/航向归零。
+- 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 11 项 + `ScenarioSampleStoreTest` 5 项通过；`:core:test`/`:xposed`/`:app` 通过；无设备。
+- 未完成：多控制器并发、路由配置导入导出/搜索、设备验证；固定点未做传感器/环境联动。
 - 结论：`UNIT TEST VERIFIED`（存储/解析）+ `BUILD VERIFIED`（接线）；P5-02 仍 `WIP`。
 
 ### P5-04 per-app UI（部分）
 
 - 变更：设置页新增“per-app 路由（实验）”按钮，列出非系统应用多选，保存为 `RoutingConfig` 的 `deniedPackages`，随 `routing_json` 下发。
+- 变更：设置页新增“per-app 固定点（实验）”，从已保存位置选一个点，再选应用，生成 `AppRoute(package, point)`；其余应用继续当前场景；保存后尝试热更新。
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
-- 未完成：搜索、场景分配、工作资料、导入/导出 UI；仅 deny，不支持两个 App 不同坐标。
+- 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：355 项 JVM 用例 0 失败（core 191、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：357 项 JVM 用例 0 失败（core 193、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 

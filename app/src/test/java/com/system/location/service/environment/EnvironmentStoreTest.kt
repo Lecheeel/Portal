@@ -5,6 +5,7 @@ import com.system.location.service.core.environment.EnvironmentSourceType
 import com.system.location.service.core.environment.WifiAp
 import com.system.location.service.core.geo.Wgs84
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
@@ -40,5 +41,22 @@ class EnvironmentStoreTest {
         val changed = profile.copy(seed = 2)
         store.save("home", changed)
         assertEquals(changed, store.load("home"))
+    }
+
+    @Test fun renameMovesProfile() {
+        store.save("home", profile)
+        val renamed = store.rename("home", "office")
+        assertEquals("office.json", renamed.name)
+        assertEquals(listOf("office"), store.list())
+        assertEquals(profile, store.load("office"))
+        assertThrows(java.io.FileNotFoundException::class.java) { store.load("home") }
+    }
+
+    @Test fun renameRejectsMissingOrExistingTarget() {
+        assertThrows(IllegalArgumentException::class.java) { store.rename("missing", "office") }
+        store.save("home", profile)
+        store.save("office", profile)
+        assertThrows(IllegalArgumentException::class.java) { store.rename("home", "office") }
+        assertEquals(listOf("home", "office"), store.list())
     }
 }

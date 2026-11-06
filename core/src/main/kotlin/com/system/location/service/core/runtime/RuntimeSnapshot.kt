@@ -27,11 +27,23 @@ data class RuntimeSnapshot(
     val simReady: Boolean = true,
     val physicalNoise: Boolean = false,
     val physicalNoiseSeed: Long = 0L,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val altitudeMeters: Double = 80.0,
+    val speedMps: Double = 3.05,
+    val accuracyMeters: Float = 25f,
+    val bearingDeg: Double = 0.0,
+    val hasBearings: Boolean = false,
 ) {
     init {
         require(configRevision >= 0L) { "configRevision must be non-negative" }
         require(environmentVersion >= 0L) { "environmentVersion must be non-negative" }
         require(environmentApCount in 1..8) { "environmentApCount out of range" }
+        require(latitude in -90.0..90.0 && longitude in -180.0..180.0) { "coordinate out of range" }
+        require(altitudeMeters.isFinite()) { "altitudeMeters must be finite" }
+        require(speedMps.isFinite() && speedMps >= 0.0) { "speedMps must be non-negative" }
+        require(accuracyMeters.isFinite() && accuracyMeters > 0f) { "accuracyMeters must be positive" }
+        require(bearingDeg.isFinite()) { "bearingDeg must be finite" }
     }
 
     companion object {

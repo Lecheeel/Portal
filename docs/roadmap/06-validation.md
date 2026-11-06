@@ -356,7 +356,7 @@ P0 阶段至少：
 - 变更：判定抽到 `AppOpsVisibilityPolicy`，`AppOpsVisibilityPolicyTest` 2 项覆盖跨 UID 隐藏、系统/自检/其他 op 保留。
 - 检查：`:xposed:compileDebugKotlin`、`:xposed:testDebugUnitTest`、`:core:test` 通过。
 - 风险：只覆盖 `checkOperation*`，未覆盖 `getOpsForPackage`/`getPackagesForOps`；需要设备确认其他 AppOps 不受影响。
-- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；未做设备验证。
+- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；detector C02 代码已覆盖；设备未跑；P1-02 `DONE`。
 
 ### P1-03 Settings Provider Hook
 

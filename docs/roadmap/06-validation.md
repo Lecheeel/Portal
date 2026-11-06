@@ -534,7 +534,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：362 项 JVM 用例 0 失败（core 198、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：368 项 JVM 用例 0 失败（core 204、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -573,7 +573,8 @@ P0 阶段至少：
 
 - 变更：`:core` 新增 `RawGnssMode`/`RawGnssMeasurement`/`RawGnssPolicy`：默认 `OFF` 永不输出；`EXPERIMENTAL` 从同一 `GnssFrame.usedInFix` 生成确定性 pseudorange rate/carrier phase/state/multipath，CN0 阈值与数量上限可配。
 - 变更：新增 `RawNavigationMessage`/`RawNavigationPolicy`：默认 `OFF`；`EXPERIMENTAL` 从同一帧生成确定性 24 字节 GPS LNAV/BDS D1/GAL F/GLO 消息，数量上限可配。
-- 检查：`RawGnssPolicyTest` 5 项 + `RawNavigationPolicyTest` 5 项通过。
+- 变更：新增 `KeplerElements`/`KeplerOrbit`/`DopplerShift`：二体 Kepler 传播、周期/半径校验、载波多普勒符号；无摄动/钟差。
+- 检查：`RawGnssPolicyTest` 5 项 + `RawNavigationPolicyTest` 5 项 + `KeplerOrbitTest` 6 项通过。
 - 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、AntennaInfo、设备与 detector C13 验证。
 - 结论：`UNIT TEST VERIFIED`；P3-05 仍 `WIP`。
 

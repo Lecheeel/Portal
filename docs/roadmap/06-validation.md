@@ -568,8 +568,8 @@ P0 阶段至少：
 - 追加：`SampleEnvelope` v2（provider/fieldsMask/environmentVersion/configRevision）+ `SampleCodec`，原始 v1 `LocationSample` JSON 自动包装；`SampleEnvelopeTest` 6 项通过。
 - 追加：`SampleWire` v2（Bundle 字段 provider/fieldsMask/env/config revision），读写接受 v1–v2，app 改用 `isCompatible`；`SampleWireTest` 2 项通过。
 - 追加：`ScenarioRuntime.applyConfigNow()` 在服务已连接时把当前 routing/回放配置经 `put_config` 推送，无需重启场景；per-app 保存与“用于 WiFi 回放”均会尝试立即应用。
-- 未完成：ConfigEnvelope 持久化迁移、完整配置 UI、字段级 diff/回滚；xposed 侧已支持热更新，但未设备验证。
-- 结论：`UNIT TEST VERIFIED`；P5-03 仍 `WIP`。
+- 未完成：完整配置 UI、字段级 diff/回滚；设置热更新已实现但未设备验证。
+- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；v1/v2→v3 迁移、replay JSON、热更新代码完成；P5-03 `DONE`。
 
 ### P5-04 per-app 路由 UI（部分）
 

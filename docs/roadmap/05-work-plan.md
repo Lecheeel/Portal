@@ -188,7 +188,7 @@ P0 基线
 |---|---|---|---|---|---|---|
 | P5-01 | `RoutingTable` | `(package,userId)→scenario`；校验/序列化 | JVM 测试；非法输入拒绝 | P4 | M | WIP |
 | P5-02 | system_server 路由 | 调用方 UID→package→route；listener 映射 | 两个 App 同时不同坐标；未配置走默认 | P5-01 | L | WIP |
-| P5-03 | ConfigEnvelope v2 / SampleWire v2 | 版本化配置、provider 字段、环境版本 | 旧客户端兼容；配置切换无 stop/start | P5-01 | L | WIP |
+| P5-03 | ConfigEnvelope v3 / SampleWire v2 | 版本化配置、provider 字段、环境版本、replay JSON | 旧客户端兼容；配置切换无 stop/start | P5-01 | L | DONE |
 | P5-04 | per-app UI | 应用列表、搜索、分配场景、工作资料 | 选择/清空/重启后持久化 | P5-02 | M | WIP |
 | P5-05 | GMS per-app 评估 | 结论：全局/ GMS Hook/ target 兜底 | 文档化限制；默认全局 | P5-02 | M | WIP |
 | P5-06 | `SampleStore`/`ConfigStore` | 抽象 + Binder 实现；SHM 设计 | 无行为变化；可替换实现 | P5-03 | M | WIP |

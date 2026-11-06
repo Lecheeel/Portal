@@ -30,6 +30,11 @@ class SettingsSchemaTest {
         assertNull(schema.validate("cell_mode", "AUTO"))
         assertNotNull(schema.validate("cell_mode", "BROKEN"))
         assertNotNull(schema.validate("unknown", "x"))
+        assertNull(schema.validate("enable_agps", "true"))
+        assertNotNull(schema.validate("enable_agps", "1"))
+        assertNull(schema.validate("physical_noise_seed", "42"))
+        assertNull(schema.validate("speed_amplitude", "2.5"))
+        assertNotNull(schema.validate("speed_amplitude", "99"))
     }
 
     @Test fun nullMeansUseDefault() {

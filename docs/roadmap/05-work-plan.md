@@ -190,13 +190,15 @@ P0 基线
 | P5-02 | system_server 路由 | 调用方 UID→package→route；listener 映射 | 两个 App 同时不同坐标；未配置走默认 | P5-01 | L | WIP |
 | P5-03 | ConfigEnvelope v2 / SampleWire v2 | 版本化配置、provider 字段、环境版本 | 旧客户端兼容；配置切换无 stop/start | P5-01 | L | WIP |
 | P5-04 | per-app UI | 应用列表、搜索、分配场景、工作资料 | 选择/清空/重启后持久化 | P5-02 | M | WIP |
-| P5-05 | GMS per-app 评估 | 结论：全局/ GMS Hook/ target 兜底 | 文档化限制；默认全局 | P5-02 | M | TODO |
+| P5-05 | GMS per-app 评估 | 结论：全局/ GMS Hook/ target 兜底 | 文档化限制；默认全局 | P5-02 | M | WIP |
 | P5-06 | `SampleStore`/`ConfigStore` | 抽象 + Binder 实现；SHM 设计 | 无行为变化；可替换实现 | P5-03 | M | WIP |
 | P5-07 | `RuntimeSnapshot` 替代 `FakeLoc` | 不可变配置/样本/环境快照 | 逐步迁移；旧字段兼容 | P5-03 | L | TODO |
 | P5-08 | 命令/设置收敛 | `RemoteCommandHandler` 拆 config/sample/control/diagnostic；`SettingsSchema` | 行为不变；旧配置可读 | P5-03 | M | TODO |
 | P5-09 | Phase 5 设备回归 | 2 台；per-app + 配置切换 | 路由/切换/回退通过 | P5-02/04 | M | TODO |
 
 **Phase 5 退出**：per-app 对直接 `LocationManager` 生效；GMS 限制明确；配置/样本可版本化升级。
+
+> 2026-11-06：P5-05 结论已写入 `08-gms-per-app.md`：GMS 仅全局，per-app 走 AOSP Provider/固定点；设备验证待做。
 
 > 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；P5-02 新增 `ListenerRouting`（denied/scenario/fixed-point 路由）、`ScenarioSampleStore` 与 `ScenarioController → backend` 的 scenarioId 传递，WiFi/基站/GNSS status/NMEA 也按固定点生成；P5-03 `ConfigEnvelope`/`SampleEnvelope` v2 编解码、`SampleWire` v1/v2 与 `applyConfigNow` 热更新已落地；P5-04 新增 per-app deny 与“保存位置→固定点”多选；P5-06 `SampleStore`/`ConfigStore` 纯抽象已落地。多控制器并发与传感器固定点仍未接。
 

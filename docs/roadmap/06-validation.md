@@ -532,6 +532,7 @@ P0 阶段至少：
 - 变更：设置页新增“per-app 路由（实验）”按钮，列出非系统应用多选，保存为 `RoutingConfig` 的 `deniedPackages`，随 `routing_json` 下发。
 - 变更：设置页新增“per-app 固定点（实验）”，从已保存位置选一个点，再选应用，生成 `AppRoute(package, point)`；其余应用继续当前场景；保存后尝试热更新。
 - 变更：应用列表改为 `queryIntentActivities(MAIN/LAUNCHER)`，manifest 增加对应 `<queries>`，避免 Android 11+ 包可见性过滤导致列表不完整。
+- 变更：GMS per-app 结论写入 `08-gms-per-app.md`：GMS 仅全局，per-app 走 AOSP Provider/固定点；默认关闭 GMS，不在 UI 宣称 GMS per-app。
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。

@@ -382,3 +382,21 @@ P0 阶段至少：
 
 - 2026-11-06：`:xposed:testDebugUnitTest` 30 项通过；无设备，P1-02～05 均未 `DEVICE VERIFIED`。
 - 下一设备动作：按 [05-work-plan.md](05-work-plan.md) P1-06，在小米 + Pixel/AOSP 的 Xposed 模式下跑 detector C01–C05、C08、C09。
+
+---
+
+## 14. P2 实施记录（2026-11-06）
+
+### P2-01 `:core` 环境模型
+
+- 变更：新增 `EnvironmentSourceType`/`CellMode`/`CellType`、`EnvironmentConfig`、`WifiAp`、`CellTower`、`BleBeacon`、`EnvironmentProfile`、`EnvironmentSource`；校验 BSSID/RSSI/频率/信道、MCC/MNC/PCI/RSRP、列表上限、最多一个 connected AP/registered cell。
+- 检查：`:core:test` 新增 6 项 `EnvironmentModelsTest`（JSON roundtrip、非法值、列表上限）通过；`:core` 仍无 Android import。
+- 结论：`UNIT TEST VERIFIED`；尚未接入任何 Hook。
+
+### P2-03 程序化 WiFi
+
+- 变更：新增 `ProceduralWifiSource`：约 100 m 网格、固定 seed、每格 `apPerCell` 个 AP、真实 OUI、固定信道/频率、距离路径损耗 + 确定性 jitter、最近 AP 标记 connected；同一格内移动时 AP 集合不变、RSSI 平滑。
+- 检查：`:core:test` 新增 6 项 `ProceduralWifiSourceTest`（同点同 seed、不同 seed、合法性、邻近平滑、时间不影响 AP、无 cell/BLE）通过。
+- 限制：尚未处理跨格插值与 connected AP 切换滞回；P2-04 Hook 未接入，detector C08 尚未验证。
+- 结论：`UNIT TEST VERIFIED`。
+- 全量回归（2026-11-06）：`./gradlew :core:test :nmea:test :xposed:testDebugUnitTest :app:testArm64DebugUnitTest :detector:assembleDebug` → `BUILD SUCCESSFUL`，248 项 JVM 用例 0 失败（core 94、nmea 2、xposed 30、app 122）。

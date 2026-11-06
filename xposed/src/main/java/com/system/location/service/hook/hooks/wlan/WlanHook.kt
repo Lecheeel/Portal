@@ -96,7 +96,14 @@ object WlanHook {
             val generated = buildScanResults(currentProfile())
             if (generated.isEmpty()) return@afterHook
             result = when (val existing = result) {
-                null -> generated
+                null -> {
+                    val returnType = (method as? java.lang.reflect.Method)?.returnType
+                    if (returnType != null && returnType.name.contains("ParceledListSlice")) {
+                        sliceOrNull(returnType, generated) ?: return@afterHook
+                    } else {
+                        generated
+                    }
+                }
                 is List<*> -> generated
                 is Array<*> -> generated.toTypedArray()
                 else -> sliceOrNull(existing.javaClass, generated) ?: return@afterHook

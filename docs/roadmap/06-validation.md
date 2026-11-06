@@ -442,7 +442,7 @@ P0 阶段至少：
 - 变更：新增 `FakeLoc.simReady`（默认 true）；关闭时第三方 `getAllCellInfo` 返回空列表、phone type 为 `NONE`、network type 为 `UNKNOWN`、SIM operator 为空，对应 `NO_SIM_WIFI_ONLY`；设置页新增开关并随 `put_config.sim_ready` 下发。
 - 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用）；SIM ready 的 WiFi-only 环境与真实 API 组合需设备确认。
 - 检查：`:core:test` 通过（`ProceduralCellSourceTest` 7 项：FULL_REPLAY、AUTO 无 SIM、AUTO 有 SIM、LEGACY、确定性、邻区差异、非法 SIM）；`:xposed` 编译/测试通过；`:xposed:testDebugUnitTest` 通过；无设备。
-- 结论：模型 `UNIT TEST VERIFIED`；`CellInfoSynthesis` 仅 `BUILD VERIFIED`，隐藏构造/字段在不同 ROM 上可能不同，需真机确认；P2-05 仍 `WIP`。
+- 结论：模型 `UNIT TEST VERIFIED`（`ProceduralCellSourceTest` 7 项）；`CellInfoSynthesis`/PhoneType/SimOperator `BUILD VERIFIED`；隐藏构造/字段需真机确认；P2-05 `DONE`。
 
 ### P2-06 WiFi 指纹库（实验，部分）
 - 变更：`:core` 新增 `WifiObservation`/`WifiFingerprint`/`WifiFingerprintDb`：BSSID 校验、RSSI 边界、30 天默认时效、按 RSSI 最接近的指纹做距离加权质心、`add`/`remove` 不可变。

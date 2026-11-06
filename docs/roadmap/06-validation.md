@@ -576,9 +576,10 @@ P0 阶段至少：
 
 - 变更：`:core` 新增不可变 `RuntimeSnapshot`（configRevision、environmentVersion、sample、environment、provider、routing、gnssModel）与原子 `RuntimeSnapshotStore`（publish/clear/update）。
 - 变更：`FakeLoc` 的样本字段改为 `RuntimeSnapshotStore`，`acceptSample`/`snapshot`/`clear` 通过快照读写；外部坐标/速度等旧字段暂时保留。
+- 变更：`routingConfig`/`replayEnvironment`/`gnssModelMode` 也改为 snapshot getter/setter；剩余 AP 数/基站模式/SIM/噪声等配置仍在旧字段。
 - 检查：`RuntimeSnapshotTest` 5 项（空快照、原子发布、字段保留、清空样本、非法版本）通过；`:xposed` 编译/测试通过。
-- 未完成：配置/环境字段尚未迁入快照，Hook 读取仍依赖旧字段。
-- 结论：样本迁移 `BUILD VERIFIED`；P5-07 仍 `WIP`。
+- 未完成：剩余配置字段尚未迁入快照，Hook 仍混合读取。
+- 结论：样本/环境/路由/GNSS 模式迁移 `BUILD VERIFIED`；P5-07 仍 `WIP`。
 
 ### P3-04 Hook 合并（部分）
 

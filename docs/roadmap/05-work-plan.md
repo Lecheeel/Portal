@@ -138,13 +138,13 @@ P0 基线
 | P2-03 | 程序化 WiFi 合成 | geohash 网格、每格 4 AP、OUI、RSSI 路径损耗、插值、固定 seed | 同点同 seed 稳定；移动 RSSI 平滑；detector 通过 | P2-01 | L | WIP |
 | P2-04 | WiFi Hook 重写 | `getScanResults`/`getConnectionInfo`/`getConfiguredNetworks`/`getDhcpInfo`/`WifiScanner` | 不返回空；BSSID 合法；连接 AP 在扫描列表；detector 通过 | P2-03 | L | WIP |
 | P2-05 | 基站画像/Hook | `FULL_REPLAY`、`NO_SIM_WIFI_ONLY`；CDMA 默认关 | SIM/operator/phone type/cell 自洽；detector 通过 | P2-01 | L | WIP |
-| P2-06 | 真实环境库（实验） | WigLE/OpenCellID/自建导入；来源/许可/attribution；默认关 | 开关关闭时无影响；开启时目标区域可回放 | P2-02 | L | TODO |
+| P2-06 | 真实环境库（实验） | WigLE/OpenCellID/自建导入；来源/许可/attribution；默认关 | 开关关闭时无影响；开启时目标区域可回放 | P2-02 | L | WIP |
 | P2-07 | 环境设置 UI | 来源选择、采集入口、AP 数、基站模式、实验开关 | 设置持久化；默认值符合 ADR-004/005 | P2-03/05 | M | TODO |
 | P2-08 | Phase 2 设备回归 | 小米/OPPO/Pixel 至少 2 台 | WiFi/基站 detector 一致性通过 | P2-04/05 | M | TODO |
 
 **Phase 2 退出**：不再出现空 WiFi/CDMA 空小区；采集回放与程序化两种默认路径可用；数据库实验开关可回退。
 
-> 2026-11-06：P2-01 环境模型与 P2-03 程序化 WiFi 已在 `:core` 落地（JVM 测试通过）；P2-04 WiFi Hook 已改为程序化扫描/连接/DHCP，并支持 `ReplayEnvironmentSource` 回放（`BUILD VERIFIED`）；P2-05 已加入 `CellModePolicy`、默认关闭 CDMA、`ProceduralCellSource` 纯模型；P2-02 已加入 `ReplayEnvironmentSource`、`EnvironmentProfileCodec`、app `EnvironmentCollector`/`EnvironmentStore` 与设置页采集/列表/SAF 导出/回放选择，BLE/删除重命名/设备验证未做。
+> 2026-11-06：P2-01 环境模型与 P2-03 程序化 WiFi 已在 `:core` 落地（JVM 测试通过）；P2-04 WiFi Hook 已改为程序化扫描/连接/DHCP，并支持 `ReplayEnvironmentSource` 回放（`BUILD VERIFIED`）；P2-05 已加入 `CellModePolicy`、默认关闭 CDMA、`ProceduralCellSource` 纯模型；P2-02 已加入 `ReplayEnvironmentSource`、`EnvironmentProfileCodec`、app `EnvironmentCollector`/`EnvironmentStore` 与设置页采集/列表/SAF 导出/回放选择，BLE/删除重命名/设备验证未做；P2-06 已加入实验性 `WifiFingerprintDb`（去重/时效/加权查询），真实库导入/许可/开关未做。
 
 ---
 

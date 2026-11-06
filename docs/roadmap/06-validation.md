@@ -424,9 +424,16 @@ P0 阶段至少：
 ### P2-05 基站画像（部分）
 
 - 变更：`FakeLoc.needDowngradeToCdma` 默认改为 false（ADR-005）；`:core` 新增 `CellModePolicy.resolve`（AUTO → 有 SIM `FULL_REPLAY` / 无 SIM `NO_SIM_WIFI_ONLY`）与 `ProceduralCellSource`（1 个 registered LTE + 3 个 LTE 邻区 + 1 个 NR，MCC/MNC/area/cellId/PCI/RSRP 确定性生成）。
-- 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用），完整 LTE/NR + SIM/operator 画像、`NO_SIM_WIFI_ONLY` 的 Hook 改写尚未做。
+- 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用），完整 LTE/NR + SIM/operator/phone type 画像、`NO_SIM_WIFI_ONLY` 的 Hook 改写尚未做。
 - 检查：`:core:test` 通过（`ProceduralCellSourceTest` 7 项：FULL_REPLAY、AUTO 无 SIM、AUTO 有 SIM、LEGACY、确定性、邻区差异、非法 SIM）；`:xposed` 编译/测试通过。
 - 结论：模型 `UNIT TEST VERIFIED`，P2-05 仍 `WIP`。
+
+### P2-06 WiFi 指纹库（实验，部分）
+
+- 变更：`:core` 新增 `WifiObservation`/`WifiFingerprint`/`WifiFingerprintDb`：BSSID 校验、RSSI 边界、30 天默认时效、按 RSSI 最接近的指纹做距离加权质心、`add`/`remove` 不可变。
+- 检查：`WifiFingerprintDbTest` 6 项（精确匹配、未知、过期、加权、不可变/大小写、非法输入）通过。
+- 未完成：WigLE/OpenCellID/自建库导入、许可与 attribution、默认关闭开关、目标区域回放。
+- 结论：`UNIT TEST VERIFIED`；P2-06 仍 `WIP`。
 
 ---
 
@@ -503,7 +510,7 @@ P0 阶段至少：
 - 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项通过。
 - 未完成：Android `PackageManager` 实现、system_server `ILocationManager`/listener 到路由的实际接线、多场景并存。
 - 结论：`UNIT TEST VERIFIED`；P5-02 仍 `WIP`。
-- 全量回归（2026-11-06）：333 项 JVM 用例 0 失败（core 169、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：339 项 JVM 用例 0 失败（core 175、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 

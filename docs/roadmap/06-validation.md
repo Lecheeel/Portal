@@ -655,7 +655,7 @@ P0 阶段至少：
 - 未完成：LSPosed 实际加载、system_server scope/hook、热重载、旧 API 回退开关。
 - 结论：`BUILD VERIFIED`；P6-01 仍 `WIP`。
 
-### P6-04 安全/权限审查（首轮）
+### P6-04 安全/权限审查
 
 - 变更：`APSService` 显式 `android:exported="false"`；`backup_rules.xml` 与 `data_extraction_rules.xml` 排除 `environment/`（采集的 WiFi/基站/BLE 快照），避免云备份/换机迁移带出敏感环境。
 - 变更：继续排除 `fused_ext.xml`（坐标/回放/路由设置）与 `library/`（保存的路线/位置），避免备份带出敏感数据。
@@ -668,7 +668,7 @@ P0 阶段至少：
 - 变更：新增 `scripts/check_manifest_exports.py`，只允许 `MainActivity` 导出，service/provider 必须 `exported=false`，并禁止 `QUERY_ALL_PACKAGES`；已接入 PR/APK CI。
 - 检查：`check_backup_rules.py`、`check_manifest_exports.py` 均 `0 violation(s)`。
 - 未完成：设备端运行时验证、其他 SDK 包可见性/网络行为、`allowBackup` 整体策略。
-- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；P6-04 仍 `WIP`。
+- 结论：静态审查未发现高危项；导出组件/备份/包可见性有 CI 守卫；设备运行时验证转入 P1-06；P6-04 `DONE`。
 
 ### P6-06 文档/默认值对齐
 

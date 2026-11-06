@@ -104,6 +104,10 @@ object FakeLoc {
     @Volatile
     var physicalNoiseSeed = 0L
 
+    /** P2-05: false means NO_SIM_WIFI_ONLY; default true preserves real/current behavior. */
+    @Volatile
+    var simReady = true
+
     /**
      * 反定位复原加强（启用后将导致部分应用在关闭LocationService后需要重新启动才能重新获取定位）
      */

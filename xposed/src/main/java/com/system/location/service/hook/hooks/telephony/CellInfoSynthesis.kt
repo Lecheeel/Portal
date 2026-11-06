@@ -29,6 +29,10 @@ object CellInfoSynthesis {
         val method = cPhoneInterfaceManager.declaredMethods.find { it.name == "getAllCellInfo" } ?: return
         val hook = afterHook {
             if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@afterHook
+            if (!FakeLoc.simReady) {
+                result = emptyList<CellInfo>()
+                return@afterHook
+            }
             val cells = runCatching { build() }.getOrDefault(emptyList())
             if (cells.isNotEmpty()) {
                 result = cells

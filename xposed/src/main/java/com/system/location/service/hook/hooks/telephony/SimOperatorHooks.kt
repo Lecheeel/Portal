@@ -18,6 +18,10 @@ object SimOperatorHooks {
 
         val numeric = beforeHook {
             if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@beforeHook
+            if (!FakeLoc.simReady) {
+                result = ""
+                return@beforeHook
+            }
             val profile = FakeLoc.replayEnvironment ?: return@beforeHook
             result = operatorNumeric(profile) ?: return@beforeHook
             if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: SIM operator $result")
@@ -30,6 +34,10 @@ object SimOperatorHooks {
 
         val name = beforeHook {
             if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@beforeHook
+            if (!FakeLoc.simReady) {
+                result = ""
+                return@beforeHook
+            }
             val profile = FakeLoc.replayEnvironment ?: return@beforeHook
             if (operatorNumeric(profile) == null) return@beforeHook
             result = "Portal"

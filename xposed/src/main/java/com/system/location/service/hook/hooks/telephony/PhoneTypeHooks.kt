@@ -19,8 +19,8 @@ object PhoneTypeHooks {
 
         val gsmPhoneType = beforeHook {
             if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@beforeHook
-            result = TelephonyManager.PHONE_TYPE_GSM
-            if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: PHONE_TYPE_GSM")
+            result = if (FakeLoc.simReady) TelephonyManager.PHONE_TYPE_GSM else TelephonyManager.PHONE_TYPE_NONE
+            if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: $result")
         }
         listOf("getActivePhoneType", "getActivePhoneTypeForSlot").forEach {
             manager.hookAllMethods(it, gsmPhoneType)
@@ -28,8 +28,8 @@ object PhoneTypeHooks {
 
         val lteNetwork = beforeHook {
             if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@beforeHook
-            result = TelephonyManager.NETWORK_TYPE_LTE
-            if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: NETWORK_TYPE_LTE")
+            result = if (FakeLoc.simReady) TelephonyManager.NETWORK_TYPE_LTE else TelephonyManager.NETWORK_TYPE_UNKNOWN
+            if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: $result")
         }
         listOf(
             "getNetworkType",

@@ -27,8 +27,12 @@ import com.system.location.service.databinding.FragmentSettingsBinding
 import com.system.location.service.environment.EnvironmentCollector
 import com.system.location.service.environment.EnvironmentStore
 import com.system.location.service.ext.environmentReplayJson
+import com.system.location.service.ext.routingJson
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentProfileCodec
+import com.system.location.service.core.routing.RoutingConfig
+import com.system.location.service.core.routing.RoutingMode
+import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -209,6 +213,31 @@ class SettingsFragment : Fragment() {
                     if (isAdded) showToast(getString(R.string.environment_capture_failed, error.message ?: "unknown"))
                 }
             }
+        }
+        binding.perAppRoutingButton.setOnClickListener {
+            val pm = requireContext().packageManager
+            val apps = pm.getInstalledApplications(0)
+                .filter { it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 }
+            val labels = apps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
+            val existing = runCatching {
+                Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
+            }.getOrNull()
+            val checked = BooleanArray(apps.size) { apps[it].packageName in (existing?.deniedPackages ?: emptySet()) }
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.per_app_routing_title)
+                .setMultiChoiceItems(labels, checked) { _, which, isChecked -> checked[which] = isChecked }
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val denied = apps.filterIndexed { index, _ -> checked[index] }.map { it.packageName }.toSet()
+                    val config = if (denied.isEmpty()) {
+                        RoutingConfig(mode = RoutingMode.GLOBAL)
+                    } else {
+                        RoutingConfig(mode = RoutingMode.PER_APP, deniedPackages = denied)
+                    }
+                    context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
+                    showToast("下次启动场景生效")
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
         binding.environmentCaptureButton.setOnClickListener {
             if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {

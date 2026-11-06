@@ -206,6 +206,12 @@ var Context.simReady: Boolean
         putBoolean("simReady", value)
     }
 
+var Context.routingJson: String
+    get() = sharedPrefs.getString("routingJson", "").orEmpty()
+    set(value) = sharedPrefs.edit {
+        putString("routingJson", value)
+    }
+
 var Context.disableGetCurrentLocation: Boolean
     get() = sharedPrefs.getBoolean("disableGetCurrentLocation", FakeLoc.disableGetCurrentLocation)
     set(value) = sharedPrefs.edit {

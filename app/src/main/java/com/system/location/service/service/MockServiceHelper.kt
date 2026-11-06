@@ -20,6 +20,7 @@ import com.system.location.service.ext.environmentReplayJson
 import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.physicalNoise
+import com.system.location.service.ext.routingJson
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.reportDuration
@@ -337,6 +338,7 @@ object MockServiceHelper {
         rely.putBoolean("disable_get_from_location", FakeLoc.disableGetFromLocation)
         rely.putBoolean("enable_physical_noise", context.physicalNoise)
         rely.putBoolean("sim_ready", context.simReady)
+        context.routingJson.takeIf { it.isNotBlank() }?.let { rely.putString("routing_json", it) }
         context.environmentReplayJson.takeIf { it.isNotBlank() }?.let { rely.putString("environment_json", it) }
 
         return commandClient.send(locationManager, rely)

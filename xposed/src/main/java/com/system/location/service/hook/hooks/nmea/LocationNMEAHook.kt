@@ -47,7 +47,11 @@ object LocationNMEAHook: BaseLocationHook() {
             it.name == "registerGnssNmeaCallback" && it.parameterTypes.size > 1
         }.map { method ->
             method.onceHookBefore {
-                val cIGnssNmeaCallback = (args[0] ?: return@onceHookBefore).javaClass
+                val callback = args[0] ?: return@onceHookBefore
+                val cIGnssNmeaCallback = callback.javaClass
+                if (callback is android.os.IInterface) {
+                    NmeaListenerRouting.register(callback, args.getOrNull(1) as? String)
+                }
 
                 if (hookedGnssCallback.contains(cIGnssNmeaCallback.name)) return@onceHookBefore
                 hookedGnssCallback.add(cIGnssNmeaCallback.name)
@@ -62,7 +66,7 @@ object LocationNMEAHook: BaseLocationHook() {
                     // replace them with the same generator that feeds GnssStatus.
                     if (!FakeLoc.enable) return@onceHookMethodBefore
                     val nmea = args[1] as? String ?: return@onceHookMethodBefore
-                    args[1] = NmeaBridge.rewrite(nmea, counters)
+                    args[1] = NmeaBridge.rewrite(nmea, counters, NmeaListenerRouting.fixedPointFor(thisObject))
                 }
             }
         }

@@ -23,16 +23,16 @@ object NmeaBridge {
     private var cachedFrameKey: String? = null
     private var cachedSentences: List<String> = emptyList()
 
-    fun rewrite(incoming: String, counters: ConcurrentHashMap<String, Int>): String {
+    fun rewrite(incoming: String, counters: ConcurrentHashMap<String, Int>, point: com.system.location.service.core.geo.Wgs84? = null): String {
         if (!FakeLoc.enable) return incoming
         if (!FakeLoc.enableNMEA) return ""
         val sentenceId = sentenceId(incoming) ?: return ""
         val type = sentenceId.substring(2)
-        val candidates = generatedSentences().filter { candidate ->
+        val candidates = generatedSentences(point).filter { candidate ->
             val id = sentenceId(candidate)
             id != null && id == sentenceId
         }.ifEmpty {
-            generatedSentences().filter { candidate ->
+            generatedSentences(point).filter { candidate ->
                 val id = sentenceId(candidate)
                 id != null && id.substring(2) == type
             }
@@ -42,14 +42,14 @@ object NmeaBridge {
         return candidates[index % candidates.size].trim()
     }
 
-    fun generatedSentences(): List<String> {
-        val frame = GnssStatusBridge.currentFrame()
-        val key = "${frame.generatedAtMillis / 500}:${FakeLoc.latitude}:${FakeLoc.longitude}:${FakeLoc.speed}:${FakeLoc.bearing}"
+    fun generatedSentences(point: com.system.location.service.core.geo.Wgs84? = null): List<String> {
+        val frame = GnssStatusBridge.currentFrame(point)
+        val key = "${frame.generatedAtMillis / 500}:${point?.latitude ?: FakeLoc.latitude}:${point?.longitude ?: FakeLoc.longitude}:${FakeLoc.speed}:${FakeLoc.bearing}"
         synchronized(lock) {
             if (cachedFrameKey == key && System.currentTimeMillis() - cachedAtMillis < 500) {
                 return cachedSentences
             }
-            val generated = runCatching { NmeaGenerator.generate(toFix(frame)) }.getOrDefault(emptyList())
+            val generated = runCatching { NmeaGenerator.generate(toFix(frame, point)) }.getOrDefault(emptyList())
             cachedFrameKey = key
             cachedAtMillis = System.currentTimeMillis()
             cachedSentences = generated
@@ -57,7 +57,7 @@ object NmeaBridge {
         }
     }
 
-    private fun toFix(frame: GnssFrame): NmeaFix {
+    private fun toFix(frame: GnssFrame, point: com.system.location.service.core.geo.Wgs84? = null): NmeaFix {
         val satellites = frame.satellites.mapNotNull { satellite ->
             val constellation = satellite.constellation.toNmea() ?: return@mapNotNull null
             NmeaSatellite(
@@ -70,12 +70,12 @@ object NmeaBridge {
             )
         }
         check(satellites.isNotEmpty()) { "GNSS frame has no NMEA-supported satellites" }
-        val bearing = ((FakeLoc.bearing % 360.0) + 360.0) % 360.0
+        val bearing = if (point != null) 0.0 else ((FakeLoc.bearing % 360.0) + 360.0) % 360.0
         return NmeaFix(
-            latitude = FakeLoc.latitude,
-            longitude = FakeLoc.longitude,
+            latitude = point?.latitude ?: FakeLoc.latitude,
+            longitude = point?.longitude ?: FakeLoc.longitude,
             altitudeMeters = FakeLoc.altitude,
-            speedMps = FakeLoc.speed.coerceAtLeast(0.0),
+            speedMps = if (point != null) 0.0 else FakeLoc.speed.coerceAtLeast(0.0),
             bearingDeg = bearing,
             timeMillis = System.currentTimeMillis(),
             satellites = satellites,

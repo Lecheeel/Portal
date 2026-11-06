@@ -30,8 +30,11 @@ import com.system.location.service.ext.environmentReplayJson
 import com.system.location.service.ext.routingJson
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentProfileCodec
+import com.system.location.service.core.routing.AppRoute
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.routing.RoutingMode
+import com.system.location.service.core.repository.SavedLocation
+import com.system.location.service.data.repository.LibraryRepositories
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -240,6 +243,60 @@ class SettingsFragment : Fragment() {
                 }.onFailure { error ->
                     if (isAdded) showToast(getString(R.string.environment_capture_failed, error.message ?: "unknown"))
                 }
+            }
+        }
+        fun assignPointToApps(location: SavedLocation) {
+            val pm = requireContext().packageManager
+            val apps = pm.getInstalledApplications(0)
+                .filter { it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 }
+            val labels = apps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
+            val existing = runCatching {
+                Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
+            }.getOrNull() ?: RoutingConfig()
+            val checked = BooleanArray(apps.size) { index ->
+                existing.routes.any {
+                    it.packageName.equals(apps[index].packageName, ignoreCase = true) && it.point == location.coordinate
+                }
+            }
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.per_app_point)
+                .setMultiChoiceItems(labels, checked) { _, which, isChecked -> checked[which] = isChecked }
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val selected = apps.filterIndexed { index, _ -> checked[index] }.map { it.packageName }.toSet()
+                    val selectedLower = selected.map { it.lowercase() }.toSet()
+                    val routes = existing.routes.filterNot { it.packageName.lowercase() in selectedLower } +
+                        selected.map { AppRoute(it, point = location.coordinate) }
+                    val config = existing.copy(mode = RoutingMode.PER_APP, routes = routes)
+                    context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
+                    lifecycleScope.launch {
+                        val applied = withContext(Dispatchers.IO) {
+                            com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+                        }
+                        showToast(if (applied) "固定点已应用" else "已保存，下次启动场景生效")
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+        binding.perAppPointButton.setOnClickListener {
+            lifecycleScope.launch {
+                val locations = withContext(Dispatchers.IO) {
+                    runCatching {
+                        LibraryRepositories.ensureMigrated()
+                        LibraryRepositories.locations.list()
+                    }.getOrDefault(emptyList())
+                }
+                if (locations.isEmpty()) {
+                    showToast(getString(R.string.per_app_no_locations))
+                    return@launch
+                }
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.per_app_point_title)
+                    .setItems(locations.map { it.name }.toTypedArray()) { _, index ->
+                        assignPointToApps(locations[index])
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
             }
         }
         binding.perAppRoutingButton.setOnClickListener {

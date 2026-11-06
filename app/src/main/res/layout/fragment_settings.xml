@@ -818,6 +818,20 @@
                     android:paddingBottom="12dp"
                     android:text="@string/per_app_routing_desc"
                     android:textAppearance="@style/Portal.Body" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/per_app_point_button"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/per_app_point" />
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:paddingBottom="12dp"
+                    android:text="@string/per_app_point_desc"
+                    android:textAppearance="@style/Portal.Body" />
                 <com.google.android.material.textview.MaterialTextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

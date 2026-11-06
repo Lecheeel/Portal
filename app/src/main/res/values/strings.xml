@@ -77,6 +77,10 @@
     <string name="sim_ready">SIM 就绪（关闭 = 无 SIM / WiFi-only）</string>
     <string name="per_app_routing">per-app 路由（实验）</string>
     <string name="per_app_routing_desc">选择不接收模拟定位的应用；默认关闭，下次启动场景生效</string>
+    <string name="per_app_point">per-app 固定点（实验）</string>
+    <string name="per_app_point_desc">把选定应用固定到已保存位置；其余应用继续使用当前场景</string>
+    <string name="per_app_point_title">选择固定位置</string>
+    <string name="per_app_no_locations">还没有保存的位置</string>
     <string name="per_app_routing_title">选择不接收模拟定位的应用</string>
     <string name="environment_capture_title">环境采集</string>
     <string name="environment_capture_desc">采集当前 WiFi 与基站快照，保存为可回放的环境文件</string>

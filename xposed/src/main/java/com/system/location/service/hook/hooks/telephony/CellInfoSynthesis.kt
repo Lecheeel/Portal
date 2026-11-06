@@ -38,8 +38,10 @@ object CellInfoSynthesis {
     }
 
     private fun build(): List<CellInfo> {
-        val source = ProceduralCellSource(EnvironmentConfig(cellMode = CellMode.FULL_REPLAY))
-        val towers = source.cellsAt(
+        val captured = FakeLoc.replayEnvironment?.cells
+            ?.filter { it.type == CellType.LTE }
+            ?.takeIf { it.isNotEmpty() }
+        val towers = captured ?: ProceduralCellSource(EnvironmentConfig(cellMode = CellMode.FULL_REPLAY)).cellsAt(
             Wgs84(FakeLoc.latitude, FakeLoc.longitude),
             FakeLoc.environmentSeed,
             SimProfile(mcc = 460, mnc = 0, simReady = true),

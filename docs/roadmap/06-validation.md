@@ -689,6 +689,7 @@ P0 阶段至少：
 - 变更：app `XposedBackend.publish` 记录端到端 IPC 耗时，诊断输出 `APP_PUBLISH_LATENCY`（p95>100 ms WARN）。
 - 变更：app 诊断新增 `APP_MEMORY`（PSS + Java heap used/max）。
 - 变更：app 诊断新增 `APP_CPU`（两次 diagnose 之间的进程 CPU 占比）。
+- 变更：app 诊断新增 `BATTERY`（电量百分比 + 电池温度）。
 - 检查：`PerformanceProbeTest` 4 项（空、百分位、环形覆盖、clear/校验）通过；`:xposed`/`:app` 编译/测试通过。
-- 未完成：设备电池基线、阈值校准、设备展示。
+- 未完成：设备电池/温升基线、阈值校准、设备展示。
 - 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P7-04 仍 `WIP`。

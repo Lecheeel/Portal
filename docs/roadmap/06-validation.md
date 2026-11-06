@@ -473,6 +473,18 @@ P0 阶段至少：
 - 结论：`UNIT TEST VERIFIED`；P4-05 仍 `WIP`。
 - 全量回归（2026-11-06）：279 项 JVM 用例 0 失败（core 120、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
 
+---
+
+## 17. P5 实施记录（2026-11-06）
+
+### P5-01 RoutingTable
+
+- 变更：`:core` 新增 `RoutingMode`/`AppRoute`/`RoutingConfig`/`RoutingDecision`/`RoutingTable`；优先级为 GLOBAL 模式 → system/UID<10000 → denied → 精确 package → UID → global scenario → 真实全局；`RoutingConfig` schemaVersion=1、路由/拒绝列表上限、JSON roundtrip。
+- 检查：`RoutingTableTest` 9 项（GLOBAL、package 优先且大小写不敏感、UID fallback、system 绕过、deny、disabled fallback、无全局、非法/重复、JSON）通过。
+- 未完成：system_server 调用方 UID→package 查询、listener 映射、per-app UI 与配置下发（P5-02/03/04）。
+- 结论：`UNIT TEST VERIFIED`；P5-01 仍 `WIP`。
+- 全量回归（2026-11-06）：288 项 JVM 用例 0 失败（core 129、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
+
 ### P3-04 Hook 合并（部分）
 
 - 变更：`GnssHook` 删除重复的 `registerGnssNmeaCallback`/`onNmeaReceived` 改写，只保留 measurements/nav/antenna 与 HAL 处理；`LocationNMEAHook` 成为唯一 `onNmeaReceived` 改写点，并修正 `enableNMEA` 语义（关闭时抑制真实 NMEA，开启时由 `NmeaBridge` 用同一 `CatalogGnssSkyModel` 帧生成 GGA/RMC/GSA/GSV/GST/ZDA，按 talker/type 一对一替换，未知类型置空避免泄漏）。

@@ -186,7 +186,7 @@ P0 基线
 
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| P5-01 | `RoutingTable` | `(package,userId)→scenario`；校验/序列化 | JVM 测试；非法输入拒绝 | P4 | M | TODO |
+| P5-01 | `RoutingTable` | `(package,userId)→scenario`；校验/序列化 | JVM 测试；非法输入拒绝 | P4 | M | WIP |
 | P5-02 | system_server 路由 | 调用方 UID→package→route；listener 映射 | 两个 App 同时不同坐标；未配置走默认 | P5-01 | L | TODO |
 | P5-03 | ConfigEnvelope v2 / SampleWire v2 | 版本化配置、provider 字段、环境版本 | 旧客户端兼容；配置切换无 stop/start | P5-01 | L | TODO |
 | P5-04 | per-app UI | 应用列表、搜索、分配场景、工作资料 | 选择/清空/重启后持久化 | P5-02 | M | TODO |
@@ -197,6 +197,8 @@ P0 基线
 | P5-09 | Phase 5 设备回归 | 2 台；per-app + 配置切换 | 路由/切换/回退通过 | P5-02/04 | M | TODO |
 
 **Phase 5 退出**：per-app 对直接 `LocationManager` 生效；GMS 限制明确；配置/样本可版本化升级。
+
+> 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；system_server 路由（P5-02）与 UI 未接。
 
 ---
 

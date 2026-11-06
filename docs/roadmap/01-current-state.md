@@ -221,5 +221,6 @@
 - **P4-01/P4-02 纯 `:core` 基础**：新增 `ProviderProfile`/`StationaryPolicy`/`ProviderMixer`（三路精度/延迟/字段分离、静止无 bearing/speed）与 `PhysicalNoise`（有界可复现 OU 漂移）；尚未接入后端发布与传感器。
 - **P4-03 部分落地**：`ProviderView` / `ProviderMixer` 已接入 Mock、Fused 与 Xposed 三条发布路径，按 provider 输出不同精度/延迟/字段；三路设备交叉验证未做。
 - **P4-05 纯模型落地**：新增 `MotionMode`/`MotionState`/`SensorFrame`/`SyntheticSensorModel`（静止/步行/跑步/驾车，步数/气压/地磁/陀螺仪确定性生成）；Native 传感器 Hook（P4-04）尚未接入。
+- **P5-01 纯模型落地**：新增 `RoutingConfig`/`RoutingTable`（package 优先、UID fallback、system 绕过、deny、schemaVersion）。system_server 路由与 UI 尚未接入。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

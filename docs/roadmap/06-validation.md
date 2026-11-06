@@ -404,13 +404,14 @@ P0 阶段至少：
 
 - 变更：新增 `ReplayEnvironmentSource`：接受 REPLAY profile，按原 origin 与目标点距离做确定性 RSSI 重标定，保留 BSSID/SSID/信道与 connected 标记，结果 clamp 到合法范围；无 origin 时不改 RSSI。
 - 变更：新增 `EnvironmentProfileCodec`：REPLAY/PROCEDURAL profile 的 JSON 导入导出，`EnvironmentProfile.schemaVersion` 校验，未知字段忽略、未来版本拒绝。
-- 变更：新增 app `EnvironmentCollector`（FINE_LOCATION 保护下采集 WiFi scanResults + Telephony `allCellInfo`，映射 LTE/NR/GSM/WCDMA，异常/权限失败返回空列表）与 `EnvironmentStore`（JSON 文件保存/读取/列表/删除，文件名净化、临时文件替换）；BLE 采集暂空。
+- 变更：新增 app `EnvironmentCollector`（FINE_LOCATION 保护下采集 WiFi scanResults + Telephony `allCellInfo`，映射 LTE/NR/GSM/WCDMA，异常/权限失败返回空列表）与 `EnvironmentStore`（JSON 文件保存/读取/列表/删除，文件名净化、临时文件替换）；BLE 另行扫描。
 - 变更：设置页新增“采集当前环境”入口，IO 线程采集并以时间戳命名保存，Toast 回报 WiFi/基站数量；无位置权限时提示。
 - 变更：设置页新增“查看已保存环境”，列出 `EnvironmentStore` 中的配置；选择后通过 SAF `CreateDocument` 导出 JSON。
 - 变更：设置页可将某个环境标记为 WiFi 回放源；`put_config` 携带 `environment_json`，system_server 解析到 `FakeLoc.replayEnvironment`，`WlanHook` 优先用 `ReplayEnvironmentSource`，无回放配置时回退程序化 AP。
 - 变更：`EnvironmentCollector.capture()` 增加 BLE 扫描（`BLUETOOTH_SCAN` 权限、1.5 s 超时、按地址去重、最多 `MAX_BLE`），manifest 增加 `BLUETOOTH_SCAN`；无权限/蓝牙关闭返回空列表。
+- 变更：设置页采集前请求 `BLUETOOTH_SCAN`；拒绝时提示并只采集 WiFi/基站，授权后继续采集并包含 BLE。
 - 检查：`ReplayEnvironmentSourceTest` 5 项（同点保持、远离降低、极远 clamp、无 origin、非 REPLAY 拒绝）通过；`EnvironmentProfileCodecTest` 5 项（roundtrip、未知字段、非法 JSON/未来版本、schema 校验、默认版本）通过；`EnvironmentStoreTest` 3 项（保存/读取/列表/删除、文件名净化、替换）通过。
-- 未完成：BLE 运行时权限申请、采集 UI 的 BLE 开关、构造器兼容、真机采集验证。
+- 未完成：BLE 回放 Hook、采集 UI 的 BLE 开关、构造器兼容、真机采集验证。
 - 结论：`UNIT TEST VERIFIED`（存储/回放）；采集器/列表/导出/回放接线/BLE 仅 `BUILD VERIFIED`；P2-02 仍 `WIP`。
 - 全量回归（2026-11-06）：`./gradlew :core:test :nmea:test :xposed:testDebugUnitTest :app:testArm64DebugUnitTest :detector:assembleDebug` → `BUILD SUCCESSFUL`，249 项 JVM 用例 0 失败（core 95、nmea 2、xposed 30、app 122）。
 

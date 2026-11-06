@@ -1,0 +1,288 @@
+# 06 · 验证、Detector 与发布门禁
+
+> 目标：让“隐藏/伪装”从“看起来对”变成“有证据”。  
+> 没有 detector 和设备证据的 Hook 改动，不算完成。
+
+---
+
+## 1. 证据模型
+
+沿用 Portal 现有写法：
+
+| 等级 | 能证明什么 | 不能证明什么 |
+|---|---|---|
+| `SOURCE VERIFIED` | 代码路径存在、逻辑自洽 | 系统真的这样跑 |
+| `BUILD VERIFIED` | 编译/lint/打包通过 | Hook 命中 |
+| `UNIT TEST VERIFIED` | 纯逻辑正确 | Android/Binder/ROM 行为 |
+| `DEVICE VERIFIED` | 指定设备/ROM/版本上通过 | 所有设备 |
+| `FIELD VERIFIED` | 真实使用稳定 | 所有场景 |
+
+发布门禁只认 `DEVICE VERIFIED` 及以上。
+
+---
+
+## 2. Detector 应用（`:detector`）
+
+### 2.1 约束
+
+- 独立 Android app，不依赖 `:app`/`:xposed` 的实现类。
+- 只用公开 API + 反射；不引用 Portal 的内部类。
+- 结果可导出 JSON；可重复运行；失败给证据。
+- 默认不上传网络；导出由用户触发。
+
+### 2.2 页面
+
+1. **Run**：一键运行全部检查；显示进度。
+2. **Results**：按 PASS/FAIL/UNKNOWN 分组；展开看证据。
+3. **Export**：导出 JSON/文本；复制到剪贴板。
+4. **Settings**：目标包名、是否测试 GMS、是否读取已安装应用。
+
+### 2.3 输出 schema
+
+```json
+{
+  "schema": 1,
+  "generatedAtMillis": 1790000000000,
+  "device": {
+    "manufacturer": "Xiaomi",
+    "model": "23127PN0CC",
+    "android": 15,
+    "sdk": 35,
+    "rom": "HyperOS 2.0",
+    "lsposed": "1.9.2",
+    "abis": ["arm64-v8a"]
+  },
+  "checks": [
+    {"id": "C01", "status": "PASS", "detail": "isMock=false, extras.mockLocation absent"},
+    {"id": "C02", "status": "FAIL", "detail": "AppOps OP_MOCK_LOCATION=MODE_ALLOWED"}
+  ]
+}
+```
+
+---
+
+## 3. 检查目录（v1）
+
+| ID | 检查 | 期望 | 说明 |
+|---|---|---|---|
+| C01 | `Location.isMock`/`isFromMockProvider`/反射字段 | false | 覆盖 Android 12–17 字段差异 |
+| C02 | `AppOpsManager.checkOp(OP_MOCK_LOCATION)` | 非 ALLOWED | 需要 Hook `AppOpsService` |
+| C03 | `Settings.Secure.getString("mock_location")`、开发者选项 | 不可见/0 | 需要 settings provider scope |
+| C04 | `getProviders`/`getAllProviders`/`getProviderProperties`/`isProviderEnabled` | 无 `fused_ext`/test provider | 恢复列表 Hook |
+| C05 | `Location` extras/`satellites`/MSL/不确定度/`LocationAvailability` | 字段完整且自洽 | 不要空 extras |
+| C06 | `GnssStatus` 卫星数/星座/CN0/usedInFix/稳定性 | 多星座、稳定、CN0 合理 | 不能随机 shuffle |
+| C07 | NMEA GGA/RMC/GSA/GSV 校验和/卫星数/时间 | 全部自洽 | 与 C06 同源 |
+| C08 | WiFi 扫描/连接/DHCP/开关状态 | 非空、BSSID 合法、连接 AP 在列表 | 不能空列表/哨兵 BSSID |
+| C09 | CellInfo/SIM/operator/phone type/signal | 自洽 | 不能 CDMA + GSM SIM |
+| C10 | 加速度/陀螺仪/地磁/气压/计步 | 与运动状态一致 | 静止不增长 |
+| C11 | Activity Recognition / 健康/计步 | 与运动状态一致 | 先保证不矛盾 |
+| C12 | 轨迹统计：FFT/瞬移/速度/时间戳 | 无单频峰、无瞬移 | 连续采样 2–5 分钟 |
+| C13 | `PackageManager` 的 `xposedmodule`/LSPosed/Portal 包 | 不可见/不可判定 | libxposed 迁移后重点 |
+| C14 | `/proc/self/maps`/`TracerPid`/root 痕迹 | 无 `liblspd`/`libdobby`/可疑路径 | 仅在需要时测 |
+| C15 | 出口 IP/时区/locale/carrier vs 坐标 | 不矛盾 | 服务端风控相关 |
+
+### 3.1 检查分级
+
+- **阻断级**：C01–C05、C08、C09。C13 在 P6（libxposed/元数据迁移）完成后升级为阻断级。
+- **警告级**：C06、C07、C10–C12、C14、C15。可 Beta 观察，但必须记录。
+- **研究级**：C14/C15 的部分子项依赖设备/网络，允许 UNKNOWN。
+
+### 3.2 运行条件
+
+- 授予定位、WiFi、电话、通知权限。
+- 模拟运行中（单点/路线）。
+- 分别记录：模拟前、模拟中、停止后。
+- 至少连续采样 2 分钟；轨迹检查 5 分钟。
+
+---
+
+## 4. 设备矩阵
+
+### 4.1 必测系统
+
+| Android | API | 优先级 | 备注 |
+|---|---:|---|---|
+| 12 | 31 | P1 | minSdk 下限 |
+| 13 | 33 | P1 | 权限/通知变化 |
+| 14 | 34 | P1 | 前台服务/精确位置 |
+| 15 | 35 | P0 | 当前主力 |
+| 16 | 36 | P0 | 16 KB 页/LSPosed |
+| 17 | 37 | P2 | targetSdk 对齐 |
+
+### 4.2 必测 ROM
+
+| ROM | 优先级 | 重点 |
+|---|---|---|
+| Pixel/AOSP | P0 | 基线行为 |
+| Xiaomi HyperOS | P0 | MIUI fused/blur/权限 |
+| OPPO ColorOS | P1 | OPLUS location |
+| vivo OriginOS | P2 | 厂商 fused |
+| Samsung One UI | P2 | 权限/后台 |
+| Huawei（无 GMS） | P2 | 无 GMS 路径 |
+
+### 4.3 环境维度
+
+- LSPosed：legacy 1.9.x / libxposed 兼容版本。
+- Root：无 Root / Magisk / KernelSU / APatch。
+- ABI：arm64 真机 / x86_64 模拟器。
+- 网络：WiFi / 蜂窝 / 飞行模式。
+- 屏幕：16 KB 页设备（如支持）。
+
+### 4.4 本轮最小矩阵
+
+P0 阶段至少：
+
+1. 一台 Xiaomi HyperOS（Android 15/16）。
+2. 一台 Pixel/AOSP（Android 15/16）。
+3. 一个 API 35/37 模拟器（CI）。
+
+后续每个 Phase 至少复测这两台。
+
+---
+
+## 5. 测试金字塔
+
+```text
+        ┌─────────────────────┐
+        │ Detector / 设备验收 │  少、慢、最可信
+        ├─────────────────────┤
+        │ Instrumentation     │  Hook/Provider/路由
+        ├─────────────────────┤
+        │ JVM 单元测试        │  多、快、纯逻辑
+        └─────────────────────┘
+```
+
+### 5.1 JVM 单元测试（必须）
+
+- `:core`：坐标、播放、Provider 画像、噪声、GNSS 模型、NMEA 生成、路由、环境模型。
+- `:nmea`：黄金向量、校验和、异常输入。
+- `:xposed`：纯策略（scope、security、lease、hook arguments）。
+- `:app`：后端状态机、配置迁移、设置 schema。
+
+### 5.2 Instrumentation（设备/模拟器）
+
+- `MockProviderDeviceTest`：注册/发布/清理/权限撤销。
+- `MockFlagExperimentTest`：本地反射边界。
+- `LocationSampleTest`：Location 字段/extras。
+- 新增：Provider 列表、AppOps、Settings、WiFi/Cell、GNSS/NMEA、per-app。
+
+### 5.3 Detector（端到端）
+
+- 每个 Phase 结束跑一次完整 C01–C15。
+- 结果保存到 `docs/roadmap/baselines/<date>-<device>.json`（可脱敏）。
+- 对比上一版：新增 FAIL = 阻断。
+
+### 5.4 手动 Smoke
+
+- 高德/百度/Google 地图各一次。
+- 微信/钉钉/学习通等（按维护者测试清单）。
+- 停止模拟后恢复真实定位。
+- 重启、升级安装、权限撤销、服务被杀。
+
+---
+
+## 6. 各 Phase 回归清单
+
+| Phase | 必过检查 | 设备动作 |
+|---|---|---|
+| P1 | C01–C05 | 模拟中/停止后各跑一次 |
+| P2 | C08、C09 | WiFi 开/关、飞行模式、无 SIM |
+| P3 | C06、C07 | 室外/室内、GPS 应用、NMEA 工具 |
+| P4 | C10–C12 | 静止/步行/跑步/驾车、5 分钟轨迹 |
+| P5 | C04 + per-app 场景 | 两个 App 不同坐标、工作资料 |
+| P6 | C13、C14 | LSPosed 版本矩阵、重启 |
+| P7 | C11、C15 | 网络切换、时区/locale |
+
+---
+
+## 7. 发布门禁
+
+### 7.1 必须满足
+
+1. 阻断级检查（C01–C05、C08、C09；P6 后加 C13）全部 PASS。
+2. 新增/修改 Hook 有至少一台目标设备的 `DEVICE VERIFIED`。
+3. 现有 JVM 测试、lint、Release 构建通过。
+4. 无新增崩溃/ANR（Beta 7 天或 20 台设备）。
+5. 实验能力默认关闭，UI 标注。
+6. 文档 `01/05/06` 更新；许可证/归属更新。
+7. 可回退：feature flag 或已知重启步骤。
+
+### 7.2 阻断条件
+
+- 任一阻断级检查 FAIL。
+- `PackageManager` 仍能识别 `xposedmodule`（P6 后）。
+- 无法停止/清理，或停止后真实定位不恢复。
+- 目标 App 崩溃/ANR 与本次改动相关。
+- 许可证不明的新依赖/代码。
+
+---
+
+## 8. 基线报告模板
+
+```text
+# Detector 基线
+
+- 日期：
+- 设备/ROM/Android/ABI：
+- LSPosed/Root：
+- Portal 版本/commit：
+- 模拟模式：单点 / 路线 / 摇杆
+- 运行时长：
+
+| ID | 模拟前 | 模拟中 | 停止后 | 证据 |
+|---|---|---|---|---|
+| C01 |  |  |  |  |
+| ... |  |  |  |  |
+
+结论：
+- 阻断级 FAIL：
+- 警告级 FAIL：
+- 与上一版差异：
+- 备注：
+```
+
+保存到 `docs/roadmap/baselines/`；如含敏感信息，先脱敏。
+
+---
+
+## 9. 性能与稳定性指标
+
+先测基线，再定目标（Q-06）。建议至少记录：
+
+| 指标 | 采集方式 | 目标（待确认） |
+|---|---|---|
+| 发布延迟 p50/p95 | `DiagnosticJournal`/日志 | p95 < 10 ms（Binder） |
+| CPU（模拟中） | `top`/Perfetto | < 5% |
+| 内存 | `dumpsys meminfo` | < 150 MB |
+| 电池 | Battery Historian | < 2%/h |
+| 启动到首次定位 | 日志 | < 3 s |
+| APK 体积 | 构建产物 | 不显著增加 |
+
+性能测试不阻塞功能开发，但 P4/P7 必须有报告。
+
+---
+
+## 10. Detector 隐私
+
+- 默认不上传网络。
+- 导出文件由用户触发；提示可能含 WiFi/基站信息。
+- 不记录账号、聊天、位置历史。
+- 读取已安装应用列表时说明用途；优先 `<queries>`。
+
+---
+
+## 11. 证据记录格式
+
+每个任务完成后，在本文追加：
+
+```text
+### <任务 ID> <标题>
+- 日期：
+- 设备/ROM/Android/LSPosed：
+- 变更：
+- 检查：Cxx PASS/FAIL；证据路径
+- 回归：JVM 用例数；lint；Release 构建
+- 结论：DEVICE VERIFIED / 仍有 UNKNOWN
+```
+
+只有 `DEVICE VERIFIED` 才能把 [05-work-plan.md](05-work-plan.md) 的状态改为 `DONE`。

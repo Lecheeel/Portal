@@ -517,8 +517,7 @@ P0 阶段至少：
 - 变更：`:core` 新增 `MotionMode`/`ActivityKind`/`MotionState`/`SensorFrame`/`SensorModel` 与 `SyntheticSensorModel`：静止/步行/跑步/驾车四模式；加速度重力+步态振荡、陀螺仪/地磁/气压随运动变化；步数按 cadence 累积（保留小数余量）；固定 seed 可复现。
 - 检查：`SensorModelTest` 8 项（静止重力/无步、步行步数、跑步 cadence/幅度、驾车、气压-海拔、同 seed 可复现、不同 seed、有限值/边界）通过。
 - 未完成：Native `SensorEventQueue::write` 尚未读取该模型（P4-04）；Activity Recognition 仅作为 frame 字段，未接系统回调。
-- 结论：`UNIT TEST VERIFIED`；P4-05 仍 `WIP`。
-- 全量回归（2026-11-06）：279 项 JVM 用例 0 失败（core 120、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
+- 结论：`UNIT TEST VERIFIED`（8 项）；模型/Activity 策略完成；native 接线/设备验证留给 P4-04；P4-05 `DONE`。
 
 ---
 

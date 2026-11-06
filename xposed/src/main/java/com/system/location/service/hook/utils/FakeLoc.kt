@@ -10,7 +10,6 @@ import android.os.SystemClock
 import kotlin.math.asin
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
-import com.system.location.service.core.runtime.RuntimeSnapshot
 import com.system.location.service.core.runtime.RuntimeSnapshotStore
 
 object FakeLoc {
@@ -18,6 +17,9 @@ object FakeLoc {
      * 是否允许打印日志
      */
     var enableLog = true
+
+    /** P5-07: authoritative sample/environment/routing storage; legacy config fields remain. */
+    val runtimeSnapshots = RuntimeSnapshotStore()
 
     /**
      * 是否允许打印调试日志
@@ -97,8 +99,9 @@ object FakeLoc {
     var environmentSeed = 0L
 
     /** Captured WiFi/cell profile used for replay; null keeps the procedural source. */
-    @Volatile
-    var replayEnvironment: com.system.location.service.core.environment.EnvironmentProfile? = null
+    var replayEnvironment: com.system.location.service.core.environment.EnvironmentProfile?
+        get() = runtimeSnapshots.current().environment
+        set(value) { runtimeSnapshots.update { it.copy(environment = value) } }
 
     /** Optional bounded OU drift; disabled by default and never applied to real locations. */
     @Volatile
@@ -111,8 +114,9 @@ object FakeLoc {
     var simReady = true
 
     /** P3-05: analytical production model by default; ORBITAL is a feasibility experiment. */
-    @Volatile
-    var gnssModelMode = com.system.location.service.core.gnss.GnssModelMode.ANALYTIC
+    var gnssModelMode: com.system.location.service.core.gnss.GnssModelMode
+        get() = runtimeSnapshots.current().gnssModel
+        set(value) { runtimeSnapshots.update { it.copy(gnssModel = value) } }
 
     /** P2-07 environment knobs; defaults preserve the P2-03/P2-05 behavior. */
     @Volatile
@@ -123,8 +127,9 @@ object FakeLoc {
     var environmentSourceMode = com.system.location.service.core.environment.EnvironmentSourceMode.AUTO
 
     /** P5-02: null/global keeps every listener on the current fake fix. */
-    @Volatile
-    var routingConfig: com.system.location.service.core.routing.RoutingConfig? = null
+    var routingConfig: com.system.location.service.core.routing.RoutingConfig?
+        get() = runtimeSnapshots.current().routing
+        set(value) { runtimeSnapshots.update { it.copy(routing = value) } }
 
     /**
      * 反定位复原加强（启用后将导致部分应用在关闭LocationService后需要重新启动才能重新获取定位）
@@ -149,8 +154,6 @@ object FakeLoc {
 
     @Volatile var bearing = 0.0
     @Volatile var reportIntervalMs = 100L
-    /** P5-07: authoritative sample storage; legacy fields remain for config compatibility. */
-    val runtimeSnapshots = RuntimeSnapshotStore()
     /** P5-02: per-scenario samples; routing falls back to the active fix when a scenario has none. */
     val scenarioSamples = com.system.location.service.core.runtime.ScenarioSampleStore()
 
@@ -182,7 +185,7 @@ object FakeLoc {
         coordinates = lat to lon
         movementSpeed = movingSpeed.coerceAtLeast(0f)
         lastMovementNanos = nowNanos
-        runtimeSnapshots.set(RuntimeSnapshot.EMPTY)
+        runtimeSnapshots.clearSample()
         externallyDriven = false
     }
 

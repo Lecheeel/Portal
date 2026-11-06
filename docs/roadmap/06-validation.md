@@ -401,7 +401,8 @@ P0 阶段至少：
 
 - 变更：新增 `ProceduralWifiSource`：约 100 m 网格、固定 seed、每格 `apPerCell` 个 AP、真实 OUI、固定信道/频率、距离路径损耗 + 确定性 jitter、最近 AP 标记 connected；同一格内移动时 AP 集合不变、RSSI 平滑。
 - 检查：`:core:test` 新增 6 项 `ProceduralWifiSourceTest`（同点同 seed、不同 seed、合法性、邻近平滑、时间不影响 AP、无 cell/BLE）通过。
-- 限制：尚未处理跨格插值与 connected AP 切换滞回；P2-04 Hook 未接入，detector C08 尚未验证。
+- 限制：跨格插值与 connected AP 切换滞回仍可增强；P2-04 `WlanHook` 已接入；detector C08 设备未跑。
+- 结论：`ProceduralWifiSourceTest` 6 项 + Hook 接线完成；P2-03 `DONE`。
 - 结论：`UNIT TEST VERIFIED`。
 
 ### P2-02 回放源（部分）

@@ -424,9 +424,10 @@ P0 阶段至少：
 ### P2-05 基站画像（部分）
 
 - 变更：`FakeLoc.needDowngradeToCdma` 默认改为 false（ADR-005）；`:core` 新增 `CellModePolicy.resolve`（AUTO → 有 SIM `FULL_REPLAY` / 无 SIM `NO_SIM_WIFI_ONLY`）与 `ProceduralCellSource`（1 个 registered LTE + 3 个 LTE 邻区 + 1 个 NR，MCC/MNC/area/cellId/PCI/RSRP 确定性生成）。
-- 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用），完整 LTE/NR + SIM/operator/phone type 画像、`NO_SIM_WIFI_ONLY` 的 Hook 改写尚未做。
-- 检查：`:core:test` 通过（`ProceduralCellSourceTest` 7 项：FULL_REPLAY、AUTO 无 SIM、AUTO 有 SIM、LEGACY、确定性、邻区差异、非法 SIM）；`:xposed` 编译/测试通过。
-- 结论：模型 `UNIT TEST VERIFIED`，P2-05 仍 `WIP`。
+- 变更：`TelephonyHook` 新增 `CellInfoSynthesis`，对第三方 `getAllCellInfo` 用反射构造 LTE `CellInfoLte`/`CellIdentityLte`/`CellSignalStrengthLte`；构造失败或系统调用方保留原始列表，CDMA 旧路径仍由开关控制。
+- 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用），SIM/operator/phone type 画像、`NO_SIM_WIFI_ONLY` 的 Hook 改写尚未做。
+- 检查：`:core:test` 通过（`ProceduralCellSourceTest` 7 项：FULL_REPLAY、AUTO 无 SIM、AUTO 有 SIM、LEGACY、确定性、邻区差异、非法 SIM）；`:xposed` 编译/测试通过；无设备。
+- 结论：模型 `UNIT TEST VERIFIED`；`CellInfoSynthesis` 仅 `BUILD VERIFIED`，隐藏构造/字段在不同 ROM 上可能不同，需真机确认；P2-05 仍 `WIP`。
 
 ### P2-06 WiFi 指纹库（实验，部分）
 

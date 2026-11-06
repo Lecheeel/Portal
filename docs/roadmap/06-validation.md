@@ -548,7 +548,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：405 项 JVM 用例 0 失败（core 238、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：408 项 JVM 用例 0 失败（core 241、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -579,7 +579,8 @@ P0 阶段至少：
 - 变更：新增 `10-store-transport.md`，比较 Binder 与 ashmem 双缓冲方案，决定当前保持 Binder+FileConfigStore，SHM 仅在性能超预算时实验启用。
 - 变更：新增 `SeqLockSampleStore` 纯 JVM 双缓冲/seqlock 模型；写者单线程、读者 sequence 重试，`SeqlockSampleStoreTest` 3 项（读/租约/并发无撕裂）通过。
 - 变更：新增 `SharedSampleCodec` 64 字节 slot 编码（magic/version/经纬度/海拔/精度/速度/航向/时间/CRC），`SharedSampleCodecTest` 3 项（roundtrip/CRC/magic/版本/坐标）通过。
-- 结论：`UNIT TEST VERIFIED`（存储/并发/编码）；传输设计 `SOURCE VERIFIED`；P5-06 仍 `WIP`。
+- 变更：新增 `SharedSampleHeader` 32 字节 header（writeIndex/sequence/elapsed/CRC），`SharedSampleHeaderTest` 3 项（roundtrip/CRC/非法字段）通过。
+- 结论：`UNIT TEST VERIFIED`（存储/并发/编码/header）；传输设计 `SOURCE VERIFIED`；P5-06 仍 `WIP`。
 
 ### P5-07 RuntimeSnapshot（部分）
 

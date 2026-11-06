@@ -217,7 +217,7 @@ P0 基线
 
 **Phase 6 退出**：模块元数据不可见；libxposed 可用；Native 实验默认关且可回退；文档不再夸大。
 
-> 2026-11-06：P5-06 已加入存储抽象、原子 `FileConfigStore`、active config、`SeqLockSampleStore` 并发模型与 `SharedSampleCodec` 64B slot；Binder/SHM 实现与自动恢复未做，见 `10-store-transport.md`。
+> 2026-11-06：P5-06 已加入存储抽象、原子 `FileConfigStore`、active config、`SeqLockSampleStore`、`SharedSampleCodec`/`SharedSampleHeader`；Binder/SHM 实现与自动恢复未做，见 `10-store-transport.md`。
 > 2026-11-06：P6-01 已加入 `io.github.libxposed:api:102.0.0` compileOnly 依赖、`LibXposedSpike` 与独立 `:libxposed-spike` APK（元数据打包验证）；LSPosed 加载/scope/热重载未做。
 
 > 2026-11-06：P6-06 已更新 `01-current-state.md` 中 Native 传感器、Provider 列表、NMEA、GNSS 的过期描述；README 与设置页的完整对齐清单未做。

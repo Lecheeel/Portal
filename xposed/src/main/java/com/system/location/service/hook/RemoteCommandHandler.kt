@@ -9,6 +9,7 @@ import android.os.SystemClock
 import com.system.location.service.hook.security.CommandSecurity
 import com.system.location.service.hook.security.PublicationLease
 import com.system.location.service.hook.security.SampleWire
+import com.system.location.service.hook.security.SensitiveLog
 import com.system.location.service.hook.scope.HookOwnership
 import com.system.location.service.hook.scope.HookStatusRegistry
 import com.system.location.service.jni.Dobby
@@ -114,7 +115,9 @@ object RemoteCommandHandler {
         }
 
         if (FakeLoc.enableDebugLog && commandId !in setOf("publish_sample", "get_runtime_status")) {
-            Logger.debug("commandId=$commandId, rely=$rely")
+            Logger.debug(SensitiveLog.describe(commandId, rely.keySet().associateWith { key ->
+                runCatching { rely.get(key)?.toString() }.getOrNull()
+            }))
         }
 
         when (commandId) {

@@ -42,6 +42,7 @@ object LocationNMEAHook: BaseLocationHook() {
 
     private fun hookGnssNmea(classILocationManager: Class<*>) {
         val hookedGnssCallback = Collections.synchronizedSet(HashSet<String>())
+        val counters = java.util.concurrent.ConcurrentHashMap<String, Int>()
         val unhooks = classILocationManager.declaredMethods.filter {
             it.name == "registerGnssNmeaCallback" && it.parameterTypes.size > 1
         }.map { method ->
@@ -58,14 +59,10 @@ object LocationNMEAHook: BaseLocationHook() {
                 cIGnssNmeaCallback.onceHookMethodBefore("onNmeaReceived", Long::class.java, String::class.java) {
                     // Single NMEA rewrite point (P3-04). When simulation is active but the NMEA
                     // feature is off, suppress the real sentences instead of leaking them; when on,
-                    // rewrite them and suppress anything the current generator cannot map yet.
+                    // replace them with the same generator that feeds GnssStatus.
                     if (!FakeLoc.enable) return@onceHookMethodBefore
                     val nmea = args[1] as? String ?: return@onceHookMethodBefore
-                    if (!FakeLoc.enableNMEA) {
-                        args[1] = ""
-                        return@onceHookMethodBefore
-                    }
-                    args[1] = injectNMEA(nmea) ?: ""
+                    args[1] = NmeaBridge.rewrite(nmea, counters)
                 }
             }
         }

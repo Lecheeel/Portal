@@ -1,9 +1,12 @@
 package com.system.location.service.hook.hooks.telephony
 
 import android.telephony.CellIdentityLte
+import android.telephony.CellIdentityNr
 import android.telephony.CellInfo
 import android.telephony.CellInfoLte
+import android.telephony.CellInfoNr
 import android.telephony.CellSignalStrengthLte
+import android.telephony.CellSignalStrengthNr
 import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.CellType
@@ -38,33 +41,57 @@ object CellInfoSynthesis {
     }
 
     private fun build(): List<CellInfo> {
-        val captured = FakeLoc.replayEnvironment?.cells
-            ?.filter { it.type == CellType.LTE }
-            ?.takeIf { it.isNotEmpty() }
+        val captured = FakeLoc.replayEnvironment?.cells?.takeIf { it.isNotEmpty() }
         val towers = captured ?: ProceduralCellSource(EnvironmentConfig(cellMode = CellMode.FULL_REPLAY)).cellsAt(
             Wgs84(FakeLoc.latitude, FakeLoc.longitude),
             FakeLoc.environmentSeed,
             SimProfile(mcc = 460, mnc = 0, simReady = true),
-        ).filter { it.type == CellType.LTE }
+        )
         return towers.mapNotNull { tower ->
-            runCatching {
-                val identity = XposedHelpers.newInstance(
-                    CellIdentityLte::class.java,
-                    tower.mcc, tower.mnc, tower.cellId.toInt(), tower.pci ?: 0, tower.areaCode, tower.arfcn ?: 0,
-                ) as CellIdentityLte
-                val signal = XposedHelpers.newInstance(CellSignalStrengthLte::class.java) as CellSignalStrengthLte
-                XposedHelpers.setIntField(signal, "mRsrp", tower.rsrp)
-                XposedHelpers.setIntField(signal, "mRsrq", tower.rsrq ?: -10)
-                XposedHelpers.setIntField(signal, "mRssnr", tower.rssnr ?: 5)
-                XposedHelpers.setIntField(signal, "mRssi", tower.rsrp - 30)
-                XposedHelpers.setIntField(signal, "mLevel", 3)
-                val cell = XposedHelpers.newInstance(CellInfoLte::class.java) as CellInfoLte
-                XposedHelpers.setObjectField(cell, "mCellIdentityLte", identity)
-                XposedHelpers.setObjectField(cell, "mCellSignalStrengthLte", signal)
-                XposedHelpers.callMethod(cell, "setRegistered", tower.registered)
-                XposedHelpers.callMethod(cell, "setTimeStamp", System.nanoTime())
-                cell
-            }.getOrNull()
+            when (tower.type) {
+                CellType.LTE -> buildLte(tower)
+                CellType.NR -> buildNr(tower)
+                else -> null
+            }
         }
     }
+
+    private fun buildLte(tower: com.system.location.service.core.environment.CellTower): CellInfo? =
+        runCatching {
+            val identity = XposedHelpers.newInstance(
+                CellIdentityLte::class.java,
+                tower.mcc, tower.mnc, tower.cellId.toInt(), tower.pci ?: 0, tower.areaCode, tower.arfcn ?: 0,
+            ) as CellIdentityLte
+            val signal = XposedHelpers.newInstance(CellSignalStrengthLte::class.java) as CellSignalStrengthLte
+            XposedHelpers.setIntField(signal, "mRsrp", tower.rsrp)
+            XposedHelpers.setIntField(signal, "mRsrq", tower.rsrq ?: -10)
+            XposedHelpers.setIntField(signal, "mRssnr", tower.rssnr ?: 5)
+            XposedHelpers.setIntField(signal, "mRssi", tower.rsrp - 30)
+            XposedHelpers.setIntField(signal, "mLevel", 3)
+            val cell = XposedHelpers.newInstance(CellInfoLte::class.java) as CellInfoLte
+            XposedHelpers.setObjectField(cell, "mCellIdentityLte", identity)
+            XposedHelpers.setObjectField(cell, "mCellSignalStrengthLte", signal)
+            XposedHelpers.callMethod(cell, "setRegistered", tower.registered)
+            XposedHelpers.callMethod(cell, "setTimeStamp", System.nanoTime())
+            cell
+        }.getOrNull()
+
+    private fun buildNr(tower: com.system.location.service.core.environment.CellTower): CellInfo? =
+        runCatching {
+            val identity = XposedHelpers.newInstance(
+                CellIdentityNr::class.java,
+                tower.mcc, tower.mnc, tower.cellId, tower.pci ?: 0, tower.areaCode, tower.arfcn ?: 0,
+            ) as CellIdentityNr
+            val signal = XposedHelpers.newInstance(CellSignalStrengthNr::class.java) as CellSignalStrengthNr
+            XposedHelpers.setIntField(signal, "mSsRsrp", tower.rsrp)
+            XposedHelpers.setIntField(signal, "mSsRsrq", tower.rsrq ?: -12)
+            XposedHelpers.setIntField(signal, "mSsSinr", tower.rssnr ?: 2)
+            XposedHelpers.setIntField(signal, "mLevel", 3)
+            val cell = XposedHelpers.newInstance(CellInfoNr::class.java) as CellInfoNr
+            XposedHelpers.setObjectField(cell, "mCellIdentity", identity)
+            XposedHelpers.setObjectField(cell, "mCellSignalStrength", signal)
+            XposedHelpers.callMethod(cell, "setRegistered", tower.registered)
+            XposedHelpers.callMethod(cell, "setTimeStamp", System.nanoTime())
+            cell
+        }.getOrNull()
 }

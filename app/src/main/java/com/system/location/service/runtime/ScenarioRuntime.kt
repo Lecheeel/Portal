@@ -110,6 +110,16 @@ object ScenarioRuntime {
         val saved = withContext(Dispatchers.IO) {
             runCatching { configStore.load() }.getOrNull()
         } ?: return false
+        withContext(Dispatchers.IO) {
+            context.routingJson = Json.encodeToString(RoutingConfig.serializer(), saved.routing)
+            context.environmentApCount = saved.environment.apPerCell
+            context.cellMode = saved.environment.cellMode.name
+            context.environmentSourceMode = when (saved.environment.source) {
+                EnvironmentSourceType.REPLAY, EnvironmentSourceType.DATABASE -> "REPLAY"
+                EnvironmentSourceType.PROCEDURAL -> "PROCEDURAL"
+            }
+            context.physicalNoise = saved.noise.enabled
+        }
         return start(saved.scenario).await()
     }
 

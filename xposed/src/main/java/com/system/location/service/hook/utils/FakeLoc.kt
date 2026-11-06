@@ -156,19 +156,26 @@ object FakeLoc {
      * 上一次的位置
      */
     @Volatile var lastLocation: Location? = null
-    @Volatile private var coordinates = 0.0 to 0.0
-    val latitude get() = coordinates.first
-    val longitude get() = coordinates.second
-    fun coordinatePair(): Pair<Double, Double> = coordinates
-    @Volatile var altitude = 80.0
+    val latitude get() = runtimeSnapshots.current().latitude
+    val longitude get() = runtimeSnapshots.current().longitude
+    fun coordinatePair(): Pair<Double, Double> = latitude to longitude
+    var altitude: Double
+        get() = runtimeSnapshots.current().altitudeMeters
+        set(value) { runtimeSnapshots.update { it.copy(altitudeMeters = value) } }
 
-    @Volatile var speed = 3.05
+    var speed: Double
+        get() = runtimeSnapshots.current().speedMps
+        set(value) { runtimeSnapshots.update { it.copy(speedMps = value.coerceAtLeast(0.0)) } }
 
     var speedAmplitude = 1.0
 
-    @Volatile var hasBearings = false
+    var hasBearings: Boolean
+        get() = runtimeSnapshots.current().hasBearings
+        set(value) { runtimeSnapshots.update { it.copy(hasBearings = value) } }
 
-    @Volatile var bearing = 0.0
+    var bearing: Double
+        get() = runtimeSnapshots.current().bearingDeg
+        set(value) { runtimeSnapshots.update { it.copy(bearingDeg = value) } }
     @Volatile var reportIntervalMs = 100L
     /** P5-02: per-scenario samples; routing falls back to the active fix when a scenario has none. */
     val scenarioSamples = com.system.location.service.core.runtime.ScenarioSampleStore()
@@ -198,22 +205,26 @@ object FakeLoc {
     @Synchronized
     fun updateCoordinates(lat: Double, lon: Double, movingSpeed: Float = 0f, nowNanos: Long = SystemClock.elapsedRealtimeNanos()) {
         require(lat in -90.0..90.0 && lon in -180.0..180.0)
-        coordinates = lat to lon
+        runtimeSnapshots.update { it.copy(latitude = lat, longitude = lon, sample = null, provider = null) }
         movementSpeed = movingSpeed.coerceAtLeast(0f)
         lastMovementNanos = nowNanos
-        runtimeSnapshots.clearSample()
         externallyDriven = false
     }
 
     @Synchronized
     fun acceptSample(fix: LocationSample) {
-        coordinates = fix.latitude to fix.longitude
-        altitude = fix.altitude
-        accuracy = fix.accuracy
-        speed = fix.speed.toDouble()
-        bearing = fix.bearing.toDouble()
-        hasBearings = true
-        runtimeSnapshots.publishSample(fix)
+        runtimeSnapshots.update {
+            it.copy(
+                latitude = fix.latitude,
+                longitude = fix.longitude,
+                altitudeMeters = fix.altitude,
+                accuracyMeters = fix.accuracy.coerceAtLeast(0.1f),
+                speedMps = fix.speed.toDouble().coerceAtLeast(0.0),
+                bearingDeg = fix.bearing.toDouble(),
+                hasBearings = true,
+                sample = fix,
+            )
+        }
         externallyDriven = true
     }
 
@@ -223,7 +234,7 @@ object FakeLoc {
             if (externallyDriven) return it
             if (!force && now - it.elapsedNanos < reportIntervalMs.coerceIn(50, 1000) * 1_000_000) return it
         }
-        val point = coordinates
+        val point = coordinatePair()
         lastSampleNanos = maxOf(now, lastSampleNanos + 1)
         return LocationSample(
             Wgs84(point.first, point.second), altitude, accuracy.coerceAtLeast(0.1f),
@@ -233,13 +244,10 @@ object FakeLoc {
         ).also { runtimeSnapshots.publishSample(it) }
     }
 
-    @Volatile var accuracy = 25.0f
+    var accuracy: Float
+        get() = runtimeSnapshots.current().accuracyMeters
         set(value) {
-            field = if (value < 0) {
-                -value
-            } else {
-                value
-            }
+            runtimeSnapshots.update { it.copy(accuracyMeters = kotlin.math.abs(value).coerceAtLeast(0.1f)) }
         }
 
     fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

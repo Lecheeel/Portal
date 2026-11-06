@@ -741,8 +741,10 @@ internal object LocationServiceHook: BaseLocationHook() {
         locationListeners.forEach { listenerWithProvider ->
             val listener = listenerWithProvider.second
             if (!FakeLoc.enable) return
-            if (!ListenerRouting.shouldDeliver(listener)) return@forEach
-            val location = sampleForProvider(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
+            val route = ListenerRouting.route(listener)
+            if (route is ListenerRouting.Route.Denied) return@forEach
+            val scenarioId = (route as? ListenerRouting.Route.Scenario)?.scenarioId
+            val location = sampleForProvider(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first, scenarioId)
                 .toLocation(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
             var called = false
             var error: Throwable? = null

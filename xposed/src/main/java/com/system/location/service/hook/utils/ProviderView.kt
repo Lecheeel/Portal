@@ -13,8 +13,8 @@ object ProviderView {
     private var noise: PhysicalNoise? = null
     private var noiseSeed: Long? = null
 
-    fun sampleFor(provider: String?): LocationSample {
-        val sample = applyNoise(FakeLoc.snapshot())
+    fun sampleFor(provider: String?, scenarioId: String? = null): LocationSample {
+        val sample = applyNoise(FakeLoc.snapshotForScenario(scenarioId))
         val kind = when (provider) {
             LocationManager.GPS_PROVIDER, "GnssBatch" -> ProviderKind.GPS
             LocationManager.NETWORK_PROVIDER -> ProviderKind.NETWORK

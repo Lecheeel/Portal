@@ -13,7 +13,8 @@ import moe.microbios.nmea.NmeaValue
 
 abstract class BaseLocationHook: BaseDivineService() {
     /** Provider-specific view of the current fake fix (P4-03): accuracy, latency, field mask. */
-    fun sampleForProvider(provider: String?): LocationSample = ProviderView.sampleFor(provider)
+    fun sampleForProvider(provider: String?, scenarioId: String? = null): LocationSample =
+        ProviderView.sampleFor(provider, scenarioId)
 
     fun injectLocation(originLocation: Location, realLocation: Boolean = true): Location {
         if (!FakeLoc.enable) {

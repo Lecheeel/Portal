@@ -37,16 +37,25 @@ object ListenerRouting {
         callerUids.remove(binder)
     }
 
-    fun shouldDeliver(listener: android.os.IInterface): Boolean {
-        val config = FakeLoc.routingConfig ?: return true
-        if (config.mode == RoutingMode.GLOBAL) return true
-        val uid = callerUids[listener.asBinder()] ?: return true
-        if (uid < 10_000) return true
-        val router = routerFor(config) ?: return true
-        return when (router.decision(uid)) {
-            RoutingDecision.Deny -> false
-            is RoutingDecision.Scenario, RoutingDecision.Global -> true
+    fun shouldDeliver(listener: android.os.IInterface): Boolean = route(listener) !is Route.Denied
+
+    fun route(listener: android.os.IInterface): Route {
+        val config = FakeLoc.routingConfig ?: return Route.Default
+        if (config.mode == RoutingMode.GLOBAL) return Route.Default
+        val uid = callerUids[listener.asBinder()] ?: return Route.Default
+        if (uid < 10_000) return Route.Default
+        val router = routerFor(config) ?: return Route.Default
+        return when (val decision = router.decision(uid)) {
+            RoutingDecision.Deny -> Route.Denied
+            is RoutingDecision.Scenario -> Route.Scenario(decision.scenarioId)
+            RoutingDecision.Global -> Route.Default
         }
+    }
+
+    sealed class Route {
+        data object Default : Route()
+        data object Denied : Route()
+        data class Scenario(val scenarioId: String) : Route()
     }
 
     @Synchronized

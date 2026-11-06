@@ -123,6 +123,7 @@ object RemoteCommandHandler {
                 if (!publicationLease.renew(fix.elapsedNanos, SystemClock.elapsedRealtimeNanos())) return false
                 val needsTicker = !FakeLoc.enable || !FakeLoc.externallyDriven
                 FakeLoc.acceptSample(fix)
+                rely.getString("scenario_id")?.takeIf { it.isNotBlank() }?.let { FakeLoc.acceptScenarioSample(it, fix) }
                 FakeLoc.enable = true
                 lastPublishMillis = fix.timeMillis
                 if (needsTicker) LocationTicker.start()

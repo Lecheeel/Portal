@@ -136,6 +136,25 @@ object FakeLoc {
     @Volatile var bearing = 0.0
     @Volatile var reportIntervalMs = 100L
     private var sample: LocationSample? = null
+    /** P5-02: per-scenario samples; routing falls back to the active fix when a scenario has none. */
+    val scenarioSamples = com.system.location.service.core.runtime.ScenarioSampleStore()
+
+    @Synchronized
+    fun acceptScenarioSample(scenarioId: String, fix: LocationSample) {
+        scenarioSamples.publish(scenarioId, fix, SystemClock.elapsedRealtimeNanos())
+    }
+
+    @Synchronized
+    fun snapshotForScenario(
+        scenarioId: String?,
+        force: Boolean = false,
+        now: Long = SystemClock.elapsedRealtimeNanos(),
+        timeMillis: Long = System.currentTimeMillis(),
+    ): LocationSample {
+        if (scenarioId == null) return snapshot(force, now, timeMillis)
+        return scenarioSamples.latest(scenarioId, now)?.sample ?: snapshot(force, now, timeMillis)
+    }
+
     @Volatile var externallyDriven = false
         private set
     private var lastSampleNanos = 0L

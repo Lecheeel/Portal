@@ -1,5 +1,6 @@
 package com.system.location.service.detector.checks
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.DhcpInfo
@@ -17,6 +18,7 @@ import com.system.location.service.detector.model.CheckResult
  * 期望：WiFi 开启时扫描非空、BSSID 合法且不是 02:00:00:00:00:00、连接 AP 出现在扫描结果、
  * DHCP 与连接状态一致。
  */
+@SuppressLint("MissingPermission")
 class WifiCheck : Check {
     override val id = CheckIds.WIFI
     override val title = "WiFi 扫描与连接"

@@ -1,5 +1,6 @@
 package com.system.location.service.detector.sample
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -28,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
  * A denied permission is recorded in [SampleSnapshot.notes] instead of failing the whole run; the
  * affected checks then report UNKNOWN with the reason.
  */
+@SuppressLint("MissingPermission")
 class CheckSampler(
     private val context: Context,
     private val settings: DetectorSettings,

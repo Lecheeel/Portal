@@ -1,5 +1,6 @@
 package com.system.location.service.detector.checks
 
+import android.annotation.SuppressLint
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
@@ -16,6 +17,7 @@ import com.system.location.service.detector.model.CheckResult
  * `android.location.LocationAvailability` 不是公开 SDK API，本版用 isLocationEnabled +
  * isProviderEnabled 做可用性一致性判断，P1-05 接入 Hook 后再补逐 provider 的 availability。
  */
+@SuppressLint("MissingPermission")
 class LocationFieldsCheck : Check {
     override val id = CheckIds.LOCATION_FIELDS
     override val title = "Location 字段与 Availability"

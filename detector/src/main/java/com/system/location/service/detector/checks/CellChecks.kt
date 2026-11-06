@@ -1,5 +1,6 @@
 package com.system.location.service.detector.checks
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.pm.PackageManager
 import android.telephony.CellIdentityNr
@@ -22,6 +23,7 @@ import com.system.location.service.detector.model.CheckResult
  * 期望：CellInfo、SIM operator、network operator、phone type、signal、service state 自洽；
  * 不能出现 CDMA phone type + GSM/LTE SIM、或 SIM 可用但小区为空。
  */
+@SuppressLint("MissingPermission")
 class CellCheck : Check {
     override val id = CheckIds.CELL
     override val title = "蜂窝/SIM/运营商"

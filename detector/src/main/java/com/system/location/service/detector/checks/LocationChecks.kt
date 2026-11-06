@@ -1,5 +1,6 @@
 package com.system.location.service.detector.checks
 
+import android.annotation.SuppressLint
 import android.location.Location
 import android.location.LocationManager
 import com.system.location.service.detector.model.Check
@@ -13,6 +14,7 @@ import com.system.location.service.detector.model.CheckResult
  * 期望：`Location.isMock` / `isFromMockProvider` 以及反射字段（mMock、mIsFromMockProvider 等）
  * 对 Portal 发布的位置都不可见。Android 12–17 的字段名有差异，反射失败只记录，不伪造 PASS。
  */
+@SuppressLint("MissingPermission")
 class LocationMockCheck : Check {
     override val id = CheckIds.LOCATION_MOCK
     override val title = "位置模拟标记"

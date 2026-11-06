@@ -475,10 +475,9 @@ P0 阶段至少：
 ### P3-03 NMEA 生成器
 
 - 变更：`:nmea` 新增 `NmeaGenerator`（GGA/RMC/GSA/GSV/GST/ZDA），校验和复用 `NMEA.calculateNmeaChecksum`；GGA 卫星数 = 可见卫星数，GSA 只带 usedInFix，GSV 按 4 颗分组并带 systemId。
-- 检查：`NmeaGeneratorTest` 5 项（校验和、GGA/RMC 同源、GSV 分组/总数、GSA usedInFix、非法输入）通过；GGA/RMC/GSA/GSV 用现有 `NMEA.valueOf` roundtrip。
-- 限制：现有解析器不支持 GST/ZDA（生成器仍输出，detector 用通用解析）；尚未与 `GnssStatus` 共用同一个 Hook 输出。
-- 结论：`UNIT TEST VERIFIED`；P3-04 双 Hook 合并未做。
-- 全量回归（2026-11-06）：260 项 JVM 用例 0 失败（core 101、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
+- 检查：`NmeaGeneratorTest` 6 项（校验和、GGA/RMC 同源、GSV 分组/总数、GSA usedInFix、GST/ZDA 字段、非法输入）通过；GGA/RMC/GSA/GSV 用现有 `NMEA.valueOf` roundtrip，GST/ZDA 用原始字段断言。
+- 限制：现有解析器不支持 GST/ZDA（生成器仍输出，detector 用通用解析）；NMEA 依赖真实回调驱动，设备完整序列未验证。
+- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；GSV/GnssStatus 共用 `CatalogGnssSkyModel` 帧；P3-03 `DONE`。
 
 ---
 

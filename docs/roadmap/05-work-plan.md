@@ -154,7 +154,7 @@ P0 基线
 |---|---|---|---|---|---|---|
 | P3-01 | 抽取 GNSS 模型 | `GnssFrame`/`GnssSatellite`/`GnssSkyModel` 进 `:core` | `LocationServiceHook` 不再持有 BDS 星表；JVM 测试 | P1 | M | DONE |
 | P3-02 | 多星座 V1 | GPS/BDS/GLONASS/Galileo；确定性可见性；CN0 随仰角；usedInFix | detector 看不出随机 shuffle；星座混合合理 | P3-01 | L | WIP |
-| P3-03 | NMEA 生成器 | GGA/RMC/GSA/GSV/GST/ZDA；校验和；UTC；卫星数一致 | 黄金向量测试；GSV 与 GnssStatus 一致 | P3-01 | L | WIP |
+| P3-03 | NMEA 生成器 | GGA/RMC/GSA/GSV/GST/ZDA；校验和；UTC；卫星数一致 | 黄金向量测试；GSV 与 GnssStatus 一致 | P3-01 | L | DONE |
 | P3-04 | Hook 合并 | `GnssHook` + `LocationNMEAHook` → 单入口；修正 `enableNMEA` 语义 | 只有一个 `onNmeaReceived` 改写点；detector 通过 | P3-03 | M | WIP |
 | P3-05 | V2 天空模型/原始测量可行性 | 星历/Kepler、Doppler、载波相位/钟差 spike；能力/限制报告 | 有可运行的模型/结论；默认关 | P3-02/03 | XL | WIP |
 | P3-06 | Phase 3 设备回归 | 至少 2 台；GPS 应用 + detector | GNSS/NMEA 检查通过；无定位丢失/崩溃 | P3-04 | M | TODO |

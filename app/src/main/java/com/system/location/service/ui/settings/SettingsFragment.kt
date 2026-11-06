@@ -44,6 +44,7 @@ import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.needOpenSELinux
 import com.system.location.service.ext.physicalNoise
+import com.system.location.service.ext.simReady
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.experimentalOrbitMotion
@@ -206,6 +207,11 @@ class SettingsFragment : Fragment() {
         binding.physicalNoiseSwitch.isChecked = context.physicalNoise
         binding.physicalNoiseSwitch.setOnCheckedChangeListener { _, enabled ->
             context.physicalNoise = enabled
+            showToast("下次启动场景生效")
+        }
+        binding.simReadySwitch.isChecked = context.simReady
+        binding.simReadySwitch.setOnCheckedChangeListener { _, ready ->
+            context.simReady = ready
             showToast("下次启动场景生效")
         }
         fun periodLabel() { binding.orbitPeriodButton.text = getString(R.string.orbit_period) + " · " + getString(R.string.orbit_period_value, context.orbitPeriodSeconds) }

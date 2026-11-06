@@ -200,6 +200,12 @@ var Context.physicalNoise: Boolean
         putBoolean("physicalNoise", value)
     }
 
+var Context.simReady: Boolean
+    get() = sharedPrefs.getBoolean("simReady", true)
+    set(value) = sharedPrefs.edit {
+        putBoolean("simReady", value)
+    }
+
 var Context.disableGetCurrentLocation: Boolean
     get() = sharedPrefs.getBoolean("disableGetCurrentLocation", FakeLoc.disableGetCurrentLocation)
     set(value) = sharedPrefs.edit {

@@ -259,6 +259,14 @@
                     android:text="@string/physical_noise_desc"
                     android:textSize="13sp" />
                 <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/sim_ready_switch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:padding="8dp"
+                    android:text="@string/sim_ready"
+                    app:useMaterialThemeColors="true" />
+                <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/orbit_motion_switch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

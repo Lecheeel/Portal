@@ -42,6 +42,7 @@ import kotlin.random.Random
 import kotlin.uuid.ExperimentalUuidApi
 
 private const val MAX_SATELLITES = 35 // 北斗系统实际可见卫星数上限
+private const val FIRST_APP_UID = 10_000
 
 // 载噪比范围，考虑不同轨道类型
 private const val GEO_MIN_CN0 = 30.0f  // GEO卫星信号较强
@@ -807,6 +808,25 @@ internal object LocationServiceHook: BaseLocationHook() {
                         }
                     }
                 })
+        }
+
+        // P1-05: while a scenario is active, third-party callers see location as available even if
+        // the real master switch is off. System/Settings callers keep the real value. Android has no
+        // public LocationAvailability callback in API 31–37 (checked against AOSP 16 aidl), so this
+        // is the availability surface a target app can actually observe.
+        for (methodName in listOf("isLocationEnabledForUser", "isLocationEnabled")) {
+            com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+                cILocationManager,
+                methodName,
+                object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam?) {
+                        if (param == null || !FakeLoc.enable) return
+                        if (BinderUtils.getCallerUid() < FIRST_APP_UID) return
+                        param.result = true
+                        if (FakeLoc.enableDebugLog) Logger.debug("$methodName: synthesized true for third-party caller")
+                    }
+                },
+            )
         }
 
 

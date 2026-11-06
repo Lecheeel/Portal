@@ -1,6 +1,7 @@
 [versions]
 agp = "9.3.1"
 xposed = "82"
+libxposed = "102.0.0"
 kotlin = "2.4.10"
 kotlinxSerialization = "1.11.0"
 coreKtx = "1.19.0"
@@ -20,6 +21,7 @@ amap3dLocationSearch = "11.2.000_loc11.2.000_sea9.8.0"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 xposed-api = { group = "de.robv.android.xposed", name = "api", version.ref = "xposed" }
+libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

@@ -58,6 +58,7 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.kotlinx.serialization.json)
     compileOnly(libs.xposed.api)
+    compileOnly(libs.libxposed.api)
     compileOnly(project(":system-api"))
     implementation(project(":nmea"))
 

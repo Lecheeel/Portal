@@ -17,6 +17,7 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.BaseLocationHook
+import com.system.location.service.hook.hooks.gnss.GnssStatusBridge
 import com.system.location.service.hook.RemoteCommandHandler
 import com.system.location.service.hook.hooks.gnss.GnssHook
 import com.system.location.service.hook.hooks.miui.MiuiBlurLocationProviderHook
@@ -35,127 +36,7 @@ import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.random.Random
 import kotlin.uuid.ExperimentalUuidApi
-
-private const val MAX_SATELLITES = 35 // 北斗系统实际可见卫星数上限
-
-// 载噪比范围，考虑不同轨道类型
-private const val GEO_MIN_CN0 = 30.0f  // GEO卫星信号较强
-private const val GEO_MAX_CN0 = 45.0f
-private const val IGSO_MIN_CN0 = 25.0f
-private const val IGSO_MAX_CN0 = 42.0f
-private const val MEO_MIN_CN0 = 20.0f  // MEO卫星信号相对较弱
-private const val MEO_MAX_CN0 = 40.0f
-
-// 北斗频率
-private const val BDS_B1I_FREQ = 1561.098f // MHz
-private const val BDS_B2I_FREQ = 1207.140f
-private const val BDS_B3I_FREQ = 1268.520f
-
-private val satelliteList = listOf(
-    BDSSatellite(1, OrbitType.GEO),
-    BDSSatellite(2, OrbitType.GEO),
-    BDSSatellite(3, OrbitType.GEO),
-    BDSSatellite(4, OrbitType.GEO),
-    BDSSatellite(5, OrbitType.GEO),
-    BDSSatellite(6, OrbitType.IGSO),
-    BDSSatellite(7, OrbitType.IGSO),
-    BDSSatellite(8, OrbitType.IGSO),
-    BDSSatellite(9, OrbitType.IGSO),
-    BDSSatellite(10, OrbitType.IGSO),
-    BDSSatellite(11, OrbitType.MEO),
-    BDSSatellite(12, OrbitType.MEO),
-    BDSSatellite(13, OrbitType.IGSO),
-    BDSSatellite(14, OrbitType.MEO),
-    BDSSatellite(16, OrbitType.IGSO),
-    BDSSatellite(19, OrbitType.MEO),
-    BDSSatellite(20, OrbitType.MEO),
-    BDSSatellite(21, OrbitType.MEO),
-    BDSSatellite(22, OrbitType.MEO),
-    BDSSatellite(23, OrbitType.MEO),
-    BDSSatellite(24, OrbitType.MEO),
-    BDSSatellite(25, OrbitType.MEO),
-    BDSSatellite(26, OrbitType.MEO),
-    BDSSatellite(27, OrbitType.MEO),
-    BDSSatellite(28, OrbitType.MEO),
-    BDSSatellite(29, OrbitType.MEO),
-    BDSSatellite(30, OrbitType.MEO),
-    BDSSatellite(31, OrbitType.IGSO),
-    BDSSatellite(32, OrbitType.MEO),
-    BDSSatellite(33, OrbitType.MEO),
-    BDSSatellite(34, OrbitType.MEO),
-    BDSSatellite(35, OrbitType.MEO),
-    BDSSatellite(36, OrbitType.MEO),
-    BDSSatellite(37, OrbitType.MEO),
-    BDSSatellite(38, OrbitType.IGSO),
-    BDSSatellite(39, OrbitType.IGSO),
-    BDSSatellite(40, OrbitType.IGSO),
-    BDSSatellite(41, OrbitType.MEO),
-    BDSSatellite(42, OrbitType.MEO),
-    BDSSatellite(43, OrbitType.MEO),
-    BDSSatellite(44, OrbitType.MEO),
-    BDSSatellite(45, OrbitType.MEO),
-    BDSSatellite(46, OrbitType.MEO),
-    BDSSatellite(56, OrbitType.IGSO),
-    BDSSatellite(57, OrbitType.MEO),
-    BDSSatellite(58, OrbitType.MEO),
-    BDSSatellite(59, OrbitType.GEO),
-    BDSSatellite(60, OrbitType.GEO),
-    BDSSatellite(61, OrbitType.GEO),
-    BDSSatellite(62, OrbitType.GEO),
-    BDSSatellite(48, OrbitType.MEO),
-    BDSSatellite(50, OrbitType.MEO),
-    BDSSatellite(47, OrbitType.MEO),
-    BDSSatellite(49, OrbitType.MEO),
-//    BDSSatellite(130, OrbitType.GEO),
-//    BDSSatellite(143, OrbitType.GEO),
-//    BDSSatellite(144, OrbitType.GEO),
-)
-
-object GnssFlags {
-    // 基本标志位
-    const val SVID_FLAGS_NONE = 0
-    const val SVID_FLAGS_HAS_EPHEMERIS_DATA = (1 shl 0)
-    const val SVID_FLAGS_HAS_ALMANAC_DATA = (1 shl 1)
-    const val SVID_FLAGS_USED_IN_FIX = (1 shl 2)
-    const val SVID_FLAGS_HAS_CARRIER_FREQUENCY = (1 shl 3)
-    const val SVID_FLAGS_HAS_BASEBAND_CN0 = (1 shl 4)
-
-    // 位移宽度
-    const val SVID_SHIFT_WIDTH = 12
-    const val CONSTELLATION_TYPE_SHIFT_WIDTH = 8
-    const val CONSTELLATION_TYPE_MASK = 0xf
-
-    // 星座类型（与 Android GnssStatus.CONSTELLATION_ 常量对应）
-    const val CONSTELLATION_GPS = 1
-    const val CONSTELLATION_SBAS = 2
-    const val CONSTELLATION_GLONASS = 3
-    const val CONSTELLATION_QZSS = 4
-    const val CONSTELLATION_BEIDOU = 5
-    const val CONSTELLATION_GALILEO = 6
-    const val CONSTELLATION_IRNSS = 7
-}
-
-sealed class OrbitType(val minCn0: Float, val maxCn0: Float, val elevationRange: ClosedRange<Float>) {
-    object GEO : OrbitType(GEO_MIN_CN0, GEO_MAX_CN0, 35f..50f)
-    object IGSO : OrbitType(IGSO_MIN_CN0, IGSO_MAX_CN0, 20f..60f)
-    object MEO : OrbitType(MEO_MIN_CN0, MEO_MAX_CN0, 0f..90f)
-}
-
-data class BDSSatellite(
-    val prn: Int,
-    val type: OrbitType,
-)
-
-data class MockGnssData(
-    val svCount: Int,
-    val svidWithFlags: IntArray,
-    val cn0s: FloatArray,
-    val elevations: FloatArray,
-    val azimuths: FloatArray,
-    val carrierFreqs: FloatArray
-)
 
 internal object LocationServiceHook: BaseLocationHook() {
     val locationListeners = LinkedBlockingQueue<Pair<String, IInterface>>()
@@ -479,54 +360,8 @@ internal object LocationServiceHook: BaseLocationHook() {
 
                         if (!FakeLoc.enable || !FakeLoc.enableMockGnss) return@beforeHook
 
-                        val svCount = Random.nextInt(FakeLoc.minSatellites, MAX_SATELLITES + 1)
-                        val mockGps = MockGnssData(
-                            svCount = svCount,
-                            svidWithFlags = IntArray(svCount),
-                            cn0s = FloatArray(svCount),
-                            elevations = FloatArray(svCount),
-                            azimuths = FloatArray(svCount),
-                            carrierFreqs = FloatArray(svCount)
-                        ).apply {
-                            val selectedSatellites = satelliteList.shuffled().take(svCount)
-
-                            selectedSatellites.forEachIndexed { index, sat ->
-                                svidWithFlags[index] = 0
-
-                                val hasEphemeris = Random.nextFloat() > 0.1f    // 90%概率有星历
-                                val hasAlmanac = Random.nextFloat() > 0.05f     // 95%概率有年历
-                                val usedInFix = Random.nextFloat() > 0.3f       // 70%概率用于定位
-                                val hasCarrierFreq = true                       // 总是有载波频率
-                                val hasBasebandCn0 = true                       // 总是有基带载噪比
-
-                                var flags = GnssFlags.SVID_FLAGS_NONE
-
-                                // 设置基本标志位
-                                if (hasEphemeris) flags = flags or GnssFlags.SVID_FLAGS_HAS_EPHEMERIS_DATA
-                                if (hasAlmanac) flags = flags or GnssFlags.SVID_FLAGS_HAS_ALMANAC_DATA
-                                if (usedInFix) flags = flags or GnssFlags.SVID_FLAGS_USED_IN_FIX
-                                if (hasCarrierFreq) flags = flags or GnssFlags.SVID_FLAGS_HAS_CARRIER_FREQUENCY
-                                if (hasBasebandCn0) flags = flags or GnssFlags.SVID_FLAGS_HAS_BASEBAND_CN0
-
-                                // 组合SVID、星座类型和标志位
-                                svidWithFlags[index] = (sat.prn shl GnssFlags.SVID_SHIFT_WIDTH) or
-                                        ((GnssFlags.CONSTELLATION_BEIDOU and GnssFlags.CONSTELLATION_TYPE_MASK) shl GnssFlags.CONSTELLATION_TYPE_SHIFT_WIDTH) or
-                                        flags
-
-                                cn0s[index] = when (sat.type) {
-                                    is OrbitType.GEO -> Random.nextFloat(GEO_MIN_CN0, GEO_MAX_CN0)
-                                    is OrbitType.IGSO -> Random.nextFloat(IGSO_MIN_CN0, IGSO_MAX_CN0)
-                                    is OrbitType.MEO -> Random.nextFloat(MEO_MIN_CN0, MEO_MAX_CN0)
-                                }
-                                elevations[index] = Random.nextFloat(sat.type.elevationRange.start, sat.type.elevationRange.endInclusive)
-                                azimuths[index] = Random.nextFloat(0f, 360f)
-                                carrierFreqs[index] = when (Random.nextInt(3)) {
-                                    0 -> BDS_B1I_FREQ
-                                    1 -> BDS_B2I_FREQ
-                                    else -> BDS_B3I_FREQ
-                                }
-                            }
-                        }
+                        val mockGps = GnssStatusBridge.toMockData(GnssStatusBridge.currentFrame())
+                        val svCount = mockGps.svCount
 
                         if (args[0] is Int) {
                             args[0] = svCount
@@ -539,9 +374,7 @@ internal object LocationServiceHook: BaseLocationHook() {
                             }
 
                             if (args.size > 6) {
-                                args[6] = FloatArray(svCount) {
-                                    mockGps.cn0s[it] - Random.nextFloat(2f, 5f)
-                                }
+                                args[6] = GnssStatusBridge.basebandCn0(mockGps)
                             }
                             return@beforeHook
                         }
@@ -562,9 +395,7 @@ internal object LocationServiceHook: BaseLocationHook() {
                                         mockGps.elevations,
                                         mockGps.azimuths,
                                         mockGps.carrierFreqs,
-                                        FloatArray(svCount) {
-                                            mockGps.cn0s[it] - Random.nextFloat(2f, 5f)
-                                        }
+                                        GnssStatusBridge.basebandCn0(mockGps)
                                     )
                                 } else {
                                     Logger.error("onSvStatusChanged: unsupported version: ${method}, constructor not found")
@@ -579,13 +410,6 @@ internal object LocationServiceHook: BaseLocationHook() {
                     }).isEmpty()) {
                         Logger.error("find onSvStatusChanged failed!")
                     }
-
-                    cIGnssStatusListener.onceHookAllMethod("onNmeaReceived", beforeHook {
-                        if (FakeLoc.enableDebugLog) {
-                            Logger.debug("onNmeaReceived")
-                        }
-                        if (FakeLoc.enable && FakeLoc.enableMockGnss) result = null
-                    })
                 }
             }).isEmpty()) {
             XposedBridge.log("[LocationService] hook registerGnssStatusCallback failed")
@@ -1019,9 +843,5 @@ internal object LocationServiceHook: BaseLocationHook() {
     private inline fun handleInstruction(command: String, rely: Bundle): Boolean {
         return RemoteCommandHandler.handleInstruction(command, rely)
     }
-}
-
-private fun Random.nextFloat(min: Float, max: Float): Float {
-    return nextFloat() * (max - min) + min
 }
 

@@ -593,8 +593,9 @@ P0 阶段至少：
 - 变更：`publish_sample` 与 publication lease/restore/expire 拆到 `SampleCommand`，handler 只保留命令分发。
 - 变更：start/stop/查询/开关/简单设值命令拆到 `ControlCommand`，handler 再减少约 100 行。
 - 变更：`update_location`/`broadcast_location`/`sync_config` 与坐标更新逻辑拆到 `LocationCommand`，handler 再减少约 80 行。
+- 变更：相对 `move` 的归一化也拆到 `LocationCommand.normalizeMove()`，handler 只接收规范化后的绝对坐标。
 - 检查：`SettingsSchemaTest` 5 项（默认值、数值/枚举/布尔校验、null 默认、coerce fallback、重复/非法 spec）通过；`:xposed` 编译/测试通过。
-- 未完成：`move`/proxy 剩余命令拆分。
+- 未完成：proxy 命令/代理转发状态拆分。
 - 结论：`UNIT TEST VERIFIED`；P5-08 仍 `WIP`。
 
 ### P3-04 Hook 合并（部分）

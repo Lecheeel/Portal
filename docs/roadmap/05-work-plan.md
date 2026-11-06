@@ -198,7 +198,7 @@ P0 基线
 
 **Phase 5 退出**：per-app 对直接 `LocationManager` 生效；GMS 限制明确；配置/样本可版本化升级。
 
-> 2026-11-06：P5-07 的 `RuntimeSnapshot` 已承载样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声配置；P5-08 已加入 `SettingsSchema`/`ConfigGate`，并把 config/diagnostic/native/sample/control 命令拆到独立对象；update/move/proxy 剩余命令未拆。
+> 2026-11-06：P5-07 的 `RuntimeSnapshot` 已承载样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声配置；P5-08 已加入 `SettingsSchema`/`ConfigGate`，并把 config/diagnostic/native/sample/control/location 命令拆到独立对象；move/proxy 剩余命令未拆。
 
 > 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；P5-02 新增 `ListenerRouting`（denied/scenario/fixed-point 路由）、`ScenarioSampleStore` 与 `ScenarioController → backend` 的 scenarioId 传递，WiFi/基站/GNSS status/NMEA 也按固定点生成；P5-03 `ConfigEnvelope`/`SampleEnvelope` v2 编解码、`SampleWire` v1/v2 与 `applyConfigNow` 热更新已落地；P5-04 新增 per-app deny 与“保存位置→固定点”多选；P5-06 `SampleStore`/`ConfigStore` 纯抽象已落地。多控制器并发与传感器固定点仍未接。
 

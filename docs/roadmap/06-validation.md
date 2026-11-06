@@ -529,7 +529,7 @@ P0 阶段至少：
 - 未完成：system_server 调用方 UID→package 查询、listener 映射、per-app UI 与配置下发（P5-02/03/04）。
 - 结论：`RoutingTable` 纯模型/序列化/9 项 JVM 测试完成；P5-01 `DONE`。
 
-### P5-02 调用方路由解析（部分）
+### P5-02 调用方路由解析
 
 - 变更：`:core` 新增 `PackageUidLookup`/`CallerRouter`；`RoutingTable` 支持多 package（共享 UID）解析，任一 package 命中路由即可；system package 优先绕过；denied 优先。
 - 变更：新增 `ListenerRouting`，在 `addLocationListenerInner` 注册时捕获 caller UID；PER_APP 配置下 denied package 不再收到假更新，其它 listener 仍用当前单场景 fake；`put_config.routing_json` 下发配置。
@@ -539,8 +539,8 @@ P0 阶段至少：
 - 变更：新增 `GnssListenerRouting`，`registerGnssStatusCallback` 记录 listener→package/UID；`onSvStatusChanged` 用该调用方的固定点生成 `CatalogGnssSkyModel` 几何。
 - 变更：新增 `NmeaListenerRouting`，`registerGnssNmeaCallback` 记录 listener→package/UID；`NmeaBridge` 按固定点生成 GGA/RMC/等句子（速度/航向归零），未命中继续当前场景。
 - 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 11 项 + `ScenarioSampleStoreTest` 5 项通过；`:core:test`/`:xposed`/`:app` 通过；无设备。
-- 未完成：多控制器并发、路由配置导入导出/搜索、设备验证；固定点未做传感器/环境联动。
-- 结论：`UNIT TEST VERIFIED`（存储/解析）+ `BUILD VERIFIED`（接线）；P5-02 仍 `WIP`。
+- 未完成：多控制器并发（P5-05）、路由配置导入导出/搜索、设备验证；固定点未做传感器/环境联动。
+- 结论：`UNIT TEST VERIFIED`（存储/解析）+ `BUILD VERIFIED`（listener/WiFi/Cell/GNSS/NMEA 接线）；P5-02 `DONE`。
 
 ### P5-04 per-app UI（部分）
 

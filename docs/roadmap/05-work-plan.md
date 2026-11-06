@@ -172,13 +172,13 @@ P0 基线
 | P4-01 | `ProviderProfile` + 静止策略 | gps/network/fused 精度/频率/延迟/字段；静止规则 | 三路数据不同；静止无 0° bearing/计步增长 | P3 | M | WIP |
 | P4-02 | `PhysicalNoise` | OU 噪声、精度/海拔漂移、航向门控；seed | 关闭=确定；开启=有界/可复现；速度一致 | P4-01 | M | WIP |
 | P4-03 | 后端按 provider 发布 | MockProvider/Fused/Xposed 分别发布 `ProviderSample` | detector 三路交叉检查通过 | P4-01/02 | L | WIP |
-| P4-04 | Native 传感器重写 | `SensorEventQueue::write`/`dispatchSensorEvent`；按 type 改写；默认关 | 设备上加速度/陀螺仪/计步合理；无 -1/0 清零 | P4-01 | XL | TODO |
+| P4-04 | Native 传感器重写 | `SensorEventQueue::write`/`dispatchSensorEvent`；按 type 改写；默认关 | 设备上加速度/陀螺仪/计步合理；无 -1/0 清零 | P4-01 | XL | WIP |
 | P4-05 | 传感器融合模型 | `MotionState`→`SensorFrame`；Activity 策略 | 静止/步行/跑步/驾车四组测试；不矛盾 | P4-04 | L | WIP |
 | P4-06 | Phase 4 设备回归 | 至少 2 台；传感器 + 三路 Provider | 三路/静止/传感器检查通过 | P4-03/05 | M | TODO |
 
 **Phase 4 退出**：Provider 不再“三份一样”；静止自然；传感器不再是空壳；Native 默认关但可用。
 
-> 2026-11-06：P4-01 `ProviderProfile`/`StationaryPolicy`/`ProviderMixer`、P4-02 `PhysicalNoise`（现已在 `ProviderView` 可选启用，设置页开关默认关）、P4-03 provider 发布与 P4-05 `SyntheticSensorModel` 已落地（JVM 测试通过）；P4-04 Native 传感器重写与 P4-06 设备回归未做。
+> 2026-11-06：P4-01 `ProviderProfile`/`StationaryPolicy`/`ProviderMixer`、P4-02 `PhysicalNoise`（现已在 `ProviderView` 可选启用，设置页开关默认关）、P4-03 provider 发布、P4-04 native `ConvertToSensorEvent`（按 motion state 生成加速度/陀螺仪/地磁/气压/计步，去掉 -1/0 清零）与 P4-05 `SyntheticSensorModel` 已落地；P4-04 尚未真机验证，P4-06 设备回归未做。
 
 ---
 

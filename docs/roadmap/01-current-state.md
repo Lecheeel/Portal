@@ -223,7 +223,8 @@
 - **P3-05 策略落地**：新增默认关闭的 `RawGnssPolicy`（EXPERIMENTAL 从同一帧生成确定性 measurements），Hook 接线与星历/Kepler 未做。
 - **P4-01/P4-02 纯 `:core` 基础**：新增 `ProviderProfile`/`StationaryPolicy`/`ProviderMixer`（三路精度/延迟/字段分离、静止无 bearing/speed）与 `PhysicalNoise`（有界可复现 OU 漂移）；`ProviderView` 已可选启用噪声（默认关，设置页开关），传感器未接。
 - **P4-03 部分落地**：`ProviderView` / `ProviderMixer` 已接入 Mock、Fused 与 Xposed 三条发布路径，按 provider 输出不同精度/延迟/字段；三路设备交叉验证未做。
-- **P4-05 纯模型落地**：新增 `MotionMode`/`MotionState`/`SensorFrame`/`SyntheticSensorModel`（静止/步行/跑步/驾车，步数/气压/地磁/陀螺仪确定性生成）；Native 传感器 Hook（P4-04）尚未接入。
+- **P4-04 Native 传感器**：`ConvertToSensorEvent` 已按 motion state 生成值并移除 -1/0 清零；仅 arm64 语法检查，未真机/全 ABI 构建。
+- **P4-05 纯模型落地**：新增 `MotionMode`/`MotionState`/`SensorFrame`/`SyntheticSensorModel`（静止/步行/跑步/驾车，步数/气压/地磁/陀螺仪确定性生成）；Native 传感器 Hook（P4-04）已改为按 motion state 生成值，但未真机验证。
 - **P5-01 纯模型落地**：新增 `RoutingConfig`/`RoutingTable`（package 优先、UID fallback、system 绕过、deny、schemaVersion）。system_server 路由与 UI 尚未接入。
 - **P5-02 解析层落地**：新增 `PackageUidLookup`/`CallerRouter`、`ScenarioSampleStore`、`AppRoute.point` 与 `RoutingTable` 多 package/固定点解析；新增 `ListenerRouting`（denied/scenario/fixed-point）与 per-app deny/固定点 UI；WiFi/基站/GNSS status/NMEA 按固定点生成，后端发布已携带 scenarioId，多控制器仍缺。
 - **P6-04 首轮安全加固**：`APSService` 显式不导出；采集的 `environment/` 快照从备份/换机迁移排除；其余 IPC/日志/包可见性审查未做。

@@ -125,12 +125,12 @@
 
 | 声明 | 实际 | 影响 |
 |---|---|---|
-| README：“Root + Xposed Native 扩展 · 传感器模拟（实验性）” | `SystemSensorManagerHook` 的 `onSensorChanged` 是空实现；`sensor_hook.cpp` 把值写成 `-1`/0 | 不是“实验性模拟”，而是“把传感器废掉”；必须在文档和 UI 上降级表述 |
+| README：“Root + Xposed Native 扩展 · 传感器模拟（实验性）” | Native `ConvertToSensorEvent` 已按 motion state 生成值（未真机验证）；Java `SystemSensorManagerHook.onSensorChanged` 仍是空实现 | 只能算实验性；需设备 C10 验证，不要承诺所有 ROM 可用 |
 | README：“提交前反射清除模拟标记（实验性）” | `MockFlagExperiment` 只改本地对象；Android 提交后仍可能重新标记 | 不能当作“隐藏 mock”；只能算本地实验 |
 | “用户勾选 target app 后生效” | `TARGET_APP` 分支明确 `skipped` | 用户勾选 target app 不会生效，UI/文档需要说清楚 |
-| “Provider 列表已处理” | `getProviders`/`getAllProviders`/`hasProvider` 被注释 | `fused_ext`/test provider 可能暴露 |
-| “NMEA 模块” | `GnssHook` 与 `LocationNMEAHook` 双重 Hook；`enableNMEA=true` 时反而跳过原方法 | 行为不确定，可能双写/双屏蔽 |
-| “GNSS 模拟” | 随机取 BDS 子集，全部标成 BEIDOU，每次回调都变 | 物理上不成立，容易被简单统计识别 |
+| “Provider 列表已处理” | `ProviderRegistryHook` 已过滤 `fused_ext`/test/mock provider，`hasProvider` 返回 false；设备仍需确认 | 设备端可能仍暴露，需 C04/C05 验证 |
+| “NMEA 模块” | `GnssHook` 重复入口已删除，`LocationNMEAHook` 单点改写；NMEA 由同一天空模型生成 | 依赖真实回调驱动，设备需验证完整序列 |
+| “GNSS 模拟” | 已改为确定性多星座 `CatalogGnssSkyModel`；另有实验 ORBITAL 模型 | 与真实星历/几何仍有差距，需 C11 验证 |
 | “无 Root / Root / Xposed” | 无 Root 模式无法隐藏 mock 标记；Root/Native 仍需人工配置 | 需要明确每种模式的能力边界 |
 
 ---

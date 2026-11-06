@@ -213,9 +213,11 @@ P0 基线
 | P6-03 | Native 隐藏实验 | 参考 Kail：符号解析、`/proc/self/maps`/痕迹；默认关 | 目标检测项改善；无崩溃；可重启回退 | P6-01/P4-04 | L | TODO |
 | P6-04 | 安全/权限审查 | 导出组件、IPC、日志、Bugly、包可见性 | 无高危项；权限最小化 | P5 | M | WIP |
 | P6-05 | Phase 6 设备回归 | 2 台 + LSPosed 版本矩阵 | 加载/隐藏/回退通过 | P6-02/03 | M | TODO |
-| P6-06 | 文档/默认值对齐 | README、设置页、实验标记 | 不再宣称未实现能力；实验默认关 | 全阶段 | S | TODO |
+| P6-06 | 文档/默认值对齐 | README、设置页、实验标记 | 不再宣称未实现能力；实验默认关 | 全阶段 | S | WIP |
 
 **Phase 6 退出**：模块元数据不可见；libxposed 可用；Native 实验默认关且可回退；文档不再夸大。
+
+> 2026-11-06：P6-06 已更新 `01-current-state.md` 中 Native 传感器、Provider 列表、NMEA、GNSS 的过期描述；README 与设置页的完整对齐清单未做。
 
 > 2026-11-06：P6-04 已做首轮检查：`APSService` 显式 `exported=false`，合并 manifest 仅 `MainActivity` 导出（launcher 必需），`environment/`/`fused_ext.xml`/`library/` 从 cloud backup 与 device transfer 排除；per-app 列表使用 MAIN/LAUNCHER `<queries>`，不申请 `QUERY_ALL_PACKAGES`；debug 命令日志已脱敏坐标/配置；其余 IPC/Bugly 审查未完成。
 

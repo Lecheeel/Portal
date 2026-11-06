@@ -431,8 +431,9 @@ P0 阶段至少：
 ### P2-06 WiFi 指纹库（实验，部分）
 
 - 变更：`:core` 新增 `WifiObservation`/`WifiFingerprint`/`WifiFingerprintDb`：BSSID 校验、RSSI 边界、30 天默认时效、按 RSSI 最接近的指纹做距离加权质心、`add`/`remove` 不可变。
-- 检查：`WifiFingerprintDbTest` 6 项（精确匹配、未知、过期、加权、不可变/大小写、非法输入）通过。
-- 未完成：WigLE/OpenCellID/自建库导入、许可与 attribution、默认关闭开关、目标区域回放。
+- 变更：新增 `WifiFingerprintCatalog`/`WifiFingerprintImporter`：JSON 导入导出、CSV 导入（可选表头、坏行跳过计数）、默认关闭；启用时必须提供 source/license/attribution。
+- 检查：`WifiFingerprintDbTest` 6 项（精确匹配、未知、过期、加权、不可变/大小写、非法输入）通过；`WifiFingerprintImportTest` 6 项（默认关闭、启用元数据、JSON roundtrip、CSV 导入/坏行、元数据/空结果、非法 JSON）通过。
+- 未完成：WigLE/OpenCellID 实际下载、许可审查与 attribution UI、默认关闭开关接入、目标区域回放。
 - 结论：`UNIT TEST VERIFIED`；P2-06 仍 `WIP`。
 
 ---
@@ -510,7 +511,7 @@ P0 阶段至少：
 - 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项通过。
 - 未完成：Android `PackageManager` 实现、system_server `ILocationManager`/listener 到路由的实际接线、多场景并存。
 - 结论：`UNIT TEST VERIFIED`；P5-02 仍 `WIP`。
-- 全量回归（2026-11-06）：339 项 JVM 用例 0 失败（core 175、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：345 项 JVM 用例 0 失败（core 181、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 

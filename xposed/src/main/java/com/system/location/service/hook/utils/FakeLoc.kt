@@ -80,9 +80,9 @@ object FakeLoc {
     var hookWifi = true
 
     /**
-     * 将网络定位降级为Cdma
+     * 将网络定位降级为 Cdma（ADR-005：旧路径默认关闭，下一版本删除）
      */
-    var needDowngradeToCdma = true
+    var needDowngradeToCdma = false
     var isSystemServerProcess = false
 
     /**

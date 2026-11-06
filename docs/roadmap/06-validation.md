@@ -439,6 +439,25 @@ P0 阶段至少：
 - 结论：`UNIT TEST VERIFIED`；P3-04 双 Hook 合并未做。
 - 全量回归（2026-11-06）：260 项 JVM 用例 0 失败（core 101、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
 
+---
+
+## 16. P4 实施记录（2026-11-06）
+
+### P4-01 ProviderProfile + 静止策略
+
+- 变更：`:core` 新增 `ProviderKind`、`ProviderProfile`（GPS 1 Hz/6 m、NETWORK 0.33 Hz/60 m/无 bearing/alt/speed、FUSED 1 Hz/10 m）、`StationaryPolicy`、`ProviderFieldMask`、`ProviderSample`、`ProviderMixer`；`ProviderMixer` 对同一 fix 生成三路不同精度/延迟/字段的样本，静止时去掉 bearing/speed。
+- 检查：`ProviderMixerTest` 6 项（三路差异、延迟、静止无 bearing/speed、静止精度漂移、时间不为负、非法 profile）通过。
+- 未完成：`P4-03` 后端按 provider 发布、真实 `Location` 字段写入尚未接入。
+- 结论：`UNIT TEST VERIFIED`。
+
+### P4-02 PhysicalNoise
+
+- 变更：`:core` 新增 `NoiseProfile`/`PhysicalNoise`：OU 水平/海拔漂移、边界 clamp、固定 seed 可复现；关闭时原样返回；`reset()` 同时重置 RNG。
+- 检查：`PhysicalNoiseTest` 5 项（关闭恒等、同 seed 可复现、不同 seed 有差异、边界/有限值、reset 重现）通过。
+- 未完成：尚未接入 `ScenarioController`/后端发布，速度与位移一致性需设备轨迹检查（C12）。
+- 结论：`UNIT TEST VERIFIED`。
+- 全量回归（2026-11-06）：271 项 JVM 用例 0 失败（core 112、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
+
 ### P3-04 Hook 合并（部分）
 
 - 变更：`GnssHook` 删除重复的 `registerGnssNmeaCallback`/`onNmeaReceived` 改写，只保留 measurements/nav/antenna 与 HAL 处理；`LocationNMEAHook` 成为唯一 `onNmeaReceived` 改写点，并修正 `enableNMEA` 语义（关闭时抑制真实 NMEA，开启时由 `NmeaBridge` 用同一 `CatalogGnssSkyModel` 帧生成 GGA/RMC/GSA/GSV/GST/ZDA，按 talker/type 一对一替换，未知类型置空避免泄漏）。

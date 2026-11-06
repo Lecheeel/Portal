@@ -517,9 +517,10 @@ P0 阶段至少：
 
 - 变更：`:core` 新增 `PackageUidLookup`/`CallerRouter`；`RoutingTable` 支持多 package（共享 UID）解析，任一 package 命中路由即可；system package 优先绕过；denied 优先。
 - 变更：新增 `ListenerRouting`，在 `addLocationListenerInner` 注册时捕获 caller UID；PER_APP 配置下 denied package 不再收到假更新，其它 listener 仍用当前单场景 fake；`put_config.routing_json` 下发配置。
-- 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项通过；`:xposed:compileDebugKotlin`/`:xposed:testDebugUnitTest` 通过；无设备。
-- 未完成：多场景样本并存、路由到不同坐标、listener 到场景的实际切换；当前仅 deny 生效，未配置/未命中仍走当前 fake。
-- 结论：`UNIT TEST VERIFIED`（解析）+ `BUILD VERIFIED`（接线）；P5-02 仍 `WIP`。
+- 变更：新增 `ScenarioSampleStore`（按 scenarioId 隔离、sequence/租约/上限），`publish_sample` 可携带 `scenario_id`；`LocationBackend.publish` 将 `ScenarioController` 的 `scenarioId` 传到后端，`ListenerRouting` 命中 scenario 时优先使用该场景样本，缺失则回退当前 fake。
+- 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项 + `ScenarioSampleStoreTest` 5 项通过；`:core:test`/`:xposed`/`:app` 通过；无设备。
+- 未完成：per-app 场景分配 UI、多个并发场景控制器、设备验证；当前单控制器只发布一个 scenario id。
+- 结论：`UNIT TEST VERIFIED`（存储/解析）+ `BUILD VERIFIED`（接线）；P5-02 仍 `WIP`。
 
 ### P5-04 per-app UI（部分）
 
@@ -527,7 +528,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、场景分配、工作资料、导入/导出 UI；仅 deny，不支持两个 App 不同坐标。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：350 项 JVM 用例 0 失败（core 186、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：355 项 JVM 用例 0 失败（core 191、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 

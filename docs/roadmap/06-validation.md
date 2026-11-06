@@ -527,7 +527,7 @@ P0 阶段至少：
 - 变更：`:core` 新增 `RoutingMode`/`AppRoute`/`RoutingConfig`/`RoutingDecision`/`RoutingTable`；优先级为 GLOBAL 模式 → system/UID<10000 → denied → 精确 package → UID → global scenario → 真实全局；`RoutingConfig` schemaVersion=1、路由/拒绝列表上限、JSON roundtrip。
 - 检查：`RoutingTableTest` 9 项（GLOBAL、package 优先且大小写不敏感、UID fallback、system 绕过、deny、disabled fallback、无全局、非法/重复、JSON）通过。
 - 未完成：system_server 调用方 UID→package 查询、listener 映射、per-app UI 与配置下发（P5-02/03/04）。
-- 结论：`UNIT TEST VERIFIED`；P5-01 仍 `WIP`。
+- 结论：`RoutingTable` 纯模型/序列化/9 项 JVM 测试完成；P5-01 `DONE`。
 
 ### P5-02 调用方路由解析（部分）
 

@@ -25,7 +25,7 @@
 
 | 进程 | scope | 期望入口（`HookOwnership`） | 实现 |
 |---|---|---|---|
-| system_server | `SYSTEM_SERVER` | `system-location`、`appops`、`provider-registry`、`telephony-registry`、`wifi`、`fused`、`sensor`、`system-sdk` | `FakeLocation.startFakeLocHook` |
+| system_server | `SYSTEM_SERVER` | `system-location`、`appops`、`provider-registry`、`availability`、`telephony-registry`、`wifi`、`fused`、`sensor`、`system-sdk` | `FakeLocation.startFakeLocHook` |
 | com.android.phone | `PHONE_PROCESS` | `phone` | `TelephonyHook` |
 | com.android.location.fused | `FUSED_PROCESS` | `fused` | `AndroidFusedLocationProviderHook` |
 | 厂商 fused（小米/OPPO） | `VENDOR_LOCATION_PROCESS` | `xiaomi` 或 `oplus` | `ThirdPartyLocationHook` / `OplusLocationHook` |
@@ -43,6 +43,7 @@
 | `system-location` | `LocationServiceHook`（1028 行） | `getLastLocation`、`requestLocationUpdates`、`removeUpdates`、`register/unregisterLocationListener`、`addGnssBatchingCallback`、`requestGeofence`、`getFromLocation*`、`add/remove/setTestProvider*`、`registerGnssStatusCallback`、`start/stopGnssBatch`、`requestListenerFlush`、`getCurrentLocation`、`sendExtraCommand`、`setExtraLocationController*`、`ILocationListener` 回调 | 行数超预算，P0-06 拆分 |
 | `appops` | `AppOpsHook` | `AppOpsService.checkOperation` / `checkOperationImpl` | P1-02；第三方跨 UID 查询 `OP_MOCK_LOCATION` 返回 `MODE_ERRORED` |
 | `provider-registry` | `ProviderRegistryHook` | `getAllProviders` / `getProviders` / `hasProvider` / `getProviderProperties` | P1-04；过滤 `fused_ext`/test provider |
+| `availability` | `LocationAvailabilityHook` | `isLocationEnabledForUser` / `isLocationEnabled` | P1-05；第三方在模拟中看到 true；框架无公开 LocationAvailability |
 | `telephony-registry` | `TelephonyHook`（551 行） | `TelephonyRegistry` Binder / 蜂窝字段 | 超预算，P0-06/后续拆分 |
 | `wifi` | `WlanHook` | `WifiServiceImpl` 扫描/连接/DHCP | 当前返回空列表 + 哨兵 BSSID（D06） |
 | `fused` | `AndroidFusedLocationProviderHook` | Android fused provider | |

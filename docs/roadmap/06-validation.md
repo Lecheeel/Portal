@@ -374,7 +374,7 @@ P0 阶段至少：
 ### P1-05 Availability
 
 - 事实核查：Android 31–37 没有公开 `android.location.LocationAvailability`；AOSP 16 `ILocationManager.aidl` / `ILocationListener.aidl` 也没有 availability 回调。原路线图的“LocationAvailability Hook”没有可挂的框架接口。
-- 变更：对第三方调用方在模拟启用时合成 `isLocationEnabledForUser` / `isLocationEnabled` 为 true；系统/Settings 调用方保持真实值。
+- 变更：新增 `LocationAvailabilityHook`（从 `FakeLocation` 安装，不扩展 `LocationServiceHook`）；对第三方调用方在模拟启用时合成 `isLocationEnabledForUser` / `isLocationEnabled` 为 true；系统/Settings 调用方保持真实值。
 - 检查：`:xposed` 编译/测试通过。
 - 结论：原验收项无法按“框架 LocationAvailability”完成；当前为可观察的替代实现，`WIP`，GMS `LocationAvailability` 留待 P4/P7 独立评估。
 

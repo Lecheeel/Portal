@@ -583,6 +583,7 @@ P0 阶段至少：
 ### P6-04 安全/权限审查（首轮）
 
 - 变更：`APSService` 显式 `android:exported="false"`；`backup_rules.xml` 与 `data_extraction_rules.xml` 排除 `environment/`（采集的 WiFi/基站/BLE 快照），避免云备份/换机迁移带出敏感环境。
-- 检查：`:app:compileAppDebugKotlin`、`:app:testArm64DebugUnitTest`、`:detector:assembleDebug` 通过；manifest merge 无导出组件新增。
+- 变更：继续排除 `fused_ext.xml`（坐标/回放/路由设置）与 `library/`（保存的路线/位置），避免备份带出敏感数据。
+- 检查：合并 manifest（arm64Debug）中应用自身组件仅 `MainActivity` 导出（launcher 必需）、`LocationProbeActivity`/`ScenarioService`/`APSService` 均不导出；依赖侧仅 `ProfileInstallReceiver` 导出且受 `DUMP` 保护。
 - 未完成：IPC/Binder 权限、日志脱敏、Bugly 配置、包可见性、导出组件全量清单、`allowBackup` 策略。
 - 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；P6-04 仍 `WIP`。

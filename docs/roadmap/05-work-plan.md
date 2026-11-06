@@ -215,7 +215,7 @@ P0 基线
 
 **Phase 6 退出**：模块元数据不可见；libxposed 可用；Native 实验默认关且可回退；文档不再夸大。
 
-> 2026-11-06：P6-04 已做首轮检查：`APSService` 显式 `exported=false`，采集的 `environment/` 快照从 cloud backup/device transfer 排除；其余导出组件/IPC/日志/Bugly/包可见性审查未完成。
+> 2026-11-06：P6-04 已做首轮检查：`APSService` 显式 `exported=false`，合并 manifest 仅 `MainActivity` 导出（launcher 必需），`environment/`/`fused_ext.xml`/`library/` 从 cloud backup 与 device transfer 排除；其余 IPC/日志/Bugly/包可见性审查未完成。
 
 ---
 

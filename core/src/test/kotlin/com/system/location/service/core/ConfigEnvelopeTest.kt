@@ -28,10 +28,25 @@ class ConfigEnvelopeTest {
     )
 
     @Test
-    fun v2RoundTrips() {
-        val decoded = ConfigCodec.decode(ConfigCodec.encode(config))
-        assertEquals(config, decoded)
+    fun v3RoundTrips() {
+        val withReplay = config.copy(replayEnvironmentJson = """{"wifi":[]}""")
+        val decoded = ConfigCodec.decode(ConfigCodec.encode(withReplay))
+        assertEquals(withReplay, decoded)
         assertEquals(ConfigEnvelope.CURRENT_SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals("""{"wifi":[]}""", decoded.replayEnvironmentJson)
+    }
+
+    @Test
+    fun v2IsMigratedWithoutReplayJson() {
+        val v2 = ConfigCodec.encode(config).replace(
+            "\"schemaVersion\":${ConfigEnvelope.CURRENT_SCHEMA_VERSION}",
+            "\"schemaVersion\":2",
+        )
+        val decoded = ConfigCodec.decode(v2)
+        assertEquals(ConfigEnvelope.CURRENT_SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(7L, decoded.revision)
+        assertEquals(null, decoded.replayEnvironmentJson)
+        assertEquals(config.routing, decoded.routing)
     }
 
     @Test

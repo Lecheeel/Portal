@@ -118,6 +118,7 @@ object ScenarioRuntime {
                 EnvironmentSourceType.REPLAY, EnvironmentSourceType.DATABASE -> "REPLAY"
                 EnvironmentSourceType.PROCEDURAL -> "PROCEDURAL"
             }
+            context.environmentReplayJson = saved.replayEnvironmentJson.orEmpty()
             context.physicalNoise = saved.noise.enabled
         }
         return start(saved.scenario).await()
@@ -164,6 +165,7 @@ object ScenarioRuntime {
                                 environment = environment,
                                 noise = NoiseProfile(enabled = context.physicalNoise),
                                 updatedAtMillis = System.currentTimeMillis(),
+                                replayEnvironmentJson = context.environmentReplayJson.takeIf { it.isNotBlank() },
                             ))
                         }.onFailure { controller.note("CONFIG_STORE", "FAILED", it.message ?: "配置保存失败") }
                     }

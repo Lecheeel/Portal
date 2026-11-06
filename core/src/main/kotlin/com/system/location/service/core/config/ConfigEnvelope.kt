@@ -22,6 +22,7 @@ data class ConfigEnvelope(
     val noise: NoiseProfile = NoiseProfile(),
     val providers: List<ProviderProfile> = ProviderProfile.defaults(),
     val updatedAtMillis: Long = 0L,
+    val replayEnvironmentJson: String? = null,
 ) {
     init {
         require(schemaVersion == CURRENT_SCHEMA_VERSION) { "Unsupported schemaVersion: $schemaVersion" }
@@ -30,11 +31,15 @@ data class ConfigEnvelope(
         require(providers.isNotEmpty()) { "providers must not be empty" }
         require(providers.map { it.kind }.distinct().size == providers.size) { "duplicate provider kind" }
         require(providers.size <= MAX_PROVIDERS) { "Too many providers: ${providers.size}" }
+        require(replayEnvironmentJson == null || replayEnvironmentJson.length <= MAX_REPLAY_JSON_CHARS) {
+            "replayEnvironmentJson is too large"
+        }
     }
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 2
+        const val CURRENT_SCHEMA_VERSION = 3
         const val MAX_PROVIDERS = 16
+        const val MAX_REPLAY_JSON_CHARS = 64 * 1024
     }
 }
 
@@ -44,9 +49,9 @@ class ConfigException(message: String, cause: Throwable? = null) : IllegalArgume
  * Versioned config codec (P5-03).
  *
  * v1 (legacy) only carried scenario/revision/timestamp; v2 adds routing, environment and noise
- * blocks. Readers accept v1 and fill defaults; writers always emit the current version. Unknown
- * fields are ignored so an older app can still open a config written by a newer build as long as
- * the schema version is known.
+ * blocks; v3 adds the replay environment JSON. Readers accept v1/v2/v3 and fill defaults; writers
+ * always emit the current version. Unknown fields are ignored so an older app can still open a
+ * config written by a newer build as long as the schema version is known.
  */
 object ConfigCodec {
     const val CURRENT_SCHEMA_VERSION = ConfigEnvelope.CURRENT_SCHEMA_VERSION
@@ -67,8 +72,11 @@ object ConfigCodec {
             ?: throw ConfigException("Missing $VERSION_FIELD")
         return when (version) {
             1 -> migrateV1(json.decodeFromJsonElement(LegacyConfigV1.serializer(), root))
-            2 -> runCatching { json.decodeFromJsonElement(ConfigEnvelope.serializer(), root) }
+            2 -> runCatching { json.decodeFromJsonElement(LegacyConfigV2.serializer(), root) }
                 .getOrElse { throw ConfigException("Invalid v2 config", it) }
+                .let(::migrateV2)
+            3 -> runCatching { json.decodeFromJsonElement(ConfigEnvelope.serializer(), root) }
+                .getOrElse { throw ConfigException("Invalid v3 config", it) }
             else -> throw ConfigException("Unsupported schemaVersion: $version")
         }
     }
@@ -78,6 +86,29 @@ object ConfigCodec {
         revision = legacy.revision,
         scenario = legacy.scenario,
         updatedAtMillis = legacy.updatedAtMillis,
+    )
+
+    private fun migrateV2(legacy: LegacyConfigV2): ConfigEnvelope = ConfigEnvelope(
+        schemaVersion = CURRENT_SCHEMA_VERSION,
+        revision = legacy.revision,
+        scenario = legacy.scenario,
+        routing = legacy.routing,
+        environment = legacy.environment,
+        noise = legacy.noise,
+        providers = legacy.providers,
+        updatedAtMillis = legacy.updatedAtMillis,
+    )
+
+    @Serializable
+    private data class LegacyConfigV2(
+        val schemaVersion: Int = 2,
+        val revision: Long = 0L,
+        val scenario: Scenario,
+        val routing: RoutingConfig = RoutingConfig(),
+        val environment: EnvironmentConfig = EnvironmentConfig(),
+        val noise: NoiseProfile = NoiseProfile(),
+        val providers: List<ProviderProfile> = ProviderProfile.defaults(),
+        val updatedAtMillis: Long = 0L,
     )
 
     @Serializable

@@ -546,7 +546,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：384 项 JVM 用例 0 失败（core 217、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：389 项 JVM 用例 0 失败（core 222、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -582,6 +582,13 @@ P0 阶段至少：
 - 检查：`RuntimeSnapshotTest` 6 项（空快照、原子发布、字段保留、清空样本、非法版本、配置字段）通过；`:xposed` 编译/测试通过。
 - 未完成：Hook 仍有少量旧字段读取路径，需逐步替换为直接读 snapshot。
 - 结论：配置/样本/环境/路由/GNSS 模式迁移 `BUILD VERIFIED`；P5-07 仍 `WIP`。
+
+### P5-08 SettingsSchema（部分）
+
+- 变更：`:core` 新增 `SettingType`/`SettingSpec`/`SettingsSchema`/`PortalSettingsSchema`，覆盖 altitude/speed/accuracy/report_interval/min_satellites/AP 数/cell_mode/environment_source/gnss_model 等 key，提供默认值、范围、枚举和 `coerce`。
+- 检查：`SettingsSchemaTest` 5 项（默认值、数值/枚举/布尔校验、null 默认、coerce fallback、重复/非法 spec）通过。
+- 未完成：`RemoteCommandHandler` 拆分与 schema 接线、旧配置迁移。
+- 结论：`UNIT TEST VERIFIED`；P5-08 仍 `WIP`。
 
 ### P3-04 Hook 合并（部分）
 

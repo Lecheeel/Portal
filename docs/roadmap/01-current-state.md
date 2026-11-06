@@ -234,6 +234,6 @@
 - **P5-06 纯抽象落地**：新增 `SampleStore`/`ConfigStore` 与内存实现（sequence/租约/clear），Binder/SHM 与接线未做。
 - **P5-07 纯模型落地**：新增不可变 `RuntimeSnapshot`/`RuntimeSnapshotStore`，`FakeLoc` 的样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声配置已全部迁入快照；Hooks 通过兼容属性读取，待设备验证。
 - **P5-08 命令拆分完成**：`RemoteCommandHandler` 只保留安全校验与分发；config/diagnostic/native/sample/control/location/proxy 拆到独立对象，`SettingsSchema`/`ConfigGate` 已接入；设备行为回归待做。
-- **P7-04 性能探针**：新增有界 `PerformanceProbe`，发布耗时 p50/p95/max/mean 已进入 `get_runtime_status`；设备功耗基线未做。
+- **P7-04 性能探针**：发布耗时 p50/p95/max/mean 已进入 `get_runtime_status` 与 app 诊断（p95>100ms WARN）；设备功耗基线未做。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

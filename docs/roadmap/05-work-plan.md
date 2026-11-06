@@ -233,7 +233,7 @@ P0 基线
 | P7-04 | 性能/耗电 | 发布延迟、CPU、内存、电池基线 | 有量化报告；不超预算 | P4 | M | WIP |
 | P7-05 | OEM 矩阵 | 小米/OPPO/vivo/三星/Pixel/华为 | 兼容性表；已知问题清单 | P2/P6 | L | TODO |
 
-> 2026-11-06：P7-04 已加入有界 `PerformanceProbe`（p50/p95/max/mean）并接入 `SampleCommand` 发布耗时与 `get_runtime_status` 输出；CPU/内存/电池设备基线未做。
+> 2026-11-06：P7-04 已加入有界 `PerformanceProbe` 并接入发布耗时/诊断输出；app 显示 p50/p95，p95>100ms 标 WARN；设备功耗基线未做。
 
 ---
 

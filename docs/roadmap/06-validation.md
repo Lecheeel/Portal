@@ -414,3 +414,27 @@ P0 阶段至少：
 - 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用），完整 LTE/NR + SIM/operator/phone type 画像、`NO_SIM_WIFI_ONLY` 的 Hook 改写尚未做。
 - 检查：`:core:test` 通过；`:xposed` 编译/测试通过。
 - 结论：部分 `UNIT TEST VERIFIED`，P2-05 仍 `WIP`。
+
+---
+
+## 15. P3 实施记录（2026-11-06）
+
+### P3-01 确定性 GNSS 模型
+
+- 变更：`:core` 新增 `Constellation`/`GnssSatellite`/`GnssFrame`/`GnssSkyModel` 与 `CatalogGnssSkyModel`；固定目录含 GPS、BDS、GLONASS、Galileo、QZSS；无 `shuffled()`、无未播种随机；时间/位置只平滑影响 az/el/CN0。
+- 检查：`GnssSkyModelTest` 6 项（确定性、多星座、集合稳定、边界/去重、方位缓慢变化、CN0-仰角相关性）通过。
+- 结论：`UNIT TEST VERIFIED`；Hook 尚未改为读取该模型（P3-04）。
+
+### P3-02 多星座 V1（部分）
+
+- 已覆盖：GPS/BDS/GLONASS/Galileo/QZSS 混合、按星座排序、确定性 usedInFix/CN0、DOP。
+- 未覆盖：真实可见性随地理位置/时间的遮挡、星历/年历真实性（V2）、原始测量。
+- 结论：V1 模型 `UNIT TEST VERIFIED`；detector C06 未验证。
+
+### P3-03 NMEA 生成器
+
+- 变更：`:nmea` 新增 `NmeaGenerator`（GGA/RMC/GSA/GSV/GST/ZDA），校验和复用 `NMEA.calculateNmeaChecksum`；GGA 卫星数 = 可见卫星数，GSA 只带 usedInFix，GSV 按 4 颗分组并带 systemId。
+- 检查：`NmeaGeneratorTest` 5 项（校验和、GGA/RMC 同源、GSV 分组/总数、GSA usedInFix、非法输入）通过；GGA/RMC/GSA/GSV 用现有 `NMEA.valueOf` roundtrip。
+- 限制：现有解析器不支持 GST/ZDA（生成器仍输出，detector 用通用解析）；尚未与 `GnssStatus` 共用同一个 Hook 输出。
+- 结论：`UNIT TEST VERIFIED`；P3-04 双 Hook 合并未做。
+- 全量回归（2026-11-06）：260 项 JVM 用例 0 失败（core 101、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。

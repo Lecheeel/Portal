@@ -91,7 +91,7 @@ var Context.reportDuration: Int
     }
 
 var Context.experimentalClearMockFlag: Boolean
-    get() = sharedPrefs.getBoolean("experimentalClearMockFlag", true)
+    get() = sharedPrefs.getBoolean("experimentalClearMockFlag", false)
     set(value) = sharedPrefs.edit { putBoolean("experimentalClearMockFlag", value) }
 
 var Context.experimentalOrbitMotion: Boolean

@@ -142,27 +142,7 @@ object RemoteCommandHandler {
                 if (FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
                 return true
             }
-            "get_runtime_status" -> {
-                rely.putInt("sample_version", SampleWire.VERSION)
-                rely.putInt("sample_min_version", SampleWire.MIN_SUPPORTED)
-                rely.putBoolean("is_start", FakeLoc.enable)
-                rely.putLong("last_publish", lastPublishMillis)
-                val statuses = HookStatusRegistry.snapshot()
-                val scope = HookStatusRegistry.scope()
-                val ownership = scope?.let { HookOwnership.audit(it, statuses) }
-                rely.putInt("hook_installed", statuses.values.count { it.installed })
-                rely.putInt("hook_matched", statuses.values.count { it.matched })
-                rely.putInt("hook_failed", statuses.values.count { it.failed })
-                rely.putInt("hook_skipped", statuses.values.count { it.skipped })
-                rely.putString("hook_scope", scope?.name ?: "unknown")
-                rely.putInt("hook_expected", ownership?.expected?.size ?: 0)
-                rely.putInt("hook_missing", ownership?.missing?.size ?: 0)
-                rely.putStringArrayList("hook_missing_points", ArrayList(ownership?.missing.orEmpty()))
-                rely.putStringArrayList("hook_details", ArrayList(statuses.entries.take(128).map { (point, status) ->
-                    "$point: supported=${status.supported}, installed=${status.installed}, matched=${status.matched}, skipped=${status.skipped}, failed=${status.failed}; ${status.reason.orEmpty()}"
-                }))
-                return true
-            }
+            "get_runtime_status" -> DiagnosticCommand.status(rely, lastPublishMillis)
             "set_proxy" -> {
                 Logger.info("SubProxyBinder: ${rely.getBinder("proxy")} from ${BinderUtils.getUidPackageNames()}!")
                 rely.getBinder("proxy")?.let {

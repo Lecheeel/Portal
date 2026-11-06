@@ -236,6 +236,6 @@
 - **P5-08 命令拆分完成**：`RemoteCommandHandler` 只保留安全校验与分发；config/diagnostic/native/sample/control/location/proxy 拆到独立对象，`SettingsSchema`/`ConfigGate` 已接入；设备行为回归待做。
 - **P5-06 存储抽象**：`SampleStore`/`ConfigStore`、原子 `FileConfigStore`、`SeqLockSampleStore`、`SharedSampleCodec`/`Header`/`Buffer`/`Layout` 与 Android `SharedMemorySampleBuffer` 已落地；active config 已持久化；Binder fd/自动恢复未做。
 - **P6-01 libxposed spike**：API 102 compileOnly、可编译入口与独立 `:libxposed-spike` APK（元数据已打包）已落地；LSPosed 加载/scope 未验证。
-- **P7-04 性能探针**：系统侧/app 侧发布耗时与 `APP_MEMORY` 已进入诊断（p95>100ms WARN）；CPU/电池设备基线未做。
+- **P7-04 性能探针**：系统侧/app 侧发布耗时、`APP_MEMORY`、`APP_CPU` 已进入诊断（p95>100ms WARN）；设备电池基线未做。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

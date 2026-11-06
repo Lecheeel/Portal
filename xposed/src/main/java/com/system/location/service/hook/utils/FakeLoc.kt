@@ -10,6 +10,8 @@ import android.os.SystemClock
 import kotlin.math.asin
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.runtime.RuntimeSnapshot
+import com.system.location.service.core.runtime.RuntimeSnapshotStore
 
 object FakeLoc {
     /**
@@ -147,7 +149,8 @@ object FakeLoc {
 
     @Volatile var bearing = 0.0
     @Volatile var reportIntervalMs = 100L
-    private var sample: LocationSample? = null
+    /** P5-07: authoritative sample storage; legacy fields remain for config compatibility. */
+    val runtimeSnapshots = RuntimeSnapshotStore()
     /** P5-02: per-scenario samples; routing falls back to the active fix when a scenario has none. */
     val scenarioSamples = com.system.location.service.core.runtime.ScenarioSampleStore()
 
@@ -179,7 +182,7 @@ object FakeLoc {
         coordinates = lat to lon
         movementSpeed = movingSpeed.coerceAtLeast(0f)
         lastMovementNanos = nowNanos
-        sample = null
+        runtimeSnapshots.set(RuntimeSnapshot.EMPTY)
         externallyDriven = false
     }
 
@@ -191,13 +194,13 @@ object FakeLoc {
         speed = fix.speed.toDouble()
         bearing = fix.bearing.toDouble()
         hasBearings = true
-        sample = fix
+        runtimeSnapshots.publishSample(fix)
         externallyDriven = true
     }
 
     @Synchronized
     fun snapshot(force: Boolean = false, now: Long = SystemClock.elapsedRealtimeNanos(), timeMillis: Long = System.currentTimeMillis()): LocationSample {
-        sample?.let {
+        runtimeSnapshots.current().sample?.let {
             if (externallyDriven) return it
             if (!force && now - it.elapsedNanos < reportIntervalMs.coerceIn(50, 1000) * 1_000_000) return it
         }
@@ -208,7 +211,7 @@ object FakeLoc {
             if (now - lastMovementNanos <= maxOf(500L, reportIntervalMs * 2) * 1_000_000) movementSpeed else 0f,
             ((bearing % 360 + 360) % 360).toFloat().coerceAtMost(359.99997f),
             timeMillis, lastSampleNanos,
-        ).also { sample = it }
+        ).also { runtimeSnapshots.publishSample(it) }
     }
 
     @Volatile var accuracy = 25.0f

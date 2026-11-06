@@ -623,8 +623,8 @@ P0 阶段至少：
 - 变更：相对 `move` 的归一化也拆到 `LocationCommand.normalizeMove()`，handler 只接收规范化后的绝对坐标。
 - 变更：proxy 注册、incoming sequence 校验、跨进程转发拆到 `ProxyCommand`；`RemoteCommandHandler` 现在只做安全校验与命令分发。
 - 检查：`SettingsSchemaTest` 5 项（默认值、数值/枚举/布尔校验、null 默认、coerce fallback、重复/非法 spec）通过；`:xposed` 编译/测试通过。
-- 未完成：命令拆分后的设备行为回归；旧配置/未知 key 迁移。
-- 结论：`UNIT TEST VERIFIED`；P5-08 仍 `WIP`。
+- 未完成：设备端行为回归；`routing_json`/`environment_json` 仍由 ConfigCommand 解码。
+- 结论：`RemoteCommandHandler` 只保留安全校验/分发；schema/ConfigGate/命令拆分完成；P5-08 `DONE`。
 
 ### P3-04 Hook 合并（部分）
 

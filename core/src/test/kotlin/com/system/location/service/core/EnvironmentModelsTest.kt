@@ -2,6 +2,7 @@ package com.system.location.service.core
 
 import com.system.location.service.core.environment.BleBeacon
 import com.system.location.service.core.environment.CellMode
+import com.system.location.service.core.environment.CellModePolicy
 import com.system.location.service.core.environment.CellTower
 import com.system.location.service.core.environment.CellType
 import com.system.location.service.core.environment.EnvironmentConfig
@@ -13,7 +14,9 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EnvironmentModelsTest {
@@ -114,6 +117,15 @@ class EnvironmentModelsTest {
                 wifi = tooMany,
             )
         }
+    }
+
+    @Test
+    fun autoCellModeFollowsSimStateAndLegacyIsExplicit() {
+        assertEquals(CellMode.FULL_REPLAY, CellModePolicy.resolve(CellMode.AUTO, simReady = true))
+        assertEquals(CellMode.NO_SIM_WIFI_ONLY, CellModePolicy.resolve(CellMode.AUTO, simReady = false))
+        assertEquals(CellMode.FULL_REPLAY, CellModePolicy.resolve(CellMode.FULL_REPLAY, simReady = false))
+        assertTrue(CellModePolicy.isLegacyCdma(CellMode.LEGACY_CDMA))
+        assertFalse(CellModePolicy.isLegacyCdma(CellMode.AUTO))
     }
 
     private fun assertThrows(block: () -> Unit) {

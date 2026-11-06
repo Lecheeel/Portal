@@ -9,6 +9,16 @@ enum class EnvironmentSourceType { PROCEDURAL, REPLAY, DATABASE }
 /** Cell profile selected by [EnvironmentConfig.cellMode]; AUTO resolves at runtime. */
 enum class CellMode { AUTO, FULL_REPLAY, NO_SIM_WIFI_ONLY, LEGACY_CDMA }
 
+/** Pure AUTO resolution shared by the hook and future collection/replay tooling (P2-05). */
+object CellModePolicy {
+    fun resolve(configured: CellMode, simReady: Boolean): CellMode = when (configured) {
+        CellMode.AUTO -> if (simReady) CellMode.FULL_REPLAY else CellMode.NO_SIM_WIFI_ONLY
+        else -> configured
+    }
+
+    fun isLegacyCdma(mode: CellMode): Boolean = mode == CellMode.LEGACY_CDMA
+}
+
 enum class CellType { GSM, WCDMA, LTE, NR }
 
 @Serializable

@@ -126,105 +126,24 @@ object RemoteCommandHandler {
                 }
                 return true
             }
-            "start" -> {
-                SampleCommand.clearLease()
-                val speed = rely.getDouble("speed", FakeLoc.speed)
-                val altitude = rely.getDouble("altitude", FakeLoc.altitude)
-                val accuracy = rely.getFloat("accuracy", FakeLoc.accuracy)
-
-                FakeLoc.speed = speed
-                FakeLoc.altitude = altitude
-                FakeLoc.accuracy = accuracy
-                FakeLoc.reportIntervalMs = rely.getLong("report_interval", 100L).coerceIn(50, 1000)
-                FakeLoc.updateCoordinates(rely.getDouble("lat"), rely.getDouble("lon"))
-                FakeLoc.enable = true
-                if (FakeLoc.isSystemServerProcess) {
-                    LocationServiceHook.callOnLocationChanged()
-                    LocationTicker.start()
-                }
-
-                return true
-            }
-            "stop" -> {
-                SampleCommand.clearLease()
-                FakeLoc.enable = false
-                LocationTicker.stop()
-                FakeLoc.hasBearings = false
-                NativeCommand.disable()
-                return true
-            }
-            "is_start" -> {
-                rely.putBoolean("is_start", FakeLoc.enable)
-                return true
-            }
-            "start_gnss_mock" -> {
-                FakeLoc.enableMockGnss = true
-                return true
-            }
-            "stop_gnss_mock" -> {
-                FakeLoc.enableMockGnss = false
-                return true
-            }
-            "is_gnss_start" -> {
-                rely.putBoolean("is_gnss_start", FakeLoc.enableMockGnss)
-                return true
-            }
-            "is_wifi_mock_start" -> {
-                rely.putBoolean("is_wifi_mock_start", FakeLoc.enableMockWifi)
-                return true
-            }
-            "start_wifi_mock" -> {
-                FakeLoc.enableMockWifi = true
-                return true
-            }
-            "stop_wifi_mock" -> {
-                FakeLoc.enableMockWifi = false
-                return true
-            }
-            "get_location" -> {
-                val point = FakeLoc.coordinatePair()
-                rely.putDouble("lat", point.first)
-                rely.putDouble("lon", point.second)
-                return true
-            }
-            "get_listener_size" -> {
-                rely.putInt("size", LocationServiceHook.locationListeners.size)
-                return true
-            }
-            "get_speed" -> {
-                rely.putDouble("speed", FakeLoc.speed)
-                return true
-            }
-            "get_bearing" -> {
-                rely.putDouble("bearing", FakeLoc.bearing)
-                return true
-            }
-            "get_altitude" -> {
-                rely.putDouble("altitude", FakeLoc.altitude)
-                return true
-            }
-            "set_speed_amp" -> {
-                val speedAmplitude = rely.getDouble("speed_amplitude", 1.0)
-                FakeLoc.speedAmplitude = speedAmplitude
-                return true
-            }
-            "set_altitude" -> {
-                val altitude = rely.getDouble("altitude", 0.0)
-                FakeLoc.altitude = altitude
-                return true
-            }
-            "set_speed" -> {
-                val speed = rely.getDouble("speed", 0.0)
-                FakeLoc.speed = speed
-                return true
-            }
-            "set_bearing" -> {
-                val bearing = rely.getDouble("bearing", 0.0)
-                FakeLoc.bearing = bearing
-                FakeLoc.hasBearings = true
-                return true
-            }
-            "update_location" -> {
+            "start" -> ControlCommand.start(rely)
+            "stop" -> ControlCommand.stop()
+            "is_start" -> ControlCommand.isStart(rely)
+            "start_gnss_mock" -> ControlCommand.setGnssMock(true)
+            "stop_gnss_mock" -> ControlCommand.setGnssMock(false)
+            "is_gnss_start" -> ControlCommand.isGnssMock(rely)
+            "is_wifi_mock_start" -> ControlCommand.isWifiMock(rely)
+            "start_wifi_mock" -> ControlCommand.setWifiMock(true)
+            "stop_wifi_mock" -> ControlCommand.setWifiMock(false)
+            "get_location" -> ControlCommand.location(rely)
+            "get_listener_size" -> ControlCommand.listenerSize(rely)
+            "get_speed" -> ControlCommand.speed(rely)
+            "get_bearing" -> ControlCommand.bearing(rely)
+            "get_altitude" -> ControlCommand.altitude(rely)
+            "set_speed_amp" -> ControlCommand.setSpeedAmplitude(rely)
+            "set_altitude" -> ControlCommand.setAltitude(rely)
+            "set_speed" -> ControlCommand.setSpeed(rely)
+            "set_bearing" -> ControlCommand.setBearing(rely)            "update_location" -> {
                 val mode = rely.getString("mode")
                 var newLat = rely.getDouble("lat", 0.0)
                 var newLon = rely.getDouble("lon", 0.0)

@@ -108,6 +108,10 @@ object FakeLoc {
     @Volatile
     var simReady = true
 
+    /** P3-05: analytical production model by default; ORBITAL is a feasibility experiment. */
+    @Volatile
+    var gnssModelMode = com.system.location.service.core.gnss.GnssModelMode.ANALYTIC
+
     /** P5-02: null/global keeps every listener on the current fake fix. */
     @Volatile
     var routingConfig: com.system.location.service.core.routing.RoutingConfig? = null

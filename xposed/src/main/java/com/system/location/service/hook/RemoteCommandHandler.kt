@@ -346,6 +346,11 @@ object RemoteCommandHandler {
                 FakeLoc.enablePhysicalNoise = rely.getBoolean("enable_physical_noise", FakeLoc.enablePhysicalNoise)
                 FakeLoc.physicalNoiseSeed = rely.getLong("physical_noise_seed", FakeLoc.physicalNoiseSeed)
                 FakeLoc.simReady = rely.getBoolean("sim_ready", FakeLoc.simReady)
+                FakeLoc.gnssModelMode = runCatching {
+                    com.system.location.service.core.gnss.GnssModelMode.valueOf(
+                        rely.getString("gnss_model") ?: FakeLoc.gnssModelMode.name,
+                    )
+                }.getOrDefault(FakeLoc.gnssModelMode)
                 FakeLoc.routingConfig = rely.getString("routing_json")
                     ?.takeIf { it.isNotBlank() }
                     ?.let { json -> runCatching { kotlinx.serialization.json.Json.decodeFromString(com.system.location.service.core.routing.RoutingConfig.serializer(), json) }.getOrNull() }

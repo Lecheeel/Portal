@@ -4,17 +4,23 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.CatalogGnssSkyModel
 import com.system.location.service.core.gnss.Constellation
 import com.system.location.service.core.gnss.GnssFrame
+import com.system.location.service.core.gnss.GnssModelMode
+import com.system.location.service.core.gnss.OrbitalGnssSkyModel
 import com.system.location.service.hook.utils.FakeLoc
 
-/** Shared GNSS catalog -> legacy GnssStatus array bridge (P3-01/P3-04). */
+/** Shared GNSS catalog -> legacy GnssStatus array bridge (P3-01/P3-04/P3-05). */
 object GnssStatusBridge {
-    private val model = CatalogGnssSkyModel()
+    private val analytic = CatalogGnssSkyModel()
+    private val orbital = OrbitalGnssSkyModel()
 
-    fun currentFrame(observer: Wgs84? = null): GnssFrame = model.frame(
-        atMillis = System.currentTimeMillis(),
-        observer = observer ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude),
-        altitudeMeters = FakeLoc.altitude,
-    )
+    fun currentFrame(observer: Wgs84? = null): GnssFrame {
+        val model = if (FakeLoc.gnssModelMode == GnssModelMode.ORBITAL) orbital else analytic
+        return model.frame(
+            atMillis = System.currentTimeMillis(),
+            observer = observer ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude),
+            altitudeMeters = FakeLoc.altitude,
+        )
+    }
 
     fun toMockData(frame: GnssFrame): MockGnssData {
         val count = frame.satellites.size

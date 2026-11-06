@@ -546,7 +546,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：393 项 JVM 用例 0 失败（core 226、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：395 项 JVM 用例 0 失败（core 228、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -569,7 +569,8 @@ P0 阶段至少：
 ### P5-06 SampleStore / ConfigStore
 
 - 变更：`:core` 新增 `StoredSample`、`SampleStore`/`InMemorySampleStore`（单调 sequence、elapsed 租约、clear、线程安全）与 `ConfigStore`/`InMemoryConfigStore`（ConfigEnvelope 存取）。
-- 检查：`SampleStoreTest` 6 项（sequence/latest、租约边界、clear、默认 5 s、config roundtrip、initial）通过。
+- 变更：新增 `FileConfigStore`：ConfigCodec JSON 落盘，temp + `ATOMIC_MOVE`/`REPLACE_EXISTING`，损坏文件返回 null。
+- 检查：`SampleStoreTest` 6 项、`FileConfigStoreTest` 2 项（roundtrip/clear、损坏文件）通过。
 - 未完成：Binder/SharedMemory 实现、接入 `RemoteCommandHandler`/`FakeLoc`、SHM 设计。
 - 结论：`UNIT TEST VERIFIED`；P5-06 仍 `WIP`。
 

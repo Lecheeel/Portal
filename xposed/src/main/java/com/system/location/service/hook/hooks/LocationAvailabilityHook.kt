@@ -8,6 +8,7 @@ import com.system.location.service.hook.scope.HookStatusRegistry
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
+import com.system.location.service.core.privacy.LocationAvailabilityPolicy
 
 /**
  * P1-05 availability synthesis.
@@ -18,8 +19,6 @@ import com.system.location.service.hook.utils.Logger
  * callers see `true`; system/Settings callers keep the real master-switch value.
  */
 object LocationAvailabilityHook {
-    private const val FIRST_APP_UID = 10_000
-
     fun hook(classLoader: ClassLoader): Boolean {
         val service = XposedHelpers.findClassIfExists(
             "com.android.server.location.LocationManagerService",
@@ -35,7 +34,7 @@ object LocationAvailabilityHook {
             val hooks = HookInstaller.hookAllMethods(service, methodName, object : XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam?) {
                     if (param == null || !FakeLoc.enable) return
-                    if (BinderUtils.getCallerUid() < FIRST_APP_UID) return
+                    if (!LocationAvailabilityPolicy.shouldSynthesize(true, BinderUtils.getCallerUid())) return
                     param.result = true
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("$methodName: synthesized true for third-party caller")

@@ -414,7 +414,7 @@ P0 阶段至少：
 - 变更：已保存环境操作菜单新增“删除环境”，直接删除 `EnvironmentStore` 文件。
 - 变更：已保存环境操作菜单新增“重命名环境”，`EnvironmentStore.rename` 校验源存在/目标不存在后改名。
 - 变更：环境列表新增“搜索环境”，按名称包含过滤后重新打开列表；无匹配时提示。
-- 检查：`ReplayEnvironmentSourceTest` 5 项（同点保持、远离降低、极远 clamp、无 origin、非 REPLAY 拒绝）通过；`EnvironmentProfileCodecTest` 5 项（roundtrip、未知字段、非法 JSON/未来版本、schema 校验、默认版本）通过；`EnvironmentStoreTest` 3 项（保存/读取/列表/删除、文件名净化、替换）通过。
+- 检查：`ReplayEnvironmentSourceTest` 5 项（同点保持、远离降低、极远 clamp、无 origin、非 REPLAY 拒绝）通过；`EnvironmentProfileCodecTest` 5 项（roundtrip、未知字段、非法 JSON/未来版本、schema 校验、默认版本）通过；`EnvironmentStoreTest` 5 项（保存/读取/列表/删除、文件名净化、替换、重命名、重命名冲突/缺失）通过。
 - 未完成：BLE 回放 Hook、采集 UI 的 BLE 开关、构造器兼容、真机采集验证。
 - 结论：`UNIT TEST VERIFIED`（存储/回放）；采集器/列表/导出/回放接线/BLE 仅 `BUILD VERIFIED`；P2-02 仍 `WIP`。
 - 全量回归（2026-11-06）：`./gradlew :core:test :nmea:test :xposed:testDebugUnitTest :app:testArm64DebugUnitTest :detector:assembleDebug` → `BUILD SUCCESSFUL`，249 项 JVM 用例 0 失败（core 95、nmea 2、xposed 30、app 122）。
@@ -548,7 +548,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：413 项 JVM 用例 0 失败（core 246、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：415 项 JVM 用例 0 失败（core 246、nmea 7、xposed 35、app 127）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 

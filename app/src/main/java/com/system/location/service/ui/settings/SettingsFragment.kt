@@ -101,6 +101,29 @@ class SettingsFragment : Fragment() {
         }
     }
 
+    private val importEnvironmentDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val appContext = requireContext().applicationContext
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val raw = appContext.contentResolver.openInputStream(uri)
+                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: error("无法读取文件")
+                    val profile = EnvironmentProfileCodec.decode(raw)
+                    val name = "import-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                    EnvironmentStore(appContext).save(name, profile)
+                    name
+                }
+            }
+            result.onSuccess { name ->
+                if (isAdded) showToast(getString(R.string.environment_import_success, name))
+            }.onFailure { error ->
+                if (isAdded) showToast(getString(R.string.environment_import_failed, error.message ?: "unknown"))
+            }
+        }
+    }
+
     private val mockServiceViewModel by activityViewModels<MockServiceViewModel>()
 
     @SuppressLint("SetTextI18n")
@@ -248,6 +271,9 @@ class SettingsFragment : Fragment() {
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
+        }
+        binding.environmentImportButton.setOnClickListener {
+            importEnvironmentDocument.launch(arrayOf("application/json", "text/plain", "*/*"))
         }
         binding.environmentCaptureButton.setOnClickListener {
             if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {

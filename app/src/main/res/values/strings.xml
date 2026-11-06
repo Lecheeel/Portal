@@ -86,6 +86,9 @@
     <string name="environment_capture_failed">采集失败：%1$s</string>
     <string name="environment_ble_permission_denied">未授予蓝牙扫描权限，将只采集 WiFi/基站</string>
     <string name="environment_list_action">查看已保存环境</string>
+    <string name="environment_import_action">导入环境 JSON</string>
+    <string name="environment_import_success">已导入：%1$s</string>
+    <string name="environment_import_failed">导入失败：%1$s</string>
     <string name="environment_list_title">已保存环境</string>
     <string name="environment_list_empty">还没有保存的环境</string>
     <string name="environment_export_failed">导出失败：%1$s</string>

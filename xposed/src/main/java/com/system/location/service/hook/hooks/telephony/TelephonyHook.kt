@@ -87,6 +87,7 @@ object TelephonyHook: BaseTelephonyHook() {
 //        }
 
         XposedHelpers.findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader)?.let { CellInfoSynthesis.hook(it) }
+        PhoneTypeHooks.hook(classLoader)
         if (!FakeLoc.needDowngradeToCdma) return
         val cPhoneInterfaceManager = XposedHelpers.findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader)
             ?: return

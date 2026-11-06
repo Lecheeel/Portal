@@ -345,3 +345,40 @@ P0 阶段至少：
 - 变更：新增 [hook-split-plan.md](hook-split-plan.md)，覆盖现状职责、目标文件/行数预算、7 步迁移顺序、验收。
 - 检查：纯文档；未改 `LocationServiceHook` 行为。
 - 结论：设计稿完成，等待维护者评审；拆分未开始。
+
+---
+
+## 13. P1 实施记录（2026-11-06）
+
+### P1-02 AppOps Hook
+
+- 变更：新增 `AppOpsHook`，按方法名匹配 `AppOpsService.checkOperation*`；第三方跨 UID 查询 `OP_MOCK_LOCATION` 时返回 `MODE_ERRORED`，系统调用方与 controller 自检保持原值；`appops` 加入 system_server 所有权清单。
+- 检查：`:xposed:compileDebugKotlin`、`:xposed:testDebugUnitTest` 通过（30 项）。
+- 风险：只覆盖 `checkOperation*`，未覆盖 `getOpsForPackage`/`getPackagesForOps`；需要设备确认其他 AppOps 不受影响。
+- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；未做设备验证。
+
+### P1-03 Settings Provider Hook
+
+- 变更：新增 `HookScope.SETTINGS_PROVIDER` 与 xposed scope `com.android.providers.settings`；`SettingsHook` 对第三方调用方把 `mock_location`/`allow_mock_location`/`development_settings_enabled`/`adb_enabled` 置为 `"0"`；系统调用方不受影响；`query` fallback 返回空 cursor。
+- 检查：scope resolver JVM 测试补充 `com.android.providers.settings`；`:xposed` 编译/测试通过；`:app:processArm64DebugResources` 通过。
+- 风险：依赖 `SettingsProvider.call` 的命令名与 Bundle 结构；不同 ROM 的 Settings provider 实现需设备确认。
+- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；未做设备验证。
+
+### P1-04 Provider 列表/属性
+
+- 变更：新增 `ProviderRegistryHook`，过滤 `getAllProviders`/`getProviders` 中的 `fused_ext`/test/mock/portal provider；`hasProvider` 返回 false；`getProviderProperties` 对可疑 provider 抛出与真实缺失一致的 `IllegalArgumentException`；`provider-registry` 加入所有权清单。
+- 检查：`:xposed` 编译/测试通过。
+- 风险“名称含 test/mock”可能误伤厂商 provider；设备基线上需确认白名单。
+- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；未做设备验证。
+
+### P1-05 Availability
+
+- 事实核查：Android 31–37 没有公开 `android.location.LocationAvailability`；AOSP 16 `ILocationManager.aidl` / `ILocationListener.aidl` 也没有 availability 回调。原路线图的“LocationAvailability Hook”没有可挂的框架接口。
+- 变更：对第三方调用方在模拟启用时合成 `isLocationEnabledForUser` / `isLocationEnabled` 为 true；系统/Settings 调用方保持真实值。
+- 检查：`:xposed` 编译/测试通过。
+- 结论：原验收项无法按“框架 LocationAvailability”完成；当前为可观察的替代实现，`WIP`，GMS `LocationAvailability` 留待 P4/P7 独立评估。
+
+### P1 回归状态
+
+- 2026-11-06：`:xposed:testDebugUnitTest` 30 项通过；无设备，P1-02～05 均未 `DEVICE VERIFIED`。
+- 下一设备动作：按 [05-work-plan.md](05-work-plan.md) P1-06，在小米 + Pixel/AOSP 的 Xposed 模式下跑 detector C01–C05、C08、C09。

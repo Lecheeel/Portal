@@ -225,8 +225,9 @@
 - **P4-03 部分落地**：`ProviderView` / `ProviderMixer` 已接入 Mock、Fused 与 Xposed 三条发布路径，按 provider 输出不同精度/延迟/字段；三路设备交叉验证未做。
 - **P4-04 Native 传感器**：`ConvertToSensorEvent` 已按 motion state 生成值并移除 -1/0 清零；仅 arm64 语法检查，未真机/全 ABI 构建。
 - **P4-05 纯模型落地**：新增 `MotionMode`/`MotionState`/`SensorFrame`/`SyntheticSensorModel`（静止/步行/跑步/驾车，步数/气压/地磁/陀螺仪确定性生成）；Native 传感器 Hook（P4-04）已改为按 motion state 生成值，但未真机验证。
-- **P5-01 纯模型落地**：新增 `RoutingConfig`/`RoutingTable`（package 优先、UID fallback、system 绕过、deny、schemaVersion）。system_server 路由与 UI 尚未接入。
+- **P5-01 纯模型落地**：新增 `RoutingConfig`/`RoutingTable`（package 优先、UID fallback、system 绕过、deny、schemaVersion）；已接 `ListenerRouting` 与 per-app UI 的 deny/固定点。
 - **P5-02 解析层落地**：新增 `PackageUidLookup`/`CallerRouter`、`ScenarioSampleStore`、`AppRoute.point` 与 `RoutingTable` 多 package/固定点解析；新增 `ListenerRouting`（denied/scenario/fixed-point）与 per-app deny/固定点 UI；WiFi/基站/GNSS status/NMEA 按固定点生成，后端发布已携带 scenarioId，多控制器仍缺。
+- **P5-05 结论**：GMS 只做全局模拟，per-app 依赖 AOSP Provider/固定点；限制见 `08-gms-per-app.md`，未设备验证。
 - **P6-04 首轮安全加固**：`APSService` 显式不导出；合并 manifest 仅 launcher 导出；`environment/`、`fused_ext.xml`、`library/` 从备份/换机迁移排除；per-app 列表使用 MAIN/LAUNCHER `<queries>`；debug 命令日志已脱敏坐标/配置；其余 IPC/Bugly 审查未做。
 - **P5-03 纯模型落地**：新增 `ConfigEnvelope`/`ConfigCodec`（v2 编解码、v1 迁移、未知字段忽略、版本/重复校验）、`SampleEnvelope`/`SampleCodec` 与 `SampleWire` v1/v2；新增 `applyConfigNow`，per-app/回放配置可在服务运行时热更新。
 - **P5-06 纯抽象落地**：新增 `SampleStore`/`ConfigStore` 与内存实现（sequence/租约/clear），Binder/SHM 与接线未做。

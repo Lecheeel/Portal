@@ -33,6 +33,7 @@ jobs:
         run: |
           python3 scripts/check_module_rules.py
           python3 scripts/check_backup_rules.py
+          python3 scripts/check_manifest_exports.py
 
       - name: Unit tests
         run: |

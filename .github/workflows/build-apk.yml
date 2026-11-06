@@ -54,6 +54,7 @@ jobs:
         run: |
           python3 scripts/check_module_rules.py
           python3 scripts/check_backup_rules.py
+          python3 scripts/check_manifest_exports.py
       - name: Prepare required release signing
         env:
           SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}

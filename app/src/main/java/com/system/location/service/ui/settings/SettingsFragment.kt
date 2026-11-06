@@ -214,25 +214,32 @@ class SettingsFragment : Fragment() {
                         .setItems(arrayOf(
                             getString(R.string.environment_export),
                             getString(R.string.environment_replay),
+                            getString(R.string.environment_delete),
                         )) { _, action ->
-                            runCatching { EnvironmentStore(appContext).load(name) }
-                                .onSuccess { profile ->
-                                    if (action == 0) {
-                                        environmentExport = name to profile
-                                        createEnvironmentDocument.launch("$name.json")
-                                    } else {
-                                        context.environmentReplayJson = EnvironmentProfileCodec.encode(profile)
-                                        lifecycleScope.launch {
-                                            val applied = withContext(Dispatchers.IO) {
-                                                com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+                            if (action == 2) {
+                                val deleted = EnvironmentStore(appContext).delete(name)
+                                showToast(if (deleted) getString(R.string.environment_deleted)
+                                    else getString(R.string.environment_delete_failed))
+                            } else {
+                                runCatching { EnvironmentStore(appContext).load(name) }
+                                    .onSuccess { profile ->
+                                        if (action == 0) {
+                                            environmentExport = name to profile
+                                            createEnvironmentDocument.launch("$name.json")
+                                        } else {
+                                            context.environmentReplayJson = EnvironmentProfileCodec.encode(profile)
+                                            lifecycleScope.launch {
+                                                val applied = withContext(Dispatchers.IO) {
+                                                    com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+                                                }
+                                                showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
                                             }
-                                            showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
                                         }
                                     }
-                                }
-                                .onFailure { error ->
-                                    showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
-                                }
+                                    .onFailure { error ->
+                                        showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
+                                    }
+                            }
                         }
                         .show()
                 }

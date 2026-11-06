@@ -24,6 +24,13 @@ object DiagnosticCommand {
         rely.putString("hook_scope", scope?.name ?: "unknown")
         rely.putInt("hook_expected", ownership?.expected?.size ?: 0)
         rely.putInt("hook_missing", ownership?.missing?.size ?: 0)
+        SampleCommand.publishStats()?.let { stats ->
+            rely.putInt("publish_samples", stats.samples)
+            rely.putLong("publish_p50_nanos", stats.p50Nanos)
+            rely.putLong("publish_p95_nanos", stats.p95Nanos)
+            rely.putLong("publish_max_nanos", stats.maxNanos)
+            rely.putLong("publish_mean_nanos", stats.meanNanos)
+        }
         rely.putStringArrayList("hook_missing_points", ArrayList(ownership?.missing.orEmpty()))
         rely.putStringArrayList("hook_details", ArrayList(statuses.entries.take(128).map { (point, status) ->
             "$point: supported=${status.supported}, installed=${status.installed}, matched=${status.matched}, " +

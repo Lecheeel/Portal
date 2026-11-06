@@ -12,7 +12,6 @@ import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.beforeHook
 import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.onceHookAllMethod
-import java.util.Collections
 
 object GnssHook: BaseLocationHook() {
     operator fun invoke(classLoader: ClassLoader) {
@@ -48,47 +47,6 @@ object GnssHook: BaseLocationHook() {
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "removeGnssMeasurementsListener", doNothingMethod)
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "removeGnssNavigationMessageListener", doNothingMethod)
 
-        run {
-            val hookedGnssCallback = Collections.synchronizedSet(HashSet<String>())
-            val unhooks = cGnssManagerService.declaredMethods.filter {
-                it.name == "registerGnssNmeaCallback" && it.parameterTypes.size > 1
-            }.map { method ->
-                com.system.location.service.hook.scope.HookInstaller.hookMethod(method, object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam?) {
-                        if (param == null || param.args[0] == null) return
-                        val classListener = param.args[0].javaClass
-
-                        if (hookedGnssCallback.contains(classListener.name)) return
-                        hookedGnssCallback.add(classListener.name)
-
-                        if (FakeLoc.enableDebugLog)
-                            Logger.debug("registerGnssNmeaCallback: $classListener")
-                        kotlin.runCatching {
-                            com.system.location.service.hook.scope.HookInstaller.findMethod(classListener, "onNmeaReceived", Long::class.java, String::class.java)?.let { method ->
-                            com.system.location.service.hook.scope.HookInstaller.hookMethod(method, object: XC_MethodHook() {
-                                override fun beforeHookedMethod(param: MethodHookParam) {
-                                    if (FakeLoc.enable && FakeLoc.enableMockGnss && !FakeLoc.enableAGPS) {
-                                        if (FakeLoc.enableDebugLog)
-                                            Logger.debug("GnssManagerService.onNmeaReceived: disable")
-                                        param.result = null
-                                        return
-                                    }
-
-                                    val nmea = param.args[1] as String
-                                    param.args[1] = injectNMEA(nmea) ?: nmea
-                                }
-                            })
-                            }
-                        }.onFailure {
-                            Logger.error("[onNmeaReceived hook failed: ${it.message} from GnssManagerService, please issue?", it)
-                        }
-                    }
-                })
-            }
-
-            if (FakeLoc.enableDebugLog)
-                Logger.debug("found ${unhooks.size} registerGnssNmeaCallback")
-        }
     }
 
     private fun hookHALGnss(classLoader: ClassLoader) {

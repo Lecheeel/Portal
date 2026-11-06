@@ -56,13 +56,16 @@ object LocationNMEAHook: BaseLocationHook() {
                 }
 
                 cIGnssNmeaCallback.onceHookMethodBefore("onNmeaReceived", Long::class.java, String::class.java) {
-                    if (FakeLoc.enableNMEA && !FakeLoc.enableAGPS) {
-                        result = null // disable
+                    // Single NMEA rewrite point (P3-04). When simulation is active but the NMEA
+                    // feature is off, suppress the real sentences instead of leaking them; when on,
+                    // rewrite them and suppress anything the current generator cannot map yet.
+                    if (!FakeLoc.enable) return@onceHookMethodBefore
+                    val nmea = args[1] as? String ?: return@onceHookMethodBefore
+                    if (!FakeLoc.enableNMEA) {
+                        args[1] = ""
                         return@onceHookMethodBefore
                     }
-
-                    val nmea = args[1] as? String ?: return@onceHookMethodBefore
-                    args[1] = injectNMEA(nmea) ?: nmea
+                    args[1] = injectNMEA(nmea) ?: ""
                 }
             }
         }

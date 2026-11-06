@@ -463,8 +463,8 @@ P0 阶段至少：
 ### P3-01 确定性 GNSS 模型
 
 - 变更：`:core` 新增 `Constellation`/`GnssSatellite`/`GnssFrame`/`GnssSkyModel` 与 `CatalogGnssSkyModel`；固定目录含 GPS、BDS、GLONASS、Galileo、QZSS；无 `shuffled()`、无未播种随机；时间/位置只平滑影响 az/el/CN0。
-- 检查：`GnssSkyModelTest` 6 项（确定性、多星座、集合稳定、边界/去重、方位缓慢变化、CN0-仰角相关性）通过。
-- 结论：`UNIT TEST VERIFIED`；Hook 尚未改为读取该模型（P3-04）。
+- 检查：`GnssSkyModelTest` 6 项（确定性、多星座、集合稳定、边界/去重、方位缓慢变化、CN0-仰角相关性）通过；`GnssStatusBridge` 已从该模型生成 `GnssStatus`，`LocationServiceHook` 不再持有 BDS 星表。
+- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P3-01 `DONE`。
 
 ### P3-02 多星座 V1（部分）
 

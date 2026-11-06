@@ -152,7 +152,7 @@ P0 基线
 
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| P3-01 | 抽取 GNSS 模型 | `GnssFrame`/`GnssSatellite`/`GnssSkyModel` 进 `:core` | `LocationServiceHook` 不再持有 BDS 星表；JVM 测试 | P1 | M | WIP |
+| P3-01 | 抽取 GNSS 模型 | `GnssFrame`/`GnssSatellite`/`GnssSkyModel` 进 `:core` | `LocationServiceHook` 不再持有 BDS 星表；JVM 测试 | P1 | M | DONE |
 | P3-02 | 多星座 V1 | GPS/BDS/GLONASS/Galileo；确定性可见性；CN0 随仰角；usedInFix | detector 看不出随机 shuffle；星座混合合理 | P3-01 | L | WIP |
 | P3-03 | NMEA 生成器 | GGA/RMC/GSA/GSV/GST/ZDA；校验和；UTC；卫星数一致 | 黄金向量测试；GSV 与 GnssStatus 一致 | P3-01 | L | WIP |
 | P3-04 | Hook 合并 | `GnssHook` + `LocationNMEAHook` → 单入口；修正 `enableNMEA` 语义 | 只有一个 `onNmeaReceived` 改写点；detector 通过 | P3-03 | M | WIP |

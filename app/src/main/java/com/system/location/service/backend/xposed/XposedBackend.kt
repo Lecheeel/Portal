@@ -2,14 +2,17 @@ package com.system.location.service.backend.xposed
 
 import android.content.Context
 import android.location.LocationManager
+import android.os.SystemClock
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.performance.PerformanceProbe
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
 
 /** The scenario runtime owns movement. One authenticated IPC sends each immutable fix. */
 class XposedBackend(private val context: Context) : LocationBackend {
     private val manager = context.getSystemService(LocationManager::class.java)
+    private val publishProbe = PerformanceProbe()
     private var connected = false
     override val type = BackendType.XPOSED
     override suspend fun diagnose(): List<BackendDiagnostic> {
@@ -32,6 +35,17 @@ class XposedBackend(private val context: Context) : LocationBackend {
                 "n=$publishSamples · p50=%.1f ms · p95=%.1f ms · max=%.1f ms".format(p50, p95, max),
             )
         } else null
+        val appLatency = publishProbe.snapshot()?.let { stats ->
+            BackendDiagnostic(
+                "APP_PUBLISH_LATENCY",
+                if (stats.p95Nanos > 100_000_000L) "WARN" else "INFO",
+                "n=${stats.samples} · p50=%.1f ms · p95=%.1f ms · max=%.1f ms".format(
+                    stats.p50Nanos / 1_000_000.0,
+                    stats.p95Nanos / 1_000_000.0,
+                    stats.maxNanos / 1_000_000.0,
+                ),
+            )
+        }
         return listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "system_server 远程通道已连接"),
             BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),
             BackendDiagnostic("HOOK_OWNERSHIP", if (missing == 0) "INFO" else "WARN",
@@ -39,6 +53,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
                     if (missingPoints.isEmpty()) "" else " · ${missingPoints.joinToString(", ")}"),
             BackendDiagnostic("LAST_PUBLISH", "INFO", "系统侧最近发布时间：${status.getLong("last_publish")}; 启用状态：${status.getBoolean("is_start")}")) +
             listOfNotNull(latency) +
+            listOfNotNull(appLatency) +
             status.getStringArrayList("hook_details").orEmpty().take(60).map { BackendDiagnostic("HOOK_POINT", "INFO", it) }
     }
     override val capabilities get() = Capability.entries.associateWith { capability ->
@@ -63,8 +78,13 @@ class XposedBackend(private val context: Context) : LocationBackend {
     }
     override suspend fun start() = BackendResult.Success
     override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
-        return checked(MockServiceHelper.publishSample(manager, sample, scenarioId),
-            "PUBLISH", "检查模块是否仍启用")
+        val started = SystemClock.elapsedRealtimeNanos()
+        return try {
+            checked(MockServiceHelper.publishSample(manager, sample, scenarioId),
+                "PUBLISH", "检查模块是否仍启用")
+        } finally {
+            publishProbe.record((SystemClock.elapsedRealtimeNanos() - started).coerceAtLeast(0L))
+        }
     }
     override suspend fun stop(): BackendResult {
         if (!connected) {

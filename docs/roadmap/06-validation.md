@@ -483,7 +483,7 @@ P0 阶段至少：
 - 检查：`RoutingTableTest` 9 项（GLOBAL、package 优先且大小写不敏感、UID fallback、system 绕过、deny、disabled fallback、无全局、非法/重复、JSON）通过。
 - 未完成：system_server 调用方 UID→package 查询、listener 映射、per-app UI 与配置下发（P5-02/03/04）。
 - 结论：`UNIT TEST VERIFIED`；P5-01 仍 `WIP`。
-- 全量回归（2026-11-06）：294 项 JVM 用例 0 失败（core 135、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：300 项 JVM 用例 0 失败（core 141、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 
@@ -491,6 +491,13 @@ P0 阶段至少：
 - 检查：`ConfigEnvelopeTest` 6 项（v2 roundtrip、v1 迁移、未知字段、未来/缺失版本、非法 envelope、默认 provider）通过。
 - 未完成：SampleWire v2、app 配置 UI/持久化迁移、xposed 侧切换不重启（P5-03 验收）未做。
 - 结论：`UNIT TEST VERIFIED`；P5-03 仍 `WIP`。
+
+### P5-06 SampleStore / ConfigStore
+
+- 变更：`:core` 新增 `StoredSample`、`SampleStore`/`InMemorySampleStore`（单调 sequence、elapsed 租约、clear、线程安全）与 `ConfigStore`/`InMemoryConfigStore`（ConfigEnvelope 存取）。
+- 检查：`SampleStoreTest` 6 项（sequence/latest、租约边界、clear、默认 5 s、config roundtrip、initial）通过。
+- 未完成：Binder/SharedMemory 实现、接入 `RemoteCommandHandler`/`FakeLoc`、SHM 设计。
+- 结论：`UNIT TEST VERIFIED`；P5-06 仍 `WIP`。
 
 ### P3-04 Hook 合并（部分）
 

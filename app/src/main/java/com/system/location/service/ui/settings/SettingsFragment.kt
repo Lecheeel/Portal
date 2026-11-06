@@ -227,37 +227,71 @@ class SettingsFragment : Fragment() {
                 }
             }
         }
-        fun assignPointToApps(location: SavedLocation) {
+        fun showAppPicker(title: String, initiallySelected: Set<String>, onDone: (Set<String>) -> Unit) {
             val pm = requireContext().packageManager
-            val apps = launchableApps()
-            val labels = apps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
+            val apps = launchableApps().sortedBy { pm.getApplicationLabel(it).toString().lowercase() }
+            val selected = initiallySelected.toMutableSet()
+
+            fun open(query: String = "") {
+                val filtered = if (query.isBlank()) apps else apps.filter {
+                    pm.getApplicationLabel(it).toString().contains(query, ignoreCase = true) ||
+                        it.packageName.contains(query, ignoreCase = true)
+                }
+                if (filtered.isEmpty()) {
+                    showToast(getString(R.string.per_app_no_match))
+                    return
+                }
+                val labels = filtered.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
+                val checked = BooleanArray(filtered.size) { filtered[it].packageName in selected }
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(title)
+                    .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
+                        if (isChecked) selected.add(filtered[which].packageName)
+                        else selected.remove(filtered[which].packageName)
+                    }
+                    .setPositiveButton(R.string.per_app_done) { _, _ -> onDone(selected.toSet()) }
+                    .setNeutralButton(R.string.per_app_search) { _, _ ->
+                        val input = TextInputEditText(requireContext()).apply {
+                            hint = getString(R.string.per_app_search_hint)
+                            setSingleLine()
+                        }
+                        MaterialAlertDialogBuilder(requireContext())
+                            .setTitle(R.string.per_app_search)
+                            .setView(input)
+                            .setPositiveButton(android.R.string.ok) { _, _ ->
+                                val value = input.text?.toString()?.trim().orEmpty()
+                                if (value.isEmpty()) open() else open(value)
+                            }
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+            open()
+        }
+
+        fun assignPointToApps(location: SavedLocation) {
             val existing = runCatching {
                 Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
             }.getOrNull() ?: RoutingConfig()
-            val checked = BooleanArray(apps.size) { index ->
-                existing.routes.any {
-                    it.packageName.equals(apps[index].packageName, ignoreCase = true) && it.point == location.coordinate
+            val initial = existing.routes
+                .filter { it.point == location.coordinate }
+                .map { it.packageName }
+                .toSet()
+            showAppPicker(getString(R.string.per_app_point), initial) { selected ->
+                val selectedLower = selected.map { it.lowercase() }.toSet()
+                val routes = existing.routes.filterNot { it.packageName.lowercase() in selectedLower } +
+                    selected.map { AppRoute(it, point = location.coordinate) }
+                val config = existing.copy(mode = RoutingMode.PER_APP, routes = routes)
+                context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
+                lifecycleScope.launch {
+                    val applied = withContext(Dispatchers.IO) {
+                        com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+                    }
+                    showToast(if (applied) "固定点已应用" else "已保存，下次启动场景生效")
                 }
             }
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.per_app_point)
-                .setMultiChoiceItems(labels, checked) { _, which, isChecked -> checked[which] = isChecked }
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val selected = apps.filterIndexed { index, _ -> checked[index] }.map { it.packageName }.toSet()
-                    val selectedLower = selected.map { it.lowercase() }.toSet()
-                    val routes = existing.routes.filterNot { it.packageName.lowercase() in selectedLower } +
-                        selected.map { AppRoute(it, point = location.coordinate) }
-                    val config = existing.copy(mode = RoutingMode.PER_APP, routes = routes)
-                    context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
-                    lifecycleScope.launch {
-                        val applied = withContext(Dispatchers.IO) {
-                            com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
-                        }
-                        showToast(if (applied) "固定点已应用" else "已保存，下次启动场景生效")
-                    }
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
         }
         binding.perAppPointButton.setOnClickListener {
             lifecycleScope.launch {
@@ -281,33 +315,23 @@ class SettingsFragment : Fragment() {
             }
         }
         binding.perAppRoutingButton.setOnClickListener {
-            val pm = requireContext().packageManager
-            val apps = launchableApps()
-            val labels = apps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
             val existing = runCatching {
                 Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
             }.getOrNull()
-            val checked = BooleanArray(apps.size) { apps[it].packageName in (existing?.deniedPackages ?: emptySet()) }
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.per_app_routing_title)
-                .setMultiChoiceItems(labels, checked) { _, which, isChecked -> checked[which] = isChecked }
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val denied = apps.filterIndexed { index, _ -> checked[index] }.map { it.packageName }.toSet()
-                    val config = if (denied.isEmpty()) {
-                        RoutingConfig(mode = RoutingMode.GLOBAL)
-                    } else {
-                        RoutingConfig(mode = RoutingMode.PER_APP, deniedPackages = denied)
-                    }
-                    context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
-                    lifecycleScope.launch {
-                        val applied = withContext(Dispatchers.IO) {
-                            com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
-                        }
-                        showToast(if (applied) "配置已应用" else "已保存，下次启动场景生效")
-                    }
+            showAppPicker(getString(R.string.per_app_routing_title), existing?.deniedPackages ?: emptySet()) { denied ->
+                val config = if (denied.isEmpty()) {
+                    RoutingConfig(mode = RoutingMode.GLOBAL)
+                } else {
+                    RoutingConfig(mode = RoutingMode.PER_APP, deniedPackages = denied)
                 }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+                context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
+                lifecycleScope.launch {
+                    val applied = withContext(Dispatchers.IO) {
+                        com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+                    }
+                    showToast(if (applied) "配置已应用" else "已保存，下次启动场景生效")
+                }
+            }
         }
         binding.environmentImportButton.setOnClickListener {
             importEnvironmentDocument.launch(arrayOf("application/json", "text/plain", "*/*"))

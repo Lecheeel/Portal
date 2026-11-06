@@ -25,6 +25,7 @@ import com.system.location.service.R
 import com.system.location.service.databinding.FragmentSettingsBinding
 import com.system.location.service.environment.EnvironmentCollector
 import com.system.location.service.environment.EnvironmentStore
+import com.system.location.service.ext.environmentReplayJson
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentProfileCodec
 import java.text.SimpleDateFormat
@@ -149,14 +150,27 @@ class SettingsFragment : Fragment() {
                 .setTitle(R.string.environment_list_title)
                 .setItems(names.toTypedArray()) { _, index ->
                     val name = names[index]
-                    runCatching { EnvironmentStore(appContext).load(name) }
-                        .onSuccess { profile ->
-                            environmentExport = name to profile
-                            createEnvironmentDocument.launch("$name.json")
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(name)
+                        .setItems(arrayOf(
+                            getString(R.string.environment_export),
+                            getString(R.string.environment_replay),
+                        )) { _, action ->
+                            runCatching { EnvironmentStore(appContext).load(name) }
+                                .onSuccess { profile ->
+                                    if (action == 0) {
+                                        environmentExport = name to profile
+                                        createEnvironmentDocument.launch("$name.json")
+                                    } else {
+                                        context.environmentReplayJson = EnvironmentProfileCodec.encode(profile)
+                                        showToast(getString(R.string.environment_replay_set))
+                                    }
+                                }
+                                .onFailure { error ->
+                                    showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
+                                }
                         }
-                        .onFailure { error ->
-                            showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
-                        }
+                        .show()
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()

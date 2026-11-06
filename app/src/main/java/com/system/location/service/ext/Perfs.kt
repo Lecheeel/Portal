@@ -188,6 +188,12 @@ var Context.debug: Boolean
         putBoolean("debug", value)
     }
 
+var Context.environmentReplayJson: String
+    get() = sharedPrefs.getString("environmentReplayJson", "").orEmpty()
+    set(value) = sharedPrefs.edit {
+        putString("environmentReplayJson", value)
+    }
+
 var Context.disableGetCurrentLocation: Boolean
     get() = sharedPrefs.getBoolean("disableGetCurrentLocation", FakeLoc.disableGetCurrentLocation)
     set(value) = sharedPrefs.edit {

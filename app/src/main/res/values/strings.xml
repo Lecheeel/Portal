@@ -83,4 +83,7 @@
     <string name="environment_list_empty">还没有保存的环境</string>
     <string name="environment_export_failed">导出失败：%1$s</string>
     <string name="environment_export_success">已导出环境配置</string>
+    <string name="environment_export">导出 JSON</string>
+    <string name="environment_replay">用于 WiFi 回放</string>
+    <string name="environment_replay_set">已设为回放环境，下次启动场景生效</string>
 </resources>

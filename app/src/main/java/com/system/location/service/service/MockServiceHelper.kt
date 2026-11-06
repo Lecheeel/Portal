@@ -16,6 +16,7 @@ import com.system.location.service.ext.enableAGPS
 import com.system.location.service.ext.enableGetFromLocation
 import com.system.location.service.ext.enableNMEA
 import com.system.location.service.ext.enableRequestGeofence
+import com.system.location.service.ext.environmentReplayJson
 import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.speed
@@ -332,6 +333,7 @@ object MockServiceHelper {
         rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
         rely.putBoolean("disable_request_geofence", FakeLoc.disableRequestGeofence)
         rely.putBoolean("disable_get_from_location", FakeLoc.disableGetFromLocation)
+        context.environmentReplayJson.takeIf { it.isNotBlank() }?.let { rely.putString("environment_json", it) }
 
         return commandClient.send(locationManager, rely)
     }

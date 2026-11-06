@@ -668,6 +668,7 @@ P0 阶段至少：
 - 变更：`SampleCommand.publish` 记录端到端发布耗时，`get_runtime_status` 输出 `publish_samples/p50/p95/max/mean` 纳秒值。
 - 变更：app `XposedBackend.diagnose` 读取并展示 `PUBLISH_LATENCY`，p95 >100 ms 标记 WARN。
 - 变更：app `XposedBackend.publish` 记录端到端 IPC 耗时，诊断输出 `APP_PUBLISH_LATENCY`（p95>100 ms WARN）。
+- 变更：app 诊断新增 `APP_MEMORY`（PSS + Java heap used/max）。
 - 检查：`PerformanceProbeTest` 4 项（空、百分位、环形覆盖、clear/校验）通过；`:xposed`/`:app` 编译/测试通过。
-- 未完成：CPU/内存/电池设备基线、预算阈值校准、设备展示。
+- 未完成：CPU/电池设备基线、预算阈值校准、设备展示。
 - 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P7-04 仍 `WIP`。

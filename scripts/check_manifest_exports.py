@@ -24,6 +24,11 @@ def main() -> int:
         print("manifest: missing application")
         return 1
     errors = []
+    permissions = {
+        node.get(f"{ANDROID}name", "") for node in root.findall("uses-permission")
+    }
+    if "android.permission.QUERY_ALL_PACKAGES" in permissions:
+        errors.append("QUERY_ALL_PACKAGES must not be requested; use package visibility queries")
     for tag in ("activity", "activity-alias", "service", "receiver", "provider"):
         for node in application.findall(tag):
             name = component_name(node)

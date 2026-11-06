@@ -18,6 +18,8 @@
     <exclude domain="sharedpref" path="scenario_runtime.xml" />
     <exclude domain="sharedpref" path="mock_provider_ownership.xml" />
     <exclude domain="sharedpref" path="gms_mock_ownership.xml" />
+    <!-- Captured WiFi/cell/BLE snapshots are sensitive and must not leave the device. -->
+    <exclude domain="file" path="environment/" />
     <!--
    <include domain="sharedpref" path="."/>
    <exclude domain="sharedpref" path="device.xml"/>

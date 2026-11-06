@@ -69,6 +69,7 @@
         <service
             android:name="com.amap.api.location.APSService"
             android:enabled="true"
+            android:exported="false"
             android:foregroundServiceType="location"
             tools:ignore="ForegroundServicePermission" />
         <meta-data

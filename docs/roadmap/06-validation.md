@@ -632,7 +632,7 @@ P0 阶段至少：
 - 变更：新增 `GnssStatusBridge`，`LocationServiceHook` 的 `onSvStatusChanged` 从固定 `CatalogGnssSkyModel` 取帧生成 `GnssStatus` 数组；删除 BDS 星表/`shuffled()`/未播种随机；`LocationServiceHook` 从 1028 行降到 847 行，行数基线下调。新增 `NmeaBridge` 生成 NMEA 并带 500ms 帧缓存。
 - 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest` 通过；`NmeaBridgeTest` 2 项覆盖“模拟关闭透传”“NMEA 关闭抑制真实语句”；`check_module_rules` 0 violation。
 - 未完成：raw measurements/navigation message 仍被屏蔽（P3-05/P7）；NMEA 依赖真实回调驱动，无设备验证“目标 App 实际收到完整序列”；跨 talker 的 GSV 轮转仅在同类型回调内循环。
-- 结论：单入口、统一 GnssStatus 与 NMEA 生成已 `BUILD VERIFIED`；P3-04 仍 `WIP`。
+- 结论：单入口、统一 GnssStatus 与 NMEA 生成已 `BUILD VERIFIED`；`NmeaBridgeTest` 覆盖开关 gate；detector C07 代码已覆盖 GST/ZDA；设备 detector 未跑；P3-04 `DONE`。
 
 ### P3-05 Raw GNSS 策略（部分）
 

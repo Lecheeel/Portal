@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ("main.cpp", "sensor_hook.cpp")
+LINK_SOURCES = ("main.cpp", "elf_util.cpp", "sensor_hook.cpp")
 ABIS = {
     "arm64-v8a": "aarch64-linux-android31",
     "armeabi-v7a": "armv7a-linux-androideabi31",
@@ -62,7 +63,7 @@ def find_dobby_include() -> Path:
     temp.mkdir(parents=True)
     with zipfile.ZipFile(aars[-1]) as archive:
         for name in archive.namelist():
-            if name.startswith("prefab/modules/dobby/include/"):
+            if name.startswith("prefab/modules/dobby/"):
                 archive.extract(name, temp)
     include = temp / "prefab" / "modules" / "dobby" / "include"
     if not include.is_dir():
@@ -71,6 +72,7 @@ def find_dobby_include() -> Path:
 
 
 def main() -> int:
+    link = "--link" in sys.argv[1:]
     ndk = find_ndk()
     clang = find_clang(ndk)
     sysroot = clang.parents[1] / "sysroot"
@@ -78,6 +80,26 @@ def main() -> int:
     cpp_dir = ROOT / "xposed" / "src" / "main" / "cpp"
     failures = 0
     for abi, target in ABIS.items():
+        if link:
+            output_dir = ROOT / ".tmp" / "native-link"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output = output_dir / f"liblocationext-{abi}.so"
+            command = [
+                str(clang), f"--target={target}", f"--sysroot={sysroot}",
+                "-std=c++23", "-shared", "-fPIC", "-O2",
+                "-I", str(cpp_dir), "-I", str(include),
+                *[str(cpp_dir / source) for source in LINK_SOURCES],
+                str(include.parent / "libs" / f"android.{abi}" / "libdobby.a"),
+                "-llog", "-landroid", "-o", str(output),
+            ]
+            result = subprocess.run(command, capture_output=True, text=True)
+            if result.returncode == 0 and output.is_file():
+                print(f"OK link {abi} ({output.stat().st_size} bytes)")
+            else:
+                failures += 1
+                print(f"FAIL link {abi}")
+                print((result.stderr or result.stdout)[:2000])
+            continue
         for source in SOURCES:
             command = [
                 str(clang), f"--target={target}", f"--sysroot={sysroot}",
@@ -91,7 +113,8 @@ def main() -> int:
                 failures += 1
                 print(f"FAIL {abi} {source}")
                 print((result.stderr or result.stdout)[:2000])
-    print(f"native syntax: {failures} failure(s)")
+    mode = "native link" if link else "native syntax"
+    print(f"{mode}: {failures} failure(s)")
     return 1 if failures else 0
 
 

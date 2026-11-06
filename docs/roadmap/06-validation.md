@@ -591,8 +591,9 @@ P0 阶段至少：
 - 变更：`get_runtime_status` 诊断逻辑拆到 `DiagnosticCommand.status()`，handler 继续只做分发。
 - 变更：native 生命周期（load/prepare/status/motion/disable）拆到 `NativeCommand`，`isLoadedLibrary` 状态从 handler 移除。
 - 变更：`publish_sample` 与 publication lease/restore/expire 拆到 `SampleCommand`，handler 只保留命令分发。
+- 变更：start/stop/查询/开关/简单设值命令拆到 `ControlCommand`，handler 再减少约 100 行。
 - 检查：`SettingsSchemaTest` 5 项（默认值、数值/枚举/布尔校验、null 默认、coerce fallback、重复/非法 spec）通过；`:xposed` 编译/测试通过。
-- 未完成：control 命令拆分、全部旧配置迁移。
+- 未完成：`update_location`/`move`/proxy/sync 剩余命令拆分。
 - 结论：`UNIT TEST VERIFIED`；P5-08 仍 `WIP`。
 
 ### P3-04 Hook 合并（部分）

@@ -233,6 +233,6 @@
 - **P5-03 纯模型落地**：新增 `ConfigEnvelope`/`ConfigCodec`（v2 编解码、v1 迁移、未知字段忽略、版本/重复校验）、`SampleEnvelope`/`SampleCodec` 与 `SampleWire` v1/v2；新增 `applyConfigNow`，per-app/回放配置可在服务运行时热更新。
 - **P5-06 纯抽象落地**：新增 `SampleStore`/`ConfigStore` 与内存实现（sequence/租约/clear），Binder/SHM 与接线未做。
 - **P5-07 纯模型落地**：新增不可变 `RuntimeSnapshot`/`RuntimeSnapshotStore`，`FakeLoc` 的样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声配置已全部迁入快照；Hooks 通过兼容属性读取，待设备验证。
-- **P5-08 部分落地**：新增 `SettingsSchema`/`PortalSettingsSchema`、`ConfigGate`，config/diagnostic/native/sample 命令已拆到独立对象；control 命令拆分未做。
+- **P5-08 部分落地**：新增 `SettingsSchema`/`PortalSettingsSchema`、`ConfigGate`，config/diagnostic/native/sample/control 命令已拆到独立对象；update/move/proxy 未拆。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

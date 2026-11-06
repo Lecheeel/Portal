@@ -2,6 +2,8 @@
 
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
+>
+> 进度快照（Round 101）：52 个 roadmap 任务中 39 `WIP` / 12 `TODO` / 1 `BLOCKED`（P0-03 无设备）；整体约 **50%**，代码/模型约 **65%**，设备验收约 **10%**。415 项 JVM 用例通过，但没有任何 `DEVICE VERIFIED` 结论。
 
 ---
 
@@ -9,7 +11,7 @@
 
 | 项 | 现状 |
 |---|---|
-| 模块 | `:app`、`:core`、`:xposed`、`:nmea`、`:system-api` |
+| 模块 | `:app`、`:core`、`:xposed`、`:nmea`、`:system-api`、`:detector`、`:libxposed-spike` |
 | 定位 | 基于 `fuqiuluo/Portal` 的 Android 定位模拟应用，主打多后端、路线播放、摇杆、无 Root/Root/Xposed |
 | UI | `:app` 使用 Fragment + XML（`ui/**`），不是 Compose |
 | 核心 | `:core` 是纯 Kotlin/JVM：坐标、场景、播放、运行状态、仓库接口、诊断 |
@@ -17,7 +19,7 @@
 | IPC | `sendExtraCommand("fused_ext", ...)` + Bundle 原始类型；token/sequence/UID 鉴权；5 秒租约 |
 | Native | `:xposed` 内的 `liblocationext.so`，Dobby；由 app 用 root 复制到 `/data/local/ext-lib` 后 `System.load` 进 system_server |
 | 最低系统 | Android 12 / API 31；target/compile 37 |
-| 测试 | 约 196 个 JVM 用例；instrumentation 有代码，但没有设备验收结论 |
+| 测试 | 415 个 JVM 用例（core 246 / nmea 7 / xposed 35 / app 127）；instrumentation 有代码，但没有设备验收结论 |
 | AOSP 参考 | `refs/` 覆盖 Android 7–17，最近核验 2026-10-16 |
 | 发布 | GitHub Actions 三套：PR 门禁、Release 构建、UI 验证；Beta/Stable 同 APK 晋升 |
 | 许可证 | 仓库内没有 `LICENSE`；上游 `fuqiuluo/Portal` 的许可证未在本地确认 |
@@ -164,7 +166,7 @@
 | D21 | 前沿 | 没有网络/IP/时区/locale 一致性 | 代码无相关处理 | S2：服务端风控可直接看出 IP 与 GPS 不一致 | P7-02 |
 | D22 | 前沿 | 没有传感器融合/Activity Recognition | 只有空壳传感器 Hook | S2：GPS 在动、计步为 0 等矛盾 | P4-05/P7-03 |
 | D23 | 架构 | 数据平面只有 Binder Bundle，没有 `SampleStore` 抽象 | `SampleWire`、`CommandClient` | S3：per-app 多进程扩展时会受限 | P5-06 |
-| D24 | 测试 | 测试偏 JVM；没有 Hook 集成/设备回归 | 196 JVM 用例；instrumentation 无设备结论 | S1：Hook 行为没有自动化保护 | P0-02/P6-05 |
+| D24 | 测试 | 测试偏 JVM；没有 Hook 集成/设备回归 | 415 JVM 用例；instrumentation 无设备结论 | S1：Hook 行为没有自动化保护 | P0-02/P6-05 |
 
 ---
 

@@ -56,6 +56,7 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
+    implementation(libs.kotlinx.serialization.json)
     compileOnly(libs.xposed.api)
     compileOnly(project(":system-api"))
     implementation(project(":nmea"))

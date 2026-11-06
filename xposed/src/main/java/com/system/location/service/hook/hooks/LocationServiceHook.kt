@@ -709,6 +709,7 @@ internal object LocationServiceHook: BaseLocationHook() {
 //    }
 
     private fun addLocationListenerInner(provider: String, listener: IInterface) {
+        ListenerRouting.register(listener)
         val mDeathRecipient = object: IBinder.DeathRecipient {
             override fun binderDied() {}
             override fun binderDied(who: IBinder) {
@@ -726,6 +727,7 @@ internal object LocationServiceHook: BaseLocationHook() {
     }
 
     private fun removeLocationListenerByBinder(binder: IBinder) {
+        ListenerRouting.unregisterBinder(binder)
         locationListeners.removeIf { it.second.asBinder() == binder }
     }
 
@@ -739,6 +741,7 @@ internal object LocationServiceHook: BaseLocationHook() {
         locationListeners.forEach { listenerWithProvider ->
             val listener = listenerWithProvider.second
             if (!FakeLoc.enable) return
+            if (!ListenerRouting.shouldDeliver(listener)) return@forEach
             val location = sampleForProvider(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
                 .toLocation(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
             var called = false

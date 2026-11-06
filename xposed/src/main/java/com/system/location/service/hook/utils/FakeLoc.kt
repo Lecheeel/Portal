@@ -108,6 +108,10 @@ object FakeLoc {
     @Volatile
     var simReady = true
 
+    /** P5-02: null/global keeps every listener on the current fake fix. */
+    @Volatile
+    var routingConfig: com.system.location.service.core.routing.RoutingConfig? = null
+
     /**
      * 反定位复原加强（启用后将导致部分应用在关闭LocationService后需要重新启动才能重新获取定位）
      */

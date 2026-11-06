@@ -336,6 +336,9 @@ object RemoteCommandHandler {
                 FakeLoc.enablePhysicalNoise = rely.getBoolean("enable_physical_noise", FakeLoc.enablePhysicalNoise)
                 FakeLoc.physicalNoiseSeed = rely.getLong("physical_noise_seed", FakeLoc.physicalNoiseSeed)
                 FakeLoc.simReady = rely.getBoolean("sim_ready", FakeLoc.simReady)
+                FakeLoc.routingConfig = rely.getString("routing_json")
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { json -> runCatching { kotlinx.serialization.json.Json.decodeFromString(com.system.location.service.core.routing.RoutingConfig.serializer(), json) }.getOrNull() }
                 FakeLoc.replayEnvironment = rely.getString("environment_json")
                     ?.takeIf { it.isNotBlank() }
                     ?.let { json -> runCatching { com.system.location.service.core.environment.EnvironmentProfileCodec.decode(json) }.getOrNull() }

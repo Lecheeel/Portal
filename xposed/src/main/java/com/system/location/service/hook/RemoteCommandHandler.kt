@@ -10,9 +10,6 @@ import com.system.location.service.hook.security.CommandSecurity
 import com.system.location.service.hook.security.PublicationLease
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.hook.security.SensitiveLog
-import com.system.location.service.hook.scope.HookOwnership
-import com.system.location.service.hook.scope.HookStatusRegistry
-import com.system.location.service.jni.Dobby
 import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.BinderUtils
@@ -28,7 +25,7 @@ object RemoteCommandHandler {
     private val security = CommandSecurity()
     private var proxySequence = 0L
     private var lastProxySequence = 0L
-    private var isLoadedLibrary = false
+
 
     @SuppressLint("UnsafeDynamicallyLoadedCode")
     @Synchronized
@@ -127,14 +124,14 @@ object RemoteCommandHandler {
                 val needsTicker = !FakeLoc.enable || !FakeLoc.externallyDriven
                 FakeLoc.acceptSample(fix)
                 rely.getString("scenario_id")?.takeIf { it.isNotBlank() }?.let { FakeLoc.acceptScenarioSample(it, fix) }
-                if (FakeLoc.isSystemServerProcess && isLoadedLibrary) {
+                if (FakeLoc.isSystemServerProcess) {
                     val mode = when {
                         FakeLoc.speed < 0.3 -> 0
                         FakeLoc.speed < 2.5 -> 1
                         FakeLoc.speed < 7.0 -> 2
                         else -> 3
                     }
-                    Dobby.setMotionState(mode, FakeLoc.speed.toFloat(), FakeLoc.bearing.toFloat(), FakeLoc.altitude.toFloat())
+                    NativeCommand.setMotionState(mode, FakeLoc.speed.toFloat(), FakeLoc.bearing.toFloat(), FakeLoc.altitude.toFloat())
                 }
                 FakeLoc.enable = true
                 lastPublishMillis = fix.timeMillis
@@ -174,9 +171,7 @@ object RemoteCommandHandler {
                 FakeLoc.enable = false
                 LocationTicker.stop()
                 FakeLoc.hasBearings = false
-                if (isLoadedLibrary) {
-                    Dobby.setStatus(false)
-                }
+                NativeCommand.disable()
                 return true
             }
             "is_start" -> {
@@ -321,36 +316,9 @@ object RemoteCommandHandler {
                 LocationServiceHook.callOnLocationChanged()
                 return true
             }
-            "load_library" -> {
-                val path = rely.getString("path") ?: return false
-                if (!FakeLoc.isSystemServerProcess || path != "/data/local/ext-lib/liblocationext.so") return false
-
-                if (isLoadedLibrary && path.endsWith("liblocationext.so")) {
-                    rely.putString("result", "success")
-                    return true
-                }
-                runCatching {
-                    System.load(path)
-                }.onSuccess {
-                    rely.putString("result", "success")
-                    isLoadedLibrary = true
-                }.onFailure {
-                    rely.putString("result", it.stackTraceToString())
-                }
-
-                return true
-            }
-            "native_prepare" -> {
-                if (!FakeLoc.isSystemServerProcess || !isLoadedLibrary) return false
-                return Dobby.prepareSensors()
-            }
-            "native_status" -> {
-                if (!FakeLoc.isSystemServerProcess) return false
-                if (!isLoadedLibrary) return !rely.getBoolean("enabled")
-                if (rely.getBoolean("enabled") && (!FakeLoc.enable || !FakeLoc.externallyDriven)) return false
-                Dobby.setStatus(rely.getBoolean("enabled"))
-                return true
-            }
+            "load_library" -> NativeCommand.load(rely)
+            "native_prepare" -> NativeCommand.prepare()
+            "native_status" -> NativeCommand.setEnabled(rely)
             else -> return false
         }
     }
@@ -360,7 +328,7 @@ object RemoteCommandHandler {
         FakeLoc.enable = false
         FakeLoc.hasBearings = false
         publicationLease.clear()
-        if (isLoadedLibrary) Dobby.setStatus(false)
+        NativeCommand.disable()
         return true
     }
 

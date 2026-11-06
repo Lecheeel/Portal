@@ -531,6 +531,7 @@ P0 阶段至少：
 
 - 变更：设置页新增“per-app 路由（实验）”按钮，列出非系统应用多选，保存为 `RoutingConfig` 的 `deniedPackages`，随 `routing_json` 下发。
 - 变更：设置页新增“per-app 固定点（实验）”，从已保存位置选一个点，再选应用，生成 `AppRoute(package, point)`；其余应用继续当前场景；保存后尝试热更新。
+- 变更：应用列表改为 `queryIntentActivities(MAIN/LAUNCHER)`，manifest 增加对应 `<queries>`，避免 Android 11+ 包可见性过滤导致列表不完整。
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
@@ -585,5 +586,6 @@ P0 阶段至少：
 - 变更：`APSService` 显式 `android:exported="false"`；`backup_rules.xml` 与 `data_extraction_rules.xml` 排除 `environment/`（采集的 WiFi/基站/BLE 快照），避免云备份/换机迁移带出敏感环境。
 - 变更：继续排除 `fused_ext.xml`（坐标/回放/路由设置）与 `library/`（保存的路线/位置），避免备份带出敏感数据。
 - 检查：合并 manifest（arm64Debug）中应用自身组件仅 `MainActivity` 导出（launcher 必需）、`LocationProbeActivity`/`ScenarioService`/`APSService` 均不导出；依赖侧仅 `ProfileInstallReceiver` 导出且受 `DUMP` 保护。
+- 变更：manifest 增加 MAIN/LAUNCHER `<queries>`，per-app 应用列表改用 `queryIntentActivities`，不申请 `QUERY_ALL_PACKAGES`。
 - 未完成：IPC/Binder 权限、日志脱敏、Bugly 配置、包可见性、导出组件全量清单、`allowBackup` 策略。
 - 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；P6-04 仍 `WIP`。

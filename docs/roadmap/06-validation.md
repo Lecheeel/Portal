@@ -506,7 +506,6 @@ P0 阶段至少：
 ---
 
 ## 17. P5 实施记录（2026-11-06）
-
 ### P5-01 RoutingTable
 
 - 变更：`:core` 新增 `RoutingMode`/`AppRoute`/`RoutingConfig`/`RoutingDecision`/`RoutingTable`；优先级为 GLOBAL 模式 → system/UID<10000 → denied → 精确 package → UID → global scenario → 真实全局；`RoutingConfig` schemaVersion=1、路由/拒绝列表上限、JSON roundtrip。
@@ -560,3 +559,10 @@ P0 阶段至少：
 - 检查：`RawGnssPolicyTest` 5 项（OFF、CN0/usedInFix、确定性、数量上限、非法配置/时间）通过。
 - 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、NavigationMessage/AntennaInfo、设备与 detector C13 验证。
 - 结论：`UNIT TEST VERIFIED`；P3-05 仍 `WIP`。
+
+### P6-04 安全/权限审查（首轮）
+
+- 变更：`APSService` 显式 `android:exported="false"`；`backup_rules.xml` 与 `data_extraction_rules.xml` 排除 `environment/`（采集的 WiFi/基站/BLE 快照），避免云备份/换机迁移带出敏感环境。
+- 检查：`:app:compileAppDebugKotlin`、`:app:testArm64DebugUnitTest`、`:detector:assembleDebug` 通过；manifest merge 无导出组件新增。
+- 未完成：IPC/Binder 权限、日志脱敏、Bugly 配置、包可见性、导出组件全量清单、`allowBackup` 策略。
+- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；P6-04 仍 `WIP`。

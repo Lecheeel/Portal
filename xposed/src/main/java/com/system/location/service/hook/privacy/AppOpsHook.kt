@@ -6,6 +6,7 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.scope.HookInstaller
 import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.core.privacy.AppOpsVisibilityPolicy
 import com.system.location.service.hook.utils.Logger
 
 /**
@@ -18,9 +19,6 @@ import com.system.location.service.hook.utils.Logger
  * release (12–17).
  */
 object AppOpsHook {
-    /** AppOpsManager.OP_MOCK_LOCATION is @hide; the value has been stable since Android 6. */
-    private const val OP_MOCK_LOCATION = 58
-
     fun hook(classLoader: ClassLoader): Boolean {
         val service = XposedHelpers.findClassIfExists("com.android.server.appop.AppOpsService", classLoader)
             ?: return false
@@ -28,11 +26,11 @@ object AppOpsHook {
             override fun afterHookedMethod(param: MethodHookParam) {
                 if (param.result !is Int) return
                 val ints = param.args.filterIsInstance<Int>()
-                if (ints.size < 2 || ints[0] != OP_MOCK_LOCATION) return
+                if (ints.size < 2 || ints[0] != AppOpsVisibilityPolicy.OP_MOCK_LOCATION) return
                 val queriedUid = ints[1]
                 val callerUid = Binder.getCallingUid()
                 // System processes and the controller checking its own UID keep the real answer.
-                if (callerUid < FIRST_APP_UID || queriedUid == callerUid) return
+                if (!AppOpsVisibilityPolicy.shouldHideMockLocation(ints[0], queriedUid, callerUid)) return
                 param.result = AppOpsManager.MODE_ERRORED
                 if (FakeLoc.enableDebugLog) {
                     val packageName = param.args.filterIsInstance<String>().firstOrNull()
@@ -52,5 +50,4 @@ object AppOpsHook {
     }
 
     private val HOOK_METHODS = listOf("checkOperation", "checkOperationImpl")
-    private const val FIRST_APP_UID = 10_000
 }

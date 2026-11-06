@@ -221,7 +221,7 @@
 - **P2-07 环境设置**：新增“每格 AP 数”“基站模式”“环境来源（AUTO/PROCEDURAL/REPLAY）”设置，并支持服务运行时热更新；`WlanHook` 动态重建 AP 源，`CellInfoSynthesis` 使用配置模式；采集 UI 高级参数未做。
 - **P3-01/P3-03 纯模型落地**：`:core` 新增确定性多星座 `CatalogGnssSkyModel`；`:nmea` 新增单源 `NmeaGenerator`（GGA/RMC/GSA/GSV/GST/ZDA，校验和与卫星数自洽）。
 - **P3-04 部分落地**：`GnssStatus` 与 NMEA 都已从同一 `CatalogGnssSkyModel` 帧生成；`GnssHook` 的重复 NMEA 入口已删除，只剩 `LocationNMEAHook` 一个改写点；raw measurements 仍被屏蔽。
-- **P3-05 策略落地**：新增默认关闭的 `RawGnssPolicy`/`RawNavigationPolicy`、`KeplerOrbit`/`DopplerShift` 与 `OrbitalGnssSkyModel`；`GnssStatus`/NMEA 可通过设置页在 ANALYTIC/ORBITAL 间切换，默认 ANALYTIC。Hook 接线未做。
+- **P3-05 策略落地**：新增默认关闭的 `RawGnssPolicy`/`RawNavigationPolicy`/`RawAntennaPolicy`、`KeplerOrbit`/`DopplerShift` 与 `OrbitalGnssSkyModel`；`GnssStatus`/NMEA 可通过设置页在 ANALYTIC/ORBITAL 间切换，默认 ANALYTIC。Hook 接线未做。
 - **P4-01/P4-02 纯 `:core` 基础**：新增 `ProviderProfile`/`StationaryPolicy`/`ProviderMixer`（三路精度/延迟/字段分离、静止无 bearing/speed）与 `PhysicalNoise`（有界可复现 OU 漂移）；`ProviderView` 已可选启用噪声（默认关，设置页开关），传感器未接。
 - **P4-03 部分落地**：`ProviderView` / `ProviderMixer` 已接入 Mock、Fused 与 Xposed 三条发布路径，按 provider 输出不同精度/延迟/字段；三路设备交叉验证未做。
 - **P4-04 Native 传感器**：`ConvertToSensorEvent` 已按 motion state 生成值并移除 -1/0 清零；4 ABI 语法+链接通过，未真机验证。

@@ -547,7 +547,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：395 项 JVM 用例 0 失败（core 228、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：399 项 JVM 用例 0 失败（core 232、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -616,8 +616,9 @@ P0 阶段至少：
 - 变更：新增 `KeplerElements`/`KeplerOrbit`/`DopplerShift`：二体 Kepler 传播、周期/半径校验、载波多普勒符号；无摄动/钟差。
 - 变更：新增 `OrbitalGnssSkyModel`：Kepler→ECI→ECEF→ENU，按观测点生成 elevation/azimuth/CN0/usedInFix/DOP；独立于生产 `CatalogGnssSkyModel`。
 - 变更：新增 `GnssModelMode`/`GnssSkyModelProvider` 与设置页“轨道 GNSS 模型（实验）”；`GnssStatusBridge`/NMEA 按 `FakeLoc.gnssModelMode` 选择 ANALYTIC 或 ORBITAL，默认 ANALYTIC。
-- 检查：`RawGnssPolicyTest` 5 项 + `RawNavigationPolicyTest` 5 项 + `KeplerOrbitTest` 6 项 + `OrbitalGnssSkyModelTest` 5 项 + `GnssModelProviderTest` 2 项通过。
-- 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、AntennaInfo、设备与 detector C13 验证。
+- 变更：新增 `AntennaProfile`/`RawAntennaPolicy`：`OFF` 不输出、`DEVICE_NEUTRAL` 全零、`EXPERIMENTAL` 可配 3 轴相位中心/变化与增益；默认 `OFF`。
+- 检查：`RawGnssPolicyTest` 5 项 + `RawNavigationPolicyTest` 5 项 + `KeplerOrbitTest` 6 项 + `OrbitalGnssSkyModelTest` 5 项 + `GnssModelProviderTest` 2 项 + `RawAntennaPolicyTest` 4 项通过。
+- 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、设备与 detector C13 验证。
 - 结论：`UNIT TEST VERIFIED`；P3-05 仍 `WIP`。
 
 ### P6-01 libxposed API 102（spike）

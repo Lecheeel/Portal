@@ -144,7 +144,7 @@ P0 基线
 
 **Phase 2 退出**：不再出现空 WiFi/CDMA 空小区；采集回放与程序化两种默认路径可用；数据库实验开关可回退。
 
-> 2026-11-06：P2-01 环境模型与 P2-03 程序化 WiFi 已在 `:core` 落地（JVM 测试通过）；P2-04 WiFi Hook 已改为程序化扫描/连接/DHCP，并支持 `ReplayEnvironmentSource` 回放（`BUILD VERIFIED`）；P2-05 已加入 `CellModePolicy`、默认关闭 CDMA、`ProceduralCellSource` 纯模型、`CellInfoSynthesis`（第三方 LTE/NR 反射构造，优先回放捕获小区，失败回退原始值）、`PhoneTypeHooks`（GSM/LTE）、`SimOperatorHooks`（MCC/MNC）与 `simReady=false` 的 NO_SIM/WiFi-only 画像；P2-02 已加入 `ReplayEnvironmentSource`、`EnvironmentProfileCodec`、app `EnvironmentCollector`（WiFi/Cell/BLE 采集 + 运行时权限）/`EnvironmentStore` 与设置页采集/列表/SAF 导出/导入/删除/回放选择，BLE 回放/设备验证未做；P2-06 已加入实验性 `WifiFingerprintDb` 与带 attribution 的 JSON/CSV 导入，真实库下载/开关未做；P2-07 已加入“每格 AP 数”、基站模式与环境来源设置，并支持运行时热更新（未连接时下次启动），采集 UI 高级参数与设备验证未做。
+> 2026-11-06：P2-01 环境模型与 P2-03 程序化 WiFi 已在 `:core` 落地（JVM 测试通过）；P2-04 WiFi Hook 已改为程序化扫描/连接/DHCP，并支持 `ReplayEnvironmentSource` 回放（`BUILD VERIFIED`）；P2-05 已加入 `CellModePolicy`、默认关闭 CDMA、`ProceduralCellSource` 纯模型、`CellInfoSynthesis`（第三方 LTE/NR 反射构造，优先回放捕获小区，失败回退原始值）、`PhoneTypeHooks`（GSM/LTE）、`SimOperatorHooks`（MCC/MNC）与 `simReady=false` 的 NO_SIM/WiFi-only 画像；P2-02 已加入 `ReplayEnvironmentSource`、`EnvironmentProfileCodec`、app `EnvironmentCollector`（WiFi/Cell/BLE 采集 + 运行时权限）/`EnvironmentStore` 与设置页采集/列表/SAF 导出/导入/删除/重命名/回放选择，BLE 回放/设备验证未做；P2-06 已加入实验性 `WifiFingerprintDb` 与带 attribution 的 JSON/CSV 导入，真实库下载/开关未做；P2-07 已加入“每格 AP 数”、基站模式与环境来源设置，并支持运行时热更新（未连接时下次启动），采集 UI 高级参数与设备验证未做。
 
 ---
 

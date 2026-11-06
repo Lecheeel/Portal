@@ -483,7 +483,14 @@ P0 阶段至少：
 - 检查：`RoutingTableTest` 9 项（GLOBAL、package 优先且大小写不敏感、UID fallback、system 绕过、deny、disabled fallback、无全局、非法/重复、JSON）通过。
 - 未完成：system_server 调用方 UID→package 查询、listener 映射、per-app UI 与配置下发（P5-02/03/04）。
 - 结论：`UNIT TEST VERIFIED`；P5-01 仍 `WIP`。
-- 全量回归（2026-11-06）：315 项 JVM 用例 0 失败（core 154、nmea 7、xposed 32、app 122）；`:detector:assembleDebug` 通过。
+
+### P5-02 调用方路由解析（部分）
+
+- 变更：`:core` 新增 `PackageUidLookup`/`CallerRouter`；`RoutingTable` 支持多 package（共享 UID）解析，任一 package 命中路由即可；system package 优先绕过；denied 优先。
+- 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项通过。
+- 未完成：Android `PackageManager` 实现、system_server `ILocationManager`/listener 到路由的实际接线、多场景并存。
+- 结论：`UNIT TEST VERIFIED`；P5-02 仍 `WIP`。
+- 全量回归（2026-11-06）：320 项 JVM 用例 0 失败（core 159、nmea 7、xposed 32、app 122）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 

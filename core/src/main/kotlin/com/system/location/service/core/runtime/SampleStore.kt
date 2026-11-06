@@ -1,7 +1,11 @@
 package com.system.location.service.core.runtime
 
+import com.system.location.service.core.config.ConfigCodec
 import com.system.location.service.core.config.ConfigEnvelope
 import com.system.location.service.core.location.LocationSample
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 data class StoredSample(
     val sequence: Long,
@@ -74,5 +78,36 @@ class InMemoryConfigStore(initial: ConfigEnvelope? = null) : ConfigStore {
     @Synchronized
     override fun clear() {
         config = null
+    }
+}
+
+/** P5-06: atomic JSON-backed config store; corrupt files are ignored, not fatal. */
+class FileConfigStore(private val file: File) : ConfigStore {
+    @Synchronized
+    override fun load(): ConfigEnvelope? {
+        if (!file.isFile) return null
+        val raw = runCatching { file.readText() }.getOrNull() ?: return null
+        return runCatching { ConfigCodec.decode(raw) }.getOrNull()
+    }
+
+    @Synchronized
+    override fun save(config: ConfigEnvelope) {
+        val parent = file.absoluteFile.parentFile
+        if (parent != null && !parent.exists()) require(parent.mkdirs()) { "Cannot create config directory" }
+        val temp = File(parent, "${file.name}.tmp")
+        temp.writeText(ConfigCodec.encode(config))
+        try {
+            Files.move(
+                temp.toPath(), file.toPath(),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE,
+            )
+        } catch (_: Exception) {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    @Synchronized
+    override fun clear() {
+        file.delete()
     }
 }

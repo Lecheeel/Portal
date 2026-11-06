@@ -598,15 +598,15 @@ P0 阶段至少：
 - 变更：`EnvironmentRestorePolicy` 保证只有存在非空 replay JSON 时才恢复为 REPLAY，否则回退 PROCEDURAL；`EnvironmentRestorePolicyTest` 2 项通过。
 - 结论：`UNIT TEST VERIFIED`（存储/并发/编码/header/buffer/layout）；Android 适配/恢复入口 `BUILD VERIFIED`；P5-06 仍 `WIP`。
 
-### P5-07 RuntimeSnapshot（部分）
+### P5-07 RuntimeSnapshot
 
 - 变更：`:core` 新增不可变 `RuntimeSnapshot`（configRevision、environmentVersion、sample、environment、provider、routing、gnssModel）与原子 `RuntimeSnapshotStore`（publish/clear/update）。
 - 变更：`FakeLoc` 的样本字段改为 `RuntimeSnapshotStore`，`acceptSample`/`snapshot`/`clear` 通过快照读写；外部坐标/速度等旧字段暂时保留。
 - 变更：`routingConfig`/`replayEnvironment`/`gnssModelMode` 也改为 snapshot getter/setter；AP 数/基站模式/SIM/噪声等配置现已全部进入快照，setter 自增 `configRevision`，环境 profile 变更同时自增 `environmentVersion`。
 - 变更：纬度/经度/海拔/速度/精度/航向也进入 snapshot，`FakeLoc` 不再保留独立位置字段；Hooks 通过属性读取同一快照。
 - 检查：`RuntimeSnapshotTest` 6 项（空快照、原子发布、字段保留、清空样本、非法版本、配置字段）通过；`:xposed` 编译/测试通过。
-- 未完成：Hook 仍有少量旧字段读取路径，需逐步替换为直接读 snapshot。
-- 结论：配置/样本/环境/路由/GNSS 模式迁移 `BUILD VERIFIED`；P5-07 仍 `WIP`。
+- 未完成：设备端并发/热更新行为验证；跨进程 snapshot 序列化未启用。
+- 结论：样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声均进入 `RuntimeSnapshotStore`，Hooks 通过兼容属性读取；`BUILD VERIFIED`；P5-07 `DONE`。
 
 ### P5-08 SettingsSchema
 

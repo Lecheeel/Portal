@@ -30,7 +30,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Repository guardrails
-        run: python3 scripts/check_module_rules.py
+        run: |
+          python3 scripts/check_module_rules.py
+          python3 scripts/check_backup_rules.py
 
       - name: Unit tests
         run: |

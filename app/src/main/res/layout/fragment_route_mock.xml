@@ -13,15 +13,8 @@
         android:layout_height="wrap_content"
         android:text="@string/ui_library_title"
         android:textAppearance="@style/Portal.Title"
-        android:accessibilityHeading="true" />
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="16dp"
-        android:id="@+id/library_description"
-        android:text="@string/ui_library_desc"
-        android:textAppearance="@style/Portal.Body" />
+        android:accessibilityHeading="true"
+        android:layout_marginBottom="16dp" />
     <com.google.android.material.button.MaterialButtonToggleGroup
         android:id="@+id/library_kind"
         android:layout_width="match_parent"

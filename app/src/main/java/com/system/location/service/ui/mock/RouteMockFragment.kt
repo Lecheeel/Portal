@@ -133,7 +133,6 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
     private fun applyCompactLayout(ui: FragmentRouteMockBinding) {
         val visibility = if (resources.configuration.screenHeightDp < 480) View.GONE else View.VISIBLE
         ui.libraryHeading.visibility = visibility
-        ui.libraryDescription.visibility = visibility
         ui.emptyArtwork.visibility = visibility
         ui.emptyDescription.visibility = visibility
     }

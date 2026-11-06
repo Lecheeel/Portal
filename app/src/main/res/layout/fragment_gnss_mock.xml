@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+                            <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -67,13 +67,6 @@
                             app:layout_constraintStart_toEndOf="@+id/satellite_rada_view"
                             app:layout_constraintEnd_toStartOf="@+id/text3"
                             app:layout_constraintTop_toTopOf="parent">
-
-                            <TextView
-                                android:visibility="gone"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="卫星信息"
-                                android:gravity="center" />
 
                             <androidx.constraintlayout.widget.ConstraintLayout
                                 android:layout_width="match_parent"

@@ -16,14 +16,8 @@
             android:layout_height="wrap_content"
             android:textAppearance="@style/Portal.Title"
             android:text="@string/ui_settings_title"
-            android:accessibilityHeading="true" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="20dp"
-            android:textAppearance="@style/Portal.Body"
-            android:text="@string/ui_settings_desc" />
+            android:accessibilityHeading="true"
+            android:layout_marginBottom="16dp" />
         <com.google.android.material.card.MaterialCardView
             style="@style/Portal.Card"
             android:layout_width="match_parent"
@@ -803,13 +797,13 @@
                             android:id="@+id/check_update_title"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="检查更新"
+                            android:text="应用更新"
                             android:textColor="@color/lse_mini_title_color" />
                         <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/check_update_desc"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="点击检查 GitHub Releases 最新版本"
+                            android:text=""
                             android:textSize="13sp" />
                     </LinearLayout>
                     <com.google.android.material.button.MaterialButton

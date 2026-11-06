@@ -16,14 +16,8 @@
             android:layout_height="wrap_content"
             android:text="@string/ui_point_title"
             android:textAppearance="@style/Portal.Title"
-            android:accessibilityHeading="true" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="20dp"
-            android:text="@string/ui_point_desc"
-            android:textAppearance="@style/Portal.Body" />
+            android:accessibilityHeading="true"
+            android:layout_marginBottom="16dp" />
         <com.google.android.material.card.MaterialCardView
             style="@style/Portal.Card"
             android:layout_width="match_parent"

@@ -10,6 +10,7 @@ import android.os.SystemClock
 import kotlin.math.asin
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.runtime.RuntimeSnapshot
 import com.system.location.service.core.runtime.RuntimeSnapshotStore
 
 object FakeLoc {
@@ -20,6 +21,10 @@ object FakeLoc {
 
     /** P5-07: authoritative sample/environment/routing storage; legacy config fields remain. */
     val runtimeSnapshots = RuntimeSnapshotStore()
+
+    private fun updateSnapshot(transform: (RuntimeSnapshot) -> RuntimeSnapshot) {
+        runtimeSnapshots.update { transform(it).copy(configRevision = it.configRevision + 1) }
+    }
 
     /**
      * 是否允许打印调试日志
@@ -95,41 +100,52 @@ object FakeLoc {
     var minSatellites = 12
 
     /** 环境生成 seed；同一位置、同一 seed 必须生成同一组 AP/基站（ADR-022）。 */
-    @Volatile
-    var environmentSeed = 0L
+    var environmentSeed: Long
+        get() = runtimeSnapshots.current().environmentSeed
+        set(value) { updateSnapshot { it.copy(environmentSeed = value) } }
 
-    /** Captured WiFi/cell profile used for replay; null keeps the procedural source. */
     var replayEnvironment: com.system.location.service.core.environment.EnvironmentProfile?
         get() = runtimeSnapshots.current().environment
-        set(value) { runtimeSnapshots.update { it.copy(environment = value) } }
+        set(value) {
+            runtimeSnapshots.update {
+                it.copy(environment = value, environmentVersion = it.environmentVersion + 1,
+                    configRevision = it.configRevision + 1)
+            }
+        }
 
     /** Optional bounded OU drift; disabled by default and never applied to real locations. */
-    @Volatile
-    var enablePhysicalNoise = false
-    @Volatile
-    var physicalNoiseSeed = 0L
+    var enablePhysicalNoise: Boolean
+        get() = runtimeSnapshots.current().physicalNoise
+        set(value) { updateSnapshot { it.copy(physicalNoise = value) } }
+    var physicalNoiseSeed: Long
+        get() = runtimeSnapshots.current().physicalNoiseSeed
+        set(value) { updateSnapshot { it.copy(physicalNoiseSeed = value) } }
 
     /** P2-05: false means NO_SIM_WIFI_ONLY; default true preserves real/current behavior. */
-    @Volatile
-    var simReady = true
+    var simReady: Boolean
+        get() = runtimeSnapshots.current().simReady
+        set(value) { updateSnapshot { it.copy(simReady = value) } }
 
     /** P3-05: analytical production model by default; ORBITAL is a feasibility experiment. */
     var gnssModelMode: com.system.location.service.core.gnss.GnssModelMode
         get() = runtimeSnapshots.current().gnssModel
-        set(value) { runtimeSnapshots.update { it.copy(gnssModel = value) } }
+        set(value) { updateSnapshot { it.copy(gnssModel = value) } }
 
     /** P2-07 environment knobs; defaults preserve the P2-03/P2-05 behavior. */
-    @Volatile
-    var environmentApCount = 4
-    @Volatile
-    var cellMode = com.system.location.service.core.environment.CellMode.FULL_REPLAY
-    @Volatile
-    var environmentSourceMode = com.system.location.service.core.environment.EnvironmentSourceMode.AUTO
+    var environmentApCount: Int
+        get() = runtimeSnapshots.current().environmentApCount
+        set(value) { updateSnapshot { it.copy(environmentApCount = value.coerceIn(1, 8)) } }
+    var cellMode: com.system.location.service.core.environment.CellMode
+        get() = runtimeSnapshots.current().cellMode
+        set(value) { updateSnapshot { it.copy(cellMode = value) } }
+    var environmentSourceMode: com.system.location.service.core.environment.EnvironmentSourceMode
+        get() = runtimeSnapshots.current().environmentSourceMode
+        set(value) { updateSnapshot { it.copy(environmentSourceMode = value) } }
 
     /** P5-02: null/global keeps every listener on the current fake fix. */
     var routingConfig: com.system.location.service.core.routing.RoutingConfig?
         get() = runtimeSnapshots.current().routing
-        set(value) { runtimeSnapshots.update { it.copy(routing = value) } }
+        set(value) { updateSnapshot { it.copy(routing = value) } }
 
     /**
      * 反定位复原加强（启用后将导致部分应用在关闭LocationService后需要重新启动才能重新获取定位）

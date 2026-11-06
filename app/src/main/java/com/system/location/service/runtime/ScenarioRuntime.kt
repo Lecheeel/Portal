@@ -14,6 +14,7 @@ import com.system.location.service.core.config.ConfigEnvelope
 import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.environment.EnvironmentSourceType
+import com.system.location.service.core.environment.EnvironmentRestorePolicy
 import com.system.location.service.core.playback.NoiseProfile
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.runtime.*
@@ -114,11 +115,9 @@ object ScenarioRuntime {
             context.routingJson = Json.encodeToString(RoutingConfig.serializer(), saved.routing)
             context.environmentApCount = saved.environment.apPerCell
             context.cellMode = saved.environment.cellMode.name
-            context.environmentSourceMode = when (saved.environment.source) {
-                EnvironmentSourceType.REPLAY, EnvironmentSourceType.DATABASE -> "REPLAY"
-                EnvironmentSourceType.PROCEDURAL -> "PROCEDURAL"
-            }
-            context.environmentReplayJson = saved.replayEnvironmentJson.orEmpty()
+            val replayJson = saved.replayEnvironmentJson.orEmpty()
+            context.environmentReplayJson = replayJson
+            context.environmentSourceMode = EnvironmentRestorePolicy.sourceMode(saved.environment.source, replayJson)
             context.physicalNoise = saved.noise.enabled
         }
         return start(saved.scenario).await()

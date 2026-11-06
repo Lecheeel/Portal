@@ -237,7 +237,7 @@
 - **P5-03 纯模型落地**：新增 `ConfigEnvelope`/`ConfigCodec`（v2 编解码、v1 迁移、未知字段忽略、版本/重复校验）、`SampleEnvelope`/`SampleCodec` 与 `SampleWire` v1/v2；新增 `applyConfigNow`，per-app/回放配置可在服务运行时热更新。
 - **P5-06 纯抽象落地**：新增 `SampleStore`/`ConfigStore` 与内存实现（sequence/租约/clear），Binder/SHM 与接线未做。
 - **P5-07 纯模型落地**：新增不可变 `RuntimeSnapshot`/`RuntimeSnapshotStore`，`FakeLoc` 的样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声配置已全部迁入快照；Hooks 通过兼容属性读取，待设备验证。
-- **P5-08 命令拆分完成**：`RemoteCommandHandler` 只保留安全校验与分发；config/diagnostic/native/sample/control/location/proxy 拆到独立对象，`SettingsSchema`/`ConfigGate` 已接入；设备行为回归待做。
+- **P5-08 命令拆分完成**：`RemoteCommandHandler` 只保留安全校验与分发；config/diagnostic/native/sample/control/location/proxy 拆到独立对象，`SettingsSchema`/`ConfigGate` 已覆盖主要配置 key；设备行为回归待做。
 - **P5-06 存储抽象**：`SampleStore`/`ConfigStore`、原子 `FileConfigStore`、active config、完整恢复入口、`SeqLockSampleStore`、`SharedSampleCodec`/`Header`/`Buffer`/`Layout` 与 Android `SharedMemorySampleBuffer` 已落地；Binder fd 未做。
 - **P6-01 libxposed spike**：API 102 compileOnly、可编译入口与独立 `:libxposed-spike` APK（元数据已打包）已落地；LSPosed 加载/scope 未验证。
 - **P7-04 性能探针**：系统侧/app 侧发布耗时、`APP_MEMORY`、`APP_CPU` 已进入诊断（p95>100ms WARN）；设备电池基线未做。

@@ -133,7 +133,7 @@ P0 基线
 
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| P2-01 | `:core` 环境模型 | `WifiAp`/`CellTower`/`BleBeacon`/`EnvironmentProfile`/`EnvironmentSource` | JVM 序列化/校验测试；无 Android import | P1 | M | WIP |
+| P2-01 | `:core` 环境模型 | `WifiAp`/`CellTower`/`BleBeacon`/`EnvironmentProfile`/`EnvironmentSource` | JVM 序列化/校验测试；无 Android import | P1 | M | DONE |
 | P2-02 | 采集/回放管线 | 采集 WiFi/基站/BLE；存储/导入导出；RSSI 重标定；构造器兼容 | 采集→回放→detector 一致性通过；无 root 走 IPC | P2-01 | L | WIP |
 | P2-03 | 程序化 WiFi 合成 | geohash 网格、每格 4 AP、OUI、RSSI 路径损耗、插值、固定 seed | 同点同 seed 稳定；移动 RSSI 平滑；detector 通过 | P2-01 | L | WIP |
 | P2-04 | WiFi Hook 重写 | `getScanResults`/`getConnectionInfo`/`getConfiguredNetworks`/`getDhcpInfo`/`WifiScanner` | 不返回空；BSSID 合法；连接 AP 在扫描列表；detector 通过 | P2-03 | L | WIP |

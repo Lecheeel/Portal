@@ -395,7 +395,7 @@ P0 阶段至少：
 
 - 变更：新增 `EnvironmentSourceType`/`CellMode`/`CellType`、`EnvironmentConfig`、`WifiAp`、`CellTower`、`BleBeacon`、`EnvironmentProfile`、`EnvironmentSource`；校验 BSSID/RSSI/频率/信道、MCC/MNC/PCI/RSRP、列表上限、最多一个 connected AP/registered cell。
 - 检查：`:core:test` 新增 6 项 `EnvironmentModelsTest`（JSON roundtrip、非法值、列表上限）通过；`:core` 仍无 Android import。
-- 结论：`UNIT TEST VERIFIED`；尚未接入任何 Hook。
+- 结论：`UNIT TEST VERIFIED`；`EnvironmentProfile` 已用于回放/采集/固定点环境生成；P2-01 `DONE`。
 
 ### P2-03 程序化 WiFi
 

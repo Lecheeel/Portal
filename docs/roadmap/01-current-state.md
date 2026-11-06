@@ -202,3 +202,16 @@
 | 环境模型 | 无 |
 
 这些数字不是“目标”，只是后续回归的对照基线。
+
+---
+
+## 9. 2026-11-06 实施进展（P0）
+
+> 本节记录路线图开始实施后的新增内容；上面的快照仍代表 `v1.7.6` 基线。
+
+- **新增 `:detector` 独立应用**：平台 API + 反射，不依赖 `:app`/`:xposed`/`:core`；Run/Results/Export/Settings；C01–C15 全部实现；采样器覆盖 Location、GnssStatus、NMEA、传感器、WiFi、Cell；JSON schema 1。
+- **Hook 状态清单**：新增 `HookOwnership` 所有权审计，`get_runtime_status` 返回 `hook_scope`/`hook_expected`/`hook_missing`/`hook_missing_points`；app 诊断增加 `HOOK_OWNERSHIP`；JVM 测试覆盖缺失/失败/完整 scope。
+- **仓库护栏**：`scripts/check_module_rules.py` 检查纯 JVM 模块、依赖方向、400 行预算（带存量基线）、文档链接；PR 模板加入任务 ID/证据/许可证检查。
+- **P1-01 基础部分提前落地**：`:core` 新增 `LocationFieldPolicy`/`LocationSanitizer`（7 项 JVM 测试），xposed `LocationSample.toLocation()` 补齐垂直/速度/航向精度、elapsedRealtime 不确定度与 satellites/CN0 extras（MSL 仅 Android 14+）。
+- **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
+- **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表、WiFi/Cell/GNSS/NMEA 的实际 Hook 修复都还没开始（P1/P2/P3）。

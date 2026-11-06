@@ -286,3 +286,60 @@ P0 阶段至少：
 ```
 
 只有 `DEVICE VERIFIED` 才能把 [05-work-plan.md](05-work-plan.md) 的状态改为 `DONE`。
+
+---
+
+## 12. P0 实施记录（2026-11-06）
+
+> 本节只记录实际执行过的证据；未执行的设备项明确写“未验证”。
+
+### P0-01 :detector 骨架
+
+- 日期：2026-11-06
+- 设备/ROM/Android/LSPosed：无设备（本机 `adb devices` 为空）
+- 变更：新增 `:detector` Android 应用（平台 API，无 AndroidX/第三方运行时依赖）；Run/Results/Export/Settings；SAF 导出 + 剪贴板；JSON `schema=1`；采样器覆盖 Location/GnssStatus/NMEA/传感器/WiFi/Cell；`QUERY_ALL_PACKAGES` 仅用于可配置 target 的验证工具。
+- 检查：`./gradlew :detector:assembleDebug --offline` → `BUILD SUCCESSFUL`；产物 `detector/build/outputs/apk/debug/detector-debug.apk`，约 3.13 MB。未安装、未启动、未走 API 31/33/35 模拟器。
+- 结论：`BUILD VERIFIED`；设备启动/导出未验证。
+
+### P0-02 detector 检查 v1
+
+- 日期：2026-11-06
+- 变更：C01–C15 全部实现；每项返回 PASS/FAIL/UNKNOWN + 可复制 evidence（≤20 行，每行 ≤299 字符）；采样失败/权限不足返回 UNKNOWN，不伪造 PASS。
+- 关键口径：
+  - C01 mock 标记（isMock/isFromMockProvider/反射字段）；C05 Location extras/MSL/精度/不确定度（MSL 仅 API 34+ 检查）。
+  - C02 AppOps 目标包 + 自身；C03 Settings 只读；C04 Provider 列表/属性/不存在 provider 探测。
+  - C06 GnssStatus 星座/Jaccard/CN0/仰角相关；C07 NMEA 校验和/GSV burst/GGA/RMC/GSA/talker/与 GnssStatus 对账。
+  - C08 WiFi 空列表/哨兵 BSSID/连接 AP；C09 CDMA 与 GSM/LTE 矛盾、SIM 有值但小区为空。
+  - C10/C11 传感器量级/方差/计步；C12 瞬移/时间戳/单频抖动；C13 xposed meta-data；C14 `/proc`/root 痕迹（仅 detector 进程）；C15 时区 + 可选 HTTPS 出口 IP。
+- 检查：`:detector:assembleDebug` 通过；无设备运行结果。C06/C07 的阈值（Jaccard 0.5、Δ卫星数 1/2、CN0 相关性等）需要在 P0-03 设备基线上校准，真实 NMEA 可能因此产生“预期内 FAIL”。
+- 结论：`BUILD VERIFIED` + `SOURCE VERIFIED`；没有任何检测项的 `DEVICE VERIFIED`。
+
+### P0-03 设备基线报告
+
+- 状态：`BLOCKED`。
+- 原因：本机无连接设备，SDK 未安装 Emulator/AVD；无法产出 API 31/33/35 或真机的 detector 基线。
+- 已准备：[baselines/P0-03-runbook.md](baselines/P0-03-runbook.md) 提供构建、权限、三次运行（模拟前/中/后）、JSON 命名和记录模板。
+- 解除条件：接入至少一台目标设备，或安装 API 35/37 Emulator；然后按 runbook 运行并保存到 `docs/roadmap/baselines/`。
+
+### P0-04 Hook 所有权与状态清单
+
+- 日期：2026-11-06
+- 设备/ROM/Android/LSPosed：无设备（本机 `adb devices` 为空）
+- 变更：新增 `HookOwnership` 审计；`HookStatusRegistry` 记录当前 scope；`get_runtime_status` 返回 `hook_scope`/`hook_expected`/`hook_missing`/`hook_missing_points`；app `XposedBackend.diagnose()` 增加 `HOOK_OWNERSHIP`。
+- 检查：`./gradlew :xposed:testDebugUnitTest :app:compileAppDebugKotlin --offline` 通过；xposed 30 项 JVM 用例 0 失败（新增 `HookOwnershipTest` 5 项）。
+- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；Hook 命中/设备行为仍未验证。
+
+### P0-05 仓库护栏与许可证
+
+- 日期：2026-11-06
+- 变更：`scripts/check_module_rules.py` 检查 `:core`/`:nmea` 纯 JVM、`:xposed` 不依赖 `:app`、`:app` 不依赖 `:detector`、`:detector` 不引用实现类、400 行预算（存量基线 `docs/roadmap/line-budget-baseline.json`）、`docs/roadmap` 链接；PR 模板加入任务 ID/证据/许可证检查；PR workflow 增加 guardrails step。
+- 检查：`python scripts/check_module_rules.py` → `module rules: 0 violation(s)`；`python -m unittest discover -s scripts -p "test_module_rules.py"` 8 项通过；全量 JVM 用例 236 项 0 失败（core 82、nmea 2、xposed 30、app 122）。
+- 许可证：上游 `fuqiuluo/Portal` 2026-11-06 返回 404，GitHub API 搜索 0 条，本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE。依赖清单见 [THIRD-PARTY.md](THIRD-PARTY.md)。
+- 结论：护栏 `UNIT TEST VERIFIED`；许可证子项 `BLOCKED`，不能把 P0-05 标 `DONE`。
+
+### P0-06 Hook 拆分设计
+
+- 日期：2026-11-06
+- 变更：新增 [hook-split-plan.md](hook-split-plan.md)，覆盖现状职责、目标文件/行数预算、7 步迁移顺序、验收。
+- 检查：纯文档；未改 `LocationServiceHook` 行为。
+- 结论：设计稿完成，等待维护者评审；拆分未开始。

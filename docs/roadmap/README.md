@@ -46,7 +46,7 @@
 |---|---|
 | 版本 | `1.7.6`（`versionCode 1790000013`） |
 | 当前提交 | `0bfd65e` |
-| 模块 | `:app`、`:core`、`:xposed`、`:nmea`、`:system-api` |
+| 模块 | `:app`、`:core`、`:xposed`、`:nmea`、`:system-api`、`:detector`（独立验证应用，不参与主 APK） |
 | Android | `minSdk 31`，`targetSdk 37`，`compileSdk 37` |
 | 构建 | AGP 9.3.1、Kotlin 2.4.10、JDK 17/25、NDK 30、CMake 4.1.2 |
 | Xposed | legacy API 82（compileOnly）、manifest `xposedminversion 93` |

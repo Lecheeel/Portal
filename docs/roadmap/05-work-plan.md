@@ -97,14 +97,16 @@ P0 基线
 
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| P0-01 | 新建 `:detector` Android 应用 | 可安装的 detector；首页/结果页/导出 JSON | 能在 API 31/33/35 模拟器启动；能导出报告 | 无 | M | TODO |
-| P0-02 | 实现 detector 检查 v1 | 15 项检查（见 06 文档） | 每项有 PASS/FAIL/UNKNOWN；失败给证据 | P0-01 | L | TODO |
-| P0-03 | 设备基线报告 | 至少 2 台设备（建议小米 + Pixel/AOSP） | 记录 ROM/Android/LSPosed/结果；保存到 `docs/roadmap/baselines/` | P0-02 | M | TODO |
-| P0-04 | Hook 所有权与状态清单 | 每个 Hook 对应 `HookStatus` 点 | 启动后能列出 supported/installed/matched/skipped/failed | 无 | M | TODO |
-| P0-05 | 仓库护栏 | `LICENSE`/`NOTICE` 决策、模块依赖检查、文件行数预算、文档索引 | CI 能检查 `:core` 无 Android import、`:xposed` 不依赖 `:app`；PR 模板含任务 ID | 无 | M | TODO |
-| P0-06 | Hook 拆分设计 | `LocationServiceHook` 拆分表 + 空文件骨架 | 评审通过；不改变行为 | 无 | S | TODO |
+| P0-01 | 新建 `:detector` Android 应用 | 可安装的 detector；首页/结果页/导出 JSON | 能在 API 31/33/35 模拟器启动；能导出报告 | 无 | M | WIP |
+| P0-02 | 实现 detector 检查 v1 | 15 项检查（见 06 文档） | 每项有 PASS/FAIL/UNKNOWN；失败给证据 | P0-01 | L | WIP |
+| P0-03 | 设备基线报告 | 至少 2 台设备（建议小米 + Pixel/AOSP） | 记录 ROM/Android/LSPosed/结果；保存到 `docs/roadmap/baselines/` | P0-02 | M | BLOCKED |
+| P0-04 | Hook 所有权与状态清单 | 每个 Hook 对应 `HookStatus` 点 | 启动后能列出 supported/installed/matched/skipped/failed | 无 | M | WIP |
+| P0-05 | 仓库护栏 | `LICENSE`/`NOTICE` 决策、模块依赖检查、文件行数预算、文档索引 | CI 能检查 `:core` 无 Android import、`:xposed` 不依赖 `:app`；PR 模板含任务 ID | 无 | M | WIP |
+| P0-06 | Hook 拆分设计 | `LocationServiceHook` 拆分表 + 空文件骨架 | 评审通过；不改变行为 | 无 | S | WIP |
 
 **Phase 0 退出**：detector 基线报告 + Hook 状态清单 + 护栏 CI 全部可用。
+
+> 2026-11-06 进展：P0-01/02/04/05/06 已有代码或文档，最高证据 `BUILD VERIFIED` / `UNIT TEST VERIFIED`；P0-03 因本机无设备、无模拟器 `BLOCKED`。详见 [06-validation.md](06-validation.md)、[hook-inventory.md](hook-inventory.md)、[hook-split-plan.md](hook-split-plan.md)、[baselines/P0-03-runbook.md](baselines/P0-03-runbook.md)。
 
 ---
 
@@ -112,7 +114,7 @@ P0 基线
 
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| P1-01 | `LocationSanitizer` | 统一清理 mock 字段/extras/provider 名；补 MSL/不确定度/satellites | 单元测试覆盖 Android 12–17 字段差异；detector 通过 | P0-04 | M | TODO |
+| P1-01 | `LocationSanitizer` | 统一清理 mock 字段/extras/provider 名；补 MSL/不确定度/satellites | 单元测试覆盖 Android 12–17 字段差异；detector 通过 | P0-04 | M | WIP |
 | P1-02 | AppOps Hook | `AppOpsService.checkOperation(Impl)` 等；按 caller UID 放行 controller | detector 的 AppOps 检查通过；不破坏其他 AppOps | P1-01 | M | TODO |
 | P1-03 | Settings Provider Hook | 新增 `com.android.providers.settings` scope；Hook `SettingsProvider.call` GET_secure/GET_global | `mock_location`/dev options 对非系统调用不可见；系统功能不崩 | P1-01 | M | TODO |
 | P1-04 | Provider 列表/属性 | 恢复 `getProviders`/`getAllProviders`/`hasProvider`/`getProviderProperties` | `fused_ext`/test provider 不暴露；`isProviderEnabled` 一致 | P1-01 | M | TODO |
@@ -120,6 +122,8 @@ P0 基线
 | P1-06 | Phase 1 设备回归 | 小米 + AOSP/Pixel；Xposed 模式 | 隐藏类检查全 PASS；记录证据 | P1-02～05 | M | TODO |
 
 **Phase 1 退出**：Xposed 模式下 AppOps/Settings/Provider/Location 字段/Availability 不再明显泄漏；无 Root 模式的能力边界写清楚。
+
+> 2026-11-06：`LocationSanitizer` 纯逻辑与 Location 字段补齐已提前落地（`:core` 7 项测试、`:xposed` 编译通过）；设备与 detector 验证仍属 P1-01。
 
 ---
 

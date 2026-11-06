@@ -437,12 +437,19 @@ P0 阶段至少：
 - 结论：模型 `UNIT TEST VERIFIED`；`CellInfoSynthesis` 仅 `BUILD VERIFIED`，隐藏构造/字段在不同 ROM 上可能不同，需真机确认；P2-05 仍 `WIP`。
 
 ### P2-06 WiFi 指纹库（实验，部分）
-
 - 变更：`:core` 新增 `WifiObservation`/`WifiFingerprint`/`WifiFingerprintDb`：BSSID 校验、RSSI 边界、30 天默认时效、按 RSSI 最接近的指纹做距离加权质心、`add`/`remove` 不可变。
 - 变更：新增 `WifiFingerprintCatalog`/`WifiFingerprintImporter`：JSON 导入导出、CSV 导入（可选表头、坏行跳过计数）、默认关闭；启用时必须提供 source/license/attribution。
 - 检查：`WifiFingerprintDbTest` 6 项（精确匹配、未知、过期、加权、不可变/大小写、非法输入）通过；`WifiFingerprintImportTest` 6 项（默认关闭、启用元数据、JSON roundtrip、CSV 导入/坏行、元数据/空结果、非法 JSON）通过。
 - 未完成：WigLE/OpenCellID 实际下载、许可审查与 attribution UI、默认关闭开关接入、目标区域回放。
 - 结论：`UNIT TEST VERIFIED`；P2-06 仍 `WIP`。
+
+### P2-07 环境设置（部分）
+
+- 变更：设置页新增“每格 AP 数（1–8，默认 4）”和“基站模式（AUTO/FULL_REPLAY/NO_SIM_WIFI_ONLY/LEGACY_CDMA）”；`put_config` 下发 `environment_ap_count` / `cell_mode`。
+- 变更：`WlanHook` 按 AP 数动态重建 `ProceduralWifiSource` 并使缓存失效；`CellInfoSynthesis` 使用配置的 `cellMode`，`NO_SIM_WIFI_ONLY` 返回空小区。
+- 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest`、`:app:compileAppDebugKotlin` / `:app:testArm64DebugUnitTest` 通过；无设备。
+- 未完成：环境来源选择、实验开关完整清单、采集 UI 的高级参数、默认值设备确认。
+- 结论：`BUILD VERIFIED`；P2-07 仍 `WIP`。
 
 ---
 

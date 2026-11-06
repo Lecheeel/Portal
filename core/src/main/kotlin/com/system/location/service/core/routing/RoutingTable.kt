@@ -33,6 +33,12 @@ data class RoutingConfig(
         require(globalScenarioId == null || globalScenarioId.isNotBlank()) { "globalScenarioId must not be blank" }
         require(routes.size <= MAX_ROUTES) { "Too many routes: ${routes.size}" }
         require(deniedPackages.size <= MAX_DENIED) { "Too many denied packages: ${deniedPackages.size}" }
+        val enabled = routes.filter { it.enabled }
+        require(enabled.map { it.packageName.lowercase() }.distinct().size == enabled.size) {
+            "Duplicate package route"
+        }
+        val enabledUids = enabled.mapNotNull { it.uid }
+        require(enabledUids.distinct().size == enabledUids.size) { "Duplicate uid route" }
     }
 
     companion object {

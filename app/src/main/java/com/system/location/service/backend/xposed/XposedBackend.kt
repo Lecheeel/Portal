@@ -2,6 +2,7 @@ package com.system.location.service.backend.xposed
 
 import android.content.Context
 import android.location.LocationManager
+import android.os.Debug
 import android.os.SystemClock
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
@@ -46,6 +47,15 @@ class XposedBackend(private val context: Context) : LocationBackend {
                 ),
             )
         }
+        val memory = Debug.MemoryInfo().also { Debug.getMemoryInfo(it) }
+        val runtime = Runtime.getRuntime()
+        val heapUsedMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)
+        val heapMaxMb = runtime.maxMemory() / (1024 * 1024)
+        val appMemory = BackendDiagnostic(
+            "APP_MEMORY",
+            "INFO",
+            "pss=${memory.totalPss / 1024} MB · heap=$heapUsedMb/$heapMaxMb MB",
+        )
         return listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "system_server 远程通道已连接"),
             BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),
             BackendDiagnostic("HOOK_OWNERSHIP", if (missing == 0) "INFO" else "WARN",
@@ -54,6 +64,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
             BackendDiagnostic("LAST_PUBLISH", "INFO", "系统侧最近发布时间：${status.getLong("last_publish")}; 启用状态：${status.getBoolean("is_start")}")) +
             listOfNotNull(latency) +
             listOfNotNull(appLatency) +
+            listOf(appMemory) +
             status.getStringArrayList("hook_details").orEmpty().take(60).map { BackendDiagnostic("HOOK_POINT", "INFO", it) }
     }
     override val capabilities get() = Capability.entries.associateWith { capability ->

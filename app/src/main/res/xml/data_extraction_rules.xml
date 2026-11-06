@@ -18,6 +18,8 @@
         <exclude domain="sharedpref" path="scenario_runtime.xml" />
         <exclude domain="sharedpref" path="mock_provider_ownership.xml" />
         <exclude domain="file" path="environment/" />
+        <exclude domain="sharedpref" path="fused_ext.xml" />
+        <exclude domain="file" path="library/" />
         <!-- TODO: Use <include> and <exclude> to control what is backed up.
         <include .../>
         <exclude .../>
@@ -37,6 +39,8 @@
         <exclude domain="sharedpref" path="scenario_runtime.xml" />
         <exclude domain="sharedpref" path="mock_provider_ownership.xml" />
         <exclude domain="file" path="environment/" />
+        <exclude domain="sharedpref" path="fused_ext.xml" />
+        <exclude domain="file" path="library/" />
     </device-transfer>
     <!--
     <device-transfer>

@@ -208,7 +208,7 @@ P0 基线
 
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| P6-01 | libxposed 迁移 spike | API 102 入口/元数据/scope；可编译运行 | LSPosed 能加载；旧 API 可回退 | P4 | L | TODO |
+| P6-01 | libxposed 迁移 spike | API 102 入口/元数据/scope；可编译运行 | LSPosed 能加载；旧 API 可回退 | P4 | L | WIP |
 | P6-02 | 元数据迁移/模块拆分 | 移除 manifest `xposedmodule`；`META-INF/xposed/*` | `PackageManager` 查不到 Xposed 元数据 | P6-01 | M | TODO |
 | P6-03 | Native 隐藏实验 | 参考 Kail：符号解析、`/proc/self/maps`/痕迹；默认关 | 目标检测项改善；无崩溃；可重启回退 | P6-01/P4-04 | L | TODO |
 | P6-04 | 安全/权限审查 | 导出组件、IPC、日志、Bugly、包可见性 | 无高危项；权限最小化 | P5 | M | WIP |
@@ -216,6 +216,8 @@ P0 基线
 | P6-06 | 文档/默认值对齐 | README、设置页、实验标记 | 不再宣称未实现能力；实验默认关 | 全阶段 | S | WIP |
 
 **Phase 6 退出**：模块元数据不可见；libxposed 可用；Native 实验默认关且可回退；文档不再夸大。
+
+> 2026-11-06：P6-01 已加入 `io.github.libxposed:api:102.0.0` compileOnly 依赖与 `LibXposedSpike`（编译通过）；入口元数据/scope/运行时加载未做。
 
 > 2026-11-06：P6-06 已更新 `01-current-state.md` 中 Native 传感器、Provider 列表、NMEA、GNSS 的过期描述；README 与设置页的完整对齐清单未做。
 

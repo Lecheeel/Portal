@@ -353,7 +353,8 @@ P0 阶段至少：
 ### P1-02 AppOps Hook
 
 - 变更：新增 `AppOpsHook`，按方法名匹配 `AppOpsService.checkOperation*`；第三方跨 UID 查询 `OP_MOCK_LOCATION` 时返回 `MODE_ERRORED`，系统调用方与 controller 自检保持原值；`appops` 加入 system_server 所有权清单。
-- 检查：`:xposed:compileDebugKotlin`、`:xposed:testDebugUnitTest` 通过（30 项）。
+- 变更：判定抽到 `AppOpsVisibilityPolicy`，`AppOpsVisibilityPolicyTest` 2 项覆盖跨 UID 隐藏、系统/自检/其他 op 保留。
+- 检查：`:xposed:compileDebugKotlin`、`:xposed:testDebugUnitTest`、`:core:test` 通过。
 - 风险：只覆盖 `checkOperation*`，未覆盖 `getOpsForPackage`/`getPackagesForOps`；需要设备确认其他 AppOps 不受影响。
 - 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；未做设备验证。
 

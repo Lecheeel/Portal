@@ -3,7 +3,7 @@
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
 >
-> 进度快照（Round 116）：52 个 roadmap 任务中 37 `WIP` / 12 `TODO` / 1 `BLOCKED`（P0-03 无设备）/ 2 `DONE`（P3-01、P3-03）；整体约 **50%**，代码/模型约 **65%**，设备验收约 **10%**。422 项 JVM 用例通过，但没有任何 `DEVICE VERIFIED` 结论。
+> 进度快照（Round 117）：52 个 roadmap 任务中 37 `WIP` / 12 `TODO` / 1 `BLOCKED`（P0-03 无设备）/ 2 `DONE`（P3-01、P3-03）；整体约 **50%**，代码/模型约 **65%**，设备验收约 **10%**。424 项 JVM 用例通过，但没有任何 `DEVICE VERIFIED` 结论。
 
 ---
 
@@ -143,7 +143,7 @@
 
 | ID | 领域 | 问题 | 证据 | 影响 | 计划 |
 |---|---|---|---|---|---|
-| D01 | 隐藏 | 没有 Hook `AppOpsService`，`OP_MOCK_LOCATION` 可直接查 | `xposed/**` 无 AppOpsService Hook；`MockFlagExperiment` 只改本地对象 | S1：目标 App 一次 `checkOp` 就知道 | P1-02 |
+| D01 | 隐藏 | AppOps Hook 已实现但未设备验证 | `AppOpsHook` + `AppOpsVisibilityPolicy` | S2：OEM AppOps 实现差异可能绕过 | P1-02 |
 | D02 | 隐藏 | 没有 Hook `Settings.Secure.mock_location` / 开发者选项 | 无 `SettingsProvider` scope、无 `getStringForUser` Hook | S1：同上，且可判断“设备开了开发者选项” | P1-03 |
 | D03 | 清洗 | Provider 列表/属性 Hook 已实现但未设备验证 | `ProviderRegistryHook` + `ProviderRegistryPolicy` | S2：`fused_ext`/test provider 可能仍被 OEM 暴露 | P1-04 |
 | D04 | 清洗 | 新建 Location 的 extras/MSL/不确定度不完整 | `LocationSample.toLocation()` 只设置基础字段；无 `satellites`/`meanCn0`/`mslAltitude`/`elapsedRealtimeUncertaintyNanos` | S2：高级检测可看出“GPS 没有卫星 extras” | P1-01 |

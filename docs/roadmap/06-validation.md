@@ -576,7 +576,8 @@ P0 阶段至少：
 - 变更：envelope 已映射 `routingJson`、环境来源/AP 数/基站模式、`NoiseProfile.enabled`；解析失败回退默认。
 - 检查：`SampleStoreTest` 6 项、`FileConfigStoreTest` 2 项（roundtrip/clear、损坏文件）通过；`:app` 编译/测试通过。
 - 未完成：Binder/SharedMemory 实现、用恢复配置自动重启场景、SHM 设计。
-- 结论：`UNIT TEST VERIFIED`；P5-06 仍 `WIP`。
+- 变更：新增 `10-store-transport.md`，比较 Binder 与 ashmem 双缓冲方案，决定当前保持 Binder+FileConfigStore，SHM 仅在性能超预算时实验启用。
+- 结论：`UNIT TEST VERIFIED`（存储）；传输设计 `SOURCE VERIFIED`；P5-06 仍 `WIP`。
 
 ### P5-07 RuntimeSnapshot（部分）
 

@@ -2,6 +2,7 @@ package com.system.location.service.runtime
 
 import android.content.Context
 import android.content.Intent
+import android.location.LocationManager
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.system.location.service.LocationServiceApp
@@ -26,6 +27,7 @@ import com.system.location.service.ext.gmsMockEnabled
 import com.system.location.service.ext.platformFusedEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.smoothRouteMotion
+import com.system.location.service.service.MockServiceHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
@@ -34,6 +36,13 @@ import kotlinx.coroutines.sync.withLock
 /** Process-owned command facade. UI cancellation never cancels an accepted runtime command. */
 object ScenarioRuntime {
     private val context get() = LocationServiceApp.appContext
+
+    /** Push current preferences to a running system service without restarting the scenario. */
+    fun applyConfigNow(): Boolean {
+        val manager = context.getSystemService(LocationManager::class.java) ?: return false
+        if (!MockServiceHelper.isServiceInit()) return false
+        return runCatching { MockServiceHelper.putConfig(manager, context) }.getOrDefault(false)
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val commands = Mutex()
     private val preferences get() = context.getSharedPreferences("scenario_runtime", Context.MODE_PRIVATE)

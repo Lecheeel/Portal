@@ -181,7 +181,12 @@ class SettingsFragment : Fragment() {
                                         createEnvironmentDocument.launch("$name.json")
                                     } else {
                                         context.environmentReplayJson = EnvironmentProfileCodec.encode(profile)
-                                        showToast(getString(R.string.environment_replay_set))
+                                        lifecycleScope.launch {
+                                            val applied = withContext(Dispatchers.IO) {
+                                                com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+                                            }
+                                            showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
+                                        }
                                     }
                                 }
                                 .onFailure { error ->
@@ -234,7 +239,12 @@ class SettingsFragment : Fragment() {
                         RoutingConfig(mode = RoutingMode.PER_APP, deniedPackages = denied)
                     }
                     context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
-                    showToast("下次启动场景生效")
+                    lifecycleScope.launch {
+                        val applied = withContext(Dispatchers.IO) {
+                            com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+                        }
+                        showToast(if (applied) "配置已应用" else "已保存，下次启动场景生效")
+                    }
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()

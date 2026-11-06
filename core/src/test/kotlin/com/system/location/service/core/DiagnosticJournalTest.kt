@@ -64,7 +64,7 @@ class DiagnosticJournalTest {
             override val capabilities = emptyMap<Capability, CapabilityStatus>()
             override suspend fun prepare() = BackendResult.Success
             override suspend fun start() = BackendResult.Success
-            override suspend fun publish(sample: LocationSample): BackendResult { nanos += 20_000_000; return BackendResult.Success }
+            override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult { nanos += 20_000_000; return BackendResult.Success }
             override suspend fun stop() = BackendResult.Success
             override suspend fun release() = BackendResult.Success
         }

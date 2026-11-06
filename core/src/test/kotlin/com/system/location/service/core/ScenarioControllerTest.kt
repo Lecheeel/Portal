@@ -27,7 +27,7 @@ class ScenarioControllerTest {
         override suspend fun prepare() = BackendResult.Success.also { calls += "prepare" }
         override suspend fun start() = BackendResult.Success.also { calls += "start" }
         override suspend fun pause() = BackendResult.Success.also { calls += "pause" }
-        override suspend fun publish(sample: LocationSample): BackendResult {
+        override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
             calls += "publish"
             return if (failPublish) BackendResult.Failure("PUBLISH", "injected failure") else BackendResult.Success
         }

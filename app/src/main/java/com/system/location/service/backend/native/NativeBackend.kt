@@ -32,7 +32,7 @@ class NativeBackend(private val context: Context) : LocationBackend {
         return BackendResult.Success
     }
     override suspend fun start() = xposed.start()
-    override suspend fun publish(sample: LocationSample): BackendResult {
+    override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
         val published = xposed.publish(sample)
         if (published is BackendResult.Failure) return published
         if (!sensorsEnabled) {

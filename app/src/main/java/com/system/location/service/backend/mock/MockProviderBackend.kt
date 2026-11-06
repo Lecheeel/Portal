@@ -87,7 +87,7 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
         }
     }
 
-    override suspend fun publish(sample: LocationSample): BackendResult {
+    override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
         if (phase !in setOf(Phase.RUNNING, Phase.PAUSED)) return failure("PUBLISH", "Provider 未启动")
         return guarded("PUBLISH") {
             requireAuthorization("提交位置")

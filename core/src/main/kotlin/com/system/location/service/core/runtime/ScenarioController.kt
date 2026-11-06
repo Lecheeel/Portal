@@ -190,7 +190,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         if (state.value.phase !in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) return false
         val frame = engine!!.tick(clock.nanos(), clock.millis())
         val started = clock.nanos()
-        if (!step("PUBLISH") { backend!!.publish(frame.sample) }) return false
+        if (!step("PUBLISH") { backend!!.publish(frame.sample, state.value.scenarioId) }) return false
         val ended = clock.nanos()
         val gap = previousSubmissionNanos?.let { (frame.sample.elapsedNanos - it).coerceAtLeast(0) / 1_000_000.0 } ?: 0.0
         val latency = (ended - started).coerceAtLeast(0) / 1_000_000.0

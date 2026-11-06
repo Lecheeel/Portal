@@ -22,7 +22,7 @@ class RuntimeCommandLifecycleTest {
         override val capabilities = emptyMap<Capability, CapabilityStatus>()
         override suspend fun prepare() = BackendResult.Success
         override suspend fun start() = BackendResult.Success
-        override suspend fun publish(sample: LocationSample): BackendResult =
+        override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult =
             if (failPublish) BackendResult.Failure("PUBLISH", "failed") else BackendResult.Success
         override suspend fun stop(): BackendResult =
             if (failCleanup) BackendResult.Failure("CLEANUP", "denied") else BackendResult.Success

@@ -15,7 +15,7 @@ class FusedMockBackendTest {
         override val capabilities = emptyMap<Capability, CapabilityStatus>()
         override suspend fun prepare() = BackendResult.Success
         override suspend fun start() = BackendResult.Success
-        override suspend fun publish(sample: LocationSample): BackendResult { published++; return if (fail) BackendResult.Failure("PUBLISH", "denied") else BackendResult.Success }
+        override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult { published++; return if (fail) BackendResult.Failure("PUBLISH", "denied") else BackendResult.Success }
         override suspend fun stop(): BackendResult { stopped++; return BackendResult.Success }
         override suspend fun release() = stop()
     }

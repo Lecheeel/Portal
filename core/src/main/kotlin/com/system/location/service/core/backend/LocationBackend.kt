@@ -20,7 +20,7 @@ interface LocationBackend {
     val capabilities: BackendCapabilities
     suspend fun prepare(): BackendResult
     suspend fun start(): BackendResult
-    suspend fun publish(sample: LocationSample): BackendResult
+    suspend fun publish(sample: LocationSample, scenarioId: String? = null): BackendResult
     suspend fun pause(): BackendResult = BackendResult.Success
     suspend fun resume(): BackendResult = BackendResult.Success
     suspend fun stop(): BackendResult

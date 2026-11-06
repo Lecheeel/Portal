@@ -139,7 +139,7 @@ class GmsMockSessionTest {
             override val capabilities = emptyMap<com.system.location.service.core.backend.Capability, com.system.location.service.core.backend.CapabilityStatus>()
             override suspend fun prepare() = com.system.location.service.core.backend.BackendResult.Success
             override suspend fun start() = com.system.location.service.core.backend.BackendResult.Success
-            override suspend fun publish(sample: LocationSample) = com.system.location.service.core.backend.BackendResult.Success.also { basePublishes++ }
+            override suspend fun publish(sample: LocationSample, scenarioId: String?) = com.system.location.service.core.backend.BackendResult.Success.also { basePublishes++ }
             override suspend fun stop() = com.system.location.service.core.backend.BackendResult.Success
             override suspend fun release() = stop()
         }

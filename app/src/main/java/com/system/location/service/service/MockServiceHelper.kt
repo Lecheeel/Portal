@@ -348,9 +348,14 @@ object MockServiceHelper {
         return commandClient.connected
     }
 
-    fun publishSample(locationManager: LocationManager, sample: com.system.location.service.core.location.LocationSample): Boolean {
+    fun publishSample(
+        locationManager: LocationManager,
+        sample: com.system.location.service.core.location.LocationSample,
+        scenarioId: String? = null,
+    ): Boolean {
         val request = Bundle()
         request.putString("command_id", "publish_sample")
+        scenarioId?.takeIf { it.isNotBlank() }?.let { request.putString("scenario_id", it) }
         com.system.location.service.hook.security.SampleWire.write(request, sample)
         return commandClient.send(locationManager, request)
     }

@@ -50,8 +50,8 @@ class XposedBackend(private val context: Context) : LocationBackend {
         return checked(MockServiceHelper.putConfig(manager, context), "CONFIGURE", "检查系统服务连接")
     }
     override suspend fun start() = BackendResult.Success
-    override suspend fun publish(sample: LocationSample): BackendResult {
-        return checked(MockServiceHelper.publishSample(manager, sample),
+    override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
+        return checked(MockServiceHelper.publishSample(manager, sample, scenarioId),
             "PUBLISH", "检查模块是否仍启用")
     }
     override suspend fun stop(): BackendResult {

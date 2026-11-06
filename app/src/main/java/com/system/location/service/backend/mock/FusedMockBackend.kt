@@ -40,8 +40,8 @@ class FusedMockBackend(private val base: LocationBackend, private val fused: Fus
         catch (error: Exception) { degrade(error, "GMS 通道启动失败，继续使用标准 Provider") }
         return BackendResult.Success
     }
-    override suspend fun publish(sample: LocationSample): BackendResult {
-        val result = base.publish(sample)
+    override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
+        val result = base.publish(sample, scenarioId)
         if (result is BackendResult.Failure) return result
         if (useFused) try {
             fused.publish(providerMixer.mix(sample)[ProviderKind.FUSED]?.sample ?: sample)

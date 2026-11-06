@@ -3,6 +3,7 @@ package com.system.location.service.ui.settings
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -69,6 +70,17 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private var updateRequest = 0L
     private var environmentExport: Pair<String, EnvironmentProfile>? = null
+    private var pendingEnvironmentCapture: (() -> Unit)? = null
+
+    private val bleScanPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val pending = pendingEnvironmentCapture
+        pendingEnvironmentCapture = null
+        if (granted) {
+            pending?.invoke()
+        } else if (isAdded) {
+            showToast(getString(R.string.environment_ble_permission_denied))
+        }
+    }
 
     private val createEnvironmentDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val pending = environmentExport
@@ -177,11 +189,7 @@ class SettingsFragment : Fragment() {
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
         }
-        binding.environmentCaptureButton.setOnClickListener {
-            if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                showToast(getString(R.string.environment_capture_requires_location))
-                return@setOnClickListener
-            }
+        fun captureEnvironment() {
             binding.environmentCaptureButton.isEnabled = false
             val appContext = context.applicationContext
             lifecycleScope.launch {
@@ -201,6 +209,20 @@ class SettingsFragment : Fragment() {
                     if (isAdded) showToast(getString(R.string.environment_capture_failed, error.message ?: "unknown"))
                 }
             }
+        }
+        binding.environmentCaptureButton.setOnClickListener {
+            if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                showToast(getString(R.string.environment_capture_requires_location))
+                return@setOnClickListener
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED
+            ) {
+                pendingEnvironmentCapture = { captureEnvironment() }
+                bleScanPermission.launch(Manifest.permission.BLUETOOTH_SCAN)
+                return@setOnClickListener
+            }
+            captureEnvironment()
         }
         binding.smoothRouteSwitch.isChecked = context.smoothRouteMotion
         binding.smoothRouteSwitch.setOnCheckedChangeListener { _, enabled -> context.smoothRouteMotion = enabled }

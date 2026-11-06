@@ -51,7 +51,12 @@ def find_clang(ndk: Path) -> Path:
 
 
 def find_dobby_include() -> Path:
-    gradle_home = Path(os.environ.get("GRADLE_USER_HOME", ROOT / ".gradle-home"))
+    configured = os.environ.get("GRADLE_USER_HOME")
+    if configured:
+        gradle_home = Path(configured)
+    else:
+        user_gradle = Path.home() / ".gradle"
+        gradle_home = user_gradle if user_gradle.is_dir() else ROOT / ".gradle-home"
     aars = sorted(gradle_home.glob("caches/modules-2/files-2.1/io.github.vvb2060.ndk/dobby/**/*.aar"))
     if not aars:
         raise SystemExit("dobby AAR not found; resolve :xposed dependencies first")

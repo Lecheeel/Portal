@@ -90,6 +90,10 @@ object FakeLoc {
      */
     var minSatellites = 12
 
+    /** 环境生成 seed；同一位置、同一 seed 必须生成同一组 AP/基站（ADR-022）。 */
+    @Volatile
+    var environmentSeed = 0L
+
     /**
      * 反定位复原加强（启用后将导致部分应用在关闭LocationService后需要重新启动才能重新获取定位）
      */

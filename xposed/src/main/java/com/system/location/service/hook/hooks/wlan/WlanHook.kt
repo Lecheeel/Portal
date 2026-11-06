@@ -1,31 +1,50 @@
 @file:Suppress("UNCHECKED_CAST", "PrivateApi")
 package com.system.location.service.hook.hooks.wlan
 
+import android.net.DhcpInfo
+import android.net.wifi.ScanResult
+import android.net.wifi.SupplicantState
 import android.net.wifi.WifiInfo
+import android.os.Binder
 import android.os.Build
+import android.os.SystemClock
 import android.util.ArrayMap
 import dalvik.system.PathClassLoader
 import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
+import com.system.location.service.core.environment.EnvironmentConfig
+import com.system.location.service.core.environment.EnvironmentProfile
+import com.system.location.service.core.environment.ProceduralWifiSource
+import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.afterHook
 import com.system.location.service.hook.utils.beforeHook
 import com.system.location.service.hook.utils.hookAllMethods
-import com.system.location.service.hook.utils.hookMethodAfter
 import com.system.location.service.hook.utils.toClass
 
+/**
+ * P2-04: replace the old empty-list/sentinel-BSSID WiFi answers with the deterministic procedural
+ * environment (P2-03). Only third-party callers are rewritten; system callers keep the real state so
+ * framework services and Settings behave normally.
+ */
 object WlanHook {
+    private val source = ProceduralWifiSource(EnvironmentConfig(apPerCell = 4))
+    private val profileLock = Any()
+    private var cachedKey: String? = null
+    private var cachedProfile: EnvironmentProfile? = null
+
     operator fun invoke(classLoader: ClassLoader) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val cSystemServerClassLoaderFactory = XposedHelpers.findClassIfExists("com.android.internal.os.SystemServerClassLoaderFactory", classLoader)
+            val cSystemServerClassLoaderFactory = XposedHelpers.findClassIfExists(
+                "com.android.internal.os.SystemServerClassLoaderFactory", classLoader)
             if (cSystemServerClassLoaderFactory == null) {
                 Logger.warn("Failed to find SystemServerClassLoaderFactory")
                 return
             }
-            val sLoadedPaths = XposedHelpers.getStaticObjectField(cSystemServerClassLoaderFactory, "sLoadedPaths") as ArrayMap<String, PathClassLoader>
+            val sLoadedPaths = XposedHelpers.getStaticObjectField(
+                cSystemServerClassLoaderFactory, "sLoadedPaths") as ArrayMap<String, PathClassLoader>
             val wifiClassLoader = sLoadedPaths.firstNotNullOfOrNull {
                 if (it.key.contains("service-wifi.jar")) it.value else null
             }
@@ -40,7 +59,8 @@ object WlanHook {
             }
             hookWifiServiceImpl(wifiClazz)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val cSystemServiceManager = XposedHelpers.findClassIfExists("com.android.server.SystemServiceManager", classLoader)
+            val cSystemServiceManager = XposedHelpers.findClassIfExists(
+                "com.android.server.SystemServiceManager", classLoader)
             if (cSystemServiceManager == null) {
                 Logger.warn("Failed to find SystemServiceManager")
                 return
@@ -63,62 +83,124 @@ object WlanHook {
         if (!FakeLoc.hookWifi) return
 
         wifiClazz.hookAllMethods("getConnectionInfo", beforeHook {
-            val packageName = args[0] as String
-            if (FakeLoc.enableDebugLog)
-                Logger.debug("In getConnectionInfo with caller: $packageName, state: ${FakeLoc.enableMockWifi}")
-
-            if (FakeLoc.enable && FakeLoc.enableMockWifi && !BinderUtils.isSystemPackages(packageName)) {
-                val wifiInfo = WifiInfo::class.java.getConstructor().newInstance()
-                XposedHelpers.callMethod(wifiInfo, "setMacAddress", "02:00:00:00:00:00")
-                XposedHelpers.callMethod(wifiInfo, "setBSSID", "02:00:00:00:00:00")
-                result = wifiInfo
-            }
+            val packageName = args.firstOrNull() as? String
+            if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@beforeHook
+            val info = buildWifiInfo(currentProfile()) ?: return@beforeHook
+            result = info
+            if (FakeLoc.enableDebugLog) Logger.debug("getConnectionInfo: procedural $packageName")
         })
 
         wifiClazz.hookAllMethods("getScanResults", afterHook {
-            val packageName = args[0] as? String
-            if (packageName.isNullOrEmpty()) {
-                return@afterHook
+            val packageName = args.firstOrNull() as? String
+            if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@afterHook
+            val generated = buildScanResults(currentProfile())
+            if (generated.isEmpty()) return@afterHook
+            result = when (val existing = result) {
+                null -> generated
+                is List<*> -> generated
+                is Array<*> -> generated.toTypedArray()
+                else -> sliceOrNull(existing.javaClass, generated) ?: return@afterHook
             }
+            if (FakeLoc.enableDebugLog) Logger.debug("getScanResults: ${generated.size} procedural APs for $packageName")
+        })
 
-            if (FakeLoc.enableDebugLog)
-                Logger.debug("In getScanResults with caller: $packageName, state: ${FakeLoc.enableMockWifi}")
-
-            if (FakeLoc.enable && FakeLoc.enableMockWifi) {
-                if(result == null) {
-                    return@afterHook 
-                }
-                
-                if (result is List<*>) {
-                    result = arrayListOf<Any>()
-                    return@afterHook
-                } // 针对小米系列机型的wifi扫描返回
-
-                if (result is Array<*>) {
-                    result = arrayOf<Any>()
-                    return@afterHook
-                } // 针对一加系列机型的wifi扫描返回
-
-                // 在高于安卓10的版本，Google 引入了 APEX（Android Pony EXpress）文件格式来封装系统组件，包括系统服务~！
-                // 上面的代码在高版本将无效导致应用可以通过网络AGPS到正常的位置（现象就是位置拉回）
-                // 这里针对一个普通的版本进行一个修复
-                val resultClass = result.javaClass
-                if (resultClass.name.contains("ParceledListSlice")) runCatching {
-                    val constructor = resultClass.getConstructor(List::class.java)
-                    if (!constructor.isAccessible) {
-                        constructor.isAccessible = true
-                    }
-                    result = constructor.newInstance(emptyList<Any>())
-                    return@afterHook
-                }.onFailure {
-                    Logger.error("getScanResults: ParceledListSlice failed", it)
-                }
-
-                if (FakeLoc.enableDebugLog) {
-                    Logger.error("getScanResults: Unknown return type: ${result?.javaClass?.name}")
-                }
+        wifiClazz.hookAllMethods("getDhcpInfo", afterHook {
+            val packageName = args.firstOrNull() as? String
+            val rewrite = if (packageName != null) {
+                shouldRewrite(packageName)
+            } else {
+                FakeLoc.enable && FakeLoc.enableMockWifi && Binder.getCallingUid() >= FIRST_APP_UID
             }
+            if (!rewrite) return@afterHook
+            result = buildDhcpInfo()
+            if (FakeLoc.enableDebugLog) Logger.debug("getDhcpInfo: procedural DHCP info")
         })
     }
-}
 
+    private fun shouldRewrite(packageName: String): Boolean =
+        FakeLoc.enable && FakeLoc.enableMockWifi && !BinderUtils.isSystemPackages(packageName)
+
+    private fun currentProfile(): EnvironmentProfile {
+        val point = Wgs84(FakeLoc.latitude, FakeLoc.longitude)
+        val key = "${point.latitude}:${point.longitude}:${FakeLoc.environmentSeed}"
+        synchronized(profileLock) {
+            cachedProfile?.let { if (cachedKey == key) return it }
+            return source.profileAt(point, FakeLoc.environmentSeed, System.currentTimeMillis()).also {
+                cachedKey = key
+                cachedProfile = it
+            }
+        }
+    }
+
+    private fun buildScanResults(profile: EnvironmentProfile): List<ScanResult> {
+        val timestamp = SystemClock.elapsedRealtimeNanos() / 1_000L
+        return profile.wifi.map { ap ->
+            ScanResult().apply {
+                SSID = ap.ssid
+                BSSID = ap.bssid
+                capabilities = ap.capabilities
+                frequency = ap.frequencyMhz
+                level = ap.rssi
+                this.timestamp = timestamp
+                channelWidth = ScanResult.CHANNEL_WIDTH_20MHZ
+                centerFreq0 = ap.frequencyMhz
+                centerFreq1 = 0
+            }
+        }
+    }
+
+    private fun buildWifiInfo(profile: EnvironmentProfile): WifiInfo? {
+        val ap = profile.connectedWifi() ?: return null
+        val info = runCatching { XposedHelpers.newInstance(WifiInfo::class.java) as WifiInfo }.getOrNull()
+            ?: return null
+        val values = listOf(
+            "setBSSID" to ap.bssid,
+            "setSSID" to ap.ssid,
+            "setMacAddress" to DEVICE_MAC,
+            "setNetworkId" to NETWORK_ID,
+            "setRssi" to ap.rssi,
+            "setFrequency" to ap.frequencyMhz,
+            "setLinkSpeed" to LINK_SPEED_MBPS,
+            "setIpAddress" to ipv4("192.168.1.100"),
+            "setSupplicantState" to SupplicantState.COMPLETED,
+        )
+        values.forEach { (method, value) ->
+            runCatching { XposedHelpers.callMethod(info, method, value) }
+                .onFailure { if (FakeLoc.enableDebugLog) Logger.debug("WifiInfo.$method unavailable: ${it.javaClass.simpleName}") }
+        }
+        return info
+    }
+
+    private fun buildDhcpInfo(): DhcpInfo = DhcpInfo().apply {
+        ipAddress = ipv4("192.168.1.100")
+        gateway = ipv4("192.168.1.1")
+        netmask = ipv4("255.255.255.0")
+        dns1 = ipv4("192.168.1.1")
+        dns2 = ipv4("223.5.5.5")
+        serverAddress = gateway
+        leaseDuration = 86_400
+    }
+
+    private fun sliceOrNull(type: Class<*>, values: List<ScanResult>): Any? =
+        if (type.name.contains("ParceledListSlice")) {
+            runCatching {
+                val constructor = type.getConstructor(List::class.java)
+                if (!constructor.isAccessible) constructor.isAccessible = true
+                constructor.newInstance(values)
+            }.onFailure { Logger.error("getScanResults: ParceledListSlice failed", it) }.getOrNull()
+        } else {
+            Logger.error("getScanResults: unknown return type ${type.name}")
+            null
+        }
+
+    private fun ipv4(address: String): Int {
+        val parts = address.split('.')
+        require(parts.size == 4)
+        return parts.fold(0) { value, part -> (value shl 8) or part.toInt() }
+    }
+
+    private const val DEVICE_MAC = "A4:50:46:00:00:01"
+    private const val NETWORK_ID = 42
+    private const val LINK_SPEED_MBPS = 433
+    private const val FIRST_APP_UID = 10_000
+}

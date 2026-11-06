@@ -25,6 +25,7 @@ object HookOwnership {
         HookScope.SYSTEM_SERVER to listOf(
             "system-location",
             "appops",
+            "provider-registry",
             "telephony-registry",
             "wifi",
             "fused",

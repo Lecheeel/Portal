@@ -24,6 +24,9 @@ import com.system.location.service.hook.hooks.miui.MiuiLocationManagerHook
 import com.system.location.service.hook.hooks.telephony.miui.MiuiTelephonyManagerHook
 import com.system.location.service.hook.hooks.nmea.LocationNMEAHook
 import com.system.location.service.hook.hooks.provider.LocationProviderManagerHook
+import com.system.location.service.hook.hooks.provider.ProviderRegistryHook
+import com.system.location.service.hook.scope.HookStatus
+import com.system.location.service.hook.scope.HookStatusRegistry
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.Logger
@@ -183,6 +186,12 @@ internal object LocationServiceHook: BaseLocationHook() {
             BasicLocationHook(it)
             GnssHook(it)
             LocationProviderManagerHook(it)
+            if (ProviderRegistryHook.hook(cILocationManager)) {
+                HookStatusRegistry.installed("provider-registry")
+            } else {
+                HookStatusRegistry.record("provider-registry", HookStatus(supported = true, skipped = true,
+                    reason = "Provider registry methods absent"))
+            }
 
             MiuiBlurLocationProviderHook(it)
             MiuiLocationManagerHook(it)

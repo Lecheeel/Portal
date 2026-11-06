@@ -9,7 +9,6 @@ import android.os.SystemClock
 import com.system.location.service.hook.security.CommandSecurity
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.hook.security.SensitiveLog
-import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.Logger
@@ -143,77 +142,11 @@ object RemoteCommandHandler {
             "set_speed_amp" -> ControlCommand.setSpeedAmplitude(rely)
             "set_altitude" -> ControlCommand.setAltitude(rely)
             "set_speed" -> ControlCommand.setSpeed(rely)
-            "set_bearing" -> ControlCommand.setBearing(rely)            "update_location" -> {
-                val mode = rely.getString("mode")
-                var newLat = rely.getDouble("lat", 0.0)
-                var newLon = rely.getDouble("lon", 0.0)
-                when(mode) {
-                    "+" -> {
-                        newLat += FakeLoc.latitude
-                        newLon += FakeLoc.longitude
-                        return updateCoordinate(newLat, newLon)
-                    }
-                    "-" -> {
-                        newLat = FakeLoc.latitude - newLat
-                        newLon = FakeLoc.longitude - newLon
-                        return updateCoordinate(newLat, newLon)
-                    }
-                    "*" -> {
-                        newLat *= FakeLoc.latitude
-                        newLon *= FakeLoc.longitude
-                        return updateCoordinate(newLat, newLon)
-                    }
-                    "/" -> {
-                        if (newLat == 0.0 || newLon == 0.0) {
-                            return false
-                        }
-                        newLat /= FakeLoc.latitude
-                        newLon /= FakeLoc.longitude
-                        return updateCoordinate(newLat, newLon)
-                    }
-                    "=" -> {
-                        if (rely.containsKey("bearing")) {
-                            FakeLoc.bearing = rely.getDouble("bearing")
-                            FakeLoc.hasBearings = true
-                        }
-                        return updateCoordinate(newLat, newLon, rely.getFloat("moving_speed", 0f))
-                    }
-                    "random" -> {
-                        return updateCoordinate(Random.nextDouble(-90.0, 90.0), Random.nextDouble(-180.0, 180.0))
-                    }
-                }
-                return true
-            }
+            "set_bearing" -> ControlCommand.setBearing(rely)
+            "update_location" -> LocationCommand.update(rely)
             "put_config" -> ConfigCommand.apply(rely)
-            "sync_config" -> {
-                if (FakeLoc.enable && FakeLoc.externallyDriven) SampleWire.write(rely, FakeLoc.snapshot())
-                rely.putBoolean("enable", FakeLoc.enable)
-                val point = FakeLoc.coordinatePair()
-                rely.putDouble("latitude", point.first)
-                rely.putDouble("longitude", point.second)
-                rely.putLong("report_interval", FakeLoc.reportIntervalMs)
-                rely.putDouble("altitude", FakeLoc.altitude)
-                rely.putDouble("speed", FakeLoc.speed)
-                rely.putDouble("speed_amplitude", FakeLoc.speedAmplitude)
-                rely.putBoolean("has_bearings", FakeLoc.hasBearings)
-                rely.putDouble("bearing", FakeLoc.bearing)
-                rely.putParcelable("last_location", FakeLoc.lastLocation)
-                rely.putBoolean("enable_log", FakeLoc.enableLog)
-                rely.putBoolean("enable_debug_log", FakeLoc.enableDebugLog)
-                rely.putBoolean("disable_get_current_location", FakeLoc.disableGetCurrentLocation)
-                rely.putBoolean("disable_register_location_listener", FakeLoc.disableRegisterLocationListener)
-                rely.putBoolean("disable_fused_location", FakeLoc.disableFusedLocation)
-                rely.putBoolean("enable_agps", FakeLoc.enableAGPS)
-                rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
-                rely.putBoolean("hide_mock", FakeLoc.hideMock)
-                rely.putBoolean("hook_wifi", FakeLoc.hookWifi)
-                rely.putBoolean("need_downgrade_to_2g", FakeLoc.needDowngradeToCdma)
-                return true
-            }
-            "broadcast_location" -> {
-                LocationServiceHook.callOnLocationChanged()
-                return true
-            }
+            "sync_config" -> LocationCommand.sync(rely)
+            "broadcast_location" -> LocationCommand.broadcast()
             "load_library" -> NativeCommand.load(rely)
             "native_prepare" -> NativeCommand.prepare()
             "native_status" -> NativeCommand.setEnabled(rely)
@@ -242,15 +175,4 @@ object RemoteCommandHandler {
 //
 //        return LocationServiceProxyHook.injectLocation(location, realLocation)
 //    }
-
-    private fun updateCoordinate(newLat: Double, newLon: Double, movingSpeed: Float = 0f): Boolean {
-        if (newLat in -90.0..90.0 && newLon in -180.0..180.0) {
-            FakeLoc.updateCoordinates(newLat, newLon, movingSpeed)
-            if (FakeLoc.enable && FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
-            return true
-        } else {
-            Logger.error("Invalid latitude or longitude: $newLat, $newLon")
-            return false
-        }
-    }
 }

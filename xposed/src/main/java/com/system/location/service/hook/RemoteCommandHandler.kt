@@ -131,6 +131,7 @@ object RemoteCommandHandler {
             }
             "get_runtime_status" -> {
                 rely.putInt("sample_version", SampleWire.VERSION)
+                rely.putInt("sample_min_version", SampleWire.MIN_SUPPORTED)
                 rely.putBoolean("is_start", FakeLoc.enable)
                 rely.putLong("last_publish", lastPublishMillis)
                 val statuses = HookStatusRegistry.snapshot()

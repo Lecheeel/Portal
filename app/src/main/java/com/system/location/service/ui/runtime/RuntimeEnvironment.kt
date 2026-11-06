@@ -34,7 +34,8 @@ internal data class RuntimeEnvironment(
             val manager = context.getSystemService(LocationManager::class.java)
             val connected = runCatching {
                 if (!MockServiceHelper.isServiceInit()) MockServiceHelper.tryInitService(manager)
-                MockServiceHelper.runtimeStatus(manager)?.getInt("sample_version") == 1
+                MockServiceHelper.runtimeStatus(manager)?.getInt("sample_version")
+                    ?.let(com.system.location.service.hook.security.SampleWire::isCompatible) == true
             }.getOrDefault(false)
             return RuntimeEnvironment(root, connected,
                 AndroidMockProviderPort(context).permissionGranted(),

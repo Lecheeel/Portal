@@ -4,6 +4,7 @@ import android.content.Context
 import android.location.LocationManager
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
 
 /** The scenario runtime owns movement. One authenticated IPC sends each immutable fix. */
@@ -14,7 +15,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
     override suspend fun diagnose(): List<BackendDiagnostic> {
         if (!MockServiceHelper.isServiceInit()) MockServiceHelper.tryInitService(manager)
         val status = MockServiceHelper.runtimeStatus(manager)
-        connected = status?.getInt("sample_version") == 1
+        connected = status?.getInt("sample_version")?.let(SampleWire::isCompatible) == true
         if (!connected) return listOf(BackendDiagnostic("REMOTE_COMMAND", "FAILED", "未连接兼容的系统模块", "启用系统作用域，安装当前版本并重启"))
         val scope = status!!.getString("hook_scope") ?: "unknown"
         val expected = status.getInt("hook_expected")
@@ -42,7 +43,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
         connected = MockServiceHelper.isServiceInit()
         if (!connected) return checked(false, "CONNECT", "启用 Xposed 模块的系统作用域并重启设备")
         val status = MockServiceHelper.runtimeStatus(manager)
-        if (status?.getInt("sample_version") != 1) {
+        if (status?.getInt("sample_version")?.let(SampleWire::isCompatible) != true) {
             connected = false
             return BackendResult.Failure("PROTOCOL", "已加载的系统模块不支持统一定位快照", "安装当前版本并重启设备")
         }

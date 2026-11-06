@@ -15,6 +15,7 @@ import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.LocationHookArguments
+import com.system.location.service.hook.utils.ProviderView
 import com.system.location.service.hook.utils.beforeHook
 import com.system.location.service.hook.utils.diyHook
 import com.system.location.service.hook.utils.hook
@@ -43,7 +44,10 @@ object LocationProviderManagerHook {
         val locations = mLocationsField.get(locationResult) as? List<*> ?: return@beforeHook
         if (locations.isEmpty() || locations.any { it !is Location }) return@beforeHook
         val sample = FakeLoc.snapshot()
-        mLocationsField.set(locationResult, locations.map { sample.toLocation((it as Location).provider) })
+        mLocationsField.set(locationResult, locations.map { location ->
+            val provider = (location as Location).provider
+            ProviderView.sampleFor(provider).toLocation(provider)
+        })
     }
 
     operator fun invoke(classLoader: ClassLoader) {

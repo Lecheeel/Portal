@@ -111,7 +111,11 @@ class MockProviderBackendTest {
         assertEquals(BackendResult.Success, backend.prepare())
         assertEquals(BackendResult.Success, backend.start())
         assertEquals(BackendResult.Success, backend.publish(sample))
-        assertEquals(listOf(sample, sample), port.fixes.map { it.second })
+        assertEquals(setOf("gps", "network"), port.fixes.map { it.first }.toSet())
+        assertEquals(6f, port.fixes.first { it.first == "gps" }.second.accuracy, 0f)
+        assertEquals(60f, port.fixes.first { it.first == "network" }.second.accuracy, 0f)
+        assertTrue(port.fixes.first { it.first == "network" }.second.timeMillis <
+            port.fixes.first { it.first == "gps" }.second.timeMillis)
     }
 
     @Test fun pointAndPausedSamplesShareCompleteLifecycle() = runBlocking {
@@ -121,7 +125,9 @@ class MockProviderBackendTest {
         assertEquals(BackendResult.Success, backend.start())
         backend.publish(sample)
         assertEquals(setOf("gps", "network"), port.enabled)
-        assertEquals(listOf(sample, sample), port.fixes.map { it.second })
+        assertEquals(setOf("gps", "network"), port.fixes.map { it.first }.toSet())
+        assertEquals(6f, port.fixes.first { it.first == "gps" }.second.accuracy, 0f)
+        assertEquals(60f, port.fixes.first { it.first == "network" }.second.accuracy, 0f)
         assertEquals(BackendResult.Success, backend.pause())
         backend.publish(sample)
         assertEquals(0f, port.fixes.last().second.speed)
@@ -190,11 +196,17 @@ class MockProviderBackendTest {
         assertTrue(controller.pause())
         val point = controller.state.value.sample!!.coordinate
         elapsed = 90_000; controller.tick()
-        assertEquals(point, port.fixes.last().second.coordinate)
-        assertEquals(0f, port.fixes.last().second.speed)
+        val paused = port.fixes.takeLast(2)
+        assertEquals(point, paused[0].second.coordinate)
+        assertEquals(point, paused[1].second.coordinate)
+        assertEquals(0f, paused[0].second.speed)
+        assertEquals(0f, paused[1].second.speed)
         controller.resume(); elapsed = 91_000; controller.tick()
         assertNotEquals(point, port.fixes.last().second.coordinate)
-        assertEquals(port.fixes.last().second, port.fixes[port.fixes.lastIndex - 1].second)
+        val resumed = port.fixes.takeLast(2)
+        assertEquals(resumed[0].second.coordinate, resumed[1].second.coordinate)
+        assertTrue(resumed[0].second.speed > 0f)
+        assertNotEquals(resumed[0].second.accuracy, resumed[1].second.accuracy)
         assertTrue(controller.stop()); assertTrue(port.registered.isEmpty())
     }
 }

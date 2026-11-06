@@ -4,12 +4,17 @@ import com.system.location.service.hook.utils.toLocation
 
 import android.location.Location
 import android.location.LocationManager
+import com.system.location.service.core.location.LocationSample
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
+import com.system.location.service.hook.utils.ProviderView
 import moe.microbios.nmea.NMEA
 import moe.microbios.nmea.NmeaValue
 
 abstract class BaseLocationHook: BaseDivineService() {
+    /** Provider-specific view of the current fake fix (P4-03): accuracy, latency, field mask. */
+    fun sampleForProvider(provider: String?): LocationSample = ProviderView.sampleFor(provider)
+
     fun injectLocation(originLocation: Location, realLocation: Boolean = true): Location {
         if (!FakeLoc.enable) {
             if (realLocation && originLocation.provider == LocationManager.GPS_PROVIDER) {
@@ -20,7 +25,7 @@ abstract class BaseLocationHook: BaseDivineService() {
         val provider = if (FakeLoc.disableNetworkLocation && originLocation.provider == LocationManager.NETWORK_PROVIDER) {
             LocationManager.GPS_PROVIDER
         } else originLocation.provider
-        return FakeLoc.snapshot().toLocation(provider)
+        return sampleForProvider(provider).toLocation(provider)
     }
 
     fun injectNMEA(nmeaStr: String): String? {

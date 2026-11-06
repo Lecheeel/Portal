@@ -739,7 +739,8 @@ internal object LocationServiceHook: BaseLocationHook() {
         locationListeners.forEach { listenerWithProvider ->
             val listener = listenerWithProvider.second
             if (!FakeLoc.enable) return
-            val location = sample.toLocation(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
+            val location = sampleForProvider(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
+                .toLocation(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
             var called = false
             var error: Throwable? = null
             kotlin.runCatching {

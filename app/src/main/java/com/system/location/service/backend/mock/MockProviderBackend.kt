@@ -2,6 +2,8 @@ package com.system.location.service.backend.mock
 
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.providers.ProviderKind
+import com.system.location.service.core.providers.ProviderMixer
 
 /** Android operations are injected so partial registration and cleanup can be tested on the JVM. */
 interface MockProviderPort {
@@ -26,6 +28,7 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
     private val lastRecovery = mutableMapOf<String, Long>()
     private var recoveryCount = 0
     private val optionalFailures = mutableMapOf<String, String>()
+    private val providerMixer = ProviderMixer()
     override val type = BackendType.MOCK_PROVIDER
     override suspend fun diagnose() = listOf(
         BackendDiagnostic("MOCK_PERMISSION", if (port.permissionGranted()) "AVAILABLE" else "REQUIRES_ACTION",
@@ -91,7 +94,10 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
             val fix = if (phase == Phase.PAUSED) sample.copy(speed = 0f) else sample
             owned.toList().filterNot { it in optionalFailures }.forEach { provider ->
                 requireAuthorization("提交 $provider 前")
-                try { publishWithRecovery(provider, fix); requireAuthorization("提交 $provider 后") }
+                try {
+                    val providerFix = providerMixer.mix(fix)[providerKind(provider)]?.sample ?: fix
+                    publishWithRecovery(provider, providerFix); requireAuthorization("提交 $provider 后")
+                }
                 catch (error: Exception) {
                     if (error is MockAuthorizationException) throw error
                     if (provider != "fused") throw error
@@ -102,8 +108,14 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
             BackendResult.Success
         }
     }
-    private fun publishWithRecovery(provider: String, fix: LocationSample) {
-        try { port.publish(provider, fix) }
+    private fun providerKind(provider: String): ProviderKind = when (provider) {
+        "gps" -> ProviderKind.GPS
+        "network" -> ProviderKind.NETWORK
+        "fused" -> ProviderKind.FUSED
+        else -> ProviderKind.GPS
+    }
+
+    private fun publishWithRecovery(provider: String, fix: LocationSample) {        try { port.publish(provider, fix) }
         catch (missing: MissingMockProviderException) {
             val previous = lastRecovery[provider]
             if (!port.permissionGranted() || recoveryCount >= 3 ||

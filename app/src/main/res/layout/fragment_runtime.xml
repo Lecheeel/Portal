@@ -32,6 +32,40 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:padding="20dp"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/runtime_environment_title"
+                    android:textAppearance="@style/Portal.Section"
+                    android:accessibilityHeading="true" />
+                <LinearLayout
+                    android:id="@+id/environment_rows"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical" />
+                <TextView
+                    android:id="@+id/current_issues"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:padding="12dp"
+                    android:background="@drawable/runtime_issue_background"
+                    android:textAppearance="@style/Portal.Body"
+                    android:visibility="gone"
+                    android:accessibilityLiveRegion="polite" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            style="@style/Portal.Card">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
                 <TextView
@@ -113,23 +147,23 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/toggle_backend"
-                    style="@style/Portal.SectionButton"
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="48dp"
-                    android:text="后端设置 ▾" />
+                    android:layout_marginBottom="12dp"
+                    android:text="@string/runtime_mode_title"
+                    android:textAppearance="@style/Portal.Section"
+                    android:accessibilityHeading="true" />
                 <LinearLayout
                     android:id="@+id/backend_details"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:visibility="gone">
+                    android:visibility="visible">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="定位后端"
+                        android:text="@string/runtime_mode_label"
                         android:labelFor="@id/backend"
                         android:textColor="@color/text_secondary" />
                     <Spinner
@@ -142,14 +176,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
-                        android:text="应用后端" />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/rebuild_providers"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:text="重建标准定位通道" />
+                        android:text="@string/runtime_apply_mode" />
+
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/mock_settings"
                         style="@style/Widget.Material3.Button.TextButton"
@@ -160,12 +188,25 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="标准模式需要位置权限，并在开发者选项中选择本应用为模拟位置应用。切换后端前请停止当前场景。"
+                        android:id="@+id/mode_hint"
+                        android:text="@string/runtime_mode_hint"
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/toggle_developer"
+            style="@style/Portal.SectionButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/runtime_developer_title" />
+        <LinearLayout
+            android:id="@+id/developer_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -189,6 +230,13 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:visibility="gone">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/rebuild_providers"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="重建标准定位通道" />
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/open_location_probe"
                         style="@style/Widget.Material3.Button.OutlinedButton"
@@ -286,5 +334,6 @@
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

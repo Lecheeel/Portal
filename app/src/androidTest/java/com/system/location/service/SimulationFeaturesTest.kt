@@ -50,6 +50,7 @@ class SimulationFeaturesTest {
                 captureUi("background-guidance")
                 onView(withText(android.R.string.cancel)).perform(click())
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
+                onView(withId(R.id.toggle_developer)).perform(scrollTo(), click())
                 onView(withId(R.id.toggle_logs)).perform(scrollTo(), click())
                 onView(withId(R.id.export_logs)).perform(scrollTo()).check(matches(isDisplayed()))
                 val report = runBlocking { ScenarioRuntime.diagnosticReport() }

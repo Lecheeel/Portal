@@ -1,0 +1,34 @@
+<resources>
+    <string name="runtime_environment_title">端末と権限</string>
+    <string name="runtime_mode_title">動作モード</string>
+    <string name="runtime_mode_label">モードを選択</string>
+    <string name="runtime_apply_mode">モードを切り替え</string>
+    <string name="runtime_mode_hint">切り替える前にシミュレーションを停止してください。</string>
+    <string name="runtime_mode_running">停止後にモードを切り替えられます</string>
+    <string name="runtime_developer_title">開発者ツール</string>
+    <string name="runtime_root">Root 環境</string>
+    <string name="runtime_root_detected">su を検出 · 権限は未確認</string>
+    <string name="runtime_root_absent">su は未検出</string>
+    <string name="runtime_xposed">Xposed モジュール</string>
+    <string name="runtime_connected">システムモジュールに接続済み</string>
+    <string name="runtime_disconnected">システムモジュールに未接続</string>
+    <string name="runtime_mock">仮の現在地アプリ</string>
+    <string name="runtime_configured">設定済み</string>
+    <string name="runtime_not_configured">未設定</string>
+    <string name="runtime_permission">正確な位置情報</string>
+    <string name="runtime_granted">許可済み</string>
+    <string name="runtime_not_granted">未許可</string>
+    <string name="runtime_location">端末の位置情報</string>
+    <string name="runtime_enabled">オン</string>
+    <string name="runtime_disabled">オフ</string>
+    <string name="runtime_checking">確認中…</string>
+    <string name="runtime_check_failed">状態を取得できません</string>
+    <string name="runtime_issue_permission">アプリ設定で正確な位置情報を許可してください。</string>
+    <string name="runtime_issue_location">端末の位置情報をオンにしてください。</string>
+    <string name="runtime_issue_mock">開発者向けオプションで、このアプリを仮の現在地アプリに指定してください。</string>
+    <string name="runtime_issue_xposed">フレームワークでシステムのスコープを有効にし、端末を再起動してください。</string>
+    <string name="runtime_issue_root">Native モードには Root が必要ですが、su が検出されませんでした。</string>
+    <string name="runtime_mode_mock">標準モード · Root 不要</string>
+    <string name="runtime_mode_xposed">Xposed モード</string>
+    <string name="runtime_mode_native">Native + Xposed · 試験的</string>
+</resources>

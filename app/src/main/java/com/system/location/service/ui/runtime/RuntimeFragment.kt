@@ -43,6 +43,8 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             catch (error: Exception) { Toast.makeText(context, error.message ?: "日志导出失败", Toast.LENGTH_LONG).show() }
         }
     }
+    private var environment: RuntimeEnvironment? = null
+    private var environmentCheckFailed = false
     private val expanded = mutableMapOf<String, Boolean>()
     private var clearedAt = 0L
     private var logLimit = 20
@@ -93,7 +95,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             }
         }
         section("state", binding.toggleState, binding.stateDetails, "运行详情")
-        section("backend", binding.toggleBackend, binding.backendDetails, "后端设置")
+        section("developer", binding.toggleDeveloper, binding.developerDetails, getString(R.string.runtime_developer_title))
         section("capabilities", binding.toggleCapabilities, binding.capabilityDetails, "能力与诊断")
         section("logs", binding.toggleLogs, binding.logDetails, "运行日志")
         binding.logFilter.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item,
@@ -115,7 +117,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
         }
         val types = BackendType.entries
         binding.backend.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item,
-            listOf("标准 Mock Provider（无 Root）", "Xposed 系统后端", "Native + Xposed（实验性）"))
+            listOf(getString(R.string.runtime_mode_mock), getString(R.string.runtime_mode_xposed), getString(R.string.runtime_mode_native)))
         binding.backend.setSelection(types.indexOf(ScenarioRuntime.state.value.backend).coerceAtLeast(0))
         binding.applyBackend.setOnClickListener {
             if (types[binding.backend.selectedItemPosition] == BackendType.NATIVE) {
@@ -128,14 +130,14 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
                             .edit().putBoolean("native_opt_in", true).apply()
                         viewLifecycleOwner.lifecycleScope.launch {
                             val selected = ScenarioRuntime.selectBackend(BackendType.NATIVE).await()
-                            Toast.makeText(requireContext(), if (selected) "已应用后端" else "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
+                            Toast.makeText(requireContext(), if (selected) "已切换模式" else "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
                         }
                     }.show()
                 return@setOnClickListener
             }
             viewLifecycleOwner.lifecycleScope.launch {
                 val selected = ScenarioRuntime.selectBackend(types[binding.backend.selectedItemPosition]).await()
-                Toast.makeText(requireContext(), if (selected) "已应用后端" else "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), if (selected) "已切换模式" else "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
             }
         }
         binding.mockSettings.setOnClickListener {
@@ -158,17 +160,22 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
         binding.openLocationProbe.setOnClickListener {
             startActivity(Intent(requireContext(), com.system.location.service.ui.diagnostics.LocationProbeActivity::class.java))
         }
-        binding.refreshDiagnostics.setOnClickListener { ScenarioRuntime.refreshDiagnostics() }
+        binding.refreshDiagnostics.setOnClickListener {
+            ScenarioRuntime.refreshDiagnostics()
+            refreshEnvironment(binding, view)
+        }
         fun renderState(state: com.system.location.service.core.runtime.RuntimeState) {
             binding.phaseTitle.setTextIfChanged(state.phase.displayLabel())
             binding.phaseTitle.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(),
                 when (state.phase) { RuntimePhase.RUNNING -> R.color.status_success; RuntimePhase.ERROR -> R.color.status_error; else -> R.color.text_primary }))
-            binding.overview.setTextIfChanged("${backendLabel(state.backend)} · ${state.scenarioName ?: "未选择场景"}" +
-                (state.error?.let { "\n${it.reason}\n${it.suggestion}" } ?: ""))
+            binding.overview.setTextIfChanged("${backendLabel(state.backend)} · ${state.scenarioName ?: "未选择场景"}")
+            renderEnvironment(binding, state)
             binding.routeProgress.visibility = if (state.routeId != null) View.VISIBLE else View.GONE
             val progress = (state.progress * 1000).toInt().coerceIn(0, 1000)
             if (binding.routeProgress.progress != progress) binding.routeProgress.progress = progress
             binding.applyBackend.isEnabled = !state.isActive
+            binding.backend.isEnabled = !state.isActive
+            binding.modeHint.setTextIfChanged(getString(if (state.isActive) R.string.runtime_mode_running else R.string.runtime_mode_hint))
             binding.rebuildProviders.isEnabled = state.isActive && state.backend == BackendType.MOCK_PROVIDER
             binding.stopRuntime.isEnabled = state.isActive || state.phase == RuntimePhase.ERROR
             if (binding.stateDetails.visibility == View.VISIBLE) binding.runtimeState.setTextIfChanged(buildString {
@@ -201,6 +208,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
         renderRuntime = { renderState(ScenarioRuntime.state.value) }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                refreshEnvironment(binding, view)
                 launch {
                     ScenarioRuntime.state.displayStates().collect { state ->
                         renderState(state)
@@ -215,6 +223,71 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             }
         }
     }
+    private fun refreshEnvironment(binding: FragmentRuntimeBinding, owner: View) {
+        val app = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { RuntimeEnvironment.inspect(app) } }
+            if (view !== owner) return@launch
+            environment = result.getOrNull()
+            environmentCheckFailed = result.isFailure
+            renderEnvironment(binding, ScenarioRuntime.state.value)
+        }
+    }
+
+    private var environmentRenderKey: String? = null
+    private fun renderEnvironment(binding: FragmentRuntimeBinding, state: com.system.location.service.core.runtime.RuntimeState) {
+        val env = environment
+        val key = "$env/${state.backend}/${state.error}/$environmentCheckFailed"
+        if (environmentRenderKey == key && binding.environmentRows.childCount > 0) return
+        environmentRenderKey = key
+        val ctx = binding.root.context
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+        binding.environmentRows.removeAllViews()
+        fun row(title: Int, value: Int, ready: Boolean?) {
+            val line = android.widget.LinearLayout(ctx).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, dp(10), 0, dp(10))
+            }
+            val color = androidx.core.content.ContextCompat.getColor(ctx,
+                if (ready == true) R.color.status_success else R.color.text_secondary)
+            val icon = android.widget.ImageView(ctx).apply {
+                setImageResource(if (ready == true) R.drawable.ic_runtime_check else R.drawable.ic_runtime_circle)
+                imageTintList = android.content.res.ColorStateList.valueOf(color)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }
+            line.addView(icon, android.widget.LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(12) })
+            line.addView(android.widget.TextView(ctx).apply {
+                text = getString(title)
+                textSize = 14f
+                setTextColor(androidx.core.content.ContextCompat.getColor(ctx, R.color.text_primary))
+            }, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            line.addView(android.widget.TextView(ctx).apply {
+                text = getString(value)
+                textSize = 12f
+                gravity = android.view.Gravity.END
+                setTextColor(color)
+            }, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1.4f))
+            binding.environmentRows.addView(line)
+        }
+        if (env == null) {
+            row(R.string.runtime_environment_title, if (environmentCheckFailed) R.string.runtime_check_failed else R.string.runtime_checking, null)
+        } else {
+            row(R.string.runtime_root, if (env.rootPresent) R.string.runtime_root_detected else R.string.runtime_root_absent, null)
+            row(R.string.runtime_xposed, if (env.moduleConnected) R.string.runtime_connected else R.string.runtime_disconnected, env.moduleConnected)
+            row(R.string.runtime_mock, if (env.mockAllowed) R.string.runtime_configured else R.string.runtime_not_configured, env.mockAllowed)
+            row(R.string.runtime_permission, if (env.preciseLocation) R.string.runtime_granted else R.string.runtime_not_granted, env.preciseLocation)
+            row(R.string.runtime_location, if (env.locationEnabled) R.string.runtime_enabled else R.string.runtime_disabled, env.locationEnabled)
+        }
+        val issues = buildList {
+            state.error?.let { add(listOf(it.reason, it.suggestion).filter { text -> text.isNotBlank() }.joinToString("\n")) }
+            env?.issues(state.backend)?.forEach { add(getString(it)) }
+        }.distinct()
+        binding.currentIssues.visibility = if (issues.isEmpty()) View.GONE else View.VISIBLE
+        binding.currentIssues.setTextIfChanged(issues.joinToString("\n"))
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         expanded.forEach { (key, value) -> outState.putBoolean(key, value) }

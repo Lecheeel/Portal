@@ -1,0 +1,34 @@
+<resources>
+    <string name="runtime_environment_title">设备与授权</string>
+    <string name="runtime_mode_title">运行模式</string>
+    <string name="runtime_mode_label">选择模式</string>
+    <string name="runtime_apply_mode">切换模式</string>
+    <string name="runtime_mode_hint">切换前请先停止模拟。</string>
+    <string name="runtime_mode_running">停止模拟后可切换模式</string>
+    <string name="runtime_developer_title">开发者工具</string>
+    <string name="runtime_root">Root 环境</string>
+    <string name="runtime_root_detected">检测到 su · 授权未验证</string>
+    <string name="runtime_root_absent">未检测到 su</string>
+    <string name="runtime_xposed">Xposed 模块</string>
+    <string name="runtime_connected">已连接系统模块</string>
+    <string name="runtime_disconnected">未连接系统模块</string>
+    <string name="runtime_mock">模拟位置应用</string>
+    <string name="runtime_configured">已设置</string>
+    <string name="runtime_not_configured">未设置</string>
+    <string name="runtime_permission">精确位置权限</string>
+    <string name="runtime_granted">已允许</string>
+    <string name="runtime_not_granted">未允许</string>
+    <string name="runtime_location">系统定位</string>
+    <string name="runtime_enabled">已开启</string>
+    <string name="runtime_disabled">已关闭</string>
+    <string name="runtime_checking">检查中…</string>
+    <string name="runtime_check_failed">状态暂不可用</string>
+    <string name="runtime_issue_permission">请在应用设置中允许精确位置。</string>
+    <string name="runtime_issue_location">请开启系统定位。</string>
+    <string name="runtime_issue_mock">请在开发者选项中选择本应用为模拟位置应用。</string>
+    <string name="runtime_issue_xposed">请在框架中启用系统作用域，并重启设备。</string>
+    <string name="runtime_issue_root">Native 模式需要 Root；当前未检测到 su。</string>
+    <string name="runtime_mode_mock">标准模式 · 无 Root</string>
+    <string name="runtime_mode_xposed">Xposed 模式</string>
+    <string name="runtime_mode_native">Native + Xposed · 实验性</string>
+</resources>

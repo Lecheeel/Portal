@@ -3,7 +3,7 @@
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
 >
-> 进度快照（Round 139）：52 个 roadmap 任务中 19 `WIP` / 12 `TODO` / 1 `BLOCKED`（P0-03 无设备）/ 20 `DONE`（P1-02～05、P2-01、P2-03、P2-05、P2-07、P3-01～04、P4-01、P4-02、P4-05、P5-01、P5-02、P5-03、P5-07、P5-08）；整体约 **69%**，代码/模型约 **83%**，设备验收约 **10%**。432 项 JVM 用例通过，但没有任何 `DEVICE VERIFIED` 结论。
+> 进度快照（Round 140）：52 个 roadmap 任务中 18 `WIP` / 12 `TODO` / 1 `BLOCKED`（P0-03 无设备）/ 21 `DONE`（P1-02～05、P2-01、P2-03、P2-05、P2-07、P3-01～04、P4-01、P4-02、P4-05、P5-01、P5-02、P5-03、P5-07、P5-08、P6-06）；整体约 **70%**，代码/模型约 **84%**，设备验收约 **10%**。432 项 JVM 用例通过，但没有任何 `DEVICE VERIFIED` 结论。
 
 ---
 
@@ -160,7 +160,7 @@
 | D15 | 架构 | 没有统一的环境模型；逻辑散落在 Hook/ViewModel | `WlanHook`、`TelephonyHook`、`LocationServiceHook`、`MainViewModel` 各自实现 | S1：无法保证 WiFi/基站/GNSS/传感器互相自洽 | P2-01/P4-05 |
 | D16 | 验证 | 没有 detector / 设备回归基线 | 无 `:detector` 模块；`verification.md` 明确 DEVICE 未完成 | S1：所有“隐藏/伪装”都不可验收 | P0-01～03 |
 | D17 | 法务 | 没有 `LICENSE`，上游许可证未确认 | 仓库根目录无 `LICENSE` | S2：无法合法复用/被复用 | P0-05 |
-| D18 | 体验 | 实验能力默认值不一致：`experimentalClearMockFlag` 默认 true；Native 默认 off | `Perfs.kt`；`NativeBackend` opt-in | S2：用户以为“已隐藏”，实际没有 | P6-06 |
+| D18 | 体验 | 反射清除实验默认已改为 false；Native 默认 off | `Perfs.kt`；`NativeBackend` opt-in | 已对齐 ADR-017 | P6-06 |
 | D19 | Native | 当前 native 只做“清零传感器”，且安装依赖 root 复制 | `NativeLibraryInstaller.kt`、`sensor_hook.cpp` | S1：实验能力不可用 | P4-04/P6-03 |
 | D20 | 体验 | 用户可勾选 target app，但代码明确跳过 | `FakeLocation.kt`；`HookScopeResolver` | S2：行为与 UI 不一致 | P5-05 或文档修正 |
 | D21 | 前沿 | 没有网络/IP/时区/locale 一致性 | 代码无相关处理 | S2：服务端风控可直接看出 IP 与 GPS 不一致 | P7-02 |

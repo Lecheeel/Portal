@@ -545,7 +545,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：378 项 JVM 用例 0 失败（core 211、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：383 项 JVM 用例 0 失败（core 216、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -571,6 +571,13 @@ P0 阶段至少：
 - 检查：`SampleStoreTest` 6 项（sequence/latest、租约边界、clear、默认 5 s、config roundtrip、initial）通过。
 - 未完成：Binder/SharedMemory 实现、接入 `RemoteCommandHandler`/`FakeLoc`、SHM 设计。
 - 结论：`UNIT TEST VERIFIED`；P5-06 仍 `WIP`。
+
+### P5-07 RuntimeSnapshot（部分）
+
+- 变更：`:core` 新增不可变 `RuntimeSnapshot`（configRevision、environmentVersion、sample、environment、provider、routing、gnssModel）与原子 `RuntimeSnapshotStore`（publish/clear/update）。
+- 检查：`RuntimeSnapshotTest` 5 项（空快照、原子发布、字段保留、清空样本、非法版本）通过。
+- 未完成：`FakeLoc`/Hook 读取路径尚未迁移，旧字段仍并存。
+- 结论：`UNIT TEST VERIFIED`；P5-07 仍 `WIP`。
 
 ### P3-04 Hook 合并（部分）
 

@@ -199,77 +199,12 @@ class SettingsFragment : Fragment() {
         binding.startupBurstSwitch.setOnCheckedChangeListener { _, enabled -> context.startupBurstEnabled = enabled }
         binding.backgroundGuidance.setOnClickListener { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) }
         binding.environmentListButton.setOnClickListener {
-            val appContext = context.applicationContext
-            val names = EnvironmentStore(appContext).list()
+            val names = EnvironmentStore(context.applicationContext).list()
             if (names.isEmpty()) {
                 showToast(getString(R.string.environment_list_empty))
                 return@setOnClickListener
             }
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.environment_list_title)
-                .setItems(names.toTypedArray()) { _, index ->
-                    val name = names[index]
-                    MaterialAlertDialogBuilder(requireContext())
-                        .setTitle(name)
-                        .setItems(arrayOf(
-                            getString(R.string.environment_export),
-                            getString(R.string.environment_replay),
-                            getString(R.string.environment_rename),
-                            getString(R.string.environment_delete),
-                        )) { _, action ->
-                            if (action == 3) {
-                                val deleted = EnvironmentStore(appContext).delete(name)
-                                showToast(if (deleted) getString(R.string.environment_deleted)
-                                    else getString(R.string.environment_delete_failed))
-                            } else if (action == 2) {
-                                val input = TextInputEditText(requireContext()).apply {
-                                    setText(name)
-                                    setSelection(name.length)
-                                }
-                                MaterialAlertDialogBuilder(requireContext())
-                                    .setTitle(R.string.environment_rename)
-                                    .setView(input)
-                                    .setPositiveButton(android.R.string.ok) { _, _ ->
-                                        runCatching {
-                                            EnvironmentStore(appContext).rename(
-                                                name, input.text?.toString().orEmpty().trim(),
-                                            )
-                                        }.onSuccess {
-                                            showToast(getString(R.string.environment_renamed))
-                                        }.onFailure { error ->
-                                            showToast(getString(
-                                                R.string.environment_rename_failed,
-                                                error.message ?: "unknown",
-                                            ))
-                                        }
-                                    }
-                                    .setNegativeButton(android.R.string.cancel, null)
-                                    .show()
-                            } else {
-                                runCatching { EnvironmentStore(appContext).load(name) }
-                                    .onSuccess { profile ->
-                                        if (action == 0) {
-                                            environmentExport = name to profile
-                                            createEnvironmentDocument.launch("$name.json")
-                                        } else {
-                                            context.environmentReplayJson = EnvironmentProfileCodec.encode(profile)
-                                            lifecycleScope.launch {
-                                                val applied = withContext(Dispatchers.IO) {
-                                                    com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
-                                                }
-                                                showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
-                                            }
-                                        }
-                                    }
-                                    .onFailure { error ->
-                                        showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
-                                    }
-                            }
-                        }
-                        .show()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            showEnvironmentList(names)
         }
         fun captureEnvironment() {
             binding.environmentCaptureButton.isEnabled = false
@@ -776,6 +711,99 @@ class SettingsFragment : Fragment() {
                 handler(value.text.toString())
             }
             .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showEnvironmentList(names: List<String>) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.environment_list_title)
+            .setItems(names.toTypedArray()) { _, index -> showEnvironmentActions(names[index]) }
+            .setNeutralButton(R.string.environment_search) { _, _ -> showEnvironmentSearch(names) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showEnvironmentSearch(all: List<String>) {
+        val input = TextInputEditText(requireContext()).apply {
+            hint = getString(R.string.environment_search_hint)
+            setSingleLine()
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.environment_search)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val query = input.text?.toString()?.trim().orEmpty()
+                if (query.isEmpty()) return@setPositiveButton
+                val matches = all.filter { it.contains(query, ignoreCase = true) }
+                if (matches.isEmpty()) showToast(getString(R.string.environment_no_match))
+                else showEnvironmentList(matches)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showEnvironmentActions(name: String) {
+        val appContext = requireContext().applicationContext
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(name)
+            .setItems(arrayOf(
+                getString(R.string.environment_export),
+                getString(R.string.environment_replay),
+                getString(R.string.environment_rename),
+                getString(R.string.environment_delete),
+            )) { _, action ->
+                when (action) {
+                    3 -> {
+                        val deleted = EnvironmentStore(appContext).delete(name)
+                        showToast(if (deleted) getString(R.string.environment_deleted)
+                            else getString(R.string.environment_delete_failed))
+                    }
+                    2 -> {
+                        val input = TextInputEditText(requireContext()).apply {
+                            setText(name)
+                            setSelection(name.length)
+                        }
+                        MaterialAlertDialogBuilder(requireContext())
+                            .setTitle(R.string.environment_rename)
+                            .setView(input)
+                            .setPositiveButton(android.R.string.ok) { _, _ ->
+                                runCatching {
+                                    EnvironmentStore(appContext).rename(
+                                        name, input.text?.toString().orEmpty().trim(),
+                                    )
+                                }.onSuccess {
+                                    showToast(getString(R.string.environment_renamed))
+                                }.onFailure { error ->
+                                    showToast(getString(
+                                        R.string.environment_rename_failed,
+                                        error.message ?: "unknown",
+                                    ))
+                                }
+                            }
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show()
+                    }
+                    else -> runCatching { EnvironmentStore(appContext).load(name) }
+                        .onSuccess { profile ->
+                            if (action == 0) {
+                                environmentExport = name to profile
+                                createEnvironmentDocument.launch("$name.json")
+                            } else {
+                                requireContext().environmentReplayJson = EnvironmentProfileCodec.encode(profile)
+                                lifecycleScope.launch {
+                                    val applied = withContext(Dispatchers.IO) {
+                                        com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+                                    }
+                                    showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
+                                }
+                            }
+                        }
+                        .onFailure { error ->
+                            showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
+                        }
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 

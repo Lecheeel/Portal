@@ -112,5 +112,8 @@
     <string name="environment_rename">重命名环境</string>
     <string name="environment_renamed">环境已重命名</string>
     <string name="environment_rename_failed">重命名失败：%1$s</string>
+    <string name="environment_search">搜索环境</string>
+    <string name="environment_search_hint">名称包含…</string>
+    <string name="environment_no_match">没有匹配的环境</string>
     <string name="environment_replay_set">已设为回放环境，下次启动场景生效</string>
 </resources>

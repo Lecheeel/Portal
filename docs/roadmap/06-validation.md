@@ -553,7 +553,7 @@ P0 阶段至少：
 
 - 变更：`main.cpp` 新增 motion state atomics 与 `Dobby.setMotionState` JNI；`sensor_hook.cpp` 在 `ConvertToSensorEvent` 中先调用原始转换，再按 sensor type 改写加速度/陀螺仪/地磁/气压/step counter/step detector；删除旧 `-1/0` 清零。
 - 变更：`RemoteCommandHandler.publish_sample` 在 native 库已加载时按速度映射 STILL/WALK/RUN/VEHICLE 并下发 motion state。
-- 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest` 通过；NDK 30 clang++ `-fsyntax-only`（arm64）通过 `main.cpp` 与 `sensor_hook.cpp`；无设备。
+- 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest` 通过；`scripts/check_native_syntax.py` 对 arm64-v8a/armeabi-v7a/x86/x86_64 的 `main.cpp`/`sensor_hook.cpp` 全部语法通过；无设备。
 - 未完成：真机 `SensorEventQueue` 行为、4 ABI 完整 CMake 构建、传感器与固定点/GNSS 一致性、C10 验证、sensor 默认关闭策略。
 - 结论：`SOURCE VERIFIED` + 局部 `BUILD VERIFIED`；P4-04 仍 `WIP`。
 

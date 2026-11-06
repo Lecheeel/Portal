@@ -192,9 +192,9 @@ class SettingsFragment : Fragment() {
             }
         }
         binding.gmsMockSwitch.isChecked = context.gmsMockEnabled
-        binding.gmsMockSwitch.setOnCheckedChangeListener { _, enabled -> context.gmsMockEnabled = enabled; showToast("下次启动场景生效") }
+        binding.gmsMockSwitch.setOnCheckedChangeListener { _, enabled -> context.gmsMockEnabled = enabled; applyConfigNowWithToast() }
         binding.platformFusedSwitch.isChecked = context.platformFusedEnabled
-        binding.platformFusedSwitch.setOnCheckedChangeListener { _, enabled -> context.platformFusedEnabled = enabled; showToast("下次启动场景生效") }
+        binding.platformFusedSwitch.setOnCheckedChangeListener { _, enabled -> context.platformFusedEnabled = enabled; applyConfigNowWithToast() }
         binding.startupBurstSwitch.isChecked = context.startupBurstEnabled
         binding.startupBurstSwitch.setOnCheckedChangeListener { _, enabled -> context.startupBurstEnabled = enabled }
         binding.backgroundGuidance.setOnClickListener { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) }
@@ -358,7 +358,7 @@ class SettingsFragment : Fragment() {
                 }
                 context.environmentApCount = count
                 apLabel()
-                showToast("下次启动场景生效")
+                applyConfigNowWithToast()
             }
         }
         fun cellLabel() {
@@ -373,7 +373,7 @@ class SettingsFragment : Fragment() {
                     context.cellMode = modes[which]
                     cellLabel()
                     dialog.dismiss()
-                    showToast("下次启动场景生效")
+                    applyConfigNowWithToast()
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
@@ -391,7 +391,7 @@ class SettingsFragment : Fragment() {
                     context.environmentSourceMode = modes[which]
                     sourceLabel()
                     dialog.dismiss()
-                    showToast("下次启动场景生效")
+                    applyConfigNowWithToast()
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
@@ -415,17 +415,17 @@ class SettingsFragment : Fragment() {
         binding.physicalNoiseSwitch.isChecked = context.physicalNoise
         binding.physicalNoiseSwitch.setOnCheckedChangeListener { _, enabled ->
             context.physicalNoise = enabled
-            showToast("下次启动场景生效")
+            applyConfigNowWithToast()
         }
         binding.simReadySwitch.isChecked = context.simReady
         binding.simReadySwitch.setOnCheckedChangeListener { _, ready ->
             context.simReady = ready
-            showToast("下次启动场景生效")
+            applyConfigNowWithToast()
         }
         binding.gnssOrbitalSwitch.isChecked = context.gnssOrbital
         binding.gnssOrbitalSwitch.setOnCheckedChangeListener { _, orbital ->
             context.gnssOrbital = orbital
-            showToast("下次启动场景生效")
+            applyConfigNowWithToast()
         }
         fun periodLabel() { binding.orbitPeriodButton.text = getString(R.string.orbit_period) + " · " + getString(R.string.orbit_period_value, context.orbitPeriodSeconds) }
         periodLabel()
@@ -716,6 +716,15 @@ class SettingsFragment : Fragment() {
     }
 
     @SuppressLint("MissingInflatedId")
+    private fun applyConfigNowWithToast() {
+        lifecycleScope.launch {
+            val applied = withContext(Dispatchers.IO) {
+                com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
+            }
+            if (isAdded) showToast(if (applied) "配置已应用" else "已保存，下次启动场景生效")
+        }
+    }
+
     private fun showDialog(titleText: String, valueText: String, handler: (String) -> Unit) {
         val inflater = LayoutInflater.from(requireContext())
         val dialogView = inflater.inflate(R.layout.dialog_input, null)

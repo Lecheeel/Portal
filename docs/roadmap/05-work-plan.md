@@ -161,7 +161,7 @@ P0 基线
 
 **Phase 3 退出**：一个生成器、多星座、NMEA 自洽；V2/raw 有明确结论和开关。
 
-> 2026-11-06：P3-01 确定性多星座 `CatalogGnssSkyModel` 与 P3-03 `NmeaGenerator` 已在 `:core`/`:nmea` 落地（JVM 测试通过）；P3-04 已让 `GnssStatus` 与 NMEA 都从同一模型生成、移除 `GnssHook` 的重复入口；P3-05 已加入默认关闭的 `RawGnssPolicy`（EXPERIMENTAL 从同一帧生成确定性 measurements），Hook 接线与设备验证仍未完成。
+> 2026-11-06：P3-01 确定性多星座 `CatalogGnssSkyModel` 与 P3-03 `NmeaGenerator` 已在 `:core`/`:nmea` 落地（JVM 测试通过）；P3-04 已让 `GnssStatus` 与 NMEA 都从同一模型生成、移除 `GnssHook` 的重复入口；P3-05 已加入默认关闭的 `RawGnssPolicy`/`RawNavigationPolicy`（EXPERIMENTAL 从同一帧生成测量/导航消息），Hook 接线与设备验证仍未完成。
 
 ---
 

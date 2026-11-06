@@ -2,8 +2,6 @@ package com.system.location.service.hook
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.os.IBinder
-import android.os.Parcel
 import android.os.Binder
 import android.os.SystemClock
 import com.system.location.service.hook.security.CommandSecurity
@@ -12,17 +10,16 @@ import com.system.location.service.hook.security.SensitiveLog
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.Logger
-import java.util.Collections
 import kotlin.random.Random
 
 object RemoteCommandHandler {
-    private val proxyBinders by lazy { Collections.synchronizedList(arrayListOf<IBinder>()) }
-    private val needProxyCmd = arrayOf("start", "stop", "set_speed_amp", "set_altitude", "set_speed", "update_location", "set_bearing", "move", "put_config", "publish_sample")
+
+
 
 
     private val security = CommandSecurity()
-    private var proxySequence = 0L
-    private var lastProxySequence = 0L
+
+
 
 
     @SuppressLint("UnsafeDynamicallyLoadedCode")
@@ -45,20 +42,13 @@ object RemoteCommandHandler {
     }
 
     @Synchronized
-    internal fun resetProxySession() { lastProxySequence = 0 }
+    internal fun resetProxySession() = ProxyCommand.resetSession()
 
     @Synchronized
     internal fun handleProxyInstruction(rely: Bundle): Boolean {
-        if (Binder.getCallingUid() != 1000 || FakeLoc.isSystemServerProcess) return false
-        val sequence = rely.getLong("proxy_sequence")
-        val sent = rely.getLong("sent_at", -1)
-        val now = SystemClock.elapsedRealtime()
-        if (sequence <= lastProxySequence || sent < 0 || sent > now || now - sent > CommandSecurity.MAX_AGE_MS ||
-            rely.getString("command_id") !in needProxyCmd) return false
-        lastProxySequence = sequence
+        if (!ProxyCommand.acceptIncoming(rely)) return false
         return runCatching { applyInstruction(rely) }.getOrDefault(false)
     }
-
     private fun applyInstruction(rely: Bundle): Boolean {
         var commandId = rely.getString("command_id") ?: return false
         val incomingSample = if (commandId == "publish_sample") SampleWire.read(rely) ?: return false else null
@@ -74,27 +64,7 @@ object RemoteCommandHandler {
                 rely.getDouble("lon", Double.NaN) !in -180.0..180.0) return false
         }
 
-        kotlin.runCatching {
-            if (proxyBinders.isNotEmpty() && needProxyCmd.any { it == commandId }) {
-                rely.putLong("proxy_sequence", ++proxySequence)
-                proxyBinders.removeIf {
-                    if (it.isBinderAlive && it.pingBinder()) {
-                        val data = Parcel.obtain()
-                        try {
-                            data.writeBundle(rely)
-                            // Forward as system_server, not as the app identity inherited by this Binder call.
-                            val identity = Binder.clearCallingIdentity()
-                            try { it.transact(1, data, null, 0) }
-                            finally { Binder.restoreCallingIdentity(identity) }
-                        } finally { data.recycle() }
-                        false
-                    } else true
-                }
-            }
-        }.onFailure {
-            Logger.error("Failed to transact with proxyBinder", it)
-        }
-
+        ProxyCommand.forward(rely, commandId)
         if (FakeLoc.enableDebugLog && commandId !in setOf("publish_sample", "get_runtime_status")) {
             Logger.debug(SensitiveLog.describe(commandId, rely.keySet().associateWith { key ->
                 runCatching { rely.get(key)?.toString() }.getOrNull()
@@ -104,13 +74,7 @@ object RemoteCommandHandler {
         return when (commandId) {
             "publish_sample" -> SampleCommand.publish(incomingSample ?: return false, rely)
             "get_runtime_status" -> DiagnosticCommand.status(rely, SampleCommand.lastPublishMillis)
-            "set_proxy" -> {
-                Logger.info("SubProxyBinder: ${rely.getBinder("proxy")} from ${BinderUtils.getUidPackageNames()}!")
-                rely.getBinder("proxy")?.let {
-                    proxyBinders.add(it)
-                }
-                return true
-            }
+            "set_proxy" -> ProxyCommand.add(rely)
             "start" -> ControlCommand.start(rely)
             "stop" -> ControlCommand.stop()
             "is_start" -> ControlCommand.isStart(rely)

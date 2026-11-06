@@ -483,14 +483,15 @@ P0 阶段至少：
 - 检查：`RoutingTableTest` 9 项（GLOBAL、package 优先且大小写不敏感、UID fallback、system 绕过、deny、disabled fallback、无全局、非法/重复、JSON）通过。
 - 未完成：system_server 调用方 UID→package 查询、listener 映射、per-app UI 与配置下发（P5-02/03/04）。
 - 结论：`UNIT TEST VERIFIED`；P5-01 仍 `WIP`。
-- 全量回归（2026-11-06）：306 项 JVM 用例 0 失败（core 147、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：308 项 JVM 用例 0 失败（core 147、nmea 7、xposed 32、app 122）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 
 - 变更：`:core` 新增 `ConfigEnvelope`（schemaVersion=2、scenario、routing、environment、noise、providers、revision、updatedAt）与 `ConfigCodec`；v1 配置自动迁移并填默认；未知字段忽略；未来版本/非法 JSON/重复 provider 拒绝；`RoutingConfig` 增加重复 package/UID 校验。
 - 检查：`ConfigEnvelopeTest` 6 项（v2 roundtrip、v1 迁移、未知字段、未来/缺失版本、非法 envelope、默认 provider）通过。
 - 追加：`SampleEnvelope` v2（provider/fieldsMask/environmentVersion/configRevision）+ `SampleCodec`，原始 v1 `LocationSample` JSON 自动包装；`SampleEnvelopeTest` 6 项通过。
-- 未完成：Bundle `SampleWire` 仍为 v1，app 配置 UI/持久化迁移、xposed 侧切换不重启（P5-03 验收）未做。
+- 追加：`SampleWire` v2（Bundle 字段 provider/fieldsMask/env/config revision），读写接受 v1–v2，app 改用 `isCompatible`；`SampleWireTest` 2 项通过。
+- 未完成：app 配置 UI/持久化迁移、xposed 侧切换不重启（P5-03 验收）未做。
 - 结论：`UNIT TEST VERIFIED`；P5-03 仍 `WIP`。
 
 ### P5-06 SampleStore / ConfigStore

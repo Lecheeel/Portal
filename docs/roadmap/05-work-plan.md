@@ -198,7 +198,7 @@ P0 基线
 
 **Phase 5 退出**：per-app 对直接 `LocationManager` 生效；GMS 限制明确；配置/样本可版本化升级。
 
-> 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；P5-03 `ConfigEnvelope`/`SampleEnvelope` v2 编解码与 v1 迁移已落地；P5-06 `SampleStore`/`ConfigStore` 纯抽象与内存实现已落地；system_server 路由（P5-02）、Bundle SampleWire 与 UI 未接。
+> 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；P5-03 `ConfigEnvelope`/`SampleEnvelope` v2 编解码与 `SampleWire` v1/v2 读写已落地；P5-06 `SampleStore`/`ConfigStore` 纯抽象与内存实现已落地；system_server 路由（P5-02）、配置 UI 与不重启切换未接。
 
 ---
 

@@ -24,6 +24,7 @@ object HookOwnership {
     private val expectedByScope: Map<HookScope, List<String>> = mapOf(
         HookScope.SYSTEM_SERVER to listOf(
             "system-location",
+            "appops",
             "telephony-registry",
             "wifi",
             "fused",

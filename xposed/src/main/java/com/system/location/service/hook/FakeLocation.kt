@@ -14,6 +14,7 @@ import com.system.location.service.hook.hooks.telephony.miui.MiuiTelephonyManage
 import com.system.location.service.hook.hooks.sensor.SystemSensorManagerHook
 import com.system.location.service.hook.hooks.telephony.TelephonyHook
 import com.system.location.service.hook.hooks.wlan.WlanHook
+import com.system.location.service.hook.privacy.AppOpsHook
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 
@@ -75,6 +76,7 @@ class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
             com.system.location.service.hook.scope.HookScope.SYSTEM_SERVER -> {
                 FakeLoc.isSystemServerProcess = true
                 install("system-location") { startFakeLocHook(loader) }
+                install("appops") { AppOpsHook.hook(loader) }
                 install("telephony-registry") { TelephonyHook.hookSubOnTransact(loader) }
                 install("wifi") { WlanHook(loader) }
                 install("fused") { AndroidFusedLocationProviderHook(loader) }

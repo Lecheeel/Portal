@@ -372,7 +372,7 @@ P0 阶段至少：
 - 变更：过滤规则抽到 `:core` `ProviderRegistryPolicy`，`ProviderRegistryPolicyTest` 2 项覆盖隐藏/保留 provider。
 - 检查：`:core:test`、`:xposed` 编译/测试通过。
 - 风险“名称含 test/mock”可能误伤厂商 provider；设备基线上需确认白名单。
-- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；未做设备验证。
+- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；`isProviderEnabled` 由 `LocationServiceHook` 单独 hook；detector C04 代码已覆盖；设备未跑；P1-04 `DONE`。
 
 ### P1-05 Availability
 

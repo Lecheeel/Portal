@@ -39,7 +39,7 @@ class DetectorSettings private constructor(private val preferences: SharedPrefer
 
     companion object {
         const val DEFAULT_TARGET_PACKAGE = "com.system.location.service"
-        const val DEFAULT_SAMPLE_SECONDS = 20
+        const val DEFAULT_SAMPLE_SECONDS = 60
         const val MIN_SAMPLE_SECONDS = 5
         const val MAX_SAMPLE_SECONDS = 300
 

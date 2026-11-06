@@ -30,7 +30,7 @@
     <string name="settings_test_gms">检查 GMS 相关项</string>
     <string name="settings_test_gms_desc">未安装 GMS 时相关项返回 UNKNOWN。</string>
     <string name="settings_check_network_ip">检查出口 IP（联网）</string>
-    <string name="settings_check_network_ip_desc">默认关闭。开启后会请求公网 IP 服务，只发送普通 HTTP 请求，不上传报告。</string>
+    <string name="settings_check_network_ip_desc">默认关闭。开启后会请求 HTTPS 公网 IP 服务，只发送普通请求，不上传报告。</string>
     <string name="settings_read_apps">读取已安装应用</string>
     <string name="settings_read_apps_desc">用于识别 LSPosed 管理器等包；默认关闭。</string>
     <string name="settings_save">保存</string>

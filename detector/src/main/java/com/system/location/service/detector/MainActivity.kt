@@ -264,6 +264,7 @@ class MainActivity : Activity() {
             add(android.Manifest.permission.ACCESS_FINE_LOCATION)
             add(android.Manifest.permission.ACCESS_COARSE_LOCATION)
             add(android.Manifest.permission.READ_PHONE_STATE)
+            add(android.Manifest.permission.ACTIVITY_RECOGNITION)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(android.Manifest.permission.NEARBY_WIFI_DEVICES)
             }

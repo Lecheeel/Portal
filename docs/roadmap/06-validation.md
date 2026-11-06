@@ -642,6 +642,7 @@ P0 阶段至少：
 ### P7-04 性能探针（部分）
 
 - 变更：`:core` 新增 `PerformanceProbe`：有界环形缓冲（256/4096）、p50/p95/max/mean，纯 JVM 可测。
-- 检查：`PerformanceProbeTest` 4 项（空、百分位、环形覆盖、clear/校验）通过。
-- 未完成：接入发布/回调路径、CPU/内存/电池设备基线、预算阈值。
-- 结论：`UNIT TEST VERIFIED`；P7-04 仍 `WIP`。
+- 变更：`SampleCommand.publish` 记录端到端发布耗时，`get_runtime_status` 输出 `publish_samples/p50/p95/max/mean` 纳秒值。
+- 检查：`PerformanceProbeTest` 4 项（空、百分位、环形覆盖、clear/校验）通过；`:xposed` 编译/测试通过。
+- 未完成：CPU/内存/电池设备基线、预算阈值、app 侧展示。
+- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P7-04 仍 `WIP`。

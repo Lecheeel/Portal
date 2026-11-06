@@ -68,21 +68,7 @@ object RemoteCommandHandler {
             }) return false
         if (rely.containsKey("speed") && rely.getDouble("speed") < 0) return false
         if (rely.containsKey("accuracy") && (!rely.getFloat("accuracy").isFinite() || rely.getFloat("accuracy") < 0)) return false
-        if (commandId == "move") {
-            if (!FakeLoc.enable) return false
-            val distance = rely.getDouble("n")
-            val bearing = rely.getDouble("bearing")
-            if (!distance.isFinite() || distance < 0 || !bearing.isFinite()) return false
-            val origin = FakeLoc.coordinatePair()
-            val point = FakeLoc.moveLocation(origin.first, origin.second, distance, bearing)
-            // Resolve relative movement once, then send the same absolute fix to every process.
-            commandId = "update_location"
-            rely.putString("command_id", commandId)
-            rely.putString("mode", "=")
-            rely.putDouble("lat", point.first)
-            rely.putDouble("lon", point.second)
-            rely.putFloat("moving_speed", if (distance > 0) FakeLoc.speed.toFloat() else 0f)
-        }
+        commandId = LocationCommand.normalizeMove(rely, commandId) ?: return false
         if (commandId == "start" || commandId == "update_location" && rely.getString("mode") == "=") {
             if (rely.getDouble("lat", Double.NaN) !in -90.0..90.0 ||
                 rely.getDouble("lon", Double.NaN) !in -180.0..180.0) return false

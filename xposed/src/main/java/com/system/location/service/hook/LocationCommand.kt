@@ -8,6 +8,23 @@ import kotlin.random.Random
 
 /** P5-08: update/broadcast/sync commands extracted from RemoteCommandHandler. */
 object LocationCommand {
+    /** Normalizes relative `move` into an absolute `update_location` before proxy forwarding. */
+    fun normalizeMove(rely: Bundle, commandId: String): String? {
+        if (commandId != "move") return commandId
+        if (!FakeLoc.enable) return null
+        val distance = rely.getDouble("n")
+        val bearing = rely.getDouble("bearing")
+        if (!distance.isFinite() || distance < 0 || !bearing.isFinite()) return null
+        val origin = FakeLoc.coordinatePair()
+        val point = FakeLoc.moveLocation(origin.first, origin.second, distance, bearing)
+        rely.putString("command_id", "update_location")
+        rely.putString("mode", "=")
+        rely.putDouble("lat", point.first)
+        rely.putDouble("lon", point.second)
+        rely.putFloat("moving_speed", if (distance > 0) FakeLoc.speed.toFloat() else 0f)
+        return "update_location"
+    }
+
     fun update(rely: Bundle): Boolean {
         val mode = rely.getString("mode")
         var newLat = rely.getDouble("lat", 0.0)

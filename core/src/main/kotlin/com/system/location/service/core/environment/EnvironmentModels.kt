@@ -135,8 +135,10 @@ data class EnvironmentProfile(
     val wifi: List<WifiAp> = emptyList(),
     val cells: List<CellTower> = emptyList(),
     val ble: List<BleBeacon> = emptyList(),
+    val schemaVersion: Int = SCHEMA_VERSION,
 ) {
     init {
+        require(schemaVersion == SCHEMA_VERSION) { "Unsupported environment schemaVersion: $schemaVersion" }
         require(generatedAtMillis >= 0L) { "generatedAtMillis must be non-negative" }
         require(wifi.size <= MAX_WIFI) { "Too many WiFi APs: ${wifi.size}" }
         require(cells.size <= MAX_CELLS) { "Too many cells: ${cells.size}" }
@@ -150,6 +152,7 @@ data class EnvironmentProfile(
     fun registeredCell(): CellTower? = cells.firstOrNull { it.registered }
 
     companion object {
+        const val SCHEMA_VERSION = 1
         const val MAX_WIFI = 256
         const val MAX_CELLS = 128
         const val MAX_BLE = 256

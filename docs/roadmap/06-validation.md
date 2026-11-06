@@ -491,8 +491,8 @@ P0 阶段至少：
 
 - 变更：`:core` 新增 `ProviderKind`、`ProviderProfile`（GPS 1 Hz/6 m、NETWORK 0.33 Hz/60 m/无 bearing/alt/speed、FUSED 1 Hz/10 m）、`StationaryPolicy`、`ProviderFieldMask`、`ProviderSample`、`ProviderMixer`；`ProviderMixer` 对同一 fix 生成三路不同精度/延迟/字段的样本，静止时去掉 bearing/speed。
 - 检查：`ProviderMixerTest` 6 项（三路差异、延迟、静止无 bearing/speed、静止精度漂移、时间不为负、非法 profile）通过。
-- 未完成：`P4-03` 后端按 provider 发布、真实 `Location` 字段写入尚未接入。
-- 结论：`UNIT TEST VERIFIED`。
+- 未完成：真实 `Location` 字段写入的设备轨迹检查（C12）；Xposed 侧由 `ProviderView`、mock 侧由 `MockProviderBackend` 使用 `ProviderMixer`。
+- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P4-01 `DONE`。
 
 ### P4-02 PhysicalNoise
 

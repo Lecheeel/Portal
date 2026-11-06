@@ -144,7 +144,7 @@ P0 基线
 
 **Phase 2 退出**：不再出现空 WiFi/CDMA 空小区；采集回放与程序化两种默认路径可用；数据库实验开关可回退。
 
-> 2026-11-06：P2-01 环境模型与 P2-03 程序化 WiFi 已在 `:core` 落地（JVM 测试通过）；P2-04 WiFi Hook 已改为程序化扫描/连接/DHCP（`BUILD VERIFIED`）；P2-05 先关闭 CDMA 默认并加入 AUTO 画像策略，TelephonyHook 的完整画像改写仍未做；设备与 detector 验证均未做。
+> 2026-11-06：P2-01 环境模型与 P2-03 程序化 WiFi 已在 `:core` 落地（JVM 测试通过）；P2-04 WiFi Hook 已改为程序化扫描/连接/DHCP（`BUILD VERIFIED`）；P2-05 已加入 `CellModePolicy`、默认关闭 CDMA、`ProceduralCellSource` 纯模型，TelephonyHook 的完整画像改写仍未做；设备与 detector 验证均未做。
 
 ---
 

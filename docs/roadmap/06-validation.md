@@ -410,10 +410,10 @@ P0 阶段至少：
 
 ### P2-05 基站画像（部分）
 
-- 变更：`FakeLoc.needDowngradeToCdma` 默认改为 false（ADR-005）；`:core` 新增 `CellModePolicy.resolve`（AUTO → 有 SIM `FULL_REPLAY` / 无 SIM `NO_SIM_WIFI_ONLY`）与 JVM 测试。
-- 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用），完整 LTE/NR + SIM/operator/phone type 画像、`NO_SIM_WIFI_ONLY` 的 Hook 改写尚未做。
-- 检查：`:core:test` 通过；`:xposed` 编译/测试通过。
-- 结论：部分 `UNIT TEST VERIFIED`，P2-05 仍 `WIP`。
+- 变更：`FakeLoc.needDowngradeToCdma` 默认改为 false（ADR-005）；`:core` 新增 `CellModePolicy.resolve`（AUTO → 有 SIM `FULL_REPLAY` / 无 SIM `NO_SIM_WIFI_ONLY`）与 `ProceduralCellSource`（1 个 registered LTE + 3 个 LTE 邻区 + 1 个 NR，MCC/MNC/area/cellId/PCI/RSRP 确定性生成）。
+- 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用），完整 LTE/NR + SIM/operator 画像、`NO_SIM_WIFI_ONLY` 的 Hook 改写尚未做。
+- 检查：`:core:test` 通过（`ProceduralCellSourceTest` 7 项：FULL_REPLAY、AUTO 无 SIM、AUTO 有 SIM、LEGACY、确定性、邻区差异、非法 SIM）；`:xposed` 编译/测试通过。
+- 结论：模型 `UNIT TEST VERIFIED`，P2-05 仍 `WIP`。
 
 ---
 
@@ -483,7 +483,7 @@ P0 阶段至少：
 - 检查：`RoutingTableTest` 9 项（GLOBAL、package 优先且大小写不敏感、UID fallback、system 绕过、deny、disabled fallback、无全局、非法/重复、JSON）通过。
 - 未完成：system_server 调用方 UID→package 查询、listener 映射、per-app UI 与配置下发（P5-02/03/04）。
 - 结论：`UNIT TEST VERIFIED`；P5-01 仍 `WIP`。
-- 全量回归（2026-11-06）：308 项 JVM 用例 0 失败（core 147、nmea 7、xposed 32、app 122）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：315 项 JVM 用例 0 失败（core 154、nmea 7、xposed 32、app 122）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 

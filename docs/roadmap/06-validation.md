@@ -410,6 +410,7 @@ P0 阶段至少：
 - 变更：设置页可将某个环境标记为 WiFi 回放源；`put_config` 携带 `environment_json`，system_server 解析到 `FakeLoc.replayEnvironment`，`WlanHook` 优先用 `ReplayEnvironmentSource`，无回放配置时回退程序化 AP。
 - 变更：`EnvironmentCollector.capture()` 增加 BLE 扫描（`BLUETOOTH_SCAN` 权限、1.5 s 超时、按地址去重、最多 `MAX_BLE`），manifest 增加 `BLUETOOTH_SCAN`；无权限/蓝牙关闭返回空列表。
 - 变更：设置页采集前请求 `BLUETOOTH_SCAN`；拒绝时提示并只采集 WiFi/基站，授权后继续采集并包含 BLE。
+- 变更：设置页新增“导入环境 JSON”，通过 SAF `OpenDocument` 读取并用 `EnvironmentProfileCodec` 校验，保存到 `EnvironmentStore`。
 - 检查：`ReplayEnvironmentSourceTest` 5 项（同点保持、远离降低、极远 clamp、无 origin、非 REPLAY 拒绝）通过；`EnvironmentProfileCodecTest` 5 项（roundtrip、未知字段、非法 JSON/未来版本、schema 校验、默认版本）通过；`EnvironmentStoreTest` 3 项（保存/读取/列表/删除、文件名净化、替换）通过。
 - 未完成：BLE 回放 Hook、采集 UI 的 BLE 开关、构造器兼容、真机采集验证。
 - 结论：`UNIT TEST VERIFIED`（存储/回放）；采集器/列表/导出/回放接线/BLE 仅 `BUILD VERIFIED`；P2-02 仍 `WIP`。

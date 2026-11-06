@@ -1,0 +1,10 @@
+<resources>
+    <!-- Platform Material theme: the detector intentionally has no AndroidX dependency. -->
+    <style name="Theme.Detector" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">@color/detector_primary</item>
+        <item name="android:windowBackground">@color/detector_page</item>
+        <item name="android:statusBarColor">@color/detector_primary</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

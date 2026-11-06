@@ -1,0 +1,9 @@
+<resources>
+    <color name="detector_primary">#4F46E5</color>
+    <color name="detector_page">#F8FAFC</color>
+    <color name="detector_text_primary">#0F172A</color>
+    <color name="detector_text_secondary">#64748B</color>
+    <color name="detector_pass">#10B981</color>
+    <color name="detector_fail">#EF4444</color>
+    <color name="detector_unknown">#F59E0B</color>
+</resources>

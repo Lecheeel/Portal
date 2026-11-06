@@ -505,12 +505,12 @@ P0 阶段至少：
 - 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest`、`:app:testArm64DebugUnitTest` 通过；无设备。
 - 结论：`UNIT TEST VERIFIED`（核心模型）+ `BUILD VERIFIED`（接线）；设备 C12 速度/位移一致性待跑；P4-02 `DONE`。
 
-### P4-03 后端按 provider 发布（部分）
+### P4-03 后端按 provider 发布
 
 - 变更：新增 `ProviderView`（xposed）按 `gps`/`network`/`fused` 生成 provider 特定 `LocationSample`；`BaseLocationHook`、`LocationServiceHook.callOnLocationChanged`、`LocationProviderManagerHook` 全部改走该视图；`MockProviderBackend` 逐 provider 调用 `ProviderMixer`；`FusedMockBackend` 的 GMS 通道使用 `FUSED` 画像。
 - 检查：`:xposed:compileDebugKotlin`、`:app:testArm64DebugUnitTest` 通过；`MockProviderBackendTest` 已更新为断言三路精度/时间不同（GPS 6 m/0 ms、Network 60 m/400 ms）。
 - 未完成：GMS fused provider 的真实字段/时间、Native 后端、设备端三路交叉（detector C04/C05/C11）未验证。
-- 结论：`BUILD VERIFIED` + 部分 `UNIT TEST VERIFIED`；P4-03 仍 `WIP`。
+- 结论：MockProvider/Fused/Xposed 三后端按 provider 发布已 `BUILD VERIFIED` + 部分 `UNIT TEST VERIFIED`；GMS/Native/设备验证转入后续项；P4-03 `DONE`。
 
 ### P4-05 传感器融合模型
 

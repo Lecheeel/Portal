@@ -546,7 +546,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：389 项 JVM 用例 0 失败（core 222、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：393 项 JVM 用例 0 失败（core 226、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -636,3 +636,12 @@ P0 阶段至少：
 - 检查：文档内容与当前 `sensor_hook.cpp`、`NmeaBridge`、`CatalogGnssSkyModel`、`ProviderRegistryHook` 对照；无构建影响。
 - 未完成：README 与设置页的完整实验标记/默认值清单、逐项验收表。
 - 结论：`SOURCE VERIFIED`；P6-06 仍 `WIP`。
+
+## 20. P7 实施记录（2026-11-06）
+
+### P7-04 性能探针（部分）
+
+- 变更：`:core` 新增 `PerformanceProbe`：有界环形缓冲（256/4096）、p50/p95/max/mean，纯 JVM 可测。
+- 检查：`PerformanceProbeTest` 4 项（空、百分位、环形覆盖、clear/校验）通过。
+- 未完成：接入发布/回调路径、CPU/内存/电池设备基线、预算阈值。
+- 结论：`UNIT TEST VERIFIED`；P7-04 仍 `WIP`。

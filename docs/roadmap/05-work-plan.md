@@ -230,8 +230,10 @@ P0 基线
 | P7-01 | 原始 GNSS 生产化 | `GnssMeasurements`/`NavigationMessage`/`AntennaInfo` 策略 | 高端 detector 不出现明显缺失；默认关 | P3-05 | XL | TODO |
 | P7-02 | 网络/IP/时区一致性 | per-app 代理/VPN、时区/locale/carrier 检查 | 出口 IP 与坐标不矛盾；可回退 | P5 | XL | TODO |
 | P7-03 | Activity Recognition | GMS/AOSP 活动识别适配 | 运动状态不矛盾；默认关 | P4-05 | L | TODO |
-| P7-04 | 性能/耗电 | 发布延迟、CPU、内存、电池基线 | 有量化报告；不超预算 | P4 | M | TODO |
+| P7-04 | 性能/耗电 | 发布延迟、CPU、内存、电池基线 | 有量化报告；不超预算 | P4 | M | WIP |
 | P7-05 | OEM 矩阵 | 小米/OPPO/vivo/三星/Pixel/华为 | 兼容性表；已知问题清单 | P2/P6 | L | TODO |
+
+> 2026-11-06：P7-04 已加入有界 `PerformanceProbe`（p50/p95/max/mean），尚未接入发布回调与设备功耗基线。
 
 ---
 

@@ -1,6 +1,8 @@
 package com.system.location.service.core.runtime
 
+import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentProfile
+import com.system.location.service.core.environment.EnvironmentSourceMode
 import com.system.location.service.core.gnss.GnssModelMode
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.providers.ProviderKind
@@ -18,10 +20,18 @@ data class RuntimeSnapshot(
     val provider: ProviderKind? = null,
     val routing: RoutingConfig? = null,
     val gnssModel: GnssModelMode = GnssModelMode.ANALYTIC,
+    val environmentSeed: Long = 0L,
+    val environmentApCount: Int = 4,
+    val cellMode: CellMode = CellMode.FULL_REPLAY,
+    val environmentSourceMode: EnvironmentSourceMode = EnvironmentSourceMode.AUTO,
+    val simReady: Boolean = true,
+    val physicalNoise: Boolean = false,
+    val physicalNoiseSeed: Long = 0L,
 ) {
     init {
         require(configRevision >= 0L) { "configRevision must be non-negative" }
         require(environmentVersion >= 0L) { "environmentVersion must be non-negative" }
+        require(environmentApCount in 1..8) { "environmentApCount out of range" }
     }
 
     companion object {

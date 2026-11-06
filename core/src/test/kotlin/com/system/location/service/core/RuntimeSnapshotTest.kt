@@ -53,5 +53,24 @@ class RuntimeSnapshotTest {
     @Test fun invalidVersionsAreRejected() {
         assertThrows(IllegalArgumentException::class.java) { RuntimeSnapshot(configRevision = -1) }
         assertThrows(IllegalArgumentException::class.java) { RuntimeSnapshot(environmentVersion = -1) }
+        assertThrows(IllegalArgumentException::class.java) { RuntimeSnapshot(environmentApCount = 0) }
+    }
+
+    @Test fun configFieldsAreCaptured() {
+        val snapshot = RuntimeSnapshot(
+            configRevision = 9,
+            environmentApCount = 7,
+            cellMode = com.system.location.service.core.environment.CellMode.AUTO,
+            environmentSourceMode = com.system.location.service.core.environment.EnvironmentSourceMode.REPLAY,
+            simReady = false,
+            physicalNoise = true,
+            physicalNoiseSeed = 42,
+        )
+        assertEquals(7, snapshot.environmentApCount)
+        assertEquals(com.system.location.service.core.environment.CellMode.AUTO, snapshot.cellMode)
+        assertEquals(com.system.location.service.core.environment.EnvironmentSourceMode.REPLAY, snapshot.environmentSourceMode)
+        assertEquals(false, snapshot.simReady)
+        assertEquals(true, snapshot.physicalNoise)
+        assertEquals(42L, snapshot.physicalNoiseSeed)
     }
 }

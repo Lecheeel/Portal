@@ -227,7 +227,7 @@
 - **P5-01 纯模型落地**：新增 `RoutingConfig`/`RoutingTable`（package 优先、UID fallback、system 绕过、deny、schemaVersion）。system_server 路由与 UI 尚未接入。
 - **P5-02 解析层落地**：新增 `PackageUidLookup`/`CallerRouter`、`ScenarioSampleStore` 与 `RoutingTable` 多 package 解析；新增 `ListenerRouting`（注册捕获 UID、denied package 跳过假更新、scenario 路由）与 per-app deny 设置 UI；后端发布已携带 scenarioId，多控制器/场景分配尚未接。
 - **P6-04 首轮安全加固**：`APSService` 显式不导出；采集的 `environment/` 快照从备份/换机迁移排除；其余 IPC/日志/包可见性审查未做。
-- **P5-03 纯模型落地**：新增 `ConfigEnvelope`/`ConfigCodec`（v2 编解码、v1 迁移、未知字段忽略、版本/重复校验）与 `SampleEnvelope`/`SampleCodec`（provider/fieldsMask/env/config revision）；Bundle `SampleWire` 已支持 v1/v2 读写，配置 UI/下发未接。
+- **P5-03 纯模型落地**：新增 `ConfigEnvelope`/`ConfigCodec`（v2 编解码、v1 迁移、未知字段忽略、版本/重复校验）、`SampleEnvelope`/`SampleCodec` 与 `SampleWire` v1/v2；新增 `applyConfigNow`，per-app/回放配置可在服务运行时热更新。
 - **P5-06 纯抽象落地**：新增 `SampleStore`/`ConfigStore` 与内存实现（sequence/租约/clear），Binder/SHM 与接线未做。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

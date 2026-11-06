@@ -198,7 +198,7 @@ P0 基线
 
 **Phase 5 退出**：per-app 对直接 `LocationManager` 生效；GMS 限制明确；配置/样本可版本化升级。
 
-> 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；P5-02 新增 `ListenerRouting`（注册时捕获 UID、denied package 不再接收假更新）、`ScenarioSampleStore`（按场景隔离样本）与 `ScenarioController → backend` 的 scenarioId 传递；P5-03 `ConfigEnvelope`/`SampleEnvelope` v2 编解码与 `SampleWire` v1/v2 读写已落地；P5-04 新增设置页 per-app deny 多选；P5-06 `SampleStore`/`ConfigStore` 纯抽象与内存实现已落地。per-app 场景分配、多控制器并发、配置 UI 与不重启切换仍未接。
+> 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；P5-02 新增 `ListenerRouting`（注册时捕获 UID、denied package 不再接收假更新）、`ScenarioSampleStore`（按场景隔离样本）与 `ScenarioController → backend` 的 scenarioId 传递；P5-03 `ConfigEnvelope`/`SampleEnvelope` v2 编解码、`SampleWire` v1/v2 读写与 `applyConfigNow` 热更新已落地；P5-04 新增设置页 per-app deny 多选；P5-06 `SampleStore`/`ConfigStore` 纯抽象与内存实现已落地。per-app 场景分配、多控制器并发与完整配置 UI 仍未接。
 
 ---
 

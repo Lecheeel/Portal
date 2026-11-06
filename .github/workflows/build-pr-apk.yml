@@ -29,6 +29,9 @@ jobs:
         run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;30.0.16248370' 'cmake;4.1.2'
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Repository guardrails
+        run: python3 scripts/check_module_rules.py
+
       - name: Unit tests
         run: |
           chmod +x ./gradlew

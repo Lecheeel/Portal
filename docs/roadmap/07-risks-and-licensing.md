@@ -70,6 +70,18 @@
 
 > 在许可证解决前：**只学算法/结构，不复制第三方代码。**
 
+### 2.4 2026-11-06 核查记录
+
+- `https://github.com/fuqiuluo/Portal`：HTTP 404（仓库不可访问）。
+- GitHub API `search/repositories?q=Portal+user:fuqiuluo`：0 条结果。
+- 本地仓库：无 `LICENSE`、无 `NOTICE`。
+- 结论：上游许可证无法确认，本轮不添加 `LICENSE`/`NOTICE`；P0-05 的许可证子项保持 `BLOCKED`，详见 [02-decisions.md](02-decisions.md) ADR-023。
+- 可立即执行的部分已落地：`:core`/`:nmea` 纯 JVM、`:xposed` 不依赖 `:app`、`:app` 不依赖 `:detector`、行数预算、文档链接检查（`scripts/check_module_rules.py`）。
+
+### 2.5 依赖清单
+
+运行时与构建依赖的用途/许可证/备注统一记录在 [THIRD-PARTY.md](THIRD-PARTY.md)；新增依赖先更新该表，再进入评审。
+
 ---
 
 ## 3. 安全清单

@@ -7,7 +7,6 @@ import android.os.Parcel
 import android.os.Binder
 import android.os.SystemClock
 import com.system.location.service.hook.security.CommandSecurity
-import com.system.location.service.hook.security.PublicationLease
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.hook.security.SensitiveLog
 import com.system.location.service.hook.hooks.LocationServiceHook
@@ -20,8 +19,8 @@ import kotlin.random.Random
 object RemoteCommandHandler {
     private val proxyBinders by lazy { Collections.synchronizedList(arrayListOf<IBinder>()) }
     private val needProxyCmd = arrayOf("start", "stop", "set_speed_amp", "set_altitude", "set_speed", "update_location", "set_bearing", "move", "put_config", "publish_sample")
-    private val publicationLease = PublicationLease()
-    private var lastPublishMillis = 0L
+
+
     private val security = CommandSecurity()
     private var proxySequence = 0L
     private var lastProxySequence = 0L
@@ -64,7 +63,7 @@ object RemoteCommandHandler {
     private fun applyInstruction(rely: Bundle): Boolean {
         var commandId = rely.getString("command_id") ?: return false
         val incomingSample = if (commandId == "publish_sample") SampleWire.read(rely) ?: return false else null
-        if (incomingSample != null && !publicationLease.accepts(incomingSample.elapsedNanos, SystemClock.elapsedRealtimeNanos())) return false
+        if (incomingSample != null && !SampleCommand.accepts(incomingSample)) return false
         if (listOf("speed", "altitude", "bearing", "speed_amplitude").any {
                 rely.containsKey(it) && !rely.getDouble(it).isFinite()
             }) return false
@@ -118,28 +117,8 @@ object RemoteCommandHandler {
         }
 
         return when (commandId) {
-            "publish_sample" -> {
-                val fix = incomingSample ?: return false
-                if (!publicationLease.renew(fix.elapsedNanos, SystemClock.elapsedRealtimeNanos())) return false
-                val needsTicker = !FakeLoc.enable || !FakeLoc.externallyDriven
-                FakeLoc.acceptSample(fix)
-                rely.getString("scenario_id")?.takeIf { it.isNotBlank() }?.let { FakeLoc.acceptScenarioSample(it, fix) }
-                if (FakeLoc.isSystemServerProcess) {
-                    val mode = when {
-                        FakeLoc.speed < 0.3 -> 0
-                        FakeLoc.speed < 2.5 -> 1
-                        FakeLoc.speed < 7.0 -> 2
-                        else -> 3
-                    }
-                    NativeCommand.setMotionState(mode, FakeLoc.speed.toFloat(), FakeLoc.bearing.toFloat(), FakeLoc.altitude.toFloat())
-                }
-                FakeLoc.enable = true
-                lastPublishMillis = fix.timeMillis
-                if (needsTicker) LocationTicker.start()
-                if (FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
-                return true
-            }
-            "get_runtime_status" -> DiagnosticCommand.status(rely, lastPublishMillis)
+            "publish_sample" -> SampleCommand.publish(incomingSample ?: return false, rely)
+            "get_runtime_status" -> DiagnosticCommand.status(rely, SampleCommand.lastPublishMillis)
             "set_proxy" -> {
                 Logger.info("SubProxyBinder: ${rely.getBinder("proxy")} from ${BinderUtils.getUidPackageNames()}!")
                 rely.getBinder("proxy")?.let {
@@ -148,7 +127,7 @@ object RemoteCommandHandler {
                 return true
             }
             "start" -> {
-                publicationLease.clear()
+                SampleCommand.clearLease()
                 val speed = rely.getDouble("speed", FakeLoc.speed)
                 val altitude = rely.getDouble("altitude", FakeLoc.altitude)
                 val accuracy = rely.getFloat("accuracy", FakeLoc.accuracy)
@@ -167,7 +146,7 @@ object RemoteCommandHandler {
                 return true
             }
             "stop" -> {
-                publicationLease.clear()
+                SampleCommand.clearLease()
                 FakeLoc.enable = false
                 LocationTicker.stop()
                 FakeLoc.hasBearings = false
@@ -323,25 +302,8 @@ object RemoteCommandHandler {
         }
     }
 
-    @Synchronized internal fun expirePublication(nowNanos: Long): Boolean {
-        if (!FakeLoc.externallyDriven || !publicationLease.expired(nowNanos)) return false
-        FakeLoc.enable = false
-        FakeLoc.hasBearings = false
-        publicationLease.clear()
-        NativeCommand.disable()
-        return true
-    }
-
-    @Synchronized internal fun restoreSample(rely: Bundle) {
-        val fix = SampleWire.read(rely) ?: return
-        if (!publicationLease.renew(fix.elapsedNanos, SystemClock.elapsedRealtimeNanos())) {
-            FakeLoc.enable = false
-            return
-        }
-        FakeLoc.acceptSample(fix)
-        LocationTicker.start()
-    }
-
+    @Synchronized internal fun expirePublication(nowNanos: Long): Boolean = SampleCommand.expire(nowNanos)
+    @Synchronized internal fun restoreSample(rely: Bundle) = SampleCommand.restore(rely)
 //    private var hasHookSensor = false
 //
 //    private fun tryHookSensor(classLoader: ClassLoader = FakeLoc::class.java.classLoader!!) {

@@ -10,9 +10,9 @@ import com.system.location.service.hook.utils.FakeLoc
 object GnssStatusBridge {
     private val model = CatalogGnssSkyModel()
 
-    fun currentFrame(): GnssFrame = model.frame(
+    fun currentFrame(observer: Wgs84? = null): GnssFrame = model.frame(
         atMillis = System.currentTimeMillis(),
-        observer = Wgs84(FakeLoc.latitude, FakeLoc.longitude),
+        observer = observer ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude),
         altitudeMeters = FakeLoc.altitude,
     )
 

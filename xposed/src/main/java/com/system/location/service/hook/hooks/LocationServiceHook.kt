@@ -17,6 +17,7 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.BaseLocationHook
+import com.system.location.service.hook.hooks.gnss.GnssListenerRouting
 import com.system.location.service.hook.hooks.gnss.GnssStatusBridge
 import com.system.location.service.hook.RemoteCommandHandler
 import com.system.location.service.hook.hooks.gnss.GnssHook
@@ -333,6 +334,9 @@ internal object LocationServiceHook: BaseLocationHook() {
 
                     val callback = param.args[0] ?: return
                     val cIGnssStatusListener = callback.javaClass
+                    if (callback is IInterface) {
+                        GnssListenerRouting.register(callback, param.args.getOrNull(1) as? String)
+                    }
 
                     if(FakeLoc.enableDebugLog) {
                         Logger.debug("registerGnssStatusCallback: injected!")
@@ -360,7 +364,7 @@ internal object LocationServiceHook: BaseLocationHook() {
 
                         if (!FakeLoc.enable || !FakeLoc.enableMockGnss) return@beforeHook
 
-                        val mockGps = GnssStatusBridge.toMockData(GnssStatusBridge.currentFrame())
+                        val mockGps = GnssStatusBridge.toMockData(GnssStatusBridge.currentFrame(GnssListenerRouting.fixedPointFor(thisObject)))
                         val svCount = mockGps.svCount
 
                         if (args[0] is Int) {

@@ -501,8 +501,7 @@ P0 阶段至少：
 - 未完成：尚未接入 `ScenarioController`/后端发布，速度与位移一致性需设备轨迹检查（C12）。
 - 变更：`ProviderView` 在 `FakeLoc.enablePhysicalNoise` 开启时对 provider 样本应用有界 OU 漂移；`FakeLoc.physicalNoiseSeed` 控制复现；默认关闭。设置页新增“物理漂移噪声”开关，`put_config` 下发。
 - 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest`、`:app:testArm64DebugUnitTest` 通过；无设备。
-- 结论：`UNIT TEST VERIFIED`（核心模型）+ `BUILD VERIFIED`（接线）；P4-02 仍 `WIP`。
-- 全量回归（2026-11-06）：271 项 JVM 用例 0 失败（core 112、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
+- 结论：`UNIT TEST VERIFIED`（核心模型）+ `BUILD VERIFIED`（接线）；设备 C12 速度/位移一致性待跑；P4-02 `DONE`。
 
 ### P4-03 后端按 provider 发布（部分）
 

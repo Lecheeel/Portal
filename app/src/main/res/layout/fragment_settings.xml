@@ -243,6 +243,22 @@
                     android:text="@string/smooth_route_motion_desc"
                     android:textSize="13sp" />
                 <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/physical_noise_switch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:padding="8dp"
+                    android:text="@string/physical_noise"
+                    app:useMaterialThemeColors="true" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:paddingBottom="12dp"
+                    android:textColor="@color/text_secondary"
+                    android:text="@string/physical_noise_desc"
+                    android:textSize="13sp" />
+                <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/orbit_motion_switch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

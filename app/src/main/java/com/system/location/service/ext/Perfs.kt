@@ -194,6 +194,12 @@ var Context.environmentReplayJson: String
         putString("environmentReplayJson", value)
     }
 
+var Context.physicalNoise: Boolean
+    get() = sharedPrefs.getBoolean("physicalNoise", FakeLoc.enablePhysicalNoise)
+    set(value) = sharedPrefs.edit {
+        putBoolean("physicalNoise", value)
+    }
+
 var Context.disableGetCurrentLocation: Boolean
     get() = sharedPrefs.getBoolean("disableGetCurrentLocation", FakeLoc.disableGetCurrentLocation)
     set(value) = sharedPrefs.edit {

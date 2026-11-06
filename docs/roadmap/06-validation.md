@@ -517,9 +517,17 @@ P0 阶段至少：
 ### P5-02 调用方路由解析（部分）
 
 - 变更：`:core` 新增 `PackageUidLookup`/`CallerRouter`；`RoutingTable` 支持多 package（共享 UID）解析，任一 package 命中路由即可；system package 优先绕过；denied 优先。
-- 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项通过。
-- 未完成：Android `PackageManager` 实现、system_server `ILocationManager`/listener 到路由的实际接线、多场景并存。
-- 结论：`UNIT TEST VERIFIED`；P5-02 仍 `WIP`。
+- 变更：新增 `ListenerRouting`，在 `addLocationListenerInner` 注册时捕获 caller UID；PER_APP 配置下 denied package 不再收到假更新，其它 listener 仍用当前单场景 fake；`put_config.routing_json` 下发配置。
+- 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项通过；`:xposed:compileDebugKotlin`/`:xposed:testDebugUnitTest` 通过；无设备。
+- 未完成：多场景样本并存、路由到不同坐标、listener 到场景的实际切换；当前仅 deny 生效，未配置/未命中仍走当前 fake。
+- 结论：`UNIT TEST VERIFIED`（解析）+ `BUILD VERIFIED`（接线）；P5-02 仍 `WIP`。
+
+### P5-04 per-app UI（部分）
+
+- 变更：设置页新增“per-app 路由（实验）”按钮，列出非系统应用多选，保存为 `RoutingConfig` 的 `deniedPackages`，随 `routing_json` 下发。
+- 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
+- 未完成：搜索、场景分配、工作资料、导入/导出 UI；仅 deny，不支持两个 App 不同坐标。
+- 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
 - 全量回归（2026-11-06）：350 项 JVM 用例 0 失败（core 186、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2

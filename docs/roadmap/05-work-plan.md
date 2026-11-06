@@ -189,7 +189,7 @@ P0 基线
 | P5-01 | `RoutingTable` | `(package,userId)→scenario`；校验/序列化 | JVM 测试；非法输入拒绝 | P4 | M | WIP |
 | P5-02 | system_server 路由 | 调用方 UID→package→route；listener 映射 | 两个 App 同时不同坐标；未配置走默认 | P5-01 | L | WIP |
 | P5-03 | ConfigEnvelope v2 / SampleWire v2 | 版本化配置、provider 字段、环境版本 | 旧客户端兼容；配置切换无 stop/start | P5-01 | L | WIP |
-| P5-04 | per-app UI | 应用列表、搜索、分配场景、工作资料 | 选择/清空/重启后持久化 | P5-02 | M | TODO |
+| P5-04 | per-app UI | 应用列表、搜索、分配场景、工作资料 | 选择/清空/重启后持久化 | P5-02 | M | WIP |
 | P5-05 | GMS per-app 评估 | 结论：全局/ GMS Hook/ target 兜底 | 文档化限制；默认全局 | P5-02 | M | TODO |
 | P5-06 | `SampleStore`/`ConfigStore` | 抽象 + Binder 实现；SHM 设计 | 无行为变化；可替换实现 | P5-03 | M | WIP |
 | P5-07 | `RuntimeSnapshot` 替代 `FakeLoc` | 不可变配置/样本/环境快照 | 逐步迁移；旧字段兼容 | P5-03 | L | TODO |
@@ -198,7 +198,7 @@ P0 基线
 
 **Phase 5 退出**：per-app 对直接 `LocationManager` 生效；GMS 限制明确；配置/样本可版本化升级。
 
-> 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；P5-03 `ConfigEnvelope`/`SampleEnvelope` v2 编解码与 `SampleWire` v1/v2 读写已落地；P5-06 `SampleStore`/`ConfigStore` 纯抽象与内存实现已落地；system_server 路由（P5-02）、配置 UI 与不重启切换未接。
+> 2026-11-06：P5-01 `RoutingTable`（GLOBAL/PER_APP、package 优先、UID fallback、system 绕过、deny、版本化 JSON）已在 `:core` 落地并有 JVM 测试；P5-02 新增 `ListenerRouting`（注册时捕获 UID、denied package 不再接收假更新）与 `routing_json` 下发；P5-03 `ConfigEnvelope`/`SampleEnvelope` v2 编解码与 `SampleWire` v1/v2 读写已落地；P5-04 新增设置页 per-app deny 多选；P5-06 `SampleStore`/`ConfigStore` 纯抽象与内存实现已落地。多场景坐标、场景分配、配置 UI 与不重启切换仍未接。
 
 ---
 

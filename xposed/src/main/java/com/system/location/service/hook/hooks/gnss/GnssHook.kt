@@ -30,7 +30,10 @@ object GnssHook: BaseLocationHook() {
                     Logger.debug("doNothingMethod: ${param.method.name}")
                 }
 
-                if (FakeLoc.enable && FakeLoc.enableMockGnss && !FakeLoc.enableAGPS) {
+                // Suppress only registration while raw output is hidden. Suppressing remove*
+                // would leak any listener that was registered before the scenario started.
+                if (FakeLoc.enable && FakeLoc.enableMockGnss && !FakeLoc.enableAGPS &&
+                    param.method.name.startsWith("add")) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("${param.method.name}: disable")
                     }

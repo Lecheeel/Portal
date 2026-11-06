@@ -216,7 +216,7 @@
 - **P1-02～P1-05 代码落地（未设备验证）**：`AppOpsHook` 对第三方隐藏 `OP_MOCK_LOCATION`；`SettingsHook` 隐藏 `mock_location`/开发者选项；`ProviderRegistryHook` 过滤 `fused_ext`/test provider；第三方调用方在模拟中看到 `isLocationEnabled=true`（框架无公开 `LocationAvailability`）。
 - **P2-01/P2-03 纯 `:core` 基础**：新增 `EnvironmentProfile`/`WifiAp`/`CellTower`/`BleBeacon`/`EnvironmentSource` 与确定性 `ProceduralWifiSource`（约 100 m 网格、固定 seed、RSSI 路径损耗；12 项 JVM 测试）。WiFi Hook（P2-04）尚未接入。
 - **P2-04/P2-05 部分落地**：`WlanHook` 已用程序化 AP 生成 `ScanResult`/`WifiInfo`/`DhcpInfo`（仅第三方调用方），并支持 captured profile 回放；CDMA 降级默认关闭，新增 `CellModePolicy` AUTO 策略、`ProceduralCellSource`（LTE/NR 确定性画像）、`CellInfoSynthesis`（第三方 `getAllCellInfo` 反射构造，优先回放捕获 LTE/NR，失败回退原始列表）、`PhoneTypeHooks`（GSM/LTE）、`SimOperatorHooks`（MCC/MNC）与 `simReady=false` 的 NO_SIM/WiFi-only 画像。
-- **P2-02 回放源**：新增 `ReplayEnvironmentSource`（RSSI 距离重标定）、`EnvironmentProfileCodec`（JSON 导入导出/schemaVersion）以及 app `EnvironmentCollector`/`EnvironmentStore`（WiFi+Cell 采集、文件存储、设置页采集/列表/SAF 导出/回放选择）；BLE、删除/重命名、设备验证未做。
+- **P2-02 回放源**：新增 `ReplayEnvironmentSource`（RSSI 距离重标定）、`EnvironmentProfileCodec`（JSON 导入导出/schemaVersion）以及 app `EnvironmentCollector`/`EnvironmentStore`（WiFi+Cell+BLE 采集、文件存储、设置页采集/列表/SAF 导出/回放选择）；BLE 运行时权限、删除/重命名、设备验证未做。
 - **P2-06 实验库**：新增 `WifiFingerprintDb`（时效、加权质心、不可变更新）与带 source/license/attribution 的 JSON/CSV 导入；真实 WigLE/OpenCellID 下载与开关未做。
 - **P3-01/P3-03 纯模型落地**：`:core` 新增确定性多星座 `CatalogGnssSkyModel`；`:nmea` 新增单源 `NmeaGenerator`（GGA/RMC/GSA/GSV/GST/ZDA，校验和与卫星数自洽）。
 - **P3-04 部分落地**：`GnssStatus` 与 NMEA 都已从同一 `CatalogGnssSkyModel` 帧生成；`GnssHook` 的重复 NMEA 入口已删除，只剩 `LocationNMEAHook` 一个改写点；raw measurements 仍被屏蔽。

@@ -267,6 +267,14 @@
                     android:text="@string/sim_ready"
                     app:useMaterialThemeColors="true" />
                 <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/gnss_orbital_switch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:padding="8dp"
+                    android:text="@string/gnss_orbital"
+                    app:useMaterialThemeColors="true" />
+                <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/orbit_motion_switch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

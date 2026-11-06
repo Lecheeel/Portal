@@ -75,6 +75,7 @@
     <string name="physical_noise">物理漂移噪声</string>
     <string name="physical_noise_desc">开启后有界、可复现的经纬度/海拔/精度微漂移，默认关闭；下次启动场景生效</string>
     <string name="sim_ready">SIM 就绪（关闭 = 无 SIM / WiFi-only）</string>
+    <string name="gnss_orbital">轨道 GNSS 模型（实验）</string>
     <string name="per_app_routing">per-app 路由（实验）</string>
     <string name="per_app_routing_desc">选择不接收模拟定位的应用；默认关闭，下次启动场景生效</string>
     <string name="per_app_point">per-app 固定点（实验）</string>

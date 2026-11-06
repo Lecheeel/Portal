@@ -53,6 +53,7 @@ import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.needOpenSELinux
 import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.simReady
+import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.experimentalOrbitMotion
@@ -356,6 +357,11 @@ class SettingsFragment : Fragment() {
         binding.simReadySwitch.isChecked = context.simReady
         binding.simReadySwitch.setOnCheckedChangeListener { _, ready ->
             context.simReady = ready
+            showToast("下次启动场景生效")
+        }
+        binding.gnssOrbitalSwitch.isChecked = context.gnssOrbital
+        binding.gnssOrbitalSwitch.setOnCheckedChangeListener { _, orbital ->
+            context.gnssOrbital = orbital
             showToast("下次启动场景生效")
         }
         fun periodLabel() { binding.orbitPeriodButton.text = getString(R.string.orbit_period) + " · " + getString(R.string.orbit_period_value, context.orbitPeriodSeconds) }

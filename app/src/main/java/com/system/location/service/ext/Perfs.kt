@@ -206,6 +206,12 @@ var Context.simReady: Boolean
         putBoolean("simReady", value)
     }
 
+var Context.gnssOrbital: Boolean
+    get() = sharedPrefs.getBoolean("gnssOrbital", false)
+    set(value) = sharedPrefs.edit {
+        putBoolean("gnssOrbital", value)
+    }
+
 var Context.routingJson: String
     get() = sharedPrefs.getString("routingJson", "").orEmpty()
     set(value) = sharedPrefs.edit {

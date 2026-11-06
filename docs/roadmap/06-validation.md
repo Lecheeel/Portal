@@ -573,6 +573,7 @@ P0 阶段至少：
 - 变更：`:core` 新增 `StoredSample`、`SampleStore`/`InMemorySampleStore`（单调 sequence、elapsed 租约、clear、线程安全）与 `ConfigStore`/`InMemoryConfigStore`（ConfigEnvelope 存取）。
 - 变更：新增 `FileConfigStore`：ConfigCodec JSON 落盘，temp + `ATOMIC_MOVE`/`REPLACE_EXISTING`，损坏文件返回 null。
 - 变更：`ScenarioRuntime` 在场景成功启动后把 `ConfigEnvelope` 原子写入 `noBackupFilesDir/active-config.json`，初始化时读取并写 `CONFIG_STORE` 诊断。
+- 变更：envelope 已映射 `routingJson`、环境来源/AP 数/基站模式、`NoiseProfile.enabled`；解析失败回退默认。
 - 检查：`SampleStoreTest` 6 项、`FileConfigStoreTest` 2 项（roundtrip/clear、损坏文件）通过；`:app` 编译/测试通过。
 - 未完成：Binder/SharedMemory 实现、用恢复配置自动重启场景、SHM 设计。
 - 结论：`UNIT TEST VERIFIED`；P5-06 仍 `WIP`。

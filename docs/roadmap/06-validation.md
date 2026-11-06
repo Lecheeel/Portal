@@ -608,7 +608,7 @@ P0 阶段至少：
 - 未完成：Hook 仍有少量旧字段读取路径，需逐步替换为直接读 snapshot。
 - 结论：配置/样本/环境/路由/GNSS 模式迁移 `BUILD VERIFIED`；P5-07 仍 `WIP`。
 
-### P5-08 SettingsSchema（部分）
+### P5-08 SettingsSchema
 
 - 变更：`:core` 新增 `SettingType`/`SettingSpec`/`SettingsSchema`/`PortalSettingsSchema`，覆盖 altitude/speed/accuracy/report_interval/min_satellites/AP 数/cell_mode/environment_source/gnss_model 等 key，提供默认值、范围、枚举和 `coerce`。
 - 变更：新增 `ConfigGate`，`put_config` 在写入 `FakeLoc` 前用 schema 拒绝非法数值/枚举。

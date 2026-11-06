@@ -220,6 +220,7 @@
 - **P2-06 实验库**：新增 `WifiFingerprintDb`（时效、加权质心、不可变更新）与带 source/license/attribution 的 JSON/CSV 导入；真实 WigLE/OpenCellID 下载与开关未做。
 - **P3-01/P3-03 纯模型落地**：`:core` 新增确定性多星座 `CatalogGnssSkyModel`；`:nmea` 新增单源 `NmeaGenerator`（GGA/RMC/GSA/GSV/GST/ZDA，校验和与卫星数自洽）。
 - **P3-04 部分落地**：`GnssStatus` 与 NMEA 都已从同一 `CatalogGnssSkyModel` 帧生成；`GnssHook` 的重复 NMEA 入口已删除，只剩 `LocationNMEAHook` 一个改写点；raw measurements 仍被屏蔽。
+- **P3-05 策略落地**：新增默认关闭的 `RawGnssPolicy`（EXPERIMENTAL 从同一帧生成确定性 measurements），Hook 接线与星历/Kepler 未做。
 - **P4-01/P4-02 纯 `:core` 基础**：新增 `ProviderProfile`/`StationaryPolicy`/`ProviderMixer`（三路精度/延迟/字段分离、静止无 bearing/speed）与 `PhysicalNoise`（有界可复现 OU 漂移）；尚未接入后端发布与传感器。
 - **P4-03 部分落地**：`ProviderView` / `ProviderMixer` 已接入 Mock、Fused 与 Xposed 三条发布路径，按 provider 输出不同精度/延迟/字段；三路设备交叉验证未做。
 - **P4-05 纯模型落地**：新增 `MotionMode`/`MotionState`/`SensorFrame`/`SyntheticSensorModel`（静止/步行/跑步/驾车，步数/气压/地磁/陀螺仪确定性生成）；Native 传感器 Hook（P4-04）尚未接入。

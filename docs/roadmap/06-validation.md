@@ -511,7 +511,7 @@ P0 阶段至少：
 - 检查：`CallerRouterTest` 5 项 + `RoutingTableTest` 9 项通过。
 - 未完成：Android `PackageManager` 实现、system_server `ILocationManager`/listener 到路由的实际接线、多场景并存。
 - 结论：`UNIT TEST VERIFIED`；P5-02 仍 `WIP`。
-- 全量回归（2026-11-06）：345 项 JVM 用例 0 失败（core 181、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：350 项 JVM 用例 0 失败（core 186、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
 
 ### P5-03 ConfigEnvelope v2
 
@@ -536,3 +536,10 @@ P0 阶段至少：
 - 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest` 通过；`check_module_rules` 0 violation。
 - 未完成：raw measurements/navigation message 仍被屏蔽（P3-05/P7）；NMEA 依赖真实回调驱动，无设备验证“目标 App 实际收到完整序列”；跨 talker 的 GSV 轮转仅在同类型回调内循环。
 - 结论：单入口、统一 GnssStatus 与 NMEA 生成已 `BUILD VERIFIED`；P3-04 仍 `WIP`。
+
+### P3-05 Raw GNSS 策略（部分）
+
+- 变更：`:core` 新增 `RawGnssMode`/`RawGnssMeasurement`/`RawGnssPolicy`：默认 `OFF` 永不输出；`EXPERIMENTAL` 从同一 `GnssFrame.usedInFix` 生成确定性 pseudorange rate/carrier phase/state/multipath，CN0 阈值与数量上限可配。
+- 检查：`RawGnssPolicyTest` 5 项（OFF、CN0/usedInFix、确定性、数量上限、非法配置/时间）通过。
+- 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、NavigationMessage/AntennaInfo、设备与 detector C13 验证。
+- 结论：`UNIT TEST VERIFIED`；P3-05 仍 `WIP`。

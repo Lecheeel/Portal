@@ -72,4 +72,10 @@
     <string name="zero">0 G</string>
     <string name="in_view_left_item">可用卫星数量</string>
     <string name="in_use_satellite">在用卫星数量</string>
+    <string name="environment_capture_title">环境采集</string>
+    <string name="environment_capture_desc">采集当前 WiFi 与基站快照，保存为可回放的环境文件</string>
+    <string name="environment_capture_action">采集当前环境</string>
+    <string name="environment_capture_requires_location">需要位置权限才能采集环境</string>
+    <string name="environment_capture_saved">已保存：%1$s（WiFi %2$d，基站 %3$d）</string>
+    <string name="environment_capture_failed">采集失败：%1$s</string>
 </resources>

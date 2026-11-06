@@ -780,6 +780,28 @@
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
                     android:text="@string/background_guidance" />
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:paddingTop="12dp"
+                    android:text="@string/environment_capture_title"
+                    android:textAppearance="@style/Portal.Section" />
+                <TextView
+                    android:id="@+id/environment_capture_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:paddingBottom="8dp"
+                    android:text="@string/environment_capture_desc"
+                    android:textAppearance="@style/Portal.Body" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/environment_capture_button"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/environment_capture_action" />
                 <LinearLayout
                     android:id="@+id/check_update_layout"
                     android:layout_width="match_parent"

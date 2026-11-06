@@ -1,6 +1,8 @@
 package com.system.location.service.ui.settings
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -17,8 +19,14 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.system.location.service.R
 import com.system.location.service.databinding.FragmentSettingsBinding
+import com.system.location.service.environment.EnvironmentCollector
+import com.system.location.service.environment.EnvironmentStore
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
 import com.system.location.service.ext.debug
@@ -111,6 +119,31 @@ class SettingsFragment : Fragment() {
         binding.startupBurstSwitch.isChecked = context.startupBurstEnabled
         binding.startupBurstSwitch.setOnCheckedChangeListener { _, enabled -> context.startupBurstEnabled = enabled }
         binding.backgroundGuidance.setOnClickListener { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) }
+        binding.environmentCaptureButton.setOnClickListener {
+            if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                showToast(getString(R.string.environment_capture_requires_location))
+                return@setOnClickListener
+            }
+            binding.environmentCaptureButton.isEnabled = false
+            val appContext = context.applicationContext
+            lifecycleScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val profile = EnvironmentCollector(appContext)
+                            .capture(origin = null, seed = System.currentTimeMillis())
+                        val name = "capture-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                        EnvironmentStore(appContext).save(name, profile)
+                        Triple(name, profile.wifi.size, profile.cells.size)
+                    }
+                }
+                if (_binding != null) binding.environmentCaptureButton.isEnabled = true
+                result.onSuccess { (name, wifi, cells) ->
+                    if (isAdded) showToast(getString(R.string.environment_capture_saved, name, wifi, cells))
+                }.onFailure { error ->
+                    if (isAdded) showToast(getString(R.string.environment_capture_failed, error.message ?: "unknown"))
+                }
+            }
+        }
         binding.smoothRouteSwitch.isChecked = context.smoothRouteMotion
         binding.smoothRouteSwitch.setOnCheckedChangeListener { _, enabled -> context.smoothRouteMotion = enabled }
         fun periodLabel() { binding.orbitPeriodButton.text = getString(R.string.orbit_period) + " · " + getString(R.string.orbit_period_value, context.orbitPeriodSeconds) }

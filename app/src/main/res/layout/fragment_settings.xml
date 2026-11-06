@@ -876,6 +876,20 @@
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
                     android:text="@string/environment_import_action" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/environment_ap_button"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/environment_ap_title" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/cell_mode_button"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/cell_mode_title" />
                 <LinearLayout
                     android:id="@+id/check_update_layout"
                     android:layout_width="match_parent"

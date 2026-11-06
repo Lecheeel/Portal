@@ -52,6 +52,8 @@ import com.system.location.service.ext.loopBroadcastlocation
 import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.needOpenSELinux
+import com.system.location.service.ext.environmentApCount
+import com.system.location.service.ext.cellMode
 import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.gnssOrbital
@@ -341,6 +343,39 @@ class SettingsFragment : Fragment() {
         }
         binding.environmentImportButton.setOnClickListener {
             importEnvironmentDocument.launch(arrayOf("application/json", "text/plain", "*/*"))
+        }
+        fun apLabel() {
+            binding.environmentApButton.text = getString(R.string.environment_ap_value, context.environmentApCount)
+        }
+        apLabel()
+        binding.environmentApButton.setOnClickListener {
+            showDialog(getString(R.string.environment_ap_title), context.environmentApCount.toString()) { value ->
+                val count = value.toIntOrNull()
+                if (count == null || count !in 1..8) {
+                    showToast("AP 数需在 1 至 8 之间")
+                    return@showDialog
+                }
+                context.environmentApCount = count
+                apLabel()
+                showToast("下次启动场景生效")
+            }
+        }
+        fun cellLabel() {
+            binding.cellModeButton.text = getString(R.string.cell_mode_value, context.cellMode)
+        }
+        cellLabel()
+        binding.cellModeButton.setOnClickListener {
+            val modes = arrayOf("AUTO", "FULL_REPLAY", "NO_SIM_WIFI_ONLY", "LEGACY_CDMA")
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.cell_mode_title)
+                .setSingleChoiceItems(modes, modes.indexOf(context.cellMode).coerceAtLeast(0)) { dialog, which ->
+                    context.cellMode = modes[which]
+                    cellLabel()
+                    dialog.dismiss()
+                    showToast("下次启动场景生效")
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
         binding.environmentCaptureButton.setOnClickListener {
             if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {

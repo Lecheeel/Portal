@@ -212,6 +212,18 @@ var Context.gnssOrbital: Boolean
         putBoolean("gnssOrbital", value)
     }
 
+var Context.environmentApCount: Int
+    get() = sharedPrefs.getInt("environmentApCount", 4).coerceIn(1, 8)
+    set(value) = sharedPrefs.edit {
+        putInt("environmentApCount", value.coerceIn(1, 8))
+    }
+
+var Context.cellMode: String
+    get() = sharedPrefs.getString("cellMode", "FULL_REPLAY") ?: "FULL_REPLAY"
+    set(value) = sharedPrefs.edit {
+        putString("cellMode", value)
+    }
+
 var Context.routingJson: String
     get() = sharedPrefs.getString("routingJson", "").orEmpty()
     set(value) = sharedPrefs.edit {

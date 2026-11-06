@@ -535,7 +535,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：375 项 JVM 用例 0 失败（core 211、nmea 7、xposed 32、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：378 项 JVM 用例 0 失败（core 211、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -587,5 +587,7 @@ P0 阶段至少：
 - 变更：继续排除 `fused_ext.xml`（坐标/回放/路由设置）与 `library/`（保存的路线/位置），避免备份带出敏感数据。
 - 检查：合并 manifest（arm64Debug）中应用自身组件仅 `MainActivity` 导出（launcher 必需）、`LocationProbeActivity`/`ScenarioService`/`APSService` 均不导出；依赖侧仅 `ProfileInstallReceiver` 导出且受 `DUMP` 保护。
 - 变更：manifest 增加 MAIN/LAUNCHER `<queries>`，per-app 应用列表改用 `queryIntentActivities`，不申请 `QUERY_ALL_PACKAGES`。
+- 变更：`RemoteCommandHandler` 的 debug 命令日志改用 `SensitiveLog`，经纬度/海拔/sample 坐标/environment_json/routing_json/token 等字段输出 `<redacted>`。
+- 检查：`SensitiveLogTest` 3 项通过；`:xposed` 编译/测试通过。
 - 未完成：IPC/Binder 权限、日志脱敏、Bugly 配置、包可见性、导出组件全量清单、`allowBackup` 策略。
 - 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；P6-04 仍 `WIP`。

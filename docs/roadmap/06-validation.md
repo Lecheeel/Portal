@@ -545,7 +545,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：383 项 JVM 用例 0 失败（core 216、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：384 项 JVM 用例 0 失败（core 217、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -576,10 +576,10 @@ P0 阶段至少：
 
 - 变更：`:core` 新增不可变 `RuntimeSnapshot`（configRevision、environmentVersion、sample、environment、provider、routing、gnssModel）与原子 `RuntimeSnapshotStore`（publish/clear/update）。
 - 变更：`FakeLoc` 的样本字段改为 `RuntimeSnapshotStore`，`acceptSample`/`snapshot`/`clear` 通过快照读写；外部坐标/速度等旧字段暂时保留。
-- 变更：`routingConfig`/`replayEnvironment`/`gnssModelMode` 也改为 snapshot getter/setter；剩余 AP 数/基站模式/SIM/噪声等配置仍在旧字段。
-- 检查：`RuntimeSnapshotTest` 5 项（空快照、原子发布、字段保留、清空样本、非法版本）通过；`:xposed` 编译/测试通过。
-- 未完成：剩余配置字段尚未迁入快照，Hook 仍混合读取。
-- 结论：样本/环境/路由/GNSS 模式迁移 `BUILD VERIFIED`；P5-07 仍 `WIP`。
+- 变更：`routingConfig`/`replayEnvironment`/`gnssModelMode` 也改为 snapshot getter/setter；AP 数/基站模式/SIM/噪声等配置现已全部进入快照，setter 自增 `configRevision`，环境 profile 变更同时自增 `environmentVersion`。
+- 检查：`RuntimeSnapshotTest` 6 项（空快照、原子发布、字段保留、清空样本、非法版本、配置字段）通过；`:xposed` 编译/测试通过。
+- 未完成：Hook 仍有少量旧字段读取路径，需逐步替换为直接读 snapshot。
+- 结论：配置/样本/环境/路由/GNSS 模式迁移 `BUILD VERIFIED`；P5-07 仍 `WIP`。
 
 ### P3-04 Hook 合并（部分）
 

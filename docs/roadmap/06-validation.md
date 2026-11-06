@@ -623,8 +623,9 @@ P0 阶段至少：
 ### P6-01 libxposed API 102（spike）
 
 - 变更：`xposed` 增加 `io.github.libxposed:api:102.0.0` `compileOnly`；新增 `LibXposedSpike : XposedModule`，重写 `onSystemServerStarting` 空实现，验证 API 可与旧 API 82 同时编译。
-- 检查：`:xposed:compileDebugKotlin`、`:xposed:testDebugUnitTest` 通过。
-- 未完成：模块入口/元数据迁移、system_server scope、热重载、LSPosed 加载验证、旧 API 回退开关。
+- 变更：新增独立 `:libxposed-spike` APK 模块：`SpikeModule` + `META-INF/xposed/{java_init.list,module.prop,scope.list}`（scope=`android`，staticScope）。
+- 检查：`:xposed:compileDebugKotlin`、`:xposed:testDebugUnitTest`、`:libxposed-spike:assembleDebug` 通过；APK 根目录包含 `META-INF/xposed` 三个文件与 `classes.dex`。
+- 未完成：LSPosed 实际加载、system_server scope/hook、热重载、旧 API 回退开关。
 - 结论：`BUILD VERIFIED`；P6-01 仍 `WIP`。
 
 ### P6-04 安全/权限审查（首轮）

@@ -361,7 +361,8 @@ P0 阶段至少：
 ### P1-03 Settings Provider Hook
 
 - 变更：新增 `HookScope.SETTINGS_PROVIDER` 与 xposed scope `com.android.providers.settings`；`SettingsHook` 对第三方调用方把 `mock_location`/`allow_mock_location`/`development_settings_enabled`/`adb_enabled` 置为 `"0"`；系统调用方不受影响；`query` fallback 返回空 cursor。
-- 检查：scope resolver JVM 测试补充 `com.android.providers.settings`；`:xposed` 编译/测试通过；`:app:processArm64DebugResources` 通过。
+- 变更：命令/query key/UID 判定抽到 `SettingsPrivacyPolicy`，`SettingsPrivacyPolicyTest` 2 项覆盖命令、query、系统/第三方 UID。
+- 检查：scope resolver JVM 测试补充 `com.android.providers.settings`；`:xposed`/`:core` 编译/测试通过；`:app:processArm64DebugResources` 通过。
 - 风险：依赖 `SettingsProvider.call` 的命令名与 Bundle 结构；不同 ROM 的 Settings provider 实现需设备确认。
 - 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；未做设备验证。
 

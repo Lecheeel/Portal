@@ -14,6 +14,8 @@ import com.system.location.service.service.MockServiceHelper
 class XposedBackend(private val context: Context) : LocationBackend {
     private val manager = context.getSystemService(LocationManager::class.java)
     private val publishProbe = PerformanceProbe()
+    private var previousCpuMillis = 0L
+    private var previousCpuWallMillis = 0L
     private var connected = false
     override val type = BackendType.XPOSED
     override suspend fun diagnose(): List<BackendDiagnostic> {
@@ -56,6 +58,14 @@ class XposedBackend(private val context: Context) : LocationBackend {
             "INFO",
             "pss=${memory.totalPss / 1024} MB · heap=$heapUsedMb/$heapMaxMb MB",
         )
+        val cpuMillis = android.os.Process.getElapsedCpuTime()
+        val wallMillis = SystemClock.elapsedRealtime()
+        val cpuPercent = if (previousCpuWallMillis > 0L && wallMillis > previousCpuWallMillis) {
+            (cpuMillis - previousCpuMillis).coerceAtLeast(0L) * 100.0 / (wallMillis - previousCpuWallMillis)
+        } else 0.0
+        previousCpuMillis = cpuMillis
+        previousCpuWallMillis = wallMillis
+        val appCpu = BackendDiagnostic("APP_CPU", "INFO", "cpu=%.1f%% (since last diagnose)".format(cpuPercent))
         return listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "system_server 远程通道已连接"),
             BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),
             BackendDiagnostic("HOOK_OWNERSHIP", if (missing == 0) "INFO" else "WARN",
@@ -65,6 +75,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
             listOfNotNull(latency) +
             listOfNotNull(appLatency) +
             listOf(appMemory) +
+            listOf(appCpu) +
             status.getStringArrayList("hook_details").orEmpty().take(60).map { BackendDiagnostic("HOOK_POINT", "INFO", it) }
     }
     override val capabilities get() = Capability.entries.associateWith { capability ->

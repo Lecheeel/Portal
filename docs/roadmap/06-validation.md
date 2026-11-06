@@ -548,7 +548,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：415 项 JVM 用例 0 失败（core 246、nmea 7、xposed 35、app 127）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：416 项 JVM 用例 0 失败（core 247、nmea 7、xposed 35、app 127）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -574,7 +574,7 @@ P0 阶段至少：
 - 变更：新增 `FileConfigStore`：ConfigCodec JSON 落盘，temp + `ATOMIC_MOVE`/`REPLACE_EXISTING`，损坏文件返回 null。
 - 变更：`ScenarioRuntime` 在场景成功启动后把 `ConfigEnvelope` 原子写入 `noBackupFilesDir/active-config.json`，初始化时读取并写 `CONFIG_STORE` 诊断。
 - 变更：envelope 已映射 `routingJson`、环境来源/AP 数/基站模式、`NoiseProfile.enabled`；解析失败回退默认。
-- 检查：`SampleStoreTest` 6 项、`FileConfigStoreTest` 2 项（roundtrip/clear、损坏文件）通过；`:app` 编译/测试通过。
+- 检查：`SampleStoreTest` 6 项、`FileConfigStoreTest` 3 项（roundtrip/clear、损坏文件、并发读写）通过；`:app` 编译/测试通过。
 - 未完成：Binder/SharedMemory 实现、用恢复配置自动重启场景、SHM 设计。
 - 变更：新增 `10-store-transport.md`，比较 Binder 与 ashmem 双缓冲方案，决定当前保持 Binder+FileConfigStore，SHM 仅在性能超预算时实验启用。
 - 变更：新增 `SeqLockSampleStore` 纯 JVM 双缓冲/seqlock 模型；写者单线程、读者 sequence 重试，`SeqlockSampleStoreTest` 3 项（读/租约/并发无撕裂）通过。

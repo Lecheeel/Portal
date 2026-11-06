@@ -591,6 +591,7 @@ P0 阶段至少：
 - 变更：新增 `SharedSampleLayout`：32B header + 2×64B slot 连续布局（160B），先写 slot 再写 header；`SharedSampleLayoutTest` 2 项（写入/尺寸、损坏拒绝）通过。
 - 变更：`:xposed` 新增 `SharedMemorySampleBuffer`：`SharedMemory.create` + `mapReadWrite`，写入/读取复用 160B layout；仅 build 验证，未接 Binder fd。
 - 变更：设置页新增“恢复上次配置”，`ScenarioRuntime.restoreLastConfig()` 等待初始化、读取 active config、在 IDLE 时启动场景；不自动在开机时启动。
+- 变更：恢复时回写 routingJson、AP 数、cellMode、environmentSource、physicalNoise，再启动场景。
 - 结论：`UNIT TEST VERIFIED`（存储/并发/编码/header/buffer/layout）；Android 适配/恢复入口 `BUILD VERIFIED`；P5-06 仍 `WIP`。
 
 ### P5-07 RuntimeSnapshot（部分）

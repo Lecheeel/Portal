@@ -11,11 +11,22 @@ import com.system.location.service.backend.mock.MockProviderBackend
 import com.system.location.service.backend.mock.AndroidMockProviderPort
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.config.ConfigEnvelope
+import com.system.location.service.core.environment.CellMode
+import com.system.location.service.core.environment.EnvironmentConfig
+import com.system.location.service.core.environment.EnvironmentSourceType
+import com.system.location.service.core.playback.NoiseProfile
+import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.runtime.*
 import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.ext.experimentalOrbitMotion
 import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
+import com.system.location.service.ext.environmentReplayJson
+import com.system.location.service.ext.environmentSourceMode
+import com.system.location.service.ext.environmentApCount
+import com.system.location.service.ext.cellMode
+import com.system.location.service.ext.physicalNoise
+import com.system.location.service.ext.routingJson
 import com.system.location.service.ext.orbitPeriodSeconds
 import com.system.location.service.data.persistence.AtomicDocumentStore
 import com.system.location.service.BuildConfig
@@ -33,6 +44,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
 
 /** Process-owned command facade. UI cancellation never cancels an accepted runtime command. */
 object ScenarioRuntime {
@@ -113,9 +125,23 @@ object ScenarioRuntime {
                     withContext(Dispatchers.IO) {
                         runCatching {
                             val revision = (configStore.load()?.revision ?: 0L) + 1L
+                            val routing = context.routingJson.takeIf { it.isNotBlank() }
+                                ?.let { Json.decodeFromString(RoutingConfig.serializer(), it) }
+                                ?: RoutingConfig()
+                            val replay = context.environmentReplayJson.isNotBlank() ||
+                                context.environmentSourceMode == "REPLAY"
+                            val environment = EnvironmentConfig(
+                                source = if (replay) EnvironmentSourceType.REPLAY else EnvironmentSourceType.PROCEDURAL,
+                                apPerCell = context.environmentApCount.coerceIn(3, 8),
+                                cellMode = runCatching { CellMode.valueOf(context.cellMode) }
+                                    .getOrDefault(CellMode.AUTO),
+                            )
                             configStore.save(ConfigEnvelope(
                                 revision = revision,
                                 scenario = frozen,
+                                routing = routing,
+                                environment = environment,
+                                noise = NoiseProfile(enabled = context.physicalNoise),
                                 updatedAtMillis = System.currentTimeMillis(),
                             ))
                         }.onFailure { controller.note("CONFIG_STORE", "FAILED", it.message ?: "配置保存失败") }

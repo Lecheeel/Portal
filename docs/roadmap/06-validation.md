@@ -458,6 +458,13 @@ P0 阶段至少：
 - 结论：`UNIT TEST VERIFIED`。
 - 全量回归（2026-11-06）：271 项 JVM 用例 0 失败（core 112、nmea 7、xposed 30、app 122）；`:detector:assembleDebug` 通过。
 
+### P4-03 后端按 provider 发布（部分）
+
+- 变更：新增 `ProviderView`（xposed）按 `gps`/`network`/`fused` 生成 provider 特定 `LocationSample`；`BaseLocationHook`、`LocationServiceHook.callOnLocationChanged`、`LocationProviderManagerHook` 全部改走该视图；`MockProviderBackend` 逐 provider 调用 `ProviderMixer`；`FusedMockBackend` 的 GMS 通道使用 `FUSED` 画像。
+- 检查：`:xposed:compileDebugKotlin`、`:app:testArm64DebugUnitTest` 通过；`MockProviderBackendTest` 已更新为断言三路精度/时间不同（GPS 6 m/0 ms、Network 60 m/400 ms）。
+- 未完成：GMS fused provider 的真实字段/时间、Native 后端、设备端三路交叉（detector C04/C05/C11）未验证。
+- 结论：`BUILD VERIFIED` + 部分 `UNIT TEST VERIFIED`；P4-03 仍 `WIP`。
+
 ### P3-04 Hook 合并（部分）
 
 - 变更：`GnssHook` 删除重复的 `registerGnssNmeaCallback`/`onNmeaReceived` 改写，只保留 measurements/nav/antenna 与 HAL 处理；`LocationNMEAHook` 成为唯一 `onNmeaReceived` 改写点，并修正 `enableNMEA` 语义（关闭时抑制真实 NMEA，开启时由 `NmeaBridge` 用同一 `CatalogGnssSkyModel` 帧生成 GGA/RMC/GSA/GSV/GST/ZDA，按 talker/type 一对一替换，未知类型置空避免泄漏）。

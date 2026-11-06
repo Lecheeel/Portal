@@ -333,6 +333,9 @@ object RemoteCommandHandler {
                 FakeLoc.enableNMEA = enableNMEA
                 FakeLoc.disableRequestGeofence = disableRequestGeofence
                 FakeLoc.disableGetFromLocation = disableGetFromLocation
+                FakeLoc.replayEnvironment = rely.getString("environment_json")
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { json -> runCatching { com.system.location.service.core.environment.EnvironmentProfileCodec.decode(json) }.getOrNull() }
                 FakeLoc.reportIntervalMs = rely.getLong("report_interval", FakeLoc.reportIntervalMs).coerceIn(50, 1000)
                 if (FakeLoc.enable) LocationTicker.start()
                 return true

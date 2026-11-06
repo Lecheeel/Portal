@@ -15,6 +15,7 @@ import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.ProceduralWifiSource
+import com.system.location.service.core.environment.ReplayEnvironmentSource
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
@@ -132,7 +133,11 @@ object WlanHook {
         val key = "${point.latitude}:${point.longitude}:${FakeLoc.environmentSeed}"
         synchronized(profileLock) {
             cachedProfile?.let { if (cachedKey == key) return it }
-            return source.profileAt(point, FakeLoc.environmentSeed, System.currentTimeMillis()).also {
+            val now = System.currentTimeMillis()
+            val result = FakeLoc.replayEnvironment
+                ?.let { profile -> runCatching { ReplayEnvironmentSource(profile).profileAt(point, FakeLoc.environmentSeed, now) }.getOrNull() }
+                ?: source.profileAt(point, FakeLoc.environmentSeed, now)
+            return result.also {
                 cachedKey = key
                 cachedProfile = it
             }

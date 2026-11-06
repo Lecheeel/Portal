@@ -29,7 +29,7 @@ object CellInfoSynthesis {
         val method = cPhoneInterfaceManager.declaredMethods.find { it.name == "getAllCellInfo" } ?: return
         val hook = afterHook {
             if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@afterHook
-            if (!FakeLoc.simReady) {
+            if (!FakeLoc.simReady || FakeLoc.cellMode == CellMode.NO_SIM_WIFI_ONLY) {
                 result = emptyList<CellInfo>()
                 return@afterHook
             }
@@ -47,7 +47,7 @@ object CellInfoSynthesis {
 
     private fun build(fixedPoint: com.system.location.service.core.geo.Wgs84? = null): List<CellInfo> {
         val captured = FakeLoc.replayEnvironment?.cells?.takeIf { it.isNotEmpty() }
-        val towers = captured ?: ProceduralCellSource(EnvironmentConfig(cellMode = CellMode.FULL_REPLAY)).cellsAt(
+        val towers = captured ?: ProceduralCellSource(EnvironmentConfig(cellMode = FakeLoc.cellMode)).cellsAt(
             fixedPoint ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude),
             FakeLoc.environmentSeed,
             SimProfile(mcc = 460, mnc = 0, simReady = true),

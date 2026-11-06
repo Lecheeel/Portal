@@ -354,6 +354,12 @@ object RemoteCommandHandler {
                         rely.getString("gnss_model") ?: FakeLoc.gnssModelMode.name,
                     )
                 }.getOrDefault(FakeLoc.gnssModelMode)
+                FakeLoc.environmentApCount = rely.getInt("environment_ap_count", FakeLoc.environmentApCount).coerceIn(1, 8)
+                FakeLoc.cellMode = runCatching {
+                    com.system.location.service.core.environment.CellMode.valueOf(
+                        rely.getString("cell_mode") ?: FakeLoc.cellMode.name,
+                    )
+                }.getOrDefault(FakeLoc.cellMode)
                 FakeLoc.routingConfig = rely.getString("routing_json")
                     ?.takeIf { it.isNotBlank() }
                     ?.let { json -> runCatching { kotlinx.serialization.json.Json.decodeFromString(com.system.location.service.core.routing.RoutingConfig.serializer(), json) }.getOrNull() }

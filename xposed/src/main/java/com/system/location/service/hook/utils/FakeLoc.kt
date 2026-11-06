@@ -112,6 +112,12 @@ object FakeLoc {
     @Volatile
     var gnssModelMode = com.system.location.service.core.gnss.GnssModelMode.ANALYTIC
 
+    /** P2-07 environment knobs; defaults preserve the P2-03/P2-05 behavior. */
+    @Volatile
+    var environmentApCount = 4
+    @Volatile
+    var cellMode = com.system.location.service.core.environment.CellMode.FULL_REPLAY
+
     /** P5-02: null/global keeps every listener on the current fake fix. */
     @Volatile
     var routingConfig: com.system.location.service.core.routing.RoutingConfig? = null

@@ -32,7 +32,8 @@ import com.system.location.service.hook.utils.toClass
  * framework services and Settings behave normally.
  */
 object WlanHook {
-    private val source = ProceduralWifiSource(EnvironmentConfig(apPerCell = 4))
+    private var source = ProceduralWifiSource(EnvironmentConfig(apPerCell = 4))
+    private var sourceApCount = 4
     private val profileLock = Any()
     private var cachedKey: String? = null
     private var cachedProfile: EnvironmentProfile? = null
@@ -132,18 +133,28 @@ object WlanHook {
     private fun currentProfile(packageName: String? = null): EnvironmentProfile {
         val point = ListenerRouting.fixedPointFor(packageName)
             ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude)
-        val key = "${point.latitude}:${point.longitude}:${FakeLoc.environmentSeed}"
+        val key = "${point.latitude}:${point.longitude}:${FakeLoc.environmentSeed}:${FakeLoc.environmentApCount}"
         synchronized(profileLock) {
             cachedProfile?.let { if (cachedKey == key) return it }
             val now = System.currentTimeMillis()
             val result = FakeLoc.replayEnvironment
                 ?.let { profile -> runCatching { ReplayEnvironmentSource(profile).profileAt(point, FakeLoc.environmentSeed, now) }.getOrNull() }
-                ?: source.profileAt(point, FakeLoc.environmentSeed, now)
+                ?: source().profileAt(point, FakeLoc.environmentSeed, now)
             return result.also {
                 cachedKey = key
                 cachedProfile = it
             }
         }
+    }
+
+    private fun source(): ProceduralWifiSource {
+        if (sourceApCount != FakeLoc.environmentApCount) {
+            source = ProceduralWifiSource(EnvironmentConfig(apPerCell = FakeLoc.environmentApCount))
+            sourceApCount = FakeLoc.environmentApCount
+            cachedKey = null
+            cachedProfile = null
+        }
+        return source
     }
 
     private fun buildScanResults(profile: EnvironmentProfile): List<ScanResult> {

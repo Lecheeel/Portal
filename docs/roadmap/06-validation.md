@@ -399,4 +399,18 @@ P0 阶段至少：
 - 检查：`:core:test` 新增 6 项 `ProceduralWifiSourceTest`（同点同 seed、不同 seed、合法性、邻近平滑、时间不影响 AP、无 cell/BLE）通过。
 - 限制：尚未处理跨格插值与 connected AP 切换滞回；P2-04 Hook 未接入，detector C08 尚未验证。
 - 结论：`UNIT TEST VERIFIED`。
-- 全量回归（2026-11-06）：`./gradlew :core:test :nmea:test :xposed:testDebugUnitTest :app:testArm64DebugUnitTest :detector:assembleDebug` → `BUILD SUCCESSFUL`，248 项 JVM 用例 0 失败（core 94、nmea 2、xposed 30、app 122）。
+- 全量回归（2026-11-06）：`./gradlew :core:test :nmea:test :xposed:testDebugUnitTest :app:testArm64DebugUnitTest :detector:assembleDebug` → `BUILD SUCCESSFUL`，249 项 JVM 用例 0 失败（core 95、nmea 2、xposed 30、app 122）。
+
+### P2-04 WiFi Hook 重写
+
+- 变更：`WlanHook` 改为从 `ProceduralWifiSource` 生成 `ScanResult`（公开无参构造 + 字段），`getConnectionInfo` 生成 `WifiInfo`（隐藏构造 + setter），`getDhcpInfo` 生成非空 `DhcpInfo`；只改第三方调用方，系统调用方保持真实值；`FakeLoc.environmentSeed` 控制确定性。
+- 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest` 通过；无设备。
+- 风险：`WifiInfo` 隐藏 setter、`ParceledListSlice` 构造、不同 ROM 的 `getScanResults` 返回类型需设备确认；`getConfiguredNetworks`/`WifiScanner` 尚未覆盖。
+- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；detector C08 未验证。
+
+### P2-05 基站画像（部分）
+
+- 变更：`FakeLoc.needDowngradeToCdma` 默认改为 false（ADR-005）；`:core` 新增 `CellModePolicy.resolve`（AUTO → 有 SIM `FULL_REPLAY` / 无 SIM `NO_SIM_WIFI_ONLY`）与 JVM 测试。
+- 未完成：`TelephonyHook` 仍保留旧 CDMA 降级路径（现在默认不启用），完整 LTE/NR + SIM/operator/phone type 画像、`NO_SIM_WIFI_ONLY` 的 Hook 改写尚未做。
+- 检查：`:core:test` 通过；`:xposed` 编译/测试通过。
+- 结论：部分 `UNIT TEST VERIFIED`，P2-05 仍 `WIP`。

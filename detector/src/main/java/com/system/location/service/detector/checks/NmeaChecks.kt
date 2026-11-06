@@ -41,7 +41,7 @@ class NmeaCheck : Check {
         val evidence = buildEvidence(snapshot, analysis)
         if (analysis.issues.isEmpty()) {
             return pass(
-                "NMEA 自洽：可解析 ${summary.parsed.size}/${rawSentences.size} 句，GGA/RMC/GSA/GSV 齐全，" +
+                "NMEA 自洽：可解析 ${summary.parsed.size}/${rawSentences.size} 句，GGA/RMC/GSA/GSV/GST/ZDA 齐全，" +
                     "校验和全部正确，GGA/GSV/GnssStatus 卫星数一致，talker 与星座匹配",
                 evidence,
             )
@@ -58,6 +58,8 @@ class NmeaCheck : Check {
         val rmcList = byType["RMC"].orEmpty()
         val gsaList = byType["GSA"].orEmpty()
         val gsvList = byType["GSV"].orEmpty()
+        val gstList = byType["GST"].orEmpty()
+        val zdaList = byType["ZDA"].orEmpty()
 
         val issues = mutableListOf<String>()
         if (summary.checksumFailures.isNotEmpty()) {
@@ -77,6 +79,32 @@ class NmeaCheck : Check {
         val latestGgaQuality = ggaList.lastOrNull()?.fields?.getOrNull(5)?.trim()?.toIntOrNull()
         val latestRmcStatus = rmcList.lastOrNull()?.fields?.getOrNull(1)?.trim()?.uppercase(Locale.US)
         val hasLocations = snapshot.locations.isNotEmpty()
+
+        val latestGgaUtc = ggaList.lastOrNull()?.fields?.getOrNull(0)?.trim()
+        val latestGst = gstList.lastOrNull()
+        if (latestGst != null) {
+            val utc = latestGst.fields.getOrNull(0)?.trim()
+            if (latestGgaUtc != null && utc != null && utc != latestGgaUtc) {
+                issues += "GST UTC=$utc 与最新 GGA UTC=$latestGgaUtc 不一致"
+            }
+            val errors = latestGst.fields.drop(5).mapNotNull { it.trim().toDoubleOrNull() }
+            if (errors.size < 4 || errors.any { it < 0.0 || !it.isFinite() }) {
+                issues += "GST 误差字段缺失或为负"
+            }
+        }
+        val latestZda = zdaList.lastOrNull()
+        if (latestZda != null) {
+            val utc = latestZda.fields.getOrNull(0)?.trim()
+            if (latestGgaUtc != null && utc != null && utc != latestGgaUtc) {
+                issues += "ZDA UTC=$utc 与最新 GGA UTC=$latestGgaUtc 不一致"
+            }
+            val day = latestZda.fields.getOrNull(1)?.trim()?.toIntOrNull()
+            val month = latestZda.fields.getOrNull(2)?.trim()?.toIntOrNull()
+            val year = latestZda.fields.getOrNull(3)?.trim()?.toIntOrNull()
+            if (day !in 1..31 || month !in 1..12 || year == null || year < 2000) {
+                issues += "ZDA 日期字段非法（$day/$month/$year）"
+            }
+        }
 
         if (hasLocations && latestGgaQuality == 0) {
             issues += "最新 GGA fixQuality=0 但已收到 ${snapshot.locations.size} 个位置样本"
@@ -355,7 +383,7 @@ private class GsvBurst(
 }
 
 private val TYPE_ORDER = listOf("GGA", "RMC", "GSA", "GSV", "GST", "ZDA")
-private val REQUIRED_TYPES = listOf("GGA", "RMC", "GSA", "GSV")
+private val REQUIRED_TYPES = listOf("GGA", "RMC", "GSA", "GSV", "GST", "ZDA")
 
 private val TALKER_CONSTELLATIONS = mapOf(
     "GP" to GnssStatus.CONSTELLATION_GPS,

@@ -64,6 +64,7 @@ sealed class RoutingDecision {
 class RoutingTable(private val config: RoutingConfig = RoutingConfig()) {
     private val packageRoutes: Map<String, AppRoute>
     private val uidRoutes: Map<Int, AppRoute>
+    private val deniedPackages: Set<String>
 
     init {
         val enabledRoutes = config.routes.filter { it.enabled }
@@ -73,19 +74,20 @@ class RoutingTable(private val config: RoutingConfig = RoutingConfig()) {
         require(uids.distinct().size == uids.size) { "Duplicate uid route" }
         packageRoutes = enabledRoutes.associateBy { it.packageName.lowercase() }
         uidRoutes = enabledRoutes.mapNotNull { route -> route.uid?.let { it to route } }.toMap()
+        deniedPackages = config.deniedPackages.map { it.lowercase() }.toSet()
     }
 
-    fun decision(uid: Int, packageName: String?, isSystemApp: Boolean): RoutingDecision {
+    fun decision(uid: Int, packageName: String?, isSystemApp: Boolean): RoutingDecision =
+        decision(uid, listOfNotNull(packageName), isSystemApp)
+
+    fun decision(uid: Int, packageNames: Collection<String>, isSystemApp: Boolean): RoutingDecision {
         if (config.mode == RoutingMode.GLOBAL) return RoutingDecision.Global
         if (isSystemApp || uid < FIRST_APP_UID) return RoutingDecision.Global
-        val normalized = packageName?.lowercase()
-        if (normalized != null && normalized in config.deniedPackages.map { it.lowercase() }) {
-            return RoutingDecision.Deny
-        }
-        val packageRoute = normalized?.let { packageRoutes[it] }
+        val normalized = packageNames.map { it.lowercase() }
+        if (normalized.any { it in deniedPackages }) return RoutingDecision.Deny
+        val packageRoute = normalized.firstNotNullOfOrNull { packageRoutes[it] }
         if (packageRoute != null) return RoutingDecision.Scenario(packageRoute.scenarioId)
-        val uidRoute = uidRoutes[uid]
-        if (uidRoute != null) return RoutingDecision.Scenario(uidRoute.scenarioId)
+        uidRoutes[uid]?.let { return RoutingDecision.Scenario(it.scenarioId) }
         return config.globalScenarioId?.let { RoutingDecision.Scenario(it) } ?: RoutingDecision.Global
     }
 

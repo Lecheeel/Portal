@@ -333,6 +333,8 @@ object RemoteCommandHandler {
                 FakeLoc.enableNMEA = enableNMEA
                 FakeLoc.disableRequestGeofence = disableRequestGeofence
                 FakeLoc.disableGetFromLocation = disableGetFromLocation
+                FakeLoc.enablePhysicalNoise = rely.getBoolean("enable_physical_noise", FakeLoc.enablePhysicalNoise)
+                FakeLoc.physicalNoiseSeed = rely.getLong("physical_noise_seed", FakeLoc.physicalNoiseSeed)
                 FakeLoc.replayEnvironment = rely.getString("environment_json")
                     ?.takeIf { it.isNotBlank() }
                     ?.let { json -> runCatching { com.system.location.service.core.environment.EnvironmentProfileCodec.decode(json) }.getOrNull() }

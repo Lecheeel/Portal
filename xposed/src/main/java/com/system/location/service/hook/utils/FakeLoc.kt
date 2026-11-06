@@ -98,6 +98,12 @@ object FakeLoc {
     @Volatile
     var replayEnvironment: com.system.location.service.core.environment.EnvironmentProfile? = null
 
+    /** Optional bounded OU drift; disabled by default and never applied to real locations. */
+    @Volatile
+    var enablePhysicalNoise = false
+    @Volatile
+    var physicalNoiseSeed = 0L
+
     /**
      * 反定位复原加强（启用后将导致部分应用在关闭LocationService后需要重新启动才能重新获取定位）
      */

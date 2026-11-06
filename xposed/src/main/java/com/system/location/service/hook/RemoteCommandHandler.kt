@@ -120,7 +120,7 @@ object RemoteCommandHandler {
             }))
         }
 
-        when (commandId) {
+        return when (commandId) {
             "publish_sample" -> {
                 val fix = incomingSample ?: return false
                 if (!publicationLease.renew(fix.elapsedNanos, SystemClock.elapsedRealtimeNanos())) return false
@@ -311,71 +311,7 @@ object RemoteCommandHandler {
                 }
                 return true
             }
-            "put_config" -> {
-                if (!com.system.location.service.hook.security.ConfigGate.valid(rely)) return false
-                val enable = rely.getBoolean("enable", FakeLoc.enable)
-                val speed = rely.getDouble("speed", FakeLoc.speed)
-                val altitude = rely.getDouble("altitude", FakeLoc.altitude)
-                val accuracy = rely.getFloat("accuracy", FakeLoc.accuracy)
-                val enableDebugLog = rely.getBoolean("enable_debug_log", FakeLoc.enableDebugLog)
-                val disableGetCurrentLocation = rely.getBoolean("disable_get_current_location", FakeLoc.disableGetCurrentLocation)
-                val disableRegisterLocationListener = rely.getBoolean("disable_register_location_listener", FakeLoc.disableRegisterLocationListener)
-                val disableFusedLocation = rely.getBoolean("disable_fused_location", FakeLoc.disableFusedLocation)
-                val needDowngradeToCdma = rely.getBoolean("need_downgrade_to_2g", FakeLoc.needDowngradeToCdma)
-                var minSatellites = rely.getInt("min_satellites", 12)
-                if (minSatellites < 0) {
-                    minSatellites = 12
-                }
-
-                val enableAGPS = rely.getBoolean("enable_agps", FakeLoc.enableAGPS)
-                val enableNMEA = rely.getBoolean("enable_nmea", FakeLoc.enableNMEA)
-                val disableRequestGeofence = rely.getBoolean("disable_request_geofence", FakeLoc.disableRequestGeofence)
-                val disableGetFromLocation = rely.getBoolean("disable_get_from_location", FakeLoc.disableGetFromLocation)
-
-                FakeLoc.enable = enable
-                FakeLoc.enableMockWifi = rely.getBoolean("enable_mock_wifi", FakeLoc.enableMockWifi)
-                FakeLoc.speed = speed
-                FakeLoc.altitude = altitude
-                FakeLoc.accuracy = accuracy
-                FakeLoc.enableDebugLog = enableDebugLog
-                FakeLoc.disableGetCurrentLocation = disableGetCurrentLocation
-                FakeLoc.disableRegisterLocationListener = disableRegisterLocationListener
-                FakeLoc.disableFusedLocation = disableFusedLocation
-                FakeLoc.needDowngradeToCdma = needDowngradeToCdma
-                FakeLoc.minSatellites = minSatellites
-                FakeLoc.enableAGPS = enableAGPS
-                FakeLoc.enableNMEA = enableNMEA
-                FakeLoc.disableRequestGeofence = disableRequestGeofence
-                FakeLoc.disableGetFromLocation = disableGetFromLocation
-                FakeLoc.enablePhysicalNoise = rely.getBoolean("enable_physical_noise", FakeLoc.enablePhysicalNoise)
-                FakeLoc.physicalNoiseSeed = rely.getLong("physical_noise_seed", FakeLoc.physicalNoiseSeed)
-                FakeLoc.simReady = rely.getBoolean("sim_ready", FakeLoc.simReady)
-                FakeLoc.gnssModelMode = runCatching {
-                    com.system.location.service.core.gnss.GnssModelMode.valueOf(
-                        rely.getString("gnss_model") ?: FakeLoc.gnssModelMode.name,
-                    )
-                }.getOrDefault(FakeLoc.gnssModelMode)
-                FakeLoc.environmentApCount = rely.getInt("environment_ap_count", FakeLoc.environmentApCount).coerceIn(1, 8)
-                FakeLoc.cellMode = runCatching {
-                    com.system.location.service.core.environment.CellMode.valueOf(
-                        rely.getString("cell_mode") ?: FakeLoc.cellMode.name,
-                    )
-                }.getOrDefault(FakeLoc.cellMode)
-                FakeLoc.environmentSourceMode = runCatching {
-                    com.system.location.service.core.environment.EnvironmentSourceMode.valueOf(
-                        rely.getString("environment_source") ?: FakeLoc.environmentSourceMode.name,
-                    )
-                }.getOrDefault(FakeLoc.environmentSourceMode)
-                FakeLoc.routingConfig = rely.getString("routing_json")
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { json -> runCatching { kotlinx.serialization.json.Json.decodeFromString(com.system.location.service.core.routing.RoutingConfig.serializer(), json) }.getOrNull() }
-                FakeLoc.replayEnvironment = rely.getString("environment_json")
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { json -> runCatching { com.system.location.service.core.environment.EnvironmentProfileCodec.decode(json) }.getOrNull() }
-                FakeLoc.reportIntervalMs = rely.getLong("report_interval", FakeLoc.reportIntervalMs).coerceIn(50, 1000)
-                if (FakeLoc.enable) LocationTicker.start()
-                return true
-            }
+            "put_config" -> ConfigCommand.apply(rely)
             "sync_config" -> {
                 if (FakeLoc.enable && FakeLoc.externallyDriven) SampleWire.write(rely, FakeLoc.snapshot())
                 rely.putBoolean("enable", FakeLoc.enable)

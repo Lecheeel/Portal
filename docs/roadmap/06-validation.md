@@ -663,7 +663,7 @@ P0 阶段至少：
 - 检查：`SensitiveLogTest` 3 项通过；`:xposed` 编译/测试通过。
 - 变更：新增 `09-security-review.md`，汇总导出组件、IPC/命令、日志、Bugly、备份策略与未完成项。
 - 变更：新增 `scripts/check_backup_rules.py`，要求 `environment/`、`fused_ext.xml`、`library/`、`sdk_privacy.xml`、`scenario_runtime.xml` 在 full-backup、cloud-backup、device-transfer 中均排除；已接入 PR/APK CI。
-- 变更：新增 `scripts/check_manifest_exports.py`，只允许 `MainActivity` 导出，service/provider 必须 `exported=false`；已接入 PR/APK CI。
+- 变更：新增 `scripts/check_manifest_exports.py`，只允许 `MainActivity` 导出，service/provider 必须 `exported=false`，并禁止 `QUERY_ALL_PACKAGES`；已接入 PR/APK CI。
 - 检查：`check_backup_rules.py`、`check_manifest_exports.py` 均 `0 violation(s)`。
 - 未完成：设备端运行时验证、其他 SDK 包可见性/网络行为、`allowBackup` 整体策略。
 - 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；P6-04 仍 `WIP`。

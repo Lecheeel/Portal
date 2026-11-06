@@ -116,7 +116,7 @@ P0 基线
 |---|---|---|---|---|---|---|
 | P1-01 | `LocationSanitizer` | 统一清理 mock 字段/extras/provider 名；补 MSL/不确定度/satellites | 单元测试覆盖 Android 12–17 字段差异；detector 通过 | P0-04 | M | WIP |
 | P1-02 | AppOps Hook | `AppOpsService.checkOperation(Impl)` 等；按 caller UID 放行 controller | detector 的 AppOps 检查通过；不破坏其他 AppOps | P1-01 | M | DONE |
-| P1-03 | Settings Provider Hook | 新增 `com.android.providers.settings` scope；Hook `SettingsProvider.call` GET_secure/GET_global | `mock_location`/dev options 对非系统调用不可见；系统功能不崩 | P1-01 | M | WIP |
+| P1-03 | Settings Provider Hook | 新增 `com.android.providers.settings` scope；Hook `SettingsProvider.call` GET_secure/GET_global | `mock_location`/dev options 对非系统调用不可见；系统功能不崩 | P1-01 | M | DONE |
 | P1-04 | Provider 列表/属性 | 恢复 `getProviders`/`getAllProviders`/`hasProvider`/`getProviderProperties` | `fused_ext`/test provider 不暴露；`isProviderEnabled` 一致 | P1-01 | M | DONE |
 | P1-05 | `isLocationEnabled` 替代 | 合成 available=true，与 provider 状态一致；原框架接口不存在 | detector 的 availability 检查通过 | P1-04 | S | DONE |
 | P1-06 | Phase 1 设备回归 | 小米 + AOSP/Pixel；Xposed 模式 | 隐藏类检查全 PASS；记录证据 | P1-02～05 | M | TODO |

@@ -117,6 +117,8 @@ object FakeLoc {
     var environmentApCount = 4
     @Volatile
     var cellMode = com.system.location.service.core.environment.CellMode.FULL_REPLAY
+    @Volatile
+    var environmentSourceMode = com.system.location.service.core.environment.EnvironmentSourceMode.AUTO
 
     /** P5-02: null/global keeps every listener on the current fake fix. */
     @Volatile

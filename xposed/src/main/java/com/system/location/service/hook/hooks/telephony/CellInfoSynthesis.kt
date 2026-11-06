@@ -46,7 +46,11 @@ object CellInfoSynthesis {
     }
 
     private fun build(fixedPoint: com.system.location.service.core.geo.Wgs84? = null): List<CellInfo> {
-        val captured = FakeLoc.replayEnvironment?.cells?.takeIf { it.isNotEmpty() }
+        val captured = if (FakeLoc.environmentSourceMode == com.system.location.service.core.environment.EnvironmentSourceMode.PROCEDURAL) {
+            null
+        } else {
+            FakeLoc.replayEnvironment?.cells?.takeIf { it.isNotEmpty() }
+        }
         val towers = captured ?: ProceduralCellSource(EnvironmentConfig(cellMode = FakeLoc.cellMode)).cellsAt(
             fixedPoint ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude),
             FakeLoc.environmentSeed,

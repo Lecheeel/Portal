@@ -360,6 +360,11 @@ object RemoteCommandHandler {
                         rely.getString("cell_mode") ?: FakeLoc.cellMode.name,
                     )
                 }.getOrDefault(FakeLoc.cellMode)
+                FakeLoc.environmentSourceMode = runCatching {
+                    com.system.location.service.core.environment.EnvironmentSourceMode.valueOf(
+                        rely.getString("environment_source") ?: FakeLoc.environmentSourceMode.name,
+                    )
+                }.getOrDefault(FakeLoc.environmentSourceMode)
                 FakeLoc.routingConfig = rely.getString("routing_json")
                     ?.takeIf { it.isNotBlank() }
                     ?.let { json -> runCatching { kotlinx.serialization.json.Json.decodeFromString(com.system.location.service.core.routing.RoutingConfig.serializer(), json) }.getOrNull() }

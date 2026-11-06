@@ -134,7 +134,7 @@ P0 基线
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
 | P2-01 | `:core` 环境模型 | `WifiAp`/`CellTower`/`BleBeacon`/`EnvironmentProfile`/`EnvironmentSource` | JVM 序列化/校验测试；无 Android import | P1 | M | WIP |
-| P2-02 | 采集/回放管线 | 采集 WiFi/基站/BLE；存储/导入导出；RSSI 重标定；构造器兼容 | 采集→回放→detector 一致性通过；无 root 走 IPC | P2-01 | L | TODO |
+| P2-02 | 采集/回放管线 | 采集 WiFi/基站/BLE；存储/导入导出；RSSI 重标定；构造器兼容 | 采集→回放→detector 一致性通过；无 root 走 IPC | P2-01 | L | WIP |
 | P2-03 | 程序化 WiFi 合成 | geohash 网格、每格 4 AP、OUI、RSSI 路径损耗、插值、固定 seed | 同点同 seed 稳定；移动 RSSI 平滑；detector 通过 | P2-01 | L | WIP |
 | P2-04 | WiFi Hook 重写 | `getScanResults`/`getConnectionInfo`/`getConfiguredNetworks`/`getDhcpInfo`/`WifiScanner` | 不返回空；BSSID 合法；连接 AP 在扫描列表；detector 通过 | P2-03 | L | WIP |
 | P2-05 | 基站画像/Hook | `FULL_REPLAY`、`NO_SIM_WIFI_ONLY`；CDMA 默认关 | SIM/operator/phone type/cell 自洽；detector 通过 | P2-01 | L | WIP |
@@ -144,7 +144,7 @@ P0 基线
 
 **Phase 2 退出**：不再出现空 WiFi/CDMA 空小区；采集回放与程序化两种默认路径可用；数据库实验开关可回退。
 
-> 2026-11-06：P2-01 环境模型与 P2-03 程序化 WiFi 已在 `:core` 落地（JVM 测试通过）；P2-04 WiFi Hook 已改为程序化扫描/连接/DHCP（`BUILD VERIFIED`）；P2-05 已加入 `CellModePolicy`、默认关闭 CDMA、`ProceduralCellSource` 纯模型，TelephonyHook 的完整画像改写仍未做；设备与 detector 验证均未做。
+> 2026-11-06：P2-01 环境模型与 P2-03 程序化 WiFi 已在 `:core` 落地（JVM 测试通过）；P2-04 WiFi Hook 已改为程序化扫描/连接/DHCP（`BUILD VERIFIED`）；P2-05 已加入 `CellModePolicy`、默认关闭 CDMA、`ProceduralCellSource` 纯模型；P2-02 已加入 `ReplayEnvironmentSource`（RSSI 距离重标定），采集/存储/导入导出未做；设备与 detector 验证均未做。
 
 ---
 

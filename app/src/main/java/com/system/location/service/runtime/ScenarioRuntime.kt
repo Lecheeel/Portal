@@ -10,6 +10,7 @@ import com.system.location.service.backend.xposed.XposedBackend
 import com.system.location.service.backend.mock.MockProviderBackend
 import com.system.location.service.backend.mock.AndroidMockProviderPort
 import com.system.location.service.core.backend.*
+import com.system.location.service.core.config.ConfigEnvelope
 import com.system.location.service.core.runtime.*
 import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.ext.experimentalOrbitMotion
@@ -47,6 +48,7 @@ object ScenarioRuntime {
     private val commands = Mutex()
     private val preferences get() = context.getSharedPreferences("scenario_runtime", Context.MODE_PRIVATE)
     private val journal by lazy { DiagnosticJournal(AtomicDocumentStore(File(context.noBackupFilesDir, "runtime-diagnostics.json"))) }
+    private val configStore by lazy { FileConfigStore(File(context.noBackupFilesDir, "active-config.json")) }
     private val writer by lazy { DiagnosticWriter(journal) }
     val controller = ScenarioController({ type ->
         when (type) {
@@ -73,6 +75,9 @@ object ScenarioRuntime {
             withContext(Dispatchers.IO) {
                 runCatching { journal.read() }.onSuccess { controller.restoreDiagnostics(it) }
                     .onFailure { controller.note("DIAGNOSTIC_STORAGE", "FAILED", it.message ?: "历史日志读取失败") }
+                runCatching { configStore.load() }.getOrNull()?.let { saved ->
+                    controller.note("CONFIG_STORE", "INFO", "最近配置：${saved.scenario.name} rev=${saved.revision}")
+                }
             }
             val selected = runCatching { BackendType.valueOf(preferences.getString("backend", "MOCK_PROVIDER")!!) }
                 .getOrDefault(BackendType.MOCK_PROVIDER)
@@ -103,8 +108,21 @@ object ScenarioRuntime {
                 }
                 check(preferences.edit().putBoolean("interrupted", true).commit()) { "无法持久化运行标记" }
                 controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
-                controller.start(frozen).also { started ->
-                    startupBurst = if (started && context.startupBurstEnabled && state.value.backend == BackendType.MOCK_PROVIDER)
+                val started = controller.start(frozen)
+                if (started) {
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            val revision = (configStore.load()?.revision ?: 0L) + 1L
+                            configStore.save(ConfigEnvelope(
+                                revision = revision,
+                                scenario = frozen,
+                                updatedAtMillis = System.currentTimeMillis(),
+                            ))
+                        }.onFailure { controller.note("CONFIG_STORE", "FAILED", it.message ?: "配置保存失败") }
+                    }
+                }
+                started.also {
+                    startupBurst = if (it && context.startupBurstEnabled && state.value.backend == BackendType.MOCK_PROVIDER)
                         StartupBurst(state.value.scenarioId, state.value.startedAt) else null
                     service?.reschedule()
                 }

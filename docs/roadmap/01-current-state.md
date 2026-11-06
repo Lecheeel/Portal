@@ -3,7 +3,7 @@
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
 >
-> 进度快照（Round 111）：52 个 roadmap 任务中 37 `WIP` / 12 `TODO` / 1 `BLOCKED`（P0-03 无设备）/ 2 `DONE`（P3-01、P3-03）；整体约 **50%**，代码/模型约 **65%**，设备验收约 **10%**。418 项 JVM 用例通过，但没有任何 `DEVICE VERIFIED` 结论。
+> 进度快照（Round 112）：52 个 roadmap 任务中 37 `WIP` / 12 `TODO` / 1 `BLOCKED`（P0-03 无设备）/ 2 `DONE`（P3-01、P3-03）；整体约 **50%**，代码/模型约 **65%**，设备验收约 **10%**。420 项 JVM 用例通过，但没有任何 `DEVICE VERIFIED` 结论。
 
 ---
 
@@ -145,7 +145,7 @@
 |---|---|---|---|---|---|
 | D01 | 隐藏 | 没有 Hook `AppOpsService`，`OP_MOCK_LOCATION` 可直接查 | `xposed/**` 无 AppOpsService Hook；`MockFlagExperiment` 只改本地对象 | S1：目标 App 一次 `checkOp` 就知道 | P1-02 |
 | D02 | 隐藏 | 没有 Hook `Settings.Secure.mock_location` / 开发者选项 | 无 `SettingsProvider` scope、无 `getStringForUser` Hook | S1：同上，且可判断“设备开了开发者选项” | P1-03 |
-| D03 | 清洗 | Provider 列表/属性 Hook 被注释 | `LocationServiceHook.kt` 中 `getProviders`/`getAllProviders`/`hasProvider` 注释块 | S1：`fused_ext`/test provider 暴露 | P1-04 |
+| D03 | 清洗 | Provider 列表/属性 Hook 已实现但未设备验证 | `ProviderRegistryHook` + `ProviderRegistryPolicy` | S2：`fused_ext`/test provider 可能仍被 OEM 暴露 | P1-04 |
 | D04 | 清洗 | 新建 Location 的 extras/MSL/不确定度不完整 | `LocationSample.toLocation()` 只设置基础字段；无 `satellites`/`meanCn0`/`mslAltitude`/`elapsedRealtimeUncertaintyNanos` | S2：高级检测可看出“GPS 没有卫星 extras” | P1-01 |
 | D05 | 清洗 | 没有 `LocationAvailability` 合成 | 代码中无相关 Hook | S2：可用性回调与 provider 状态可能矛盾 | P1-05 |
 | D06 | 环境 | WiFi 扫描返回空列表；BSSID 为 `02:00:00:00:00:00` | `WlanHook.kt` | S1：WiFi 开启 + 零 AP 物理矛盾；哨兵值本身就是异常 | P2-04 |
@@ -218,6 +218,7 @@
 - **P1-02～P1-05 代码落地（未设备验证）**：`AppOpsHook` 对第三方隐藏 `OP_MOCK_LOCATION`；`SettingsHook` 隐藏 `mock_location`/开发者选项；`ProviderRegistryHook` 过滤 `fused_ext`/test provider；第三方调用方在模拟中看到 `isLocationEnabled=true`（框架无公开 `LocationAvailability`）。
 - **P2-01/P2-03 纯 `:core` 基础**：新增 `EnvironmentProfile`/`WifiAp`/`CellTower`/`BleBeacon`/`EnvironmentSource` 与确定性 `ProceduralWifiSource`（约 100 m 网格、固定 seed、RSSI 路径损耗；12 项 JVM 测试）。WiFi Hook（P2-04）尚未接入。
 - **P2-04/P2-05 部分落地**：`WlanHook` 已用程序化 AP 生成 `ScanResult`/`WifiInfo`/`DhcpInfo`（仅第三方调用方），并支持 captured profile 回放；CDMA 降级默认关闭，新增 `CellModePolicy` AUTO 策略、`ProceduralCellSource`（LTE/NR 确定性画像）、`CellInfoSynthesis`（第三方 `getAllCellInfo` 反射构造，优先回放捕获 LTE/NR，失败回退原始列表）、`PhoneTypeHooks`（GSM/LTE）、`SimOperatorHooks`（MCC/MNC）与 `simReady=false` 的 NO_SIM/WiFi-only 画像。
+- **P1-04 Provider 过滤**：`ProviderRegistryHook` 已过滤 registry 读 API，规则抽到 `ProviderRegistryPolicy` 并有 JVM 测试；设备 C04 未验证。
 - **P2-02 回放源**：新增 `ReplayEnvironmentSource`（RSSI 距离重标定）、`EnvironmentProfileCodec`（JSON 导入导出/schemaVersion）以及 app `EnvironmentCollector`/`EnvironmentStore`（WiFi+Cell+BLE 采集、运行时权限、文件存储、设置页采集/列表/搜索/SAF 导出/导入/删除/重命名/回放选择，重命名有单测）；BLE 回放、设备验证未做。
 - **P2-06 实验库**：新增 `WifiFingerprintDb`（时效、加权质心、不可变更新）与带 source/license/attribution 的 JSON/CSV 导入；真实 WigLE/OpenCellID 下载与开关未做。
 - **P2-07 环境设置**：新增“每格 AP 数”“基站模式”“环境来源（AUTO/PROCEDURAL/REPLAY）”设置，并支持服务运行时热更新；`WlanHook` 动态重建 AP 源，`CellInfoSynthesis` 使用配置模式；采集 UI 高级参数未做。

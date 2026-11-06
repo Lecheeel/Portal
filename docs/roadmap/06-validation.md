@@ -367,7 +367,8 @@ P0 阶段至少：
 ### P1-04 Provider 列表/属性
 
 - 变更：新增 `ProviderRegistryHook`，过滤 `getAllProviders`/`getProviders` 中的 `fused_ext`/test/mock/portal provider；`hasProvider` 返回 false；`getProviderProperties` 对可疑 provider 抛出与真实缺失一致的 `IllegalArgumentException`；`provider-registry` 加入所有权清单。
-- 检查：`:xposed` 编译/测试通过。
+- 变更：过滤规则抽到 `:core` `ProviderRegistryPolicy`，`ProviderRegistryPolicyTest` 2 项覆盖隐藏/保留 provider。
+- 检查：`:core:test`、`:xposed` 编译/测试通过。
 - 风险“名称含 test/mock”可能误伤厂商 provider；设备基线上需确认白名单。
 - 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；未做设备验证。
 

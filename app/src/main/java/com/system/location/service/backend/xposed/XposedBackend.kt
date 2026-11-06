@@ -16,8 +16,15 @@ class XposedBackend(private val context: Context) : LocationBackend {
         val status = MockServiceHelper.runtimeStatus(manager)
         connected = status?.getInt("sample_version") == 1
         if (!connected) return listOf(BackendDiagnostic("REMOTE_COMMAND", "FAILED", "未连接兼容的系统模块", "启用系统作用域，安装当前版本并重启"))
+        val scope = status!!.getString("hook_scope") ?: "unknown"
+        val expected = status.getInt("hook_expected")
+        val missing = status.getInt("hook_missing")
+        val missingPoints = status.getStringArrayList("hook_missing_points").orEmpty()
         return listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "system_server 远程通道已连接"),
-            BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status!!.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),
+            BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),
+            BackendDiagnostic("HOOK_OWNERSHIP", if (missing == 0) "INFO" else "WARN",
+                "scope=$scope · expected=$expected · missing=$missing" +
+                    if (missingPoints.isEmpty()) "" else " · ${missingPoints.joinToString(", ")}"),
             BackendDiagnostic("LAST_PUBLISH", "INFO", "系统侧最近发布时间：${status.getLong("last_publish")}; 启用状态：${status.getBoolean("is_start")}")) +
             status.getStringArrayList("hook_details").orEmpty().take(60).map { BackendDiagnostic("HOOK_POINT", "INFO", it) }
     }

@@ -9,6 +9,8 @@ data class HookStatus(val supported: Boolean = false, val installed: Boolean = f
 /** Bounded, in-memory diagnostics. No log or disk writes on a location callback. */
 object HookStatusRegistry {
     private val entries = ConcurrentHashMap<String, HookStatus>()
+    @Volatile private var processScope: HookScope? = null
+
     fun record(point: String, status: HookStatus) {
         if (entries.size < 2048 || entries.containsKey(point)) entries[point] = status
     }
@@ -18,5 +20,7 @@ object HookStatusRegistry {
     fun installed(point: String) {
         entries.compute(point) { _, old -> (old ?: HookStatus()).copy(supported = true, installed = true) }
     }
+    fun recordScope(scope: HookScope) { processScope = scope }
+    fun scope(): HookScope? = processScope
     fun snapshot(): Map<String, HookStatus> = entries.toSortedMap()
 }

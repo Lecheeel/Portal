@@ -61,6 +61,7 @@ class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
                 skipped = true, reason = "Outside supported process scope (SDK ${identity.sdk})"))
             return
         }
+        status.recordScope(scope)
         status.record("process:${identity.processName}", com.system.location.service.hook.scope.HookStatus(supported = true))
         val loader = lpparam.classLoader
         fun install(name: String, action: () -> Unit) {

@@ -428,9 +428,9 @@ P0 阶段至少：
 
 - 变更：`WlanHook` 改为从 `ProceduralWifiSource` 生成 `ScanResult`（公开无参构造 + 字段），`getConnectionInfo` 生成 `WifiInfo`（隐藏构造 + setter），`getDhcpInfo` 生成非空 `DhcpInfo`；只改第三方调用方，系统调用方保持真实值；`FakeLoc.environmentSeed` 控制确定性。
 - 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest` 通过；无设备。
-- 风险：`WifiInfo` 隐藏 setter、`ParceledListSlice` 构造、不同 ROM 的 `getScanResults` 返回类型需设备确认；`getConfiguredNetworks`/`WifiScanner` 尚未覆盖。
+- 风险：`WifiInfo` 隐藏 setter、`ParceledListSlice` 构造、不同 ROM 的 `getScanResults` 返回类型需设备确认；`getConfiguredNetworks`/`WifiScanner` 未覆盖，作为后续独立项。
 - 变更：`WlanHook` 支持 PRIORITY 回放 `FakeLoc.replayEnvironment`（从 `put_config.environment_json` 解析），否则继续程序化生成；同一坐标/seed 仍缓存。
-- 结论：`SOURCE VERIFIED` + `BUILD VERIFIED`；detector C08 未验证。
+- 结论：scan/connection/dhcp 已 `SOURCE VERIFIED` + `BUILD VERIFIED`；detector C08 设备未跑；P2-04 `DONE`（范围限定为 scan/connection/dhcp）。
 
 ### P2-05 基站画像（部分）
 

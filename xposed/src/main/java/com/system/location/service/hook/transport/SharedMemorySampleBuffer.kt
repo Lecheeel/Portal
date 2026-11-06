@@ -35,6 +35,7 @@ class SharedMemorySampleBuffer private constructor(
     }
 
     override fun close() {
+        runCatching { SharedMemory.unmap(mapped) }
         runCatching { memory.close() }
     }
 

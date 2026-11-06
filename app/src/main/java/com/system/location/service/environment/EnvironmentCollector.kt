@@ -1,6 +1,9 @@
 package com.system.location.service.environment
 
 import android.Manifest
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.wifi.WifiManager
@@ -12,12 +15,16 @@ import android.telephony.CellInfoLte
 import android.telephony.CellInfoNr
 import android.telephony.CellInfoWcdma
 import android.telephony.TelephonyManager
+import com.system.location.service.core.environment.BleBeacon
 import com.system.location.service.core.environment.CellTower
 import com.system.location.service.core.environment.CellType
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentSourceType
 import com.system.location.service.core.environment.WifiAp
 import com.system.location.service.core.geo.Wgs84
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 
 /**
  * P2-02 capture: public-API WiFi/cell snapshot for later replay.
@@ -28,7 +35,7 @@ import com.system.location.service.core.geo.Wgs84
  */
 class EnvironmentCollector(private val context: Context) {
 
-    fun capture(
+    suspend fun capture(
         origin: Wgs84?,
         seed: Long = 0L,
         atMillis: Long = System.currentTimeMillis(),
@@ -39,6 +46,7 @@ class EnvironmentCollector(private val context: Context) {
         seed = seed,
         wifi = captureWifi(),
         cells = captureCells(),
+        ble = captureBle(),
     )
 
     @Suppress("DEPRECATION", "MissingPermission")
@@ -181,5 +189,53 @@ class EnvironmentCollector(private val context: Context) {
         in 5_000..6_000 -> (frequencyMhz - 5_000) / 5
         in 5_925..7_125 -> (frequencyMhz - 5_950) / 5 + 1
         else -> 1
+    }
+
+    @Suppress("MissingPermission")
+    private suspend fun captureBle(): List<BleBeacon> {
+        if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+            return emptyList()
+        }
+        val scanner = runCatching {
+            context.getSystemService(BluetoothManager::class.java)
+                ?.adapter
+                ?.takeIf { it.isEnabled }
+                ?.bluetoothLeScanner
+        }.getOrNull() ?: return emptyList()
+        return withTimeoutOrNull(BLE_SCAN_TIMEOUT_MILLIS) {
+            suspendCancellableCoroutine { continuation ->
+                val found = LinkedHashMap<String, BleBeacon>()
+                val callback = object : ScanCallback() {
+                    override fun onScanResult(callbackType: Int, result: ScanResult) {
+                        val address = result.device?.address ?: return
+                        val beacon = runCatching {
+                            BleBeacon(
+                                address = address,
+                                name = (result.scanRecord?.deviceName ?: result.device?.name ?: "").take(64),
+                                rssi = result.rssi.coerceIn(-100, 0),
+                            )
+                        }.getOrNull() ?: return
+                        found[address.lowercase()] = beacon
+                        if (found.size >= EnvironmentProfile.MAX_BLE && continuation.isActive) {
+                            runCatching { scanner.stopScan(this) }
+                            continuation.resume(found.values.toList())
+                        }
+                    }
+
+                    override fun onScanFailed(errorCode: Int) {
+                        if (continuation.isActive) continuation.resume(emptyList())
+                    }
+                }
+                if (runCatching { scanner.startScan(callback) }.isFailure) {
+                    continuation.resume(emptyList())
+                } else {
+                    continuation.invokeOnCancellation { runCatching { scanner.stopScan(callback) } }
+                }
+            }
+        } ?: emptyList()
+    }
+
+    private companion object {
+        const val BLE_SCAN_TIMEOUT_MILLIS = 1_500L
     }
 }

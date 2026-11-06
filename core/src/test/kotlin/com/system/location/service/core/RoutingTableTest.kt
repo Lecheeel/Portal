@@ -10,6 +10,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoutingTableTest {
@@ -85,5 +86,20 @@ class RoutingTableTest {
         val json = Json { ignoreUnknownKeys = true }
         val decoded = json.decodeFromString(RoutingConfig.serializer(), json.encodeToString(RoutingConfig.serializer(), perApp))
         assertEquals(perApp, decoded)
+    }
+
+    @Test fun fixedPointRouteReturnsPoint() {
+        val point = com.system.location.service.core.geo.Wgs84(31.5, 121.5)
+        val config = perApp.copy(routes = perApp.routes + AppRoute("com.example.fixed", point = point))
+        val decision = RoutingTable(config).decision(10_999, "com.example.fixed", false)
+        assertTrue(decision is RoutingDecision.Point)
+        assertEquals(point, (decision as RoutingDecision.Point).point)
+    }
+
+    @Test fun routeRequiresScenarioOrPointAndNotBoth() {
+        assertThrows(IllegalArgumentException::class.java) { AppRoute("com.example.empty") }
+        assertThrows(IllegalArgumentException::class.java) {
+            AppRoute("com.example.both", "s", point = com.system.location.service.core.geo.Wgs84(31.0, 121.0))
+        }
     }
 }

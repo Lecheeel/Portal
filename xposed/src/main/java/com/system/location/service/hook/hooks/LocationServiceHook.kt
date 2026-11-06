@@ -744,7 +744,8 @@ internal object LocationServiceHook: BaseLocationHook() {
             val route = ListenerRouting.route(listener)
             if (route is ListenerRouting.Route.Denied) return@forEach
             val scenarioId = (route as? ListenerRouting.Route.Scenario)?.scenarioId
-            val location = sampleForProvider(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first, scenarioId)
+            val point = (route as? ListenerRouting.Route.Point)?.point
+            val location = sampleForProvider(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first, scenarioId, point)
                 .toLocation(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
             var called = false
             var error: Throwable? = null

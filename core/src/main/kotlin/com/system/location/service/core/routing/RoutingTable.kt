@@ -8,14 +8,16 @@ enum class RoutingMode { GLOBAL, PER_APP }
 @Serializable
 data class AppRoute(
     val packageName: String,
-    val scenarioId: String,
+    val scenarioId: String = "",
     val uid: Int? = null,
     val enabled: Boolean = true,
+    val point: com.system.location.service.core.geo.Wgs84? = null,
 ) {
     init {
         require(packageName.isNotBlank()) { "packageName must not be blank" }
         require(packageName.length <= 255) { "packageName too long" }
-        require(scenarioId.isNotBlank()) { "scenarioId must not be blank" }
+        require(scenarioId.isNotBlank() || point != null) { "scenarioId or point is required" }
+        require(scenarioId.isBlank() || point == null) { "scenarioId and point are mutually exclusive" }
         uid?.let { require(it >= 0) { "uid must be non-negative" } }
     }
 }
@@ -50,6 +52,7 @@ data class RoutingConfig(
 
 sealed class RoutingDecision {
     data class Scenario(val scenarioId: String) : RoutingDecision()
+    data class Point(val point: com.system.location.service.core.geo.Wgs84) : RoutingDecision()
     data object Global : RoutingDecision()
     data object Deny : RoutingDecision()
 }
@@ -86,10 +89,13 @@ class RoutingTable(private val config: RoutingConfig = RoutingConfig()) {
         val normalized = packageNames.map { it.lowercase() }
         if (normalized.any { it in deniedPackages }) return RoutingDecision.Deny
         val packageRoute = normalized.firstNotNullOfOrNull { packageRoutes[it] }
-        if (packageRoute != null) return RoutingDecision.Scenario(packageRoute.scenarioId)
-        uidRoutes[uid]?.let { return RoutingDecision.Scenario(it.scenarioId) }
+        if (packageRoute != null) return packageRoute.decision()
+        uidRoutes[uid]?.let { return it.decision() }
         return config.globalScenarioId?.let { RoutingDecision.Scenario(it) } ?: RoutingDecision.Global
     }
+
+    private fun AppRoute.decision(): RoutingDecision =
+        point?.let { RoutingDecision.Point(it) } ?: RoutingDecision.Scenario(scenarioId)
 
     fun routes(): List<AppRoute> = config.routes.toList()
 

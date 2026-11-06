@@ -48,6 +48,7 @@ object ListenerRouting {
         return when (val decision = router.decision(uid)) {
             RoutingDecision.Deny -> Route.Denied
             is RoutingDecision.Scenario -> Route.Scenario(decision.scenarioId)
+            is RoutingDecision.Point -> Route.Point(decision.point)
             RoutingDecision.Global -> Route.Default
         }
     }
@@ -56,6 +57,7 @@ object ListenerRouting {
         data object Default : Route()
         data object Denied : Route()
         data class Scenario(val scenarioId: String) : Route()
+        data class Point(val point: com.system.location.service.core.geo.Wgs84) : Route()
     }
 
     @Synchronized

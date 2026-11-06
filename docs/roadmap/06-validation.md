@@ -548,7 +548,7 @@ P0 阶段至少：
 - 检查：`:app:compileAppDebugKotlin`/`:app:testArm64DebugUnitTest` 通过；无设备。
 - 未完成：搜索、按场景分配、工作资料、导入/导出 UI；固定点仅坐标/速度/航向，传感器/环境未联动。
 - 结论：`BUILD VERIFIED`；P5-04 仍 `WIP`。
-- 全量回归（2026-11-06）：399 项 JVM 用例 0 失败（core 232、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
+- 全量回归（2026-11-06）：402 项 JVM 用例 0 失败（core 235、nmea 7、xposed 35、app 125）；`:detector:assembleDebug` 通过。
 
 ### P4-04 Native 传感器（部分）
 
@@ -577,7 +577,8 @@ P0 阶段至少：
 - 检查：`SampleStoreTest` 6 项、`FileConfigStoreTest` 2 项（roundtrip/clear、损坏文件）通过；`:app` 编译/测试通过。
 - 未完成：Binder/SharedMemory 实现、用恢复配置自动重启场景、SHM 设计。
 - 变更：新增 `10-store-transport.md`，比较 Binder 与 ashmem 双缓冲方案，决定当前保持 Binder+FileConfigStore，SHM 仅在性能超预算时实验启用。
-- 结论：`UNIT TEST VERIFIED`（存储）；传输设计 `SOURCE VERIFIED`；P5-06 仍 `WIP`。
+- 变更：新增 `SeqLockSampleStore` 纯 JVM 双缓冲/seqlock 模型；写者单线程、读者 sequence 重试，`SeqlockSampleStoreTest` 3 项（读/租约/并发无撕裂）通过。
+- 结论：`UNIT TEST VERIFIED`（存储/并发模型）；传输设计 `SOURCE VERIFIED`；P5-06 仍 `WIP`。
 
 ### P5-07 RuntimeSnapshot（部分）
 

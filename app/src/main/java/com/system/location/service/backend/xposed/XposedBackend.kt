@@ -1,7 +1,10 @@
 package com.system.location.service.backend.xposed
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.location.LocationManager
+import android.os.BatteryManager
 import android.os.Debug
 import android.os.SystemClock
 import com.system.location.service.core.backend.*
@@ -66,6 +69,16 @@ class XposedBackend(private val context: Context) : LocationBackend {
         previousCpuMillis = cpuMillis
         previousCpuWallMillis = wallMillis
         val appCpu = BackendDiagnostic("APP_CPU", "INFO", "cpu=%.1f%% (since last diagnose)".format(cpuPercent))
+        val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val batteryPercent = if (level >= 0 && scale > 0) level * 100 / scale else -1
+        val batteryTemp = (batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10.0
+        val battery = BackendDiagnostic(
+            "BATTERY",
+            "INFO",
+            "level=${if (batteryPercent >= 0) "$batteryPercent%" else "unknown"} · temp=%.1f°C".format(batteryTemp),
+        )
         return listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "system_server 远程通道已连接"),
             BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),
             BackendDiagnostic("HOOK_OWNERSHIP", if (missing == 0) "INFO" else "WARN",
@@ -76,6 +89,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
             listOfNotNull(appLatency) +
             listOf(appMemory) +
             listOf(appCpu) +
+            listOf(battery) +
             status.getStringArrayList("hook_details").orEmpty().take(60).map { BackendDiagnostic("HOOK_POINT", "INFO", it) }
     }
     override val capabilities get() = Capability.entries.associateWith { capability ->

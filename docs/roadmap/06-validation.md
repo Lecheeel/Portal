@@ -299,6 +299,8 @@ P0 阶段至少：
 - 设备/ROM/Android/LSPosed：无设备（本机 `adb devices` 为空）
 - 变更：新增 `:detector` Android 应用（平台 API，无 AndroidX/第三方运行时依赖）；Run/Results/Export/Settings；SAF 导出 + 剪贴板；JSON `schema=1`；采样器覆盖 Location/GnssStatus/NMEA/传感器/WiFi/Cell；`QUERY_ALL_PACKAGES` 仅用于可配置 target 的验证工具。
 - 检查：`./gradlew :detector:assembleDebug --offline` → `BUILD SUCCESSFUL`；产物 `detector/build/outputs/apk/debug/detector-debug.apk`，约 3.13 MB。未安装、未启动、未走 API 31/33/35 模拟器。
+- 最终回归（2026-11-06）：`./gradlew :core:test :nmea:test :xposed:testDebugUnitTest :app:testArm64DebugUnitTest :detector:assembleDebug --offline` → `BUILD SUCCESSFUL`，236 项 JVM 用例 0 失败（core 82、nmea 2、xposed 30、app 122）。
+- 本机限制：`lint` 报表写入和 `:xposed:configureCMakeDebug`（JNA）被 Windows 沙箱拒绝；lint/CMake/Release 由 CI 覆盖，本轮不以本地 lint 作为证据。
 - 结论：`BUILD VERIFIED`；设备启动/导出未验证。
 
 ### P0-02 detector 检查 v1

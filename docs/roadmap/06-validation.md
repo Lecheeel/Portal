@@ -350,6 +350,13 @@ P0 阶段至少：
 
 ## 13. P1 实施记录（2026-11-06）
 
+### P1-01 LocationSanitizer
+
+- 变更：`:core` 新增 `LocationFieldPolicy`/`LocationSanitizer`，补齐垂直/速度/航向精度、MSL 高度/精度、elapsedRealtime 不确定度、satellites/CN0；xposed `LocationSample.toLocation()` 写回 Android `Location`。
+- 检查：`LocationSanitizerTest` 7 项通过；`:xposed`/`:app` 编译通过；detector C01 已有 mock flag/字段检查代码。
+- 未完成：Android 12–17 设备字段差异、C01 设备运行；MSL 仅在 Android 14+ 写入。
+- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P1-01 `DONE`。
+
 ### P1-02 AppOps Hook
 
 - 变更：新增 `AppOpsHook`，按方法名匹配 `AppOpsService.checkOperation*`；第三方跨 UID 查询 `OP_MOCK_LOCATION` 时返回 `MODE_ERRORED`，系统调用方与 controller 自检保持原值；`appops` 加入 system_server 所有权清单。

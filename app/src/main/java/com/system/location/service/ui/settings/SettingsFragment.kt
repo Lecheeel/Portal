@@ -336,6 +336,15 @@ class SettingsFragment : Fragment() {
         binding.environmentImportButton.setOnClickListener {
             importEnvironmentDocument.launch(arrayOf("application/json", "text/plain", "*/*"))
         }
+        binding.restoreConfigButton.setOnClickListener {
+            lifecycleScope.launch {
+                val restored = withContext(Dispatchers.IO) {
+                    com.system.location.service.runtime.ScenarioRuntime.restoreLastConfig()
+                }
+                showToast(if (restored) getString(R.string.restore_last_config_success)
+                    else getString(R.string.restore_last_config_unavailable))
+            }
+        }
         fun apLabel() {
             binding.environmentApButton.text = getString(R.string.environment_ap_value, context.environmentApCount)
         }

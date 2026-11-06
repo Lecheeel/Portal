@@ -102,6 +102,17 @@ object ScenarioRuntime {
 
     fun initialize() { initialized.start() }
 
+    /** Restore and start the last successfully persisted config; never auto-starts on boot. */
+    suspend fun restoreLastConfig(): Boolean {
+        initialize()
+        initialized.await()
+        if (state.value.phase != RuntimePhase.IDLE) return false
+        val saved = withContext(Dispatchers.IO) {
+            runCatching { configStore.load() }.getOrNull()
+        } ?: return false
+        return start(saved.scenario).await()
+    }
+
     fun selectBackend(type: BackendType) = command {
         controller.selectBackend(type).also { if (it) preferences.edit().putString("backend", type.name).commit() }
     }

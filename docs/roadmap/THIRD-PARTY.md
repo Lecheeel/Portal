@@ -39,7 +39,7 @@
 | org.jetbrains.kotlinx:kotlinx-coroutines-core 1.10.2 | 协程 | Apache-2.0 | `:core` |
 | org.jetbrains.kotlinx:kotlinx-serialization-json | JSON | Apache-2.0 | |
 | io.github.vvb2060.ndk:dobby 1.2 | inline hook | Apache-2.0 | native，实验能力 |
-| de.robv.android.xposed:api 82 | legacy Xposed API | 需复核（按上游仓库） | compileOnly；P6 迁移 libxposed |
+| io.github.libxposed:api 102.0.0 | 原生 Xposed 模块 API | [Apache-2.0（官方 102.0.0 LICENSE）](https://github.com/libxposed/api/blob/102.0.0/LICENSE) | 正式模块 compileOnly；JVM 测试 testImplementation；API 类由框架提供，不打入 APK；已移除 legacy API 82 |
 | com.tencent.bugly:crashreport 4.1.9.3 | 崩溃上报 | 腾讯商业条款 | 默认关闭；P6-04 评估移除 |
 | com.amap.api:3dmap-location-search | 高德地图/定位/搜索 | 高德商业条款 | 需要 Key/配额；不抓取/再分发地图数据 |
 | com.google.android.gms:play-services-location 21.3.0 | GMS Fused Mock | Google 条款 | 仅测试用途；无 GMS 设备走系统路径 |

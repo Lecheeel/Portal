@@ -1,5 +1,7 @@
 # 05 · 执行计划与任务清单
 
+> 2026-11-07 迁移更新：本轮已用 libxposed API 102.0.0 原生 Hooker/Chain 取代 spike 与 legacy 兼容层，删除旧 API 依赖，不提供旧 API 回退。以下早期 spike、旧 API 回退及对应 DONE 记录保留为历史方案，不能表示当前设备验收已完成。本轮编译、474 项 JVM、29 项 Python、四 ABI CMake、实际 ARM64 Debug APK 现代入口与 app/xposed lint 均通过；system/phone/Xiaomi fused 的设备生命周期和安装路径已观察，完整定位验收受测试包安装限制尚未完成，远端 CI/push/release 未执行。当前契约与证据以 [libxposed 迁移](../libxposed-migration.md) 为准。
+
 > 这是日常执行的主文档。  
 > 规则：任务状态只在有证据时改变；Hook 行为没有 `DEVICE VERIFIED` 不能标 `DONE`。
 
@@ -89,7 +91,7 @@ P0 基线
 
 - P1 完成后，P2（WiFi/基站）与 P3（GNSS/NMEA）可由不同人并行。
 - P4 的传感器 native 可与 P5 的 per-app 并行，但都需要设备窗口。
-- P6 的 libxposed spike 可以在 P4 期间提前做，不阻塞主线。
+- 历史安排：P6 的 libxposed spike 曾允许在 P4 期间提前做；本轮原生 API 102 迁移已取代该原型，当前不再构建 spike。
 
 ---
 
@@ -208,7 +210,7 @@ P0 基线
 
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| P6-01 | libxposed 迁移 spike | API 102 入口/元数据/scope；可编译运行 | LSPosed 能加载；旧 API 可回退 | P4 | L | DONE |
+| P6-01 | libxposed 迁移 spike（历史） | 原 API 102 原型；已被正式原生入口取代并删除 | 原“旧 API 可回退”验收方案已废止；当前设备验收见迁移说明 | P4 | L | DONE（历史记录） |
 | P6-02 | Xposed 元数据隐藏 | 第三方 `PackageManager` 查询移除 manifest `xposedmodule` 等键；系统/LSPosed 保留 | detector C13 看不到 Xposed 元数据 | P6-01 | M | DONE |
 | P6-03 | Native 隐藏实验 | 参考 Kail：符号解析、`/proc/self/maps`/痕迹；默认关 | 目标检测项改善；无崩溃；可重启回退 | P6-01/P4-04 | L | TODO |
 | P6-04 | 安全/权限审查 | 导出组件、IPC、日志、Bugly、包可见性 | 无高危项；权限最小化 | P5 | M | DONE |
@@ -219,6 +221,8 @@ P0 基线
 
 > 2026-11-06：P5-06 已加入存储抽象、原子 `FileConfigStore`、active config、完整恢复入口、`SeqLockSampleStore`、`SharedSampleCodec`/`Header`/`Buffer`/`Layout` 与 Android `SharedMemorySampleBuffer`；Binder fd 未做。
 > 2026-11-06：P6-01 已加入 `io.github.libxposed:api:102.0.0` compileOnly 依赖、`LibXposedSpike` 与独立 `:libxposed-spike` APK（元数据打包验证）；LSPosed 加载/scope/热重载未做。
+
+> 2026-11-07：上条是原型阶段记录。正式模块现已全面使用 API 102 原生 Hooker/Chain，保留六个静态 scope；自动和手动热重载均关闭，legacy 回退及 spike 已删除。本轮本地构建/回归证据已具备，但 设备已观察到 system/phone/Xiaomi fused 生命周期和安装路径，完整定位回归受测试包安装限制仍未完成，不据此将 Phase 6 的设备回归标记完成。
 
 > 2026-11-06：P6-06 已更新 `01-current-state.md` 的过期描述，并在 README 补充环境回放/per-app 实验能力；完整默认值清单未做。
 
@@ -288,7 +292,7 @@ P0 基线
 | 传感器 native | 关 | 实验；需重启 |
 | Native 隐藏 | 关 | 实验；需重启 |
 | per-app | 完成后开 | Beta 先验证 |
-| libxposed | 迁移后 | 保留旧 API 回退分支 |
+| libxposed | 正式 API 102 | 原“旧 API 回退分支”方案已取代；当前要求框架支持 API 102，升级需重启目标进程 |
 
 发布规则：
 

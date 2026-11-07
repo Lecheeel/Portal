@@ -2,7 +2,7 @@
 
 ## 模块与文件
 
-本次新增 Gradle 模块 `:core`（纯 JVM 领域、运行契约和测试）；保留 `:app`（Android UI/服务/后端）、`:xposed`（Hook/IPC/JNI）、`:nmea`（NMEA 解析与改写）及 `:system-api`（编译用系统 API 桩）。Mock、Xposed、Native 后端是 app 内部包，不是三个新 Gradle 模块。
+Gradle 模块包括 `:core`（纯 JVM 领域、运行契约和测试）、`:app`（Android UI/服务/后端）、`:xposed`（Hook/IPC/JNI）、`:nmea`（NMEA 解析与改写）、`:system-api`（编译用系统 API 桩）和独立诊断应用 `:detector`。Mock、Xposed、Native 后端是 app 内部包，不是三个新 Gradle 模块。正式 Hook 已迁移到 libxposed API 102.0.0，独立迁移原型 `:libxposed-spike` 已移除；兼容与验证说明见 [libxposed 迁移](libxposed-migration.md)。
 
 | 层 | 核心文件 | 责任 |
 |---|---|---|
@@ -12,6 +12,7 @@
 | 标准后端 | `app/.../backend/mock/MockProviderBackend.kt`、`AndroidMockProviderPort.kt` | AppOps 检查、GPS/Network 创建、发布、暂停、清理/回滚、持久化清理记录 |
 | Xposed 后端 | `app/.../backend/xposed/XposedBackend.kt`、`service/MockServiceHelper.kt` | 连接及样本协议校验、单样本 IPC、系统状态诊断 |
 | Hook | `xposed/.../hook/RemoteCommandHandler.kt`、`LocationTicker.kt`、`utils/FakeLoc.kt`、`scope/` | 验证命令后执行、完整样本共享、5 秒租约、系统监听发布、作用域及安装/命中记录 |
+| Hook 运行时 | `xposed/.../hook/PortalModule.kt`、`runtime/HookRuntime.kt`、`runtime/Reflection.kt`、`scope/HookInstaller.kt` | API 102 生命周期、原生 Hooker/Chain 安装、反射及原方法调用、首次命中记录 |
 | Native | `app/.../backend/native/`、`xposed/src/main/cpp/main.cpp`、`sensor_hook.cpp` | 明确 opt-in 的 Xposed 装饰器；库安装与符号检查；实验行为开关 |
 | 资料库 | `core/.../repository/Repositories.kt`、`app/.../data/repository/LibraryRepositories.kt`、`data/persistence/AtomicDocumentStore.kt` | 稳定 ID、CRUD/copy/import/export、原子提交、旧数据迁移、保留迁移问题 |
 | 路线编辑 | `core/.../planning/RouteDraftController.kt`、`app/.../amap/AMapRoutePlanner.kt`、`ui/viewmodel/RouteEditViewModel.kt`、`ui/mock/RouteEditFragment.kt` | 可持久化起终点/相机/路线；异步代次匹配；高德 SDK 仅存在于适配/展示层 |
@@ -41,9 +42,19 @@ Xposed 新样本在 App 死亡后不无限发布；每个接收进程依据同�
 
 新定位样本通过 `SampleWire` 的独立版本号和 Bundle 原始数值字段传输，避免自定义 Parcelable 的跨 ClassLoader 耦合。`FakeLoc.acceptSample` 保留同一不可变样本，接收方不重算路线或重写样本时间。system_server 转发时清除继承的 App Binder 身份、执行后恢复；peer 校验 UID 1000。身份、序号和样本新鲜度均有纯策略测试；真正跨 Binder 测试未执行。
 
-`HookScopeResolver` 精确检查 package/process/UID/SDK；android/system_server、phone、系统 fused、Xiaomi fused、Oplus location 分支均有显式进入条件。框架必须实际选中相应作用域。TARGET_APP 返回明确 skipped，当前不提供独立 App 场景 IPC，Capability.PerAppScenario 为 unavailable。
+`HookScopeResolver` 精确检查 package/process/UID/SDK；android/system_server、phone、系统 fused、Xiaomi fused、Oplus location、Settings provider 分支均有显式进入条件。现代模块的静态 `scope.list` 使用 `system` 表示 system_server，其余五项是对应包名。框架必须实际选中相应作用域。TARGET_APP 返回明确 skipped，当前不提供独立 App 场景 IPC，Capability.PerAppScenario 为 unavailable。
 
-HookStatusRegistry 分别记录 supported/installed/matched/skipped/failed；installed 不等于 matched，更不等于所有目标消费者有效。单次命中探针失败不会覆盖原 Hook 已安装的事实。页面当前读取 system_server 的摘要及有限明细，辅助进程保留各自本地状态，尚未汇总全部 peer 明细。
+HookStatusRegistry 分别记录 supported/installed/matched/skipped/failed；installed 不等于 matched，更不等于所有目标消费者有效。首次命中在业务拦截器内记录，安装返回前的命中也会保留。页面当前读取 system_server 的摘要及有限明细，辅助进程保留各自本地状态，尚未汇总全部 peer 明细。
+
+## libxposed 生命周期与调用
+
+`PortalModule : XposedModule` 是唯一正式入口，由 `META-INF/xposed/java_init.list` 注册。`onModuleLoaded` 连接 `HookRuntime` 并保存进程身份；系统 Hook 等到 `onSystemServerStarting`，使用框架提供的系统服务 ClassLoader 安装。普通包在 `onPackageReady` 按包身份和作用域判断安装，并按包去重；不只接受首包回调，以免共享进程先报告 `android` 时漏掉后续真正的 phone/fused 包。
+
+活跃 Hook 直接使用 API 102 的 `Hooker` / `Chain`：通过 `chain.proceed()` 保留调用链，通过返回值或异常表达拦截结果。旧式 before/after 回调兼容层已删除。`HookInstaller` 统一设置优先级和异常模式，返回原生 `HookHandle`，并在同一个拦截器内记录首次命中；安装过程中已发生的命中不会被后续 installed 状态覆盖。默认使用 `PROTECTIVE`；需要故意向调用方传播拒绝异常的 Hook 显式使用 `PASSTHROUGH`。
+
+`Reflection` 负责字段查找、重载匹配及普通反射调用，匹配时区分静态/实例方法、null、装箱和基本类型扩宽，并拒绝歧义。连接框架后的普通调用使用默认 `FULL` invoker 保留其他 Hook；明确的原始 listener 投递通过 `HookRuntime.invokeOriginalMethod` 使用 `ORIGIN`，两者都解包目标的 `InvocationTargetException`。
+
+模块配置要求框架支持 API 102，不提供 legacy API 82 回退。自动热重载关闭，`onHotReloading` 也拒绝手动热重载，因为定时器、listener 和 Native 状态仍随目标进程存活。安装或更新模块后需要重启受影响的目标进程；system_server 的变更通过设备重启加载。
 
 ## 数据与地图
 

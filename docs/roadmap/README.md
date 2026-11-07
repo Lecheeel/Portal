@@ -1,5 +1,7 @@
 # Portal 长期路线图
 
+> 2026-11-07 更新：当前正式 Hook 使用 libxposed API 102.0.0 原生 Chain，旧 API 与 spike 已移除，历史旧 API 回退方案已被取代。本次 474 项 JVM、29 项 Python、四 ABI CMake、实际 ARM64 Debug APK 现代入口检查和 app/xposed lint 均通过；设备已观察到 system/phone/Xiaomi fused 生命周期和安装路径，完整定位回归受测试包安装限制仍未完成，远端 CI/push/release 未执行。本页下方 legacy 表述及基线数字属于历史规划快照；当前框架要求、作用域与验证状态见 [libxposed 迁移](../libxposed-migration.md)。
+
 > 状态：草案（Draft）  
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 维护者：Portal maintainer  

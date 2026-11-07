@@ -1,5 +1,7 @@
 # 01 · 当前状态、优点与缺口
 
+> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 474 项 JVM、29 项 Python、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过。设备正在排查 Vector 生命周期问题，尚无运行成功结论；远端 CI、push、release 及正式签名交付未执行。当前证据见 [libxposed-migration.md](../libxposed-migration.md)。下方基线表、百分比及测试数量保留其历史快照含义，不能作为本次验证结果。
+
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
 >

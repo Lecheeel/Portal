@@ -24,6 +24,10 @@
 
 Xposed 模式需启用模块的系统作用域并重启；Native 扩展需 Root 和 arm64 设备。
 
+## 许可证
+
+本项目基于 [Portal](https://github.com/ella8192/Portal) 演化，按 [Apache License 2.0](LICENSE) 分发；上游归属与修改说明见 [NOTICE](NOTICE)。
+
 ## 致谢
 
 [@fuqiuluo](https://github.com/fuqiuluo) · [GoGoGo](https://github.com/ZCShou/GoGoGo) · [LSPosed](https://github.com/LSPosed/LSPosed) · [Dobby](https://github.com/jmpews/Dobby)

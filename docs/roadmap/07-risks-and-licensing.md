@@ -60,22 +60,15 @@
 
 ### 2.3 Portal 自身
 
-- 当前仓库**没有 LICENSE 文件**：法律上默认保留所有权利，别人不能合法复用，你也不能随意吸收 GPL 代码。
-- 上游 `fuqiuluo/Portal` 的许可证未在本地确认；如果它是 GPL，Portal 作为衍生作品可能已经受 GPL 约束。
-- **P0-05 必须先做**：
-  1. 确认上游许可证；
-  2. 选择 Portal 的许可证（建议与上游兼容）；
-  3. 加 `LICENSE`、`NOTICE`、第三方清单；
-  4. PR 模板加“代码来源/许可证”检查。
+- 当前仓库已添加 `LICENSE`（Apache-2.0）与 `NOTICE`：上游 `ella8192/Portal` 经 GitHub API/LICENSE 确认为 Apache-2.0（2026-11-07）。
+- 上游 `fuqiuluo/Portal` 仍不可访问，但 `ella8192/Portal` 是可验证的 Portal 来源；本仓库保留其归属与许可证。
+- 分发义务：保留 `LICENSE`/`NOTICE`；修改过的上游文件需标注变更；不得删除版权/许可声明。
+- 其他第三方代码仍按“只学算法/结构，不复制 GPL/无许可证实现”执行。
 
-> 在许可证解决前：**只学算法/结构，不复制第三方代码。**
+### 2.4 许可证核查记录
 
-### 2.4 2026-11-06 核查记录
-
-- `https://github.com/fuqiuluo/Portal`：HTTP 404（仓库不可访问）。
-- GitHub API `search/repositories?q=Portal+user:fuqiuluo`：0 条结果。
-- 本地仓库：无 `LICENSE`、无 `NOTICE`。
-- 结论：上游许可证无法确认，本轮不添加 `LICENSE`/`NOTICE`；P0-05 的许可证子项保持 `BLOCKED`，详见 [02-decisions.md](02-decisions.md) ADR-023。
+- 2026-11-06：`fuqiuluo/Portal` HTTP 404；本地无 `LICENSE`/`NOTICE`，当时暂缓。
+- 2026-11-07：`ella8192/Portal` GitHub API 返回 `license.spdx_id=Apache-2.0`，LICENSE 可访问；据此添加 `LICENSE`/`NOTICE`，P0-05 解除 `BLOCKED`。
 - 可立即执行的部分已落地：`:core`/`:nmea` 纯 JVM、`:xposed` 不依赖 `:app`、`:app` 不依赖 `:detector`、行数预算、文档链接检查（`scripts/check_module_rules.py`）。
 
 ### 2.5 依赖清单

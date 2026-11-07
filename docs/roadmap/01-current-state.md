@@ -22,7 +22,7 @@
 | 测试 | 415 个 JVM 用例（core 246 / nmea 7 / xposed 35 / app 127）；instrumentation 有代码，但没有设备验收结论 |
 | AOSP 参考 | `refs/` 覆盖 Android 7–17，最近核验 2026-10-16 |
 | 发布 | GitHub Actions 三套：PR 门禁、Release 构建、UI 验证；Beta/Stable 同 APK 晋升 |
-| 许可证 | 仓库内没有 `LICENSE`；上游 `fuqiuluo/Portal` 的许可证未在本地确认 |
+| 许可证 | Apache-2.0；`LICENSE`/`NOTICE` 已添加，上游 `ella8192/Portal` 归属已保留 |
 
 ---
 

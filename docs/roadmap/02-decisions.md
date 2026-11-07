@@ -194,7 +194,20 @@
 
 ---
 
-### ADR-023 · 许可证暂缓决策与第三方边界
+### ADR-024 · 许可证确定（Apache-2.0）
+
+**决策**：2026-11-07 确认上游 Portal 仓库 `ella8192/Portal` 为 **Apache-2.0**（GitHub API `license.spdx_id=Apache-2.0`，LICENSE 文件可访问）。据此：
+
+1. 仓库根目录添加 `LICENSE`（Apache-2.0 全文）与 `NOTICE`（上游 Portal 归属、链接、许可证）；
+2. README 增加许可证与来源说明；
+3. 不吸收 GPL/无许可证实现；新增依赖继续记录在 `THIRD-PARTY.md`；
+4. P0-05 的许可证子项解除 `BLOCKED`。
+
+**理由**：上游许可证已可验证，Apache-2.0 允许分发/修改，需保留版权、许可证与 NOTICE。
+
+**后果**：本仓库按 Apache-2.0 分发；下游复用时必须保留 `LICENSE`/`NOTICE` 与修改说明。原 ADR-023 的“暂缓决策”保留为历史记录。
+
+### ADR-023 · 许可证暂缓决策与第三方边界（历史）
 
 **决策**：2026-11-06 未能确认上游 `fuqiuluo/Portal` 的许可证（上游 GitHub 仓库返回 404，GitHub API 搜索无结果，本地仓库也没有 `LICENSE`）。在维护者给出明确选择前：
 

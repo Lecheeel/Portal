@@ -120,10 +120,12 @@ object DebugHttpServer {
         request.method == "GET" && request.path == "/" -> 200 to help()
         request.method == "GET" && request.path == "/status" -> 200 to status()
         request.method == "GET" && request.path == "/logs" -> 200 to logs(request)
+        request.method == "GET" && request.path == "/targets" -> 200 to targets()
         request.method == "POST" && request.path == "/location" -> location(request.body)
         request.method == "POST" && request.path == "/scenario/start" -> location(request.body)
         request.method == "POST" && request.path == "/scenario/stop" -> stopScenario()
         request.method == "POST" && request.path == "/config" -> config(request.body)
+        request.method == "POST" && request.path == "/hot_reload" -> hotReload()
         request.method == "POST" && request.path == "/shell" -> shell(request.body)
         request.method == "OPTIONS" -> 204 to ""
         else -> 404 to """{"ok":false,"error":"not found"}"""
@@ -275,8 +277,35 @@ object DebugHttpServer {
         }.toString()
     }
 
-    private fun shell(body: String): Pair<Int, String> {
-        val command = parseObject(body)["cmd"]?.jsonPrimitive?.content
+    private fun targets(): String {
+        val targets = com.system.location.service.runtime.XposedServiceBridge.runningTargets()
+        return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+            put("ok", true)
+            put("serviceBound", com.system.location.service.runtime.XposedServiceBridge.bound())
+            put("targets", buildJsonArray {
+                targets.forEach { target ->
+                    add(buildJsonObject {
+                        put("process", target.processName)
+                        put("pid", target.pid)
+                        put("uid", target.uid)
+                        put("state", target.state.name)
+                        put("versionCode", target.loadedVersionCode)
+                    })
+                }
+            })
+        })
+    }
+
+    private fun hotReload(): Pair<Int, String> {
+        val result = com.system.location.service.runtime.XposedServiceBridge.hotReloadSystemServer()
+        return 200 to buildJsonObject {
+            put("ok", !result.startsWith("hot reload FAILED") && !result.startsWith("hot reload timed out"))
+            put("result", result)
+            put("serviceBound", com.system.location.service.runtime.XposedServiceBridge.bound())
+        }.toString()
+    }
+
+    private fun shell(body: String): Pair<Int, String> {        val command = parseObject(body)["cmd"]?.jsonPrimitive?.content
             ?: return 400 to """{"ok":false,"error":"cmd required"}"""
         if (command.isBlank()) return 400 to """{"ok":false,"error":"empty cmd"}"""
         val process = runCatching {

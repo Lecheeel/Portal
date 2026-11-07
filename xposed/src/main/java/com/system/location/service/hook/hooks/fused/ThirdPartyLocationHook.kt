@@ -36,6 +36,8 @@ object ThirdPartyLocationHook : BaseLocationHook() {
 
         cNetworkLocationManager.onceHookMethod(
             "onSendExtraCommand",
+            String::class.java,
+            Bundle::class.java,
             callback =
                 XposedInterface.Hooker intercept60@{ chain ->
                     val args = chain.args.toTypedArray()
@@ -66,6 +68,8 @@ object ThirdPartyLocationHook : BaseLocationHook() {
         listenerField.forEach { it.isAccessible = true }
         cNetworkLocationManager.onceHookMethod(
             "requestLocationUpdates",
+            Long::class.javaPrimitiveType!!,
+            LocationListener::class.java,
             callback =
                 XposedInterface.Hooker intercept61@{ chain ->
                     val args = chain.args.toTypedArray()
@@ -84,6 +88,7 @@ object ThirdPartyLocationHook : BaseLocationHook() {
 
         cNetworkLocationManager.hookMethod(
             "updateOffLocEnable",
+            Boolean::class.javaPrimitiveType!!,
             callback =
                 XposedInterface.Hooker { null },
         )
@@ -101,6 +106,8 @@ object ThirdPartyLocationHook : BaseLocationHook() {
 
             bdLocationClient.hookMethod(
                 "requestNLPNormal",
+                String::class.java,
+                Int::class.javaPrimitiveType!!,
                 callback =
                     XposedInterface.Hooker intercept63@{ chain ->
                         val args = chain.args.toTypedArray()

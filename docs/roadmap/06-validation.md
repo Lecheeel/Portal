@@ -301,7 +301,7 @@ P0 阶段至少：
 - 检查：`./gradlew :detector:assembleDebug --offline` → `BUILD SUCCESSFUL`；产物 `detector/build/outputs/apk/debug/detector-debug.apk`，约 3.13 MB。未安装、未启动、未走 API 31/33/35 模拟器。
 - 最终回归（2026-11-06）：`./gradlew :core:test :nmea:test :xposed:testDebugUnitTest :app:testArm64DebugUnitTest :detector:assembleDebug --offline` → `BUILD SUCCESSFUL`，236 项 JVM 用例 0 失败（core 82、nmea 2、xposed 30、app 122）。
 - 本机限制：`lint` 报表写入和 `:xposed:configureCMakeDebug`（JNA）被 Windows 沙箱拒绝；lint/CMake/Release 由 CI 覆盖，本轮不以本地 lint 作为证据。
-- 结论：`BUILD VERIFIED`；设备启动/导出未验证。
+- 结论：`BUILD VERIFIED`；APK 产物/首页/结果页/导出代码完成；设备启动/导出转入 P0-03；P0-01 `DONE`。
 
 ### P0-02 detector 检查 v1
 

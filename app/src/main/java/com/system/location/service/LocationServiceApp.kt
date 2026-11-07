@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.system.location.service.privacy.SdkPrivacy
 
-class LocationServiceApp: Application() {
+open class LocationServiceApp: Application() {
 
     override fun onCreate() {
         super.onCreate()

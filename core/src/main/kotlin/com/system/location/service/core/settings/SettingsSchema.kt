@@ -101,6 +101,7 @@ object PortalSettingsSchema {
             SettingSpec("hide_mock", SettingType.BOOLEAN, "false"),
             SettingSpec("hook_wifi", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_physical_noise", SettingType.BOOLEAN, "false"),
+            SettingSpec("wifi_fingerprint_enabled", SettingType.BOOLEAN, "false"),
             SettingSpec("physical_noise_seed", SettingType.LONG, "0"),
             SettingSpec("speed_amplitude", SettingType.DOUBLE, "1.0", 0.0, 10.0),
             SettingSpec("environment_ap_count", SettingType.INT, "4", 1.0, 8.0),

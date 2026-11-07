@@ -142,6 +142,10 @@ object FakeLoc {
         get() = runtimeSnapshots.current().environmentSourceMode
         set(value) { updateSnapshot { it.copy(environmentSourceMode = value) } }
 
+    /** P2-06: optional imported WiFi fingerprint catalog (JSON); disabled by default. */
+    @Volatile var wifiFingerprintEnabled = false
+    @Volatile var wifiFingerprintCatalogJson: String? = null
+
     /** P5-02: null/global keeps every listener on the current fake fix. */
     var routingConfig: com.system.location.service.core.routing.RoutingConfig?
         get() = runtimeSnapshots.current().routing

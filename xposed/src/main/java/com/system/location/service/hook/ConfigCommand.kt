@@ -53,6 +53,9 @@ object ConfigCommand {
             ?.takeIf { it.isNotBlank() }
             ?.let { json -> runCatching { EnvironmentProfileCodec.decode(json) }.getOrNull() }
         FakeLoc.reportIntervalMs = rely.getLong("report_interval", FakeLoc.reportIntervalMs).coerceIn(50, 1000)
+        FakeLoc.wifiFingerprintEnabled = rely.getBoolean("wifi_fingerprint_enabled", false)
+        FakeLoc.wifiFingerprintCatalogJson = rely.getString("wifi_fingerprint_json")
+            ?.takeIf { it.isNotBlank() }
         if (FakeLoc.enable) LocationTicker.start()
         return true
     }

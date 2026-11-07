@@ -15,8 +15,10 @@ import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentSourceMode
+import com.system.location.service.core.environment.FingerprintWifiSource
 import com.system.location.service.core.environment.ProceduralWifiSource
 import com.system.location.service.core.environment.ReplayEnvironmentSource
+import com.system.location.service.core.environment.WifiFingerprintImporter
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.hook.hooks.ListenerRouting
 import com.system.location.service.hook.utils.BinderUtils
@@ -38,6 +40,8 @@ object WlanHook {
     private val profileLock = Any()
     private var cachedKey: String? = null
     private var cachedProfile: EnvironmentProfile? = null
+    private var cachedFingerprintJson: String? = null
+    private var cachedFingerprintSource: FingerprintWifiSource? = null
 
     operator fun invoke(classLoader: ClassLoader) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -134,19 +138,34 @@ object WlanHook {
     private fun currentProfile(packageName: String? = null): EnvironmentProfile {
         val point = ListenerRouting.fixedPointFor(packageName)
             ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude)
-        val key = "${point.latitude}:${point.longitude}:${FakeLoc.environmentSeed}:${FakeLoc.environmentApCount}"
+        val fingerprintJson = FakeLoc.wifiFingerprintCatalogJson
+        val fingerprintVersion = if (FakeLoc.wifiFingerprintEnabled) fingerprintJson.hashCode() else 0
+        val key = "${point.latitude}:${point.longitude}:${FakeLoc.environmentSeed}:${FakeLoc.environmentApCount}:$fingerprintVersion"
         synchronized(profileLock) {
             cachedProfile?.let { if (cachedKey == key) return it }
             val now = System.currentTimeMillis()
+            val fingerprint = fingerprintProfile(point, now)
             val replay = if (FakeLoc.environmentSourceMode == EnvironmentSourceMode.PROCEDURAL) null else FakeLoc.replayEnvironment
-            val result = replay
-                ?.let { profile -> runCatching { ReplayEnvironmentSource(profile).profileAt(point, FakeLoc.environmentSeed, now) }.getOrNull() }
+            val result = fingerprint
+                ?: replay?.let { profile -> runCatching { ReplayEnvironmentSource(profile).profileAt(point, FakeLoc.environmentSeed, now) }.getOrNull() }
                 ?: source().profileAt(point, FakeLoc.environmentSeed, now)
             return result.also {
                 cachedKey = key
                 cachedProfile = it
             }
         }
+    }
+
+    private fun fingerprintProfile(point: Wgs84, nowMillis: Long): EnvironmentProfile? {
+        if (!FakeLoc.wifiFingerprintEnabled) return null
+        val json = FakeLoc.wifiFingerprintCatalogJson?.takeIf { it.isNotBlank() } ?: return null
+        if (cachedFingerprintJson != json) {
+            cachedFingerprintJson = json
+            cachedFingerprintSource = runCatching { FingerprintWifiSource(WifiFingerprintImporter.importJson(json).catalog.database()) }
+                .onFailure { if (FakeLoc.enableDebugLog) Logger.debug("wifi fingerprint parse failed: ${it.message}") }
+                .getOrNull()
+        }
+        return cachedFingerprintSource?.profileAt(point, FakeLoc.environmentSeed, nowMillis)
     }
 
     private fun source(): ProceduralWifiSource {

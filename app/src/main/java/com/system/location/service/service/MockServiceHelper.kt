@@ -26,6 +26,8 @@ import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.cellMode
 import com.system.location.service.ext.environmentSourceMode
+import com.system.location.service.ext.wifiFingerprintEnabled
+import com.system.location.service.ext.wifiFingerprintCatalogJson
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.loopBroadcastlocation
@@ -346,6 +348,8 @@ object MockServiceHelper {
         rely.putInt("environment_ap_count", context.environmentApCount)
         rely.putString("cell_mode", context.cellMode)
         rely.putString("environment_source", context.environmentSourceMode)
+        rely.putBoolean("wifi_fingerprint_enabled", context.wifiFingerprintEnabled)
+        context.wifiFingerprintCatalogJson.takeIf { it.isNotBlank() }?.let { rely.putString("wifi_fingerprint_json", it) }
         context.routingJson.takeIf { it.isNotBlank() }?.let { rely.putString("routing_json", it) }
         context.environmentReplayJson.takeIf { it.isNotBlank() }?.let { rely.putString("environment_json", it) }
 

@@ -1,61 +1,64 @@
 @file:Suppress("KotlinConstantConditions")
-
 @file:OptIn(ExperimentalUuidApi::class)
 
 package com.system.location.service.hook.hooks
 
-import com.system.location.service.hook.utils.toLocation
-
 import android.location.Location
-import android.os.Build
 import android.os.Bundle
-import android.os.DeadObjectException
 import android.os.IBinder
 import android.os.IInterface
 import android.os.Parcel
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.BaseLocationHook
-import com.system.location.service.hook.hooks.gnss.GnssListenerRouting
-import com.system.location.service.hook.hooks.gnss.GnssStatusBridge
 import com.system.location.service.hook.RemoteCommandHandler
 import com.system.location.service.hook.hooks.gnss.GnssHook
+import com.system.location.service.hook.hooks.gnss.GnssListenerRouting
+import com.system.location.service.hook.hooks.gnss.GnssStatusBridge
 import com.system.location.service.hook.hooks.miui.MiuiBlurLocationProviderHook
 import com.system.location.service.hook.hooks.miui.MiuiLocationManagerHook
-import com.system.location.service.hook.hooks.telephony.miui.MiuiTelephonyManagerHook
 import com.system.location.service.hook.hooks.nmea.LocationNMEAHook
 import com.system.location.service.hook.hooks.provider.LocationProviderManagerHook
-import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.hook.hooks.telephony.miui.MiuiTelephonyManagerHook
+import com.system.location.service.hook.runtime.HookRuntime
+import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.BinderUtils
+import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.afterHook
-import com.system.location.service.hook.utils.beforeHook
 import com.system.location.service.hook.utils.hookAllMethods
+import com.system.location.service.hook.utils.hookMethod
 import com.system.location.service.hook.utils.onceHookAllMethod
-import java.lang.reflect.InvocationTargetException
+import com.system.location.service.hook.utils.toLocation
+import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.uuid.ExperimentalUuidApi
 
-internal object LocationServiceHook: BaseLocationHook() {
+import android.os.Build
+import android.os.DeadObjectException
+import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedBridge
+import de.robv.android.xposed.XposedHelpers
+import com.system.location.service.hook.utils.afterHook
+import com.system.location.service.hook.utils.beforeHook
+import java.lang.reflect.InvocationTargetException
+
+internal object LocationServiceHook : BaseLocationHook() {
     val locationListeners = LinkedBlockingQueue<Pair<String, IInterface>>()
 
-    // A random command is generated to prevent some apps from detecting LocationService
     operator fun invoke(classLoader: ClassLoader) {
-        val cLocationManagerService = XposedHelpers.findClassIfExists("com.android.server.location.LocationManagerService", classLoader)
+        val cLocationManagerService =
+            Reflection.findClassIfExists(
+                "com.android.server.location.LocationManagerService",
+                classLoader,
+            )
         if (cLocationManagerService == null) {
             hookLocationManagerServiceV2(classLoader)
         } else {
             onService(cLocationManagerService)
         }
-        //startDaemon(classLoader)
     }
 
     fun onService(cILocationManager: Class<*>) {
-        // Got instance of ILocationManager.Stub here, you can hook it
-        // Not directly Class.forName because of this thing, it can't be reflected, even if I'm system_server?!?!
 
         if (FakeLoc.enableDebugLog) {
             Logger.debug("ILocationManager.Stub: class = $cILocationManager")
@@ -73,260 +76,300 @@ internal object LocationServiceHook: BaseLocationHook() {
 
         LocationNMEAHook(cILocationManager)
 
-        if(cILocationManager.hookAllMethods("getLastLocation", afterHook {
-                // android 7.0.0 ~ 10.0.0
-                // Location getLastLocation(in LocationRequest request, String packageName);
-                // android 11.0.0
-                // Location getLastLocation(in LocationRequest request, String packageName, String featureId);
-                // android 12.0.0 ~ 15.0.0
-                // @nullable Location getLastLocation(String provider, in LastLocationRequest request, String packageName, @nullable String attributionTag);
-                // Why are there so... I'm really speechless
+        if (
+            cILocationManager
+                .hookAllMethods(
+                    "getLastLocation",
+                    XposedInterface.Hooker intercept8@{ chain ->
+                        val args = chain.args.toTypedArray()
+                        var result = chain.proceed()
 
-                // Virtual Coordinate: Instantly update the latest virtual coordinates
-                // Roulette Move: Each request moves a certain distance
-                // Route Simulation: Move according to a preset route
-                //val uid = FqlUtils.getCallerUid()
-                // Determine whether it is an app that needs a hook
-                if (!FakeLoc.enable) return@afterHook
+                        if (!FakeLoc.enable) return@intercept8 result
 
-                // It can't be null, because I'm judging in the previous step
-                val location = result as? Location ?: Location("gps")
+                        val location = result as? Location ?: Location("gps")
 
-                result = injectLocation(location)
+                        result = injectLocation(location)
 
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("getLastLocation: injected! $result")
-                }
-        }).isEmpty()) {
+                        if (FakeLoc.enableDebugLog) {
+                            Logger.debug("getLastLocation: injected! $result")
+                        }
+
+                        result
+                    },
+                )
+                .isEmpty()
+        ) {
             Logger.error("hook getLastLocation failed")
         }
 
-        // android 12 and later remove `requestLocationUpdates`
-        cILocationManager.hookAllMethods("requestLocationUpdates", beforeHook {
-            // android 7.0.0
-            // void requestLocationUpdates(in LocationRequest request, in ILocationListener listener, String packageName);
-            //
-            // oneway interface ILocationListener
-            //{
-            //    void onLocationChanged(in Location location);
-            //    void onStatusChanged(String provider, int status, in Bundle extras);
-            //    void onProviderEnabled(String provider);
-            //    void onProviderDisabled(String provider);
-            //}
-            //
-            // android 7.1.1 ~ 9.0.0
-            // void requestLocationUpdates(in LocationRequest request, in ILocationListener listener,
-            //            in PendingIntent intent, String packageName);
-            //
-            // oneway interface ILocationListener
-            //{
-            //    void onLocationChanged(in Location location);
-            //    void onStatusChanged(String provider, int status, in Bundle extras);
-            //    void onProviderEnabled(String provider);
-            //    void onProviderDisabled(String provider);
-            //
-            // android 10.0.0
-            // oneway interface ILocationListener
-            //{
-            //    @UnsupportedAppUsage
-            //    void onLocationChanged(in Location location);
-            //    @UnsupportedAppUsage
-            //    void onProviderEnabled(String provider);
-            //    @UnsupportedAppUsage
-            //    void onProviderDisabled(String provider);
-            //    // --- deprecated ---
-            //    @UnsupportedAppUsage
-            //    void onStatusChanged(String provider, int status, in Bundle extras);
-            //}
-            //
-            // android 11.0.0
-            // void requestLocationUpdates(in LocationRequest request, in ILocationListener listener,
-            //            in PendingIntent intent, String packageName, String featureId, String listenerId);
-            //
-            // oneway interface ILocationListener
-            //{
-            //    @UnsupportedAppUsage
-            //    void onLocationChanged(in Location location);
-            //    @UnsupportedAppUsage
-            //    void onProviderEnabled(String provider);
-            //    @UnsupportedAppUsage
-            //    void onProviderDisabled(String provider);
-            //    // called when the listener is removed from the server side; no further callbacks are expected
-            //    void onRemoved();
-            //}
-            // android 12 and later
-            // remove this method
-            val provider = kotlin.runCatching {
-                XposedHelpers.callMethod(args[0], "getProvider") as? String
-            }.getOrNull() ?: "gps"
+        cILocationManager.hookAllMethods(
+            "requestLocationUpdates",
+            XposedInterface.Hooker intercept9@{ chain ->
+                val args = chain.args.toTypedArray()
 
-            val listener = args.filterIsInstance<IInterface>().firstOrNull() ?: run {
-                Logger.error("requestLocationUpdates: listener is null: $method")
-                return@beforeHook
-            }
+                val provider =
+                    kotlin
+                        .runCatching { Reflection.callMethod(args[0], "getProvider") as? String }
+                        .getOrNull() ?: "gps"
 
-            if(FakeLoc.enableDebugLog) {
-                Logger.debug("requestLocationUpdates: injected! $listener")
-            }
+                val listener =
+                    args.filterIsInstance<IInterface>().firstOrNull()
+                        ?: run {
+                            Logger.error(
+                                "requestLocationUpdates: listener is null: ${chain.executable}"
+                            )
+                            return@intercept9 chain.proceed(args)
+                        }
 
-            addLocationListenerInner(provider, listener)
+                if (FakeLoc.enableDebugLog) {
+                    Logger.debug("requestLocationUpdates: injected! $listener")
+                }
 
-            if (FakeLoc.enable) {
-                result = null
-                return@beforeHook
-            }
+                addLocationListenerInner(provider, listener)
 
-            if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
-                result = null
-                return@beforeHook
-            }
-        })
-        cILocationManager.hookAllMethods("removeUpdates", afterHook {
-            val listener = args.filterIsInstance<IInterface>().firstOrNull() ?: run {
-                Logger.error("removeUpdates: listener is null: $method")
-                return@afterHook
-            }
-            if(FakeLoc.enableDebugLog) {
-                Logger.debug("removeUpdates: injected! $listener")
-            }
+                if (FakeLoc.enable) {
+                    return@intercept9 null
+                }
 
-            removeLocationListenerInner(listener)
-        })
-        cILocationManager.hookAllMethods("registerLocationListener", beforeHook {
-            // android 12 ~ android 15
-            // void registerLocationListener(String provider, in LocationRequest request, in ILocationListener listener, String packageName, @nullable String attributionTag, String listenerId);
-            //
-            // oneway interface ILocationListener
-            //{
-            //    void onLocationChanged(in List<Location> locations, in @nullable IRemoteCallback onCompleteCallback);
-            //    void onProviderEnabledChanged(String provider, boolean enabled);
-            //    void onFlushComplete(int requestCode);
-            //}
-            val provider = args[0] as? String ?: "gps"
-            val listener = args.filterIsInstance<IInterface>().firstOrNull() ?: run {
-                Logger.error("registerLocationListener: listener is null: $method")
-                return@beforeHook
-            }
+                if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
+                    return@intercept9 null
+                }
 
-            if(FakeLoc.enableDebugLog) {
-                Logger.debug("registerLocationListener: injected! $listener, from ${BinderUtils.getUidPackageNames()}")
-            }
+                chain.proceed(args)
+            },
+        )
+        cILocationManager.hookAllMethods(
+            "removeUpdates",
+            XposedInterface.Hooker intercept10@{ chain ->
+                val args = chain.args.toTypedArray()
+                var result = chain.proceed()
 
-            addLocationListenerInner(provider, listener)
+                val listener =
+                    args.filterIsInstance<IInterface>().firstOrNull()
+                        ?: run {
+                            Logger.error("removeUpdates: listener is null: ${chain.executable}")
+                            return@intercept10 result
+                        }
+                if (FakeLoc.enableDebugLog) {
+                    Logger.debug("removeUpdates: injected! $listener")
+                }
 
-            if (FakeLoc.enable && FakeLoc.disableRegisterLocationListener) {
-                result = null
-                return@beforeHook
-            }
+                removeLocationListenerInner(listener)
 
-            if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
-                result = null
-                return@beforeHook
-            }
-        })
-        cILocationManager.hookAllMethods("unregisterLocationListener", afterHook {
-            val listener = args.filterIsInstance<IInterface>().firstOrNull() ?: run {
-                Logger.error("unregisterLocationListener: listener is null: $method")
-                return@afterHook
-            }
-            if(FakeLoc.enableDebugLog) {
-                Logger.debug("unregisterLocationListener: injected! $listener")
-            }
+                result
+            },
+        )
+        cILocationManager.hookAllMethods(
+            "registerLocationListener",
+            XposedInterface.Hooker intercept11@{ chain ->
+                val args = chain.args.toTypedArray()
 
-            removeLocationListenerInner(listener)
-        })
+                val provider = args[0] as? String ?: "gps"
+                val listener =
+                    args.filterIsInstance<IInterface>().firstOrNull()
+                        ?: run {
+                            Logger.error(
+                                "registerLocationListener: listener is null: ${chain.executable}"
+                            )
+                            return@intercept11 chain.proceed(args)
+                        }
+
+                if (FakeLoc.enableDebugLog) {
+                    Logger.debug(
+                        "registerLocationListener: injected! $listener, from ${BinderUtils.getUidPackageNames()}"
+                    )
+                }
+
+                addLocationListenerInner(provider, listener)
+
+                if (FakeLoc.enable && FakeLoc.disableRegisterLocationListener) {
+                    return@intercept11 null
+                }
+
+                if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
+                    return@intercept11 null
+                }
+
+                chain.proceed(args)
+            },
+        )
+        cILocationManager.hookAllMethods(
+            "unregisterLocationListener",
+            XposedInterface.Hooker intercept12@{ chain ->
+                val args = chain.args.toTypedArray()
+                var result = chain.proceed()
+
+                val listener =
+                    args.filterIsInstance<IInterface>().firstOrNull()
+                        ?: run {
+                            Logger.error(
+                                "unregisterLocationListener: listener is null: ${chain.executable}"
+                            )
+                            return@intercept12 result
+                        }
+                if (FakeLoc.enableDebugLog) {
+                    Logger.debug("unregisterLocationListener: injected! $listener")
+                }
+
+                removeLocationListenerInner(listener)
+
+                result
+            },
+        )
 
         run {
-            cILocationManager.hookAllMethods("addGnssBatchingCallback", beforeHook {
-                if (hasThrowable() || args.isEmpty() || args[0] == null) return@beforeHook
-                val callback = args[0] ?: return@beforeHook
-                val classCallback = callback.javaClass
+            cILocationManager.hookAllMethods(
+                "addGnssBatchingCallback",
+                XposedInterface.Hooker intercept13@{ chain ->
+                    val args = chain.args.toTypedArray()
 
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("addGnssBatchingCallback: injected!")
-                }
-
-                classCallback.onceHookAllMethod("onLocationBatch", beforeHook onLocationBatch@ {
-                    if (args.isEmpty()) return@onLocationBatch
-
-                    if (!FakeLoc.enable) {
-                        return@onLocationBatch
-                    }
+                    if (args.isEmpty() || args[0] == null) return@intercept13 chain.proceed(args)
+                    val callback = args[0] ?: return@intercept13 chain.proceed(args)
+                    val classCallback = callback.javaClass
 
                     if (FakeLoc.enableDebugLog) {
-                        Logger.debug("onLocationBatch: injected!")
+                        Logger.debug("addGnssBatchingCallback: injected!")
                     }
 
-                    val location = (args[0] ?: return@onLocationBatch) as Location
-                    args[0] = injectLocation(location)
-                })
-            })
+                    classCallback.onceHookAllMethod(
+                        "onLocationBatch",
+                        XposedInterface.Hooker intercept14@{ chain ->
+                            val args = chain.args.toTypedArray()
+
+                            if (args.isEmpty()) return@intercept14 chain.proceed(args)
+
+                            if (!FakeLoc.enable) {
+                                return@intercept14 chain.proceed(args)
+                            }
+
+                            if (FakeLoc.enableDebugLog) {
+                                Logger.debug("onLocationBatch: injected!")
+                            }
+
+                            val location =
+                                (args[0] ?: return@intercept14 chain.proceed(args)) as Location
+                            args[0] = injectLocation(location)
+
+                            chain.proceed(args)
+                        },
+                    )
+
+                    chain.proceed(args)
+                },
+            )
         }
 
-        cILocationManager.hookAllMethods("requestGeofence", beforeHook {
-            if (FakeLoc.disableRequestGeofence && !FakeLoc.enableAGPS) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("requestGeofence: injected!")
-                }
-                result = null
-            }
-        })
-//        cILocationManager.hookAllMethods("removeGeofence", beforeHook {
-//        })
+        cILocationManager.hookAllMethods(
+            "requestGeofence",
+            XposedInterface.Hooker intercept15@{ chain ->
+                val args = chain.args.toTypedArray()
 
-        cILocationManager.hookAllMethods("getFromLocation", beforeHook {
-            if (FakeLoc.disableGetFromLocation && !FakeLoc.enableAGPS) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("getFromLocation: injected!")
+                if (FakeLoc.disableRequestGeofence && !FakeLoc.enableAGPS) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("requestGeofence: injected!")
+                    }
+                    return@intercept15 null
                 }
-                result = null
-            }
-        })
 
-        cILocationManager.hookAllMethods("getFromLocationName", beforeHook {
-            if (FakeLoc.disableGetFromLocation && !FakeLoc.enableAGPS) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("getFromLocationName: injected!")
-                }
-                result = null
-            }
-        })
+                chain.proceed(args)
+            },
+        )
 
-        cILocationManager.hookAllMethods("addTestProvider", beforeHook {
-            if (FakeLoc.enable && !FakeLoc.enableAGPS) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("addTestProvider: injected!")
-                }
-                result = null
-            }
-        })
+        cILocationManager.hookAllMethods(
+            "getFromLocation",
+            XposedInterface.Hooker intercept16@{ chain ->
+                val args = chain.args.toTypedArray()
 
-        cILocationManager.hookAllMethods("removeTestProvider", beforeHook {
-            if (FakeLoc.enable && !FakeLoc.enableAGPS) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("removeTestProvider: injected!")
+                if (FakeLoc.disableGetFromLocation && !FakeLoc.enableAGPS) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("getFromLocation: injected!")
+                    }
+                    return@intercept16 null
                 }
-                result = null
-            }
-        })
 
-        cILocationManager.hookAllMethods("setTestProviderLocation", beforeHook {
-            if (FakeLoc.enable && !FakeLoc.enableAGPS) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("setTestProviderLocation: injected!")
-                }
-                result = null
-            }
-        })
+                chain.proceed(args)
+            },
+        )
 
-        cILocationManager.hookAllMethods("setTestProviderEnabled", beforeHook {
-            if (FakeLoc.enable && !FakeLoc.enableAGPS) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("setTestProviderEnabled: injected!")
+        cILocationManager.hookAllMethods(
+            "getFromLocationName",
+            XposedInterface.Hooker intercept17@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (FakeLoc.disableGetFromLocation && !FakeLoc.enableAGPS) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("getFromLocationName: injected!")
+                    }
+                    return@intercept17 null
                 }
-                result = null
-            }
-        })
+
+                chain.proceed(args)
+            },
+        )
+
+        cILocationManager.hookAllMethods(
+            "addTestProvider",
+            XposedInterface.Hooker intercept18@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (FakeLoc.enable && !FakeLoc.enableAGPS) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("addTestProvider: injected!")
+                    }
+                    return@intercept18 null
+                }
+
+                chain.proceed(args)
+            },
+        )
+
+        cILocationManager.hookAllMethods(
+            "removeTestProvider",
+            XposedInterface.Hooker intercept19@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (FakeLoc.enable && !FakeLoc.enableAGPS) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("removeTestProvider: injected!")
+                    }
+                    return@intercept19 null
+                }
+
+                chain.proceed(args)
+            },
+        )
+
+        cILocationManager.hookAllMethods(
+            "setTestProviderLocation",
+            XposedInterface.Hooker intercept20@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (FakeLoc.enable && !FakeLoc.enableAGPS) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("setTestProviderLocation: injected!")
+                    }
+                    return@intercept20 null
+                }
+
+                chain.proceed(args)
+            },
+        )
+
+        cILocationManager.hookAllMethods(
+            "setTestProviderEnabled",
+            XposedInterface.Hooker intercept21@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (FakeLoc.enable && !FakeLoc.enableAGPS) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("setTestProviderEnabled: injected!")
+                    }
+                    return@intercept21 null
+                }
+
+                chain.proceed(args)
+            },
+        )
 
         if(com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cILocationManager, "registerGnssStatusCallback", object: XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam?) {

@@ -18,7 +18,7 @@ object HookStatusRegistry {
         entries.computeIfPresent(point) { _, old -> old.copy(matched = true) }
     }
     fun installed(point: String) {
-        entries.compute(point) { _, old -> (old ?: HookStatus()).copy(supported = true, installed = true) }
+        entries.compute(point) { _, old -> (old ?: HookStatus()).copy(supported = true, installed = true, failed = false, skipped = false, reason = null) }
     }
     fun recordScope(scope: HookScope) { processScope = scope }
     fun scope(): HookScope? = processScope

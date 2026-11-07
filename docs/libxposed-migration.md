@@ -15,7 +15,7 @@ API 依赖在正式模块使用 `compileOnly`，由框架在目标进程提供�
 | 文件 | 内容与用途 |
 |---|---|
 | `java_init.list` | 唯一入口 `com.system.location.service.hook.PortalModule` |
-| `module.prop` | `minApiVersion=102`、`targetApiVersion=102`、`staticScope=true`、`autoHotReload=false` |
+| `module.prop` | `minApiVersion=102`、`targetApiVersion=102`、`staticScope=true`、`autoHotReload=true` |
 | `scope.list` | 六个静态作用域，见下表 |
 
 | 作用域 | 目标 |
@@ -29,7 +29,7 @@ API 依赖在正式模块使用 `compileOnly`，由框架在目标进程提供�
 
 `onModuleLoaded` 连接 `HookRuntime` 并记录进程身份；系统安装在 `onSystemServerStarting` 使用框架传入的 ClassLoader，不提前使用普通系统 ClassLoader 替代。普通包在 `onPackageReady` 按包身份和作用域判断，并按包去重。共享进程可能先报告 `android`、随后才报告真正的 phone/fused 包，因此不以 `isFirstPackage` 过滤这些回调；系统进程仍由专用生命周期安装。框架作用域与 `HookScopeResolver` 的包名、进程名、UID、SDK 条件同时约束实际安装。
 
-自动和手动热重载均关闭：配置为 `autoHotReload=false`，`onHotReloading` 返回 false。定时器、listener、JNI 和 Native 状态尚未设计完整的代际清理，更新后应重启目标进程；涉及 system_server 时重启设备。运行场景的开始、停止和参数调整仍使用现有运行控制协议。
+system_server 支持热重载：`autoHotReload=true`，模块通过 `libxposed:service` 绑定并暴露 targets/hot reload 调试接口。`onHotReloading` 只接受 system_server 且未加载 Native Dobby 的进程，先停止 `LocationTicker`，保存可跨 classloader 的进程状态；`onHotReloaded` 卸载旧句柄、重建 Hook 和 SettingsProvider hook。phone/fused 进程拒绝热重载，仍需重启目标进程；Native Hook 一旦加载也必须重启。运行场景的开始、停止和参数调整仍使用现有运行控制协议。
 
 ## 原生 Hook 与反射
 
@@ -54,7 +54,7 @@ python -m unittest discover -s scripts -p 'test_xposed_module.py'
 python scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution
 ```
 
-检查器验证现代入口资源、API 版本、六个 scope 和关闭热重载，拒绝旧入口、旧 manifest metadata 及 compat 回归；APK 检查读取 DEX 类定义，确认入口存在且未打包框架 API / legacy compat 类。合法 API 类型引用不会被误认为打包了 API 实现。两条构建工作流已接入源码和 APK 检查，正式发布校验脚本也执行相同入口检查。
+检查器验证现代入口资源、API 版本、六个 scope 和热重载元数据，拒绝旧入口、旧 manifest metadata 及 compat 回归；APK 检查读取 DEX 类定义，确认入口存在且未打包框架 API / legacy compat 类。合法 API 类型引用不会被误认为打包了 API 实现。两条构建工作流已接入源码和 APK 检查，正式发布校验脚本也执行相同入口检查。
 
 本轮已完成以下本地验证；历史文档中的测试数量不作为本次结果。
 

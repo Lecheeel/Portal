@@ -242,7 +242,7 @@
 - **P5-07 纯模型落地**：新增不可变 `RuntimeSnapshot`/`RuntimeSnapshotStore`，`FakeLoc` 的样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声配置已全部迁入快照；Hooks 通过兼容属性读取，待设备验证。
 - **P5-08 命令拆分完成**：`RemoteCommandHandler` 只保留安全校验与分发；config/diagnostic/native/sample/control/location/proxy 拆到独立对象，`SettingsSchema`/`ConfigGate` 覆盖主要配置 key 且 gate 由 schema 驱动；设备行为回归待做。
 - **P5-06 存储抽象**：`SampleStore`/`ConfigStore`、原子 `FileConfigStore`、active config、完整恢复入口、`SeqLockSampleStore`、`SharedSampleCodec`/`Header`/`Buffer`/`Layout` 与 Android `SharedMemorySampleBuffer` 已落地；Binder fd 未做。
-- **P6-01 libxposed 迁移**：正式入口 `PortalModule`、API 102 原生 Chain、`META-INF/xposed`、六 scope 已落地；旧 spike 与 legacy 依赖已删除；当前 `autoHotReload=false`。
+- **P6-01 libxposed 迁移**：正式入口 `PortalModule`、API 102 原生 Chain、`META-INF/xposed`、六 scope 已落地；旧 spike 与 legacy 依赖已删除；system_server 热重载已验证（phone/fused 需重启进程）。
 - **P0-03 设备基线**：设备已接入（Xiaomi 11 Ultra / Android 14 / Vector 2.2 / APatch），system_server/phone/Xiaomi fused 已加载模块，XPOSED 场景可 RUNNING；完整 detector/双设备矩阵仍待执行。
 - **P7-04 性能探针**：系统侧/app 侧发布耗时、`APP_MEMORY`、`APP_CPU`、`BATTERY` 已进入诊断（p95>100ms WARN）；设备功耗基线未做。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。

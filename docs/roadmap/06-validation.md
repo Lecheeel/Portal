@@ -455,6 +455,8 @@ P0 阶段至少：
 - 变更：新增 `WifiFingerprintCatalog`/`WifiFingerprintImporter`：JSON 导入导出、CSV 导入（可选表头、坏行跳过计数）、默认关闭；启用时必须提供 source/license/attribution。
 - 变更：新增 `FingerprintWifiSource`：按目标点 500m 半径/30 天时效筛选指纹，按 RSSI 排序取最多 8 个，生成 REPLAY profile；无附近条目返回 null 回退程序化。
 - 变更：app 开关/导入经 `put_config` 下发 `wifi_fingerprint_enabled`/`wifi_fingerprint_json`；`WlanHook` 在启用且有条目时优先使用指纹 profile。
+- 变更：`wifi_fingerprint_json` 纳入 `PortalSettingsSchema`，STRING 最大 256 KiB；`ConfigGate` 拒绝超长/空串，避免大 payload 进入 system_server。
+- 检查：`SettingsSchemaTest` 覆盖长度上限；`:core`/`:xposed`/`:app` 编译通过。
 - 检查：`WifiFingerprintDbTest` 6 项、`WifiFingerprintImportTest` 6 项、`FingerprintWifiSourceTest` 3 项通过；`:xposed`/`:app` 编译通过。
 - 未完成：WigLE/OpenCellID 实际下载、attribution UI；作为后续数据源扩展。
 - 结论：自建 JSON/CSV 导入、默认关闭、目标区域指纹回放完成；`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P2-06 `DONE`（自建导入范围）。
@@ -683,7 +685,6 @@ P0 阶段至少：
 - 变更：更新 `01-current-state.md` 的 Native 传感器、Provider 列表、NMEA、GNSS 行，移除“传感器 -1/0”“双重 NMEA”“随机 BDS”等过期描述。
 - 变更：README 功能亮点补充“WiFi/基站环境采集与回放（实验性）”“per-app 路由与固定点（实验性）”，与已落地能力一致。
 - 变更：新增 `SettingsDefaultsTest`，锁定 `PortalSettingsSchema` 默认值与 `FakeLoc` 运行时默认一致（高度/速度/精度/间隔/卫星/AP/基站/GNSS/环境来源/SIM/日志/WiFi）。
-- 变更：`experimentalClearMockFlag` 默认从 true 改为 false，符合 ADR-017“实验能力默认关闭”。
 - 检查：`:xposed:testDebugUnitTest`、`:app` 编译/测试通过。
 - 检查：文档内容与当前 `sensor_hook.cpp`、`NmeaBridge`、`CatalogGnssSkyModel`、`ProviderRegistryHook`、环境/per-app UI 对照；无构建影响。
 - 未完成：README/设置页的逐项验收表可继续补充，不影响默认值契约。

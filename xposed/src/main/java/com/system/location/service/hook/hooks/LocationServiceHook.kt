@@ -371,323 +371,359 @@ internal object LocationServiceHook : BaseLocationHook() {
             },
         )
 
-        if(com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cILocationManager, "registerGnssStatusCallback", object: XC_MethodHook() {
-                override fun afterHookedMethod(param: MethodHookParam?) {
-                    if(param == null || param.args.isEmpty() || param.args[0] == null) return
+        if (
+            com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+                    cILocationManager,
+                    "registerGnssStatusCallback",
+                    XposedInterface.Hooker intercept22@{ chain ->
+                        val args = chain.args.toTypedArray()
+                        var result = chain.proceed()
 
-                    val callback = param.args[0] ?: return
-                    val cIGnssStatusListener = callback.javaClass
-                    if (callback is IInterface) {
-                        GnssListenerRouting.register(callback, param.args.getOrNull(1) as? String)
-                    }
+                        if (args.isEmpty() || args[0] == null) return@intercept22 result
 
-                    if(FakeLoc.enableDebugLog) {
-                        Logger.debug("registerGnssStatusCallback: injected!")
-                    }
-                    if (!FakeLoc.enable || !FakeLoc.enableMockGnss) {
-                        return
-                    }
-
-                    if (cIGnssStatusListener.onceHookAllMethod("onSvStatusChanged", beforeHook {
-                        // android 7.0.0
-                        // void onSvStatusChanged(int svCount, in int[] svidWithFlags, in float[] cn0s,
-                        //            in float[] elevations, in float[] azimuths);
-                        // android 8.0.0
-                        // void onSvStatusChanged(int svCount, in int[] svidWithFlags, in float[] cn0s,
-                        //            in float[] elevations, in float[] azimuths,
-                        //            in float[] carrierFreqs);
-                        // android 11
-                        //  void onSvStatusChanged(int svCount, in int[] svidWithFlags, in float[] cn0s,
-                        //            in float[] elevations, in float[] azimuths,
-                        //            in float[] carrierFreqs, in float[] basebandCn0s);
-                        // android 12 ~ 15
-                        // void onSvStatusChanged(in GnssStatus gnssStatus);
-
-                        // https://www.csno-tarc.cn/system/constellation
-
-                        if (!FakeLoc.enable || !FakeLoc.enableMockGnss) return@beforeHook
-
-                        val mockGps = GnssStatusBridge.toMockData(GnssStatusBridge.currentFrame(GnssListenerRouting.fixedPointFor(thisObject)))
-                        val svCount = mockGps.svCount
-
-                        if (args[0] is Int) {
-                            args[0] = svCount
-                            args[1] = mockGps.svidWithFlags
-                            args[2] = mockGps.cn0s
-                            args[3] = mockGps.elevations
-                            args[4] = mockGps.azimuths
-                            if (args.size > 5) {
-                                args[5] = mockGps.carrierFreqs
-                            }
-
-                            if (args.size > 6) {
-                                args[6] = GnssStatusBridge.basebandCn0(mockGps)
-                            }
-                            return@beforeHook
+                        val callback = args[0] ?: return@intercept22 result
+                        val cIGnssStatusListener = callback.javaClass
+                        if (callback is IInterface) {
+                            GnssListenerRouting.register(callback, args.getOrNull(1) as? String)
                         }
 
-                        if (args[0] != null && args[0].javaClass.name == "android.location.GnssStatus") {
-                            runCatching {
-                                val mConstructor = args[0].javaClass.declaredConstructors.firstOrNull {
-                                    it.parameterTypes.size == 7
-                                }.also {
-                                    it?.isAccessible = true
-                                }
-
-                                if (mConstructor != null) {
-                                    args[0] = mConstructor.newInstance(
-                                        svCount,
-                                        mockGps.svidWithFlags,
-                                        mockGps.cn0s,
-                                        mockGps.elevations,
-                                        mockGps.azimuths,
-                                        mockGps.carrierFreqs,
-                                        GnssStatusBridge.basebandCn0(mockGps)
-                                    )
-                                } else {
-                                    Logger.error("onSvStatusChanged: unsupported version: ${method}, constructor not found")
-                                }
-                            }.onFailure {
-                                XposedBridge.log(it)
-                            }
-                            return@beforeHook
+                        if (FakeLoc.enableDebugLog) {
+                            Logger.debug("registerGnssStatusCallback: injected!")
+                        }
+                        if (!FakeLoc.enable || !FakeLoc.enableMockGnss) {
+                            return@intercept22 result
                         }
 
-                        Logger.error("onSvStatusChanged: unsupported version: $method")
-                    }).isEmpty()) {
-                        Logger.error("find onSvStatusChanged failed!")
-                    }
-                }
-            }).isEmpty()) {
-            XposedBridge.log("[LocationService] hook registerGnssStatusCallback failed")
+                        if (
+                            cIGnssStatusListener
+                                .onceHookAllMethod(
+                                    "onSvStatusChanged",
+                                    XposedInterface.Hooker intercept23@{ chain ->
+                                        val args = chain.args.toTypedArray()
+
+                                        if (!FakeLoc.enable || !FakeLoc.enableMockGnss)
+                                            return@intercept23 chain.proceed(args)
+
+                                        val mockGps =
+                                            GnssStatusBridge.toMockData(
+                                                GnssStatusBridge.currentFrame(
+                                                    GnssListenerRouting.fixedPointFor(
+                                                        chain.thisObject
+                                                    )
+                                                )
+                                            )
+                                        val svCount = mockGps.svCount
+
+                                        if (args[0] is Int) {
+                                            args[0] = svCount
+                                            args[1] = mockGps.svidWithFlags
+                                            args[2] = mockGps.cn0s
+                                            args[3] = mockGps.elevations
+                                            args[4] = mockGps.azimuths
+                                            if (args.size > 5) {
+                                                args[5] = mockGps.carrierFreqs
+                                            }
+
+                                            if (args.size > 6) {
+                                                args[6] = GnssStatusBridge.basebandCn0(mockGps)
+                                            }
+                                            return@intercept23 chain.proceed(args)
+                                        }
+
+                                        if (
+                                            args[0] != null &&
+                                                args[0]!!.javaClass.name ==
+                                                    "android.location.GnssStatus"
+                                        ) {
+                                            runCatching {
+                                                    val mConstructor =
+                                                        args[0]!!
+                                                            .javaClass
+                                                            .declaredConstructors
+                                                            .firstOrNull {
+                                                                it.parameterTypes.size == 7
+                                                            }
+                                                            .also { it?.isAccessible = true }
+
+                                                    if (mConstructor != null) {
+                                                        args[0] =
+                                                            mConstructor.newInstance(
+                                                                svCount,
+                                                                mockGps.svidWithFlags,
+                                                                mockGps.cn0s,
+                                                                mockGps.elevations,
+                                                                mockGps.azimuths,
+                                                                mockGps.carrierFreqs,
+                                                                GnssStatusBridge.basebandCn0(
+                                                                    mockGps
+                                                                ),
+                                                            )
+                                                    } else {
+                                                        Logger.error(
+                                                            "onSvStatusChanged: unsupported version: ${chain.executable}, constructor not found"
+                                                        )
+                                                    }
+                                                }
+                                                .onFailure { HookRuntime.log(it) }
+                                            return@intercept23 chain.proceed(args)
+                                        }
+
+                                        Logger.error(
+                                            "onSvStatusChanged: unsupported version: ${chain.executable}"
+                                        )
+
+                                        chain.proceed(args)
+                                    },
+                                )
+                                .isEmpty()
+                        ) {
+                            Logger.error("find onSvStatusChanged failed!")
+                        }
+
+                        result
+                    },
+                )
+                .isEmpty()
+        ) {
+            HookRuntime.log("[LocationService] hook registerGnssStatusCallback failed")
         }
-        // android 11+
-        // @EnforcePermission("LOCATION_HARDWARE")
-        // void startGnssBatch(long periodNanos, in ILocationListener listener, String packageName, @nullable String attributionTag, String listenerId);
-        //
-        // void startGnssBatch(long periodNanos, in ILocationListener listener, String packageName, @nullable String attributionTag, String listenerId);
-        cILocationManager.hookAllMethods("startGnssBatch", beforeHook {
-            if(FakeLoc.enableDebugLog) {
-                Logger.debug("startGnssBatch: injected!")
-            }
-
-            if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
-                val listener = args.filterIsInstance<IInterface>().firstOrNull() ?: run {
-                    Logger.error("startGnssBatch: listener is null: $method")
-                    return@beforeHook
-                }
-
-                addLocationListenerInner("GnssBatch", listener)
-                hookILocationListener(listener)
-            }
-        })
-        cILocationManager.hookAllMethods("stopGnssBatch", beforeHook {
-            if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("stopGnssBatch: injected!")
-                }
-            }
-            //locationListeners.removeIf { it.first == "GnssBatch" }
-        })
-
-        //  void requestListenerFlush(String provider, in ILocationListener listener, int requestCode);
-        cILocationManager.hookAllMethods("requestListenerFlush", beforeHook {
-            if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
-                if(FakeLoc.enableDebugLog) {
-                    Logger.debug("requestListenerFlush: injected!")
-                }
-
-                val listener = args.filterIsInstance<IInterface>().firstOrNull() ?: run {
-                    Logger.error("requestListenerFlush: listener is null: $method")
-                    return@beforeHook
-                }
-
-                addLocationListenerInner("gps", listener)
-
-                if (FakeLoc.disableRegisterLocationListener || FakeLoc.enable) {
-                    result = null
-                }
-
-                hookILocationListener(listener)
-            }
-        })
-
-//        cILocationManager.hookAllMethods("getBestProvider", beforeHook {
-//            if (FakeLoc.enable) {
-//                result = "gps"
-//            }
-//        })
-//
-//        cILocationManager.hookAllMethods("getAllProviders", afterHook {
-//            if(FakeLoc.enable) {
-//                result = if (result is List<*>) {
-//                    listOf("gps", "passive")
-//                } else if (result is Array<*>) {
-//                    arrayOf("gps", "passive")
-//                } else {
-//                    Logger.error("getAllProviders: result is not List or Array")
-//                    return@afterHook
-//                }
-//            }
-//        })
-//
-//        cILocationManager.hookAllMethods("getProviders", afterHook {
-//            if(FakeLoc.enable) {
-//                result = if (result is List<*>) {
-//                    listOf("gps", "passive")
-//                } else if (result is Array<*>) {
-//                    arrayOf("gps", "passive")
-//                } else {
-//                    Logger.error("getProviders: result is not List or Array")
-//                    return@afterHook
-//                }
-//            }
-//        })
-//
-//        cILocationManager.hookAllMethods("hasProvider", beforeHook {
-//            if (FakeLoc.enableDebugLog) {
-//                Logger.debug("hasProvider: ${args[0]}")
-//            }
-//
-//            if(FakeLoc.enable) {
-//                if (args[0] == "gps") {
-//                    result = true
-//                } else if (args[0] == "network") {
-//                    result = false
-//                } else if (args[0] == "fused" && FakeLoc.disableFusedLocation) {
-//                    result = false
-//                }
-//            }
-//        })
-
-        cILocationManager.hookAllMethods("getCurrentLocation", beforeHook {
-            if (!FakeLoc.enable) return@beforeHook
-            val callback = args.getOrNull(2) ?: return@beforeHook
-
-            if (FakeLoc.enableDebugLog) {
-                Logger.debug("getCurrentLocation: injected!")
-            }
-
-            if (FakeLoc.disableGetCurrentLocation) {
-                result = null
-                return@beforeHook
-            }
-
-            val classCallback = callback.javaClass
-            classCallback.onceHookAllMethod("onLocation", beforeHook onLocation@ {
-                val location = args[0] as? Location ?: return@onLocation
+        cILocationManager.hookAllMethods(
+            "startGnssBatch",
+            XposedInterface.Hooker intercept24@{ chain ->
+                val args = chain.args.toTypedArray()
 
                 if (FakeLoc.enableDebugLog) {
-                    Logger.debug("onLocation(getCurrentLocation): injected!")
+                    Logger.debug("startGnssBatch: injected!")
                 }
 
-                args[0] = injectLocation(location)
-            })
-        })
+                if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
+                    val listener =
+                        args.filterIsInstance<IInterface>().firstOrNull()
+                            ?: run {
+                                Logger.error(
+                                    "startGnssBatch: listener is null: ${chain.executable}"
+                                )
+                                return@intercept24 chain.proceed(args)
+                            }
 
-        cILocationManager.hookAllMethods("sendExtraCommand", beforeHook {
-            if (args.size < 3) return@beforeHook
+                    addLocationListenerInner("GnssBatch", listener)
+                    hookILocationListener(listener)
+                }
 
-            val provider = args[0] as String
-            // The authenticated control channel must work before simulation starts.
-            if (provider != "fused_ext" && !FakeLoc.enable) return@beforeHook
-            val command = args[1] as String
-            val outResult = args[2] as? Bundle
+                chain.proceed(args)
+            },
+        )
+        cILocationManager.hookAllMethods(
+            "stopGnssBatch",
+            XposedInterface.Hooker intercept25@{ chain ->
+                val args = chain.args.toTypedArray()
 
-            if (FakeLoc.disableFusedLocation && provider == "fused") {
-                result = false
-                return@beforeHook
-            }
+                if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("stopGnssBatch: injected!")
+                    }
+                }
 
-            // If the GPS provider is enabled, the GPS provider is disabled
-            if(provider == "gps" && FakeLoc.enable) {
-                result = false
-                return@beforeHook
-            }
+                chain.proceed(args)
+            },
+        )
 
-            if(provider == "LOCATION_BIG_DATA") {
-                result = false
-                return@beforeHook
-            }
+        cILocationManager.hookAllMethods(
+            "requestListenerFlush",
+            XposedInterface.Hooker intercept26@{ chain ->
+                val args = chain.args.toTypedArray()
 
-            if (provider != "fused_ext") {
-                if (FakeLoc.enableDebugLog)
-                    Logger.debug("sendExtraCommand provider: $provider, command: $command, result: $result")
-                return@beforeHook
-            }
-            if (outResult == null) return@beforeHook
+                if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
+                    if (FakeLoc.enableDebugLog) {
+                        Logger.debug("requestListenerFlush: injected!")
+                    }
 
-            if (handleInstruction(command, outResult)) {
-                result = true
-            }
-        })
+                    val listener =
+                        args.filterIsInstance<IInterface>().firstOrNull()
+                            ?: run {
+                                Logger.error(
+                                    "requestListenerFlush: listener is null: ${chain.executable}"
+                                )
+                                return@intercept26 chain.proceed(args)
+                            }
 
-        if(
-        // boolean isProviderEnabledForUser(String provider, int userId); from android 9.0.0
+                    addLocationListenerInner("gps", listener)
+
+                    hookILocationListener(listener)
+                    if (FakeLoc.disableRegisterLocationListener || FakeLoc.enable)
+                        return@intercept26 null
+                }
+
+                chain.proceed(args)
+            },
+        )
+
+        cILocationManager.hookAllMethods(
+            "getCurrentLocation",
+            XposedInterface.Hooker intercept27@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (!FakeLoc.enable) return@intercept27 chain.proceed(args)
+                val callback = args.getOrNull(2) ?: return@intercept27 chain.proceed(args)
+
+                if (FakeLoc.enableDebugLog) {
+                    Logger.debug("getCurrentLocation: injected!")
+                }
+
+                if (FakeLoc.disableGetCurrentLocation) {
+                    return@intercept27 null
+                }
+
+                val classCallback = callback.javaClass
+                classCallback.onceHookAllMethod(
+                    "onLocation",
+                    XposedInterface.Hooker intercept28@{ chain ->
+                        val args = chain.args.toTypedArray()
+
+                        val location =
+                            args[0] as? Location ?: return@intercept28 chain.proceed(args)
+
+                        if (FakeLoc.enableDebugLog) {
+                            Logger.debug("onLocation(getCurrentLocation): injected!")
+                        }
+
+                        args[0] = injectLocation(location)
+
+                        chain.proceed(args)
+                    },
+                )
+
+                chain.proceed(args)
+            },
+        )
+
+        cILocationManager.hookAllMethods(
+            "sendExtraCommand",
+            XposedInterface.Hooker intercept29@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (args.size < 3) return@intercept29 chain.proceed(args)
+
+                val provider = args[0] as String
+                if (provider != "fused_ext" && !FakeLoc.enable)
+                    return@intercept29 chain.proceed(args)
+                val command = args[1] as String
+                val outResult = args[2] as? Bundle
+
+                if (FakeLoc.disableFusedLocation && provider == "fused") {
+                    return@intercept29 false
+                }
+
+                if (provider == "gps" && FakeLoc.enable) {
+                    return@intercept29 false
+                }
+
+                if (provider == "LOCATION_BIG_DATA") {
+                    return@intercept29 false
+                }
+
+                if (provider != "fused_ext") {
+                    if (FakeLoc.enableDebugLog)
+                        Logger.debug(
+                            "sendExtraCommand provider: $provider, command: $command, result: pending"
+                        )
+                    return@intercept29 chain.proceed(args)
+                }
+                if (outResult == null) return@intercept29 chain.proceed(args)
+
+                if (handleInstruction(command, outResult)) {
+                    return@intercept29 true
+                }
+
+                chain.proceed(args)
+            },
+        )
+
+        if (
             com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
-                cILocationManager,
-                "isProviderEnabledForUser",
-                object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam?) {
-                        if (param == null || param.args.size < 2 || param.args[0] == null) return
-                        val provider = param.args[0] as String
-                        var userId = param.args[1] as Int
+                    cILocationManager,
+                    "isProviderEnabledForUser",
+                    XposedInterface.Hooker intercept30@{ chain ->
+                        val args = chain.args.toTypedArray()
+
+                        if (args.size < 2 || args[0] == null) return@intercept30 chain.proceed(args)
+                        val provider = args[0] as String
+                        var userId = args[1] as Int
                         if (provider == "fused_ext") {
                             if (userId == 0) {
                                 userId = BinderUtils.getCallerUid()
                             }
-                            param.result = BinderUtils.isLocationProviderEnabled(userId)
+                            return@intercept30 BinderUtils.isLocationProviderEnabled(userId)
                         } else if (FakeLoc.enable && provider == "network") {
-                            param.result = false
-                        } else if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
-                            param.result = false
-                            return
+                            return@intercept30 false
+                        } else if (
+                            FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused"
+                        ) {
+                            return@intercept30 false
                         } else {
                             if (FakeLoc.enableDebugLog) {
-                                 Logger.debug("isProviderEnabledForUser provider: $provider, userId: $userId")
+                                Logger.debug(
+                                    "isProviderEnabledForUser provider: $provider, userId: $userId"
+                                )
                             }
                         }
-                    }
-                }).isEmpty()
+
+                        chain.proceed(args)
+                    },
+                )
+                .isEmpty()
         ) {
-            // boolean isProviderEnabled(String provider);
             com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
                 cILocationManager,
                 "isProviderEnabled",
-                object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam?) {
-                        if (param == null || param.args.isEmpty() || param.args[0] == null) return
-                        val provider = param.args[0] as String
-                        val userId = BinderUtils.getCallerUid()
-                        if (provider == "fused_ext" && BinderUtils.isLocationProviderEnabled(userId)) {
-                            param.result = true
-                        } else if (FakeLoc.enable && provider == "network") {
-                            param.result = false
-                        } else if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
-                            param.result = false
-                            return
-                        }
+                XposedInterface.Hooker intercept31@{ chain ->
+                    val args = chain.args.toTypedArray()
+
+                    if (args.isEmpty() || args[0] == null) return@intercept31 chain.proceed(args)
+                    val provider = args[0] as String
+                    val userId = BinderUtils.getCallerUid()
+                    if (provider == "fused_ext" && BinderUtils.isLocationProviderEnabled(userId)) {
+                        return@intercept31 true
+                    } else if (FakeLoc.enable && provider == "network") {
+                        return@intercept31 false
+                    } else if (
+                        FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused"
+                    ) {
+                        return@intercept31 false
                     }
-                })
+
+                    chain.proceed(args)
+                },
+            )
         }
 
-        // F**k You! AMAP Service!
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cILocationManager, "setExtraLocationControllerPackageEnabled", object: XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam) {
-                if (FakeLoc.enable) {
-                    param.args[0] = false
-                }
-            }
-        })
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            cILocationManager,
+            "setExtraLocationControllerPackageEnabled",
+            XposedInterface.Hooker intercept32@{ chain ->
+                val args = chain.args.toTypedArray()
 
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cILocationManager, "setExtraLocationControllerPackage", object: XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam) {
                 if (FakeLoc.enable) {
-                    param.result = null
+                    args[0] = false
                 }
-            }
-        })
 
+                chain.proceed(args)
+            },
+        )
+
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            cILocationManager,
+            "setExtraLocationControllerPackage",
+            XposedInterface.Hooker intercept33@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (FakeLoc.enable) {
+                    return@intercept33 null
+                }
+
+                chain.proceed(args)
+            },
+        )
     }
 
     private fun hookILocationListener(listener: Any) {

@@ -60,7 +60,7 @@ python scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution
 
 | 检查 | 结果与覆盖范围 |
 |---|---|
-| Kotlin 编译与 JVM 回归 | 编译通过，474 项 JVM 测试通过（xposed 70 / core 269 / nmea 8 / app arm64Debug 127）；包含新增 5 项生命周期测试，以及反射、Hook 安装、原方法调用和既有业务回归 |
+| Kotlin 编译与 JVM 回归 | 编译通过，481 项 JVM 测试通过（xposed 77 / core 269 / nmea 8 / app arm64Debug 127）；包含生命周期、热重载策略、反射、Hook 安装、原方法调用和既有业务回归 |
 | Python 回归 | 29 项测试通过；包含现代模块检查器和既有发布校验 |
 | 完整 CMake 构建 | `armeabi-v7a`、`arm64-v8a`、`x86`、`x86_64` 四个 ABI 通过 |
 | 实际 APK | 本轮 ARM64 Debug APK 构建完成，现代入口、配置、scope 与 DEX 类定义检查通过；此包仅用于开发验证 |

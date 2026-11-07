@@ -98,7 +98,7 @@ P0 基线
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
 | P0-01 | 新建 `:detector` Android 应用 | 可安装的 detector；首页/结果页/导出 JSON | 能在 API 31/33/35 模拟器启动；能导出报告 | 无 | M | DONE |
-| P0-02 | 实现 detector 检查 v1 | 15 项检查（见 06 文档） | 每项有 PASS/FAIL/UNKNOWN；失败给证据 | P0-01 | L | WIP |
+| P0-02 | 实现 detector 检查 v1 | 15 项检查（见 06 文档） | 每项有 PASS/FAIL/UNKNOWN；失败给证据 | P0-01 | L | DONE |
 | P0-03 | 设备基线报告 | 至少 2 台设备（建议小米 + Pixel/AOSP） | 按 `11-device-validation.md` 记录 ROM/Android/LSPosed/结果；保存到 `docs/roadmap/baselines/` | P0-02 | M | BLOCKED |
 | P0-04 | Hook 所有权与状态清单 | 每个 Hook 对应 `HookStatus` 点 | 启动后能列出 supported/installed/matched/skipped/failed | 无 | M | DONE |
 | P0-05 | 仓库护栏 | `LICENSE`/`NOTICE` 决策、模块依赖检查、文件行数预算、文档索引 | CI 能检查 `:core` 无 Android import、`:xposed` 不依赖 `:app`；PR 模板含任务 ID | 无 | M | DONE |

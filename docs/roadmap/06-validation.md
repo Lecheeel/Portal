@@ -314,7 +314,7 @@ P0 阶段至少：
   - C08 WiFi 空列表/哨兵 BSSID/连接 AP；C09 CDMA 与 GSM/LTE 矛盾、SIM 有值但小区为空。
   - C10/C11 传感器量级/方差/计步；C12 瞬移/时间戳/单频抖动；C13 xposed meta-data；C14 `/proc`/root 痕迹（仅 detector 进程）；C15 时区 + 可选 HTTPS 出口 IP。
 - 检查：`:detector:assembleDebug` 通过；无设备运行结果。C06/C07 的阈值（Jaccard 0.5、Δ卫星数 1/2、CN0 相关性等）需要在 P0-03 设备基线上校准，真实 NMEA 可能因此产生“预期内 FAIL”。
-- 结论：`BUILD VERIFIED` + `SOURCE VERIFIED`；没有任何检测项的 `DEVICE VERIFIED`。
+- 结论：C01–C15 全部实现，`SOURCE VERIFIED` + `BUILD VERIFIED`；阈值/设备运行转入 P0-03；P0-02 `DONE`。
 
 ### P0-03 设备基线报告
 

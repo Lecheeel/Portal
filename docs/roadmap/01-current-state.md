@@ -1,11 +1,11 @@
 # 01 · 当前状态、优点与缺口
 
-> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 474 项 JVM、29 项 Python、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过。设备正在排查 Vector 生命周期问题，尚无运行成功结论；远端 CI、push、release 及正式签名交付未执行。当前证据见 [libxposed-migration.md](../libxposed-migration.md)。下方基线表、百分比及测试数量保留其历史快照含义，不能作为本次验证结果。
+> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 474 项 JVM、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过；Python 29 项在迁移验证环境通过（本机 DSH 沙箱的临时目录 ACL 会使 `test_xposed_module.py` 出现假失败）。设备为 Xiaomi 11 Ultra / Android 14 / Vector 2.2 (3118) / API 102：system_server、phone、Xiaomi fused 均已加载 `PortalModule`，通过调试 API 启动 XPOSED 场景达到 `RUNNING`；instrumentation 4 项为 3 passed / 1 skipped，尚缺双设备矩阵、完整 detector 回归和热重载验证。远端 CI、push、release 及正式签名交付未执行。当前证据见 [libxposed-migration.md](../libxposed-migration.md)；下方基线表、百分比及旧测试数量保留历史快照含义。
 
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
 >
-> 进度快照（Round 163）：52 个 roadmap 任务中 0 `WIP` / 11 `TODO` / 2 `BLOCKED`（P0-03、P7-04 缺设备）/ 39 `DONE`（P0-01、P0-02、P0-04～06、P1-01～05、P2-01～07、P3-01～05、P4-01～05、P5-01～08、P6-01、P6-02、P6-04、P6-06）；整体约 **89%**，代码/模型约 **99%**，设备验收约 **10%**。442 项 JVM 用例通过，但没有任何 `DEVICE VERIFIED` 结论。
+> 进度快照（2026-11-07 迁移后）：52 个 roadmap 任务中 1 `WIP`（P0-03 设备基线，设备已接入）/ 11 `TODO` / 1 `BLOCKED`（P7-04 性能基线）/ 39 `DONE`（P0-01、P0-02、P0-04～06、P1-01～05、P2-01～07、P3-01～05、P4-01～05、P5-01～08、P6-01、P6-02、P6-04、P6-06）；整体约 **89%**，代码/模型约 **99%**，设备验收仅单设备/部分路径。本次迁移后 **474 项 JVM 用例 0 失败**；仍不能宣称完整 `DEVICE VERIFIED`。
 > 发布就绪审计见 [13-release-readiness.md](13-release-readiness.md)：当前 **未就绪**，无设备基线、无正式签名产物、未授权发布。
 
 ---
@@ -14,7 +14,7 @@
 
 | 项 | 现状 |
 |---|---|
-| 模块 | `:app`、`:core`、`:xposed`、`:nmea`、`:system-api`、`:detector`、`:libxposed-spike` |
+| 模块 | `:app`、`:core`、`:xposed`、`:nmea`、`:system-api`、`:detector`（`:libxposed-spike` 已删除，不再参与构建） |
 | 定位 | 基于 `fuqiuluo/Portal` 的 Android 定位模拟应用，主打多后端、路线播放、摇杆、无 Root/Root/Xposed |
 | UI | `:app` 使用 Fragment + XML（`ui/**`），不是 Compose |
 | 核心 | `:core` 是纯 Kotlin/JVM：坐标、场景、播放、运行状态、仓库接口、诊断 |
@@ -158,7 +158,7 @@
 | D10 | 传感器 | Xposed 层空实现；native 写 0/-1 | `SystemSensorManagerHook.kt`；`sensor_hook.cpp` | S1：传感器被破坏而不是模拟 | P4-04/05 |
 | D11 | Provider | gps/network/fused 发布同一份样本、同一精度/时间 | `MockProviderBackend` 对每个 provider 发布同一 `fix`；`LocationSample` 固定 accuracy/altitude | S1：三路交叉比对即可发现完全一致 | P4-01/03 |
 | D12 | 功能 | 没有 per-app 路由；`Capability.PER_APP_SCENARIO` 不可用 | `FakeLocation.kt` TARGET_APP skipped；`Capability` 定义存在但后端未实现 | S2：缺少高价值功能 | P5-01～05 |
-| D13 | 隐蔽 | legacy Xposed manifest `xposedmodule` 任意 App 可查 | `app/src/main/AndroidManifest.xml` 的 `xposedmodule`/`xposedscope` | S1：不用 Hook 就能识别“装了 Xposed 模块” | P6-01/02 |
+| D13 | 隐蔽 | legacy Xposed manifest `xposedmodule` 任意 App 可查 | 已迁移现代 `META-INF/xposed`；manifest 与 legacy entry 已移除 | S1 已收敛；设备 C13 待 P6-05 矩阵 | P6-01/02 |
 | D14 | 维护 | `LocationServiceHook` 约 900 行，GNSS 模型混在 Hook 里；`FakeLoc` 是全局可变状态 | `LocationServiceHook.kt`、`FakeLoc.kt` | S2：改一处容易影响全部；测试困难 | P0-06/P5-07 |
 | D15 | 架构 | 没有统一的环境模型；逻辑散落在 Hook/ViewModel | `WlanHook`、`TelephonyHook`、`LocationServiceHook`、`MainViewModel` 各自实现 | S1：无法保证 WiFi/基站/GNSS/传感器互相自洽 | P2-01/P4-05 |
 | D16 | 验证 | 没有 detector / 设备回归基线 | 无 `:detector` 模块；`verification.md` 明确 DEVICE 未完成 | S1：所有“隐藏/伪装”都不可验收 | P0-01～03 |
@@ -242,8 +242,8 @@
 - **P5-07 纯模型落地**：新增不可变 `RuntimeSnapshot`/`RuntimeSnapshotStore`，`FakeLoc` 的样本/位置/环境/路由/GNSS/AP/基站/SIM/噪声配置已全部迁入快照；Hooks 通过兼容属性读取，待设备验证。
 - **P5-08 命令拆分完成**：`RemoteCommandHandler` 只保留安全校验与分发；config/diagnostic/native/sample/control/location/proxy 拆到独立对象，`SettingsSchema`/`ConfigGate` 覆盖主要配置 key 且 gate 由 schema 驱动；设备行为回归待做。
 - **P5-06 存储抽象**：`SampleStore`/`ConfigStore`、原子 `FileConfigStore`、active config、完整恢复入口、`SeqLockSampleStore`、`SharedSampleCodec`/`Header`/`Buffer`/`Layout` 与 Android `SharedMemorySampleBuffer` 已落地；Binder fd 未做。
-- **P6-01 libxposed spike**：API 102 compileOnly、可编译入口与独立 `:libxposed-spike` APK（元数据已打包）已落地；LSPosed 加载/scope 未验证。
-- **P0-03 设备基线**：`adb devices` 为空，无可用设备；已补 `11-device-validation.md` 设备矩阵/验收步骤，待设备执行。
+- **P6-01 libxposed 迁移**：正式入口 `PortalModule`、API 102 原生 Chain、`META-INF/xposed`、六 scope 已落地；旧 spike 与 legacy 依赖已删除；当前 `autoHotReload=false`。
+- **P0-03 设备基线**：设备已接入（Xiaomi 11 Ultra / Android 14 / Vector 2.2 / APatch），system_server/phone/Xiaomi fused 已加载模块，XPOSED 场景可 RUNNING；完整 detector/双设备矩阵仍待执行。
 - **P7-04 性能探针**：系统侧/app 侧发布耗时、`APP_MEMORY`、`APP_CPU`、`BATTERY` 已进入诊断（p95>100ms WARN）；设备功耗基线未做。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

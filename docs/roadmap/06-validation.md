@@ -657,6 +657,15 @@ P0 阶段至少：
 - 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、设备与 detector C13 验证；接线转入 P7-01。
 - 结论：Raw measurement/navigation/antenna 模型、Kepler/Orbital、能力限制均 `UNIT TEST VERIFIED`；默认关；P3-05 `DONE`（可行性/模型范围）。
 
+### libxposed API 102 正式迁移
+
+- 变更：正式入口改为 `PortalModule`（`hook/META-INF/xposed`），Hook 直接使用 `XposedInterface` 的 `Hooker`/`Chain`/`HookHandle`；移除 `de.robv.android.xposed`、legacy compat、`assets/xposed_init` 与 manifest 模块 metadata。
+- 变更：`scope.list` 使用 `system`（system_server）+ phone/fused/Settings provider 五个包；`module.prop` 为 `minApiVersion=102`、`targetApiVersion=102`、`staticScope=true`、`autoHotReload=false`。
+- 检查：`check_xposed_module.py` 源码/APK 均 0 violation；JVM 474 项 0 失败（xposed 70/core 269/nmea 8/app 127）；四 ABI CMake 产物存在；ARM64 Debug APK 含现代入口与 `liblocationext.so`。
+- 设备：Vector 2.2 (3118)/API 102，Xiaomi 11 Ultra/Android 14；system_server、phone、Xiaomi fused 均加载 `PortalModule`，XPOSED 场景通过调试 API 到 `RUNNING`；instrumentation 为 3 passed / 1 skipped（未收到真实 GPS 基线的 current 用例跳过）。
+- 未完成：热重载关闭（`onHotReloading=false`）；双设备/OEM 矩阵与完整 detector 回归（P6-05）；Python unittest 在本机 DSH 沙箱因临时目录 ACL 假失败，需 CI/Linux 复跑。
+- 结论：迁移代码/构建 `UNIT TEST VERIFIED` + `BUILD VERIFIED`，设备路径部分验证；不把单设备结果扩大为全量 `DEVICE VERIFIED`。
+
 ### P6-01 libxposed API 102（spike）
 
 - 变更：`xposed` 增加 `io.github.libxposed:api:102.0.0` `compileOnly`；新增 `LibXposedSpike : XposedModule`，重写 `onSystemServerStarting` 空实现，验证 API 可与旧 API 82 同时编译。

@@ -7,7 +7,7 @@ import android.telephony.CellInfoLte
 import android.telephony.CellInfoNr
 import android.telephony.CellSignalStrengthLte
 import android.telephony.CellSignalStrengthNr
-import de.robv.android.xposed.XposedHelpers
+import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.CellType
 import com.system.location.service.core.environment.EnvironmentConfig
@@ -17,7 +17,7 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.afterHook
+import io.github.libxposed.api.XposedInterface.Hooker
 
 /**
  * P2-05: replace third-party getAllCellInfo with a deterministic LTE profile. Construction is
@@ -27,22 +27,22 @@ import com.system.location.service.hook.utils.afterHook
 object CellInfoSynthesis {
     fun hook(cPhoneInterfaceManager: Class<*>) {
         val method = cPhoneInterfaceManager.declaredMethods.find { it.name == "getAllCellInfo" } ?: return
-        val hook = afterHook {
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@afterHook
+        val hook = Hooker { chain ->
+            val original = chain.proceed()
+            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker original
             if (!FakeLoc.simReady || FakeLoc.cellMode == CellMode.NO_SIM_WIFI_ONLY) {
-                result = emptyList<CellInfo>()
-                return@afterHook
+                return@Hooker emptyList<CellInfo>()
             }
-            val point = com.system.location.service.hook.hooks.ListenerRouting.fixedPointFor(args.firstOrNull() as? String)
+            val point = com.system.location.service.hook.hooks.ListenerRouting.fixedPointFor(chain.args.firstOrNull() as? String)
             val cells = runCatching { build(point) }.getOrDefault(emptyList())
             if (cells.isNotEmpty()) {
-                result = cells
                 if (FakeLoc.enableDebugLog) Logger.debug("getAllCellInfo: ${cells.size} synthetic LTE cells")
+                cells
+            } else {
+                original
             }
         }
-        if (com.system.location.service.hook.scope.HookInstaller.hookMethod(method, hook) == null) {
-            Logger.error("Hook PhoneInterfaceManager.getAllCellInfo failed")
-        }
+        com.system.location.service.hook.scope.HookInstaller.hookMethod(method, hook)
     }
 
     private fun build(fixedPoint: com.system.location.service.core.geo.Wgs84? = null): List<CellInfo> {
@@ -67,40 +67,40 @@ object CellInfoSynthesis {
 
     private fun buildLte(tower: com.system.location.service.core.environment.CellTower): CellInfo? =
         runCatching {
-            val identity = XposedHelpers.newInstance(
+            val identity = Reflection.newInstance(
                 CellIdentityLte::class.java,
                 tower.mcc, tower.mnc, tower.cellId.toInt(), tower.pci ?: 0, tower.areaCode, tower.arfcn ?: 0,
             ) as CellIdentityLte
-            val signal = XposedHelpers.newInstance(CellSignalStrengthLte::class.java) as CellSignalStrengthLte
-            XposedHelpers.setIntField(signal, "mRsrp", tower.rsrp)
-            XposedHelpers.setIntField(signal, "mRsrq", tower.rsrq ?: -10)
-            XposedHelpers.setIntField(signal, "mRssnr", tower.rssnr ?: 5)
-            XposedHelpers.setIntField(signal, "mRssi", tower.rsrp - 30)
-            XposedHelpers.setIntField(signal, "mLevel", 3)
-            val cell = XposedHelpers.newInstance(CellInfoLte::class.java) as CellInfoLte
-            XposedHelpers.setObjectField(cell, "mCellIdentityLte", identity)
-            XposedHelpers.setObjectField(cell, "mCellSignalStrengthLte", signal)
-            XposedHelpers.callMethod(cell, "setRegistered", tower.registered)
-            XposedHelpers.callMethod(cell, "setTimeStamp", System.nanoTime())
+            val signal = Reflection.newInstance(CellSignalStrengthLte::class.java) as CellSignalStrengthLte
+            Reflection.setIntField(signal, "mRsrp", tower.rsrp)
+            Reflection.setIntField(signal, "mRsrq", tower.rsrq ?: -10)
+            Reflection.setIntField(signal, "mRssnr", tower.rssnr ?: 5)
+            Reflection.setIntField(signal, "mRssi", tower.rsrp - 30)
+            Reflection.setIntField(signal, "mLevel", 3)
+            val cell = Reflection.newInstance(CellInfoLte::class.java) as CellInfoLte
+            Reflection.setObjectField(cell, "mCellIdentityLte", identity)
+            Reflection.setObjectField(cell, "mCellSignalStrengthLte", signal)
+            Reflection.callMethod(cell, "setRegistered", tower.registered)
+            Reflection.callMethod(cell, "setTimeStamp", System.nanoTime())
             cell
         }.getOrNull()
 
     private fun buildNr(tower: com.system.location.service.core.environment.CellTower): CellInfo? =
         runCatching {
-            val identity = XposedHelpers.newInstance(
+            val identity = Reflection.newInstance(
                 CellIdentityNr::class.java,
                 tower.mcc, tower.mnc, tower.cellId, tower.pci ?: 0, tower.areaCode, tower.arfcn ?: 0,
             ) as CellIdentityNr
-            val signal = XposedHelpers.newInstance(CellSignalStrengthNr::class.java) as CellSignalStrengthNr
-            XposedHelpers.setIntField(signal, "mSsRsrp", tower.rsrp)
-            XposedHelpers.setIntField(signal, "mSsRsrq", tower.rsrq ?: -12)
-            XposedHelpers.setIntField(signal, "mSsSinr", tower.rssnr ?: 2)
-            XposedHelpers.setIntField(signal, "mLevel", 3)
-            val cell = XposedHelpers.newInstance(CellInfoNr::class.java) as CellInfoNr
-            XposedHelpers.setObjectField(cell, "mCellIdentity", identity)
-            XposedHelpers.setObjectField(cell, "mCellSignalStrength", signal)
-            XposedHelpers.callMethod(cell, "setRegistered", tower.registered)
-            XposedHelpers.callMethod(cell, "setTimeStamp", System.nanoTime())
+            val signal = Reflection.newInstance(CellSignalStrengthNr::class.java) as CellSignalStrengthNr
+            Reflection.setIntField(signal, "mSsRsrp", tower.rsrp)
+            Reflection.setIntField(signal, "mSsRsrq", tower.rsrq ?: -12)
+            Reflection.setIntField(signal, "mSsSinr", tower.rssnr ?: 2)
+            Reflection.setIntField(signal, "mLevel", 3)
+            val cell = Reflection.newInstance(CellInfoNr::class.java) as CellInfoNr
+            Reflection.setObjectField(cell, "mCellIdentity", identity)
+            Reflection.setObjectField(cell, "mCellSignalStrength", signal)
+            Reflection.callMethod(cell, "setRegistered", tower.registered)
+            Reflection.callMethod(cell, "setTimeStamp", System.nanoTime())
             cell
         }.getOrNull()
 }

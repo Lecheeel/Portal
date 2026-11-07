@@ -1,78 +1,126 @@
 package com.system.location.service.hook.hooks.nmea
 
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.onceHookAllMethod
-import com.system.location.service.hook.utils.onceHookBefore
-import com.system.location.service.hook.utils.onceHookMethodBefore
+import com.system.location.service.hook.utils.hookAllMethods
+import com.system.location.service.hook.utils.onceHook
+import com.system.location.service.hook.utils.onceHookMethod
+import io.github.libxposed.api.XposedInterface
 import java.util.Collections
 
-object LocationNMEAHook: BaseLocationHook() {
+object LocationNMEAHook : BaseLocationHook() {
     operator fun invoke(classILocationManager: Class<*>) {
         hookGnssNmea(classILocationManager)
 
-        val doNothingMethod = object: XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam?) {
-                if (param == null || param.args.isEmpty()) return
+        val doNothingMethod =
+            nmeaRegistrationHook(debugLog = { if (FakeLoc.enableDebugLog) Logger.debug(it) })
 
-                if (FakeLoc.enableDebugLog) {
-                    Logger.debug("doNothingMethod: ${param.method.name}")
-                }
-
-                if (FakeLoc.enable && !FakeLoc.enableNMEA) {
-                    if (FakeLoc.enableDebugLog) {
-                        Logger.debug("${param.method.name}: disable")
-                    }
-                    param.result = null
-                }
-            }
-        }
-
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "addGnssMeasurementsListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "removeGnssMeasurementsListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "addGnssNavigationMessageListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "removeGnssNavigationMessageListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "addGnssAntennaInfoListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classILocationManager, "removeGnssAntennaInfoListener", doNothingMethod)
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            classILocationManager,
+            "addGnssMeasurementsListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            classILocationManager,
+            "removeGnssMeasurementsListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            classILocationManager,
+            "addGnssNavigationMessageListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            classILocationManager,
+            "removeGnssNavigationMessageListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            classILocationManager,
+            "addGnssAntennaInfoListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            classILocationManager,
+            "removeGnssAntennaInfoListener",
+            doNothingMethod,
+        )
     }
 
     private fun hookGnssNmea(classILocationManager: Class<*>) {
         val hookedGnssCallback = Collections.synchronizedSet(HashSet<String>())
         val counters = java.util.concurrent.ConcurrentHashMap<String, Int>()
-        val unhooks = classILocationManager.declaredMethods.filter {
-            it.name == "registerGnssNmeaCallback" && it.parameterTypes.size > 1
-        }.map { method ->
-            method.onceHookBefore {
-                val callback = args[0] ?: return@onceHookBefore
-                val cIGnssNmeaCallback = callback.javaClass
-                if (callback is android.os.IInterface) {
-                    NmeaListenerRouting.register(callback, args.getOrNull(1) as? String)
-                }
+        val unhooks =
+            classILocationManager.declaredMethods
+                .filter { it.name == "registerGnssNmeaCallback" && it.parameterTypes.size > 1 }
+                .map { method ->
+                    method.onceHook(
+                        XposedInterface.Hooker intercept65@{ chain ->
+                            val args = chain.args.toTypedArray()
 
-                if (hookedGnssCallback.contains(cIGnssNmeaCallback.name)) return@onceHookBefore
-                hookedGnssCallback.add(cIGnssNmeaCallback.name)
+                            val callback = args[0] ?: return@intercept65 chain.proceed(args)
+                            val cIGnssNmeaCallback = callback.javaClass
+                            if (callback is android.os.IInterface) {
+                                NmeaListenerRouting.register(callback, args.getOrNull(1) as? String)
+                            }
 
-                if (FakeLoc.enableDebugLog) {
-                    Logger.debug("registerGnssNmeaCallback: $cIGnssNmeaCallback")
-                }
+                            if (hookedGnssCallback.contains(cIGnssNmeaCallback.name))
+                                return@intercept65 chain.proceed(args)
+                            hookedGnssCallback.add(cIGnssNmeaCallback.name)
 
-                cIGnssNmeaCallback.onceHookMethodBefore("onNmeaReceived", Long::class.java, String::class.java) {
-                    // Single NMEA rewrite point (P3-04). When simulation is active but the NMEA
-                    // feature is off, suppress the real sentences instead of leaking them; when on,
-                    // replace them with the same generator that feeds GnssStatus.
-                    if (!FakeLoc.enable) return@onceHookMethodBefore
-                    val nmea = args[1] as? String ?: return@onceHookMethodBefore
-                    args[1] = NmeaBridge.rewrite(nmea, counters, NmeaListenerRouting.fixedPointFor(thisObject))
+                            if (FakeLoc.enableDebugLog) {
+                                Logger.debug("registerGnssNmeaCallback: $cIGnssNmeaCallback")
+                            }
+
+                            cIGnssNmeaCallback.onceHookMethod(
+                                "onNmeaReceived",
+                                Long::class.java,
+                                String::class.java,
+                                callback =
+                                    XposedInterface.Hooker intercept66@{ chain ->
+                                        val args = chain.args.toTypedArray()
+
+                                        if (!FakeLoc.enable) return@intercept66 chain.proceed(args)
+                                        val nmea =
+                                            args[1] as? String
+                                                ?: return@intercept66 chain.proceed(args)
+                                        args[1] =
+                                            NmeaBridge.rewrite(
+                                                nmea,
+                                                counters,
+                                                NmeaListenerRouting.fixedPointFor(chain.thisObject),
+                                            )
+
+                                        chain.proceed(args)
+                                    },
+                            )
+
+                            chain.proceed(args)
+                        }
+                    )
                 }
-            }
-        }
 
         if (FakeLoc.enableDebugLog) {
             Logger.debug("found ${unhooks.size} registerGnssNmeaCallback")
         }
     }
 }
+
+/** Suppress new raw listeners while keeping Android responsible for unregistering existing ones. */
+internal fun nmeaRegistrationHook(
+    enable: () -> Boolean = { FakeLoc.enable },
+    enableNmea: () -> Boolean = { FakeLoc.enableNMEA },
+    debugLog: (String) -> Unit = {},
+): XposedInterface.Hooker =
+    XposedInterface.Hooker { chain ->
+        if (chain.args.isEmpty()) return@Hooker chain.proceed()
+        val method = chain.executable.name
+        debugLog("doNothingMethod: $method")
+        if (method.startsWith("add") && enable() && !enableNmea()) {
+            debugLog("$method: disable")
+            null
+        } else {
+            chain.proceed()
+        }
+    }

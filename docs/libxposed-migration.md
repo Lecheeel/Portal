@@ -68,11 +68,15 @@ python scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution
 
 本次设备为小米 11 Ultra，Android 14 / HyperOS 2，Vector 2.2 (3118) / API 102，Root 方案为 APatch。启动日志已证明 system 收到正确的系统服务 ClassLoader、phone 与 Xiaomi fused 的生命周期及安装路径执行；system 出现 GNSS 安装完成及 SubProxyBinder 实际调用。phone 后续日志的 `hooks=14` 来自 `HookStatusRegistry.snapshot().size`，仅表示 14 个状态条目，不是 14 个成功安装或已完成设备验收的 Hook。此前启动日志缺失属于环形日志 buffer 的观测窗口问题，现有证据不支持“框架生命周期失败”的结论。
 
-新设备 instrumentation fixture 已编译，但 adb 安装被 `INSTALL_FAILED_USER_RESTRICTED` 拒绝，测试未运行；本轮没有修改手机设置或绕过安装限制。设备验收仍是部分覆盖，待设备解锁后继续认证 IPC、缓存/单次/连续定位、停止恢复、NMEA 真实注销，以及其他作用域、OEM 和独立接收端验证。已经观察到的生命周期与调用不能扩展为全功能运行成功。
+用户已正常安装测试包并授予后台精确位置，原安装限制已解除。扩展 instrumentation 四项结果为 **3 passed、1 skipped、0 failed**：认证 runtime status 的 installed/matched、发布样本的 GPS 缓存和同一连续 listener 两次回调、Measurements 注册与注销均通过。Measurements 在 inactive 注册原 callback 后计数为 1，active 增加第二个 callback 后仍为 1，active 注销原 callback 后降到 0，再停止。
+
+单次 current 用例在用户确认手机放置窗边/室外后，非模拟状态下累计等待 120 秒仍未收到真实 GPS 基线，因而跳过，尚未验证该回调路径。停止验证仅确认 `is_start=false` 和 cleanup，未证明物理真实定位已恢复。Measurements 路径也不能扩展为 Navigation、Antenna 或所有 NMEA 类型均通过；其他作用域、厂商实际 SDK 回调、ROM/OEM 和独立接收端仍待验证。
+
+此轮只扩展两个 AndroidTest 文件，生产代码未改；相关测试 APK 已构建通过，上表已有 JVM/Python/lint/Native 结果不变。
 
 从该设备只读提取的 Xiaomi fused APK（`com.xiaomi.location.fused` 4.0.4 / code 14004）DEX 已确认高德 `onSendExtraCommand(String, Bundle): boolean`、`requestLocationUpdates(long, LocationListener): void`、`updateOffLocEnable(boolean): void` 和百度 `requestNLPNormal(String, int): BDLocation`。`ThirdPartyLocationHook` 已据此补齐四处精确签名；该增量已通过相关编译、JVM、lint 和打包，并用最新开发包重启复核生命周期与安装路径。实际 SDK 回调及其他 ROM/OEM 尚未验证。
 
-远端 CI、push、release 和正式签名交付均未执行。以上本地 Debug APK 与构建结果不能替代目标提交的成功 CI 产物和正式签名校验。
+远端 CI、push、release 和正式签名交付均未执行且未获授权，不属于本轮代码迁移完成的必需操作。未来若交付正式 APK，本地 Debug 包与构建结果不能替代目标提交的成功 CI 产物和正式签名校验。
 
 ## 官方参考
 

@@ -8,6 +8,7 @@ import re
 import subprocess
 import zipfile
 
+from check_xposed_module import validate_apk as validate_xposed_module
 from release_policy import (
     RELEASE_CERT_SHA256,
     ReleasePolicyError,
@@ -78,6 +79,7 @@ def main():
         aapt = tools / ("aapt2.exe" if os.name == "nt" else "aapt2")
         validate_signature(run_tool(signer, "verify", "--verbose", "--print-certs", apk))
         validate_manifest(run_tool(aapt, "dump", "badging", apk), args.version, args.version_code)
+        validate_xposed_module(apk)
         actual_abis = validate_abis(apk, abis)
         with apk.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()

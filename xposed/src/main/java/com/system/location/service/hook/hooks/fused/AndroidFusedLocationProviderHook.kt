@@ -5,35 +5,46 @@ import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.hookMethodAfter
+import com.system.location.service.hook.utils.hookMethod
 import com.system.location.service.hook.utils.toClass
+import io.github.libxposed.api.XposedInterface
 
-object AndroidFusedLocationProviderHook: BaseLocationHook() {
+object AndroidFusedLocationProviderHook : BaseLocationHook() {
     operator fun invoke(classLoader: ClassLoader) {
-        val cFusedLocationProvider = "com.android.location.fused.FusedLocationProvider".toClass(classLoader)
+        val cFusedLocationProvider =
+            "com.android.location.fused.FusedLocationProvider".toClass(classLoader)
         if (cFusedLocationProvider == null) {
             Logger.warn("Failed to find FusedLocationProvider")
             return
         }
 
-        if(!initDivineService("AndroidFusedLocationProvider")) {
+        if (!initDivineService("AndroidFusedLocationProvider")) {
             Logger.error("Failed to init DivineService in AndroidFusedLocationProvider")
             return
         }
 
-        cFusedLocationProvider.hookMethodAfter("chooseBestLocation", Location::class.java, Location::class.java) {
-            if (result == null) return@hookMethodAfter
+        cFusedLocationProvider.hookMethod(
+            "chooseBestLocation",
+            Location::class.java,
+            Location::class.java,
+            callback =
+                XposedInterface.Hooker intercept59@{ chain ->
+                    val args = chain.args.toTypedArray()
+                    var result = chain.proceed()
 
-            if (FakeLoc.enable) {
-                result = injectLocation(result as Location)
-            }
-        }
+                    if (result == null) return@intercept59 result
 
-//        cFusedLocationProvider.hookMethodBefore("reportBestLocationLocked") {
-//
-//        }
+                    if (FakeLoc.enable) {
+                        result = injectLocation(result as Location)
+                    }
 
-        val cChildLocationListener = "com.android.location.fused.FusedLocationProvider\$ChildLocationListener".toClass(classLoader)
+                    result
+                },
+        )
+
+        val cChildLocationListener =
+            "com.android.location.fused.FusedLocationProvider\$ChildLocationListener"
+                .toClass(classLoader)
         if (cChildLocationListener == null) {
             Logger.warn("Failed to find ChildLocationListener")
             return

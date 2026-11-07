@@ -7,7 +7,7 @@ import android.os.Build
 import android.content.pm.ApplicationInfo
 import com.system.location.service.hook.security.CallerPolicy
 import com.system.location.service.hook.security.CallerRole
-import de.robv.android.xposed.XposedBridge
+import com.system.location.service.hook.runtime.HookRuntime
 
 
 object BinderUtils {

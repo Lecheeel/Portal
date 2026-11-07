@@ -4,7 +4,7 @@ import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.beforeHook
+import io.github.libxposed.api.XposedInterface.Hooker
 import com.system.location.service.hook.utils.hookAllMethods
 
 /**
@@ -13,18 +13,18 @@ import com.system.location.service.hook.utils.hookAllMethods
  */
 object SimOperatorHooks {
     fun hook(classLoader: ClassLoader) {
-        val manager = de.robv.android.xposed.XposedHelpers
+        val manager = com.system.location.service.hook.runtime.Reflection
             .findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader) ?: return
 
-        val numeric = beforeHook {
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@beforeHook
+        val numeric = Hooker { chain ->
+            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker chain.proceed()
             if (!FakeLoc.simReady) {
-                result = ""
-                return@beforeHook
+                return@Hooker ""
             }
-            val profile = FakeLoc.replayEnvironment ?: return@beforeHook
-            result = operatorNumeric(profile) ?: return@beforeHook
-            if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: SIM operator $result")
+            val profile = FakeLoc.replayEnvironment ?: return@Hooker chain.proceed()
+            val result = operatorNumeric(profile) ?: return@Hooker chain.proceed()
+            if (FakeLoc.enableDebugLog) Logger.debug("${chain.executable.name}: SIM operator $result")
+            result
         }
         listOf(
             "getSimOperatorNumericForPhone",
@@ -32,16 +32,15 @@ object SimOperatorHooks {
             "getSimOperatorNumeric",
         ).forEach { manager.hookAllMethods(it, numeric) }
 
-        val name = beforeHook {
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@beforeHook
+        val name = Hooker { chain ->
+            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker chain.proceed()
             if (!FakeLoc.simReady) {
-                result = ""
-                return@beforeHook
+                return@Hooker ""
             }
-            val profile = FakeLoc.replayEnvironment ?: return@beforeHook
-            if (operatorNumeric(profile) == null) return@beforeHook
-            result = "Portal"
-            if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: SIM operator name Portal")
+            val profile = FakeLoc.replayEnvironment ?: return@Hooker chain.proceed()
+            if (operatorNumeric(profile) == null) return@Hooker chain.proceed()
+            if (FakeLoc.enableDebugLog) Logger.debug("${chain.executable.name}: SIM operator name Portal")
+            "Portal"
         }
         listOf(
             "getSimOperatorNameForPhone",

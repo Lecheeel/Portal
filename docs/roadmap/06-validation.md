@@ -700,6 +700,13 @@ P0 阶段至少：
 
 ## 20. P7 实施记录（2026-11-06）
 
+### P7-03 Activity Recognition（策略层）
+
+- 变更：`:core` 新增 `ActivityRecognitionPolicy`，把 `MotionMode` 映射为确定性 `ActivityKind` 概率分布（总和 100，单一最大项），供后续 GMS/AOSP 适配使用。
+- 检查：`ActivityRecognitionPolicyTest` 3 项通过；`:core` 编译/测试通过。
+- 未完成：GMS/AOSP 活动识别回调适配、默认关闭开关、设备 C10/C11 验证。
+- 结论：策略层 `UNIT TEST VERIFIED`；P7-03 仍 `TODO`（适配层未实现）。
+
 ### P7-04 性能探针（诊断完成，设备基线 BLOCKED）
 
 - 变更：`:core` 新增 `PerformanceProbe`：有界环形缓冲（256/4096）、p50/p95/max/mean，纯 JVM 可测。

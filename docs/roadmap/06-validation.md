@@ -691,7 +691,7 @@ P0 阶段至少：
 
 ## 20. P7 实施记录（2026-11-06）
 
-### P7-04 性能探针（部分）
+### P7-04 性能探针（诊断完成，设备基线 BLOCKED）
 
 - 变更：`:core` 新增 `PerformanceProbe`：有界环形缓冲（256/4096）、p50/p95/max/mean，纯 JVM 可测。
 - 变更：`SampleCommand.publish` 记录端到端发布耗时，`get_runtime_status` 输出 `publish_samples/p50/p95/max/mean` 纳秒值。
@@ -701,5 +701,5 @@ P0 阶段至少：
 - 变更：app 诊断新增 `APP_CPU`（两次 diagnose 之间的进程 CPU 占比）。
 - 变更：app 诊断新增 `BATTERY`（电量百分比 + 电池温度）。
 - 检查：`PerformanceProbeTest` 4 项（空、百分位、环形覆盖、clear/校验）通过；`:xposed`/`:app` 编译/测试通过。
-- 未完成：设备电池/温升基线、阈值校准、设备展示。
-- 结论：`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P7-04 仍 `WIP`。
+- 未完成：设备电池/温升基线、阈值校准、设备展示；阻塞于 P0-03 无设备。
+- 结论：诊断/探针 `UNIT TEST VERIFIED` + `BUILD VERIFIED`；设备量化报告无法产出；P7-04 `BLOCKED`。

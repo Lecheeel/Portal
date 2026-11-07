@@ -10,8 +10,8 @@ import android.os.Build
 import android.os.SystemClock
 import android.util.ArrayMap
 import dalvik.system.PathClassLoader
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedHelpers
+import io.github.libxposed.api.XposedInterface.Hooker
+import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentSourceMode
@@ -24,8 +24,6 @@ import com.system.location.service.hook.hooks.ListenerRouting
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.afterHook
-import com.system.location.service.hook.utils.beforeHook
 import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.toClass
 
@@ -45,13 +43,13 @@ object WlanHook {
 
     operator fun invoke(classLoader: ClassLoader) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val cSystemServerClassLoaderFactory = XposedHelpers.findClassIfExists(
+            val cSystemServerClassLoaderFactory = Reflection.findClassIfExists(
                 "com.android.internal.os.SystemServerClassLoaderFactory", classLoader)
             if (cSystemServerClassLoaderFactory == null) {
                 Logger.warn("Failed to find SystemServerClassLoaderFactory")
                 return
             }
-            val sLoadedPaths = XposedHelpers.getStaticObjectField(
+            val sLoadedPaths = Reflection.getStaticObjectField(
                 cSystemServerClassLoaderFactory, "sLoadedPaths") as ArrayMap<String, PathClassLoader>
             val wifiClassLoader = sLoadedPaths.firstNotNullOfOrNull {
                 if (it.key.contains("service-wifi.jar")) it.value else null
@@ -67,22 +65,24 @@ object WlanHook {
             }
             hookWifiServiceImpl(wifiClazz)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val cSystemServiceManager = XposedHelpers.findClassIfExists(
+            val cSystemServiceManager = Reflection.findClassIfExists(
                 "com.android.server.SystemServiceManager", classLoader)
             if (cSystemServiceManager == null) {
                 Logger.warn("Failed to find SystemServiceManager")
                 return
             }
-            cSystemServiceManager.hookAllMethods("loadClassFromLoader", afterHook {
-                if (args[0] == "com.android.server.wifi.WifiService") {
+            cSystemServiceManager.hookAllMethods("loadClassFromLoader", Hooker { chain ->
+                val original = chain.proceed()
+                if (chain.args[0] == "com.android.server.wifi.WifiService") {
                     kotlin.runCatching {
-                        val classloader = args[1] as PathClassLoader
+                        val classloader = chain.args[1] as PathClassLoader
                         val wifiClazz = classloader.loadClass("com.android.server.wifi.WifiServiceImpl")
                         hookWifiServiceImpl(wifiClazz)
                     }.onFailure {
                         Logger.error("Failed to hook WifiService", it)
                     }
                 }
+                original
             })
         }
     }
@@ -90,45 +90,48 @@ object WlanHook {
     private fun hookWifiServiceImpl(wifiClazz: Class<*>) {
         if (!FakeLoc.hookWifi) return
 
-        wifiClazz.hookAllMethods("getConnectionInfo", beforeHook {
-            val packageName = args.firstOrNull() as? String
-            if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@beforeHook
-            val info = buildWifiInfo(currentProfile(packageName)) ?: return@beforeHook
-            result = info
+        wifiClazz.hookAllMethods("getConnectionInfo", Hooker { chain ->
+            val packageName = chain.args.firstOrNull() as? String
+            if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@Hooker chain.proceed()
+            val info = buildWifiInfo(currentProfile(packageName)) ?: return@Hooker chain.proceed()
             if (FakeLoc.enableDebugLog) Logger.debug("getConnectionInfo: procedural $packageName")
+            info
         })
 
-        wifiClazz.hookAllMethods("getScanResults", afterHook {
-            val packageName = args.firstOrNull() as? String
-            if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@afterHook
+        wifiClazz.hookAllMethods("getScanResults", Hooker { chain ->
+            val original = chain.proceed()
+            val packageName = chain.args.firstOrNull() as? String
+            if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@Hooker original
             val generated = buildScanResults(currentProfile(packageName))
-            if (generated.isEmpty()) return@afterHook
-            result = when (val existing = result) {
+            if (generated.isEmpty()) return@Hooker original
+            val result = when (val existing = original) {
                 null -> {
-                    val returnType = (method as? java.lang.reflect.Method)?.returnType
+                    val returnType = (chain.executable as? java.lang.reflect.Method)?.returnType
                     if (returnType != null && returnType.name.contains("ParceledListSlice")) {
-                        sliceOrNull(returnType, generated) ?: return@afterHook
+                        sliceOrNull(returnType, generated) ?: return@Hooker original
                     } else {
                         generated
                     }
                 }
                 is List<*> -> generated
                 is Array<*> -> generated.toTypedArray()
-                else -> sliceOrNull(existing.javaClass, generated) ?: return@afterHook
+                else -> sliceOrNull(existing.javaClass, generated) ?: return@Hooker original
             }
             if (FakeLoc.enableDebugLog) Logger.debug("getScanResults: ${generated.size} procedural APs for $packageName")
+            result
         })
 
-        wifiClazz.hookAllMethods("getDhcpInfo", afterHook {
-            val packageName = args.firstOrNull() as? String
+        wifiClazz.hookAllMethods("getDhcpInfo", Hooker { chain ->
+            val original = chain.proceed()
+            val packageName = chain.args.firstOrNull() as? String
             val rewrite = if (packageName != null) {
                 shouldRewrite(packageName)
             } else {
                 FakeLoc.enable && FakeLoc.enableMockWifi && Binder.getCallingUid() >= FIRST_APP_UID
             }
-            if (!rewrite) return@afterHook
-            result = buildDhcpInfo()
+            if (!rewrite) return@Hooker original
             if (FakeLoc.enableDebugLog) Logger.debug("getDhcpInfo: procedural DHCP info")
+            buildDhcpInfo()
         })
     }
 
@@ -197,7 +200,7 @@ object WlanHook {
 
     private fun buildWifiInfo(profile: EnvironmentProfile): WifiInfo? {
         val ap = profile.connectedWifi() ?: return null
-        val info = runCatching { XposedHelpers.newInstance(WifiInfo::class.java) as WifiInfo }.getOrNull()
+        val info = runCatching { Reflection.newInstance(WifiInfo::class.java) as WifiInfo }.getOrNull()
             ?: return null
         val values = listOf(
             "setBSSID" to ap.bssid,
@@ -211,7 +214,7 @@ object WlanHook {
             "setSupplicantState" to SupplicantState.COMPLETED,
         )
         values.forEach { (method, value) ->
-            runCatching { XposedHelpers.callMethod(info, method, value) }
+            runCatching { Reflection.callMethod(info, method, value) }
                 .onFailure { if (FakeLoc.enableDebugLog) Logger.debug("WifiInfo.$method unavailable: ${it.javaClass.simpleName}") }
         }
         return info

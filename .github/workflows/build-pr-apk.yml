@@ -34,6 +34,7 @@ jobs:
           python3 scripts/check_module_rules.py
           python3 scripts/check_backup_rules.py
           python3 scripts/check_manifest_exports.py
+          python3 scripts/check_license_assets.py
 
       - name: Unit tests
         run: |

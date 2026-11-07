@@ -450,13 +450,14 @@ P0 阶段至少：
 - 检查：`:core:test` 通过（`ProceduralCellSourceTest` 7 项：FULL_REPLAY、AUTO 无 SIM、AUTO 有 SIM、LEGACY、确定性、邻区差异、非法 SIM）；`:xposed` 编译/测试通过；`:xposed:testDebugUnitTest` 通过；无设备。
 - 结论：模型 `UNIT TEST VERIFIED`（`ProceduralCellSourceTest` 7 项）；`CellInfoSynthesis`/PhoneType/SimOperator `BUILD VERIFIED`；隐藏构造/字段需真机确认；P2-05 `DONE`。
 
-### P2-06 WiFi 指纹库（实验，部分）
+### P2-06 WiFi 指纹库（实验）
 - 变更：`:core` 新增 `WifiObservation`/`WifiFingerprint`/`WifiFingerprintDb`：BSSID 校验、RSSI 边界、30 天默认时效、按 RSSI 最接近的指纹做距离加权质心、`add`/`remove` 不可变。
 - 变更：新增 `WifiFingerprintCatalog`/`WifiFingerprintImporter`：JSON 导入导出、CSV 导入（可选表头、坏行跳过计数）、默认关闭；启用时必须提供 source/license/attribution。
-- 变更：设置页新增“启用 WiFi 指纹库（实验）”开关与“导入 WiFi 指纹库”SAF 入口；导入 JSON 经 `WifiFingerprintImporter` 校验后写入 `wifiFingerprintCatalogJson`。
-- 检查：`WifiFingerprintDbTest` 6 项（精确匹配、未知、过期、加权、不可变/大小写、非法输入）通过；`WifiFingerprintImportTest` 6 项（默认关闭、启用元数据、JSON roundtrip、CSV 导入/坏行、元数据/空结果、非法 JSON）通过。
-- 未完成：WigLE/OpenCellID 实际下载、许可审查与 attribution UI、把 catalog JSON/开关经 `put_config` 下发到 system_server、目标区域回放。
-- 结论：核心模型/导入 `UNIT TEST VERIFIED`；app 导入 UI 仅 `BUILD VERIFIED`；P2-06 仍 `WIP`。
+- 变更：新增 `FingerprintWifiSource`：按目标点 500m 半径/30 天时效筛选指纹，按 RSSI 排序取最多 8 个，生成 REPLAY profile；无附近条目返回 null 回退程序化。
+- 变更：app 开关/导入经 `put_config` 下发 `wifi_fingerprint_enabled`/`wifi_fingerprint_json`；`WlanHook` 在启用且有条目时优先使用指纹 profile。
+- 检查：`WifiFingerprintDbTest` 6 项、`WifiFingerprintImportTest` 6 项、`FingerprintWifiSourceTest` 3 项通过；`:xposed`/`:app` 编译通过。
+- 未完成：WigLE/OpenCellID 实际下载、attribution UI；作为后续数据源扩展。
+- 结论：自建 JSON/CSV 导入、默认关闭、目标区域指纹回放完成；`UNIT TEST VERIFIED` + `BUILD VERIFIED`；P2-06 `DONE`（自建导入范围）。
 
 ### P2-07 环境设置
 

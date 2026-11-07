@@ -138,7 +138,7 @@ P0 基线
 | P2-03 | 程序化 WiFi 合成 | geohash 网格、每格 4 AP、OUI、RSSI 路径损耗、插值、固定 seed | 同点同 seed 稳定；移动 RSSI 平滑；detector 通过 | P2-01 | L | DONE |
 | P2-04 | WiFi Hook 重写（scan/connection/dhcp） | `getScanResults`/`getConnectionInfo`/`getDhcpInfo` | 不返回空；BSSID 合法；连接 AP 在扫描列表；detector 通过 | P2-03 | L | DONE |
 | P2-05 | 基站画像/Hook | `FULL_REPLAY`、`NO_SIM_WIFI_ONLY`；CDMA 默认关 | SIM/operator/phone type/cell 自洽；detector 通过 | P2-01 | L | DONE |
-| P2-06 | 真实环境库（实验） | WigLE/OpenCellID/自建导入；来源/许可/attribution；默认关 | 开关关闭时无影响；开启时目标区域可回放 | P2-02 | L | WIP |
+| P2-06 | 真实环境库（自建导入，实验） | JSON/CSV 导入；来源/许可/attribution；默认关 | 开关关闭时无影响；开启时目标区域可回放 | P2-02 | L | DONE |
 | P2-07 | 环境设置 UI | 来源选择、采集入口、AP 数、基站模式、实验开关 | 设置持久化；默认值符合 ADR-004/005 | P2-03/05 | M | DONE |
 | P2-08 | Phase 2 设备回归 | 小米/OPPO/Pixel 至少 2 台 | WiFi/基站 detector 一致性通过 | P2-04/05 | M | TODO |
 

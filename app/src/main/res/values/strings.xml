@@ -122,5 +122,7 @@
     <string name="restore_last_config">恢复上次配置</string>
     <string name="restore_last_config_success">已恢复上次场景</string>
     <string name="restore_last_config_unavailable">没有可恢复的配置，或场景正在运行</string>
+    <string name="wifi_fingerprint_enable">启用 WiFi 指纹库（实验）</string>
+    <string name="wifi_fingerprint_import">导入 WiFi 指纹库</string>
     <string name="environment_replay_set">已设为回放环境，下次启动场景生效</string>
 </resources>

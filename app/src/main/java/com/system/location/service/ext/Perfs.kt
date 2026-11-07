@@ -200,6 +200,14 @@ var Context.physicalNoise: Boolean
         putBoolean("physicalNoise", value)
     }
 
+var Context.wifiFingerprintEnabled: Boolean
+    get() = sharedPrefs.getBoolean("wifiFingerprintEnabled", false)
+    set(value) = sharedPrefs.edit { putBoolean("wifiFingerprintEnabled", value) }
+
+var Context.wifiFingerprintCatalogJson: String
+    get() = sharedPrefs.getString("wifiFingerprintCatalogJson", "").orEmpty()
+    set(value) = sharedPrefs.edit { putString("wifiFingerprintCatalogJson", value) }
+
 var Context.simReady: Boolean
     get() = sharedPrefs.getBoolean("simReady", true)
     set(value) = sharedPrefs.edit {

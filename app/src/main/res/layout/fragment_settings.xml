@@ -883,6 +883,20 @@
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
                     android:text="@string/restore_last_config" />
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/wifi_fingerprint_switch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:padding="8dp"
+                    android:text="@string/wifi_fingerprint_enable" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/wifi_fingerprint_import_button"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/wifi_fingerprint_import" />
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/environment_ap_button"
                     style="@style/Widget.MaterialComponents.Button.TextButton"

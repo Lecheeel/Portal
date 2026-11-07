@@ -31,6 +31,7 @@ import com.system.location.service.ext.environmentReplayJson
 import com.system.location.service.ext.routingJson
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentProfileCodec
+import com.system.location.service.core.environment.WifiFingerprintImporter
 import com.system.location.service.core.routing.AppRoute
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.routing.RoutingMode
@@ -56,6 +57,8 @@ import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.cellMode
 import com.system.location.service.ext.environmentSourceMode
 import com.system.location.service.ext.physicalNoise
+import com.system.location.service.ext.wifiFingerprintEnabled
+import com.system.location.service.ext.wifiFingerprintCatalogJson
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.reportDuration
@@ -138,6 +141,29 @@ class SettingsFragment : Fragment() {
                 if (isAdded) showToast(getString(R.string.environment_import_success, name))
             }.onFailure { error ->
                 if (isAdded) showToast(getString(R.string.environment_import_failed, error.message ?: "unknown"))
+            }
+        }
+    }
+
+    private val importWifiFingerprintDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val appContext = requireContext().applicationContext
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val raw = appContext.contentResolver.openInputStream(uri)
+                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: error("无法读取文件")
+                    val imported = WifiFingerprintImporter.importJson(raw)
+                    appContext.wifiFingerprintCatalogJson =
+                        WifiFingerprintImporter.encodeJson(imported.catalog)
+                    imported
+                }
+            }
+            result.onSuccess { imported ->
+                if (isAdded) showToast("已导入 ${imported.imported} 条 WiFi 指纹")
+            }.onFailure { error ->
+                if (isAdded) showToast("WiFi 指纹导入失败：${error.message ?: "unknown"}")
             }
         }
     }
@@ -344,6 +370,14 @@ class SettingsFragment : Fragment() {
                 showToast(if (restored) getString(R.string.restore_last_config_success)
                     else getString(R.string.restore_last_config_unavailable))
             }
+        }
+        binding.wifiFingerprintSwitch.isChecked = context.wifiFingerprintEnabled
+        binding.wifiFingerprintSwitch.setOnCheckedChangeListener { _, enabled ->
+            context.wifiFingerprintEnabled = enabled
+            applyConfigNowWithToast()
+        }
+        binding.wifiFingerprintImportButton.setOnClickListener {
+            importWifiFingerprintDocument.launch(arrayOf("application/json", "text/plain", "*/*"))
         }
         fun apLabel() {
             binding.environmentApButton.text = getString(R.string.environment_ap_value, context.environmentApCount)

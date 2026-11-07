@@ -35,6 +35,9 @@ class SettingsSchemaTest {
         assertNull(schema.validate("physical_noise_seed", "42"))
         assertNull(schema.validate("speed_amplitude", "2.5"))
         assertNotNull(schema.validate("speed_amplitude", "99"))
+        assertNull(schema.validate("wifi_fingerprint_json", "{}"))
+        assertNotNull(schema.validate("wifi_fingerprint_json", ""))
+        assertNotNull(schema.validate("wifi_fingerprint_json", "x".repeat(262_145)))
     }
 
     @Test fun nullMeansUseDefault() {

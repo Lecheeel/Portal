@@ -9,11 +9,13 @@ data class SettingSpec(
     val min: Double? = null,
     val max: Double? = null,
     val choices: Set<String> = emptySet(),
+    val maxLength: Int? = null,
 ) {
     init {
         require(key.isNotBlank()) { "key must not be blank" }
         if (type == SettingType.ENUM) require(choices.isNotEmpty()) { "ENUM requires choices" }
         require(choices.isEmpty() || defaultValue in choices) { "default must be a choice" }
+        require(maxLength == null || maxLength > 0) { "maxLength must be positive" }
     }
 }
 
@@ -67,7 +69,11 @@ class SettingsSchema(specs: List<SettingSpec>) {
             val value = raw.toDoubleOrNull() ?: return "not a double"
             inRange(spec, value)
         }
-        SettingType.STRING -> if (raw.isNotBlank()) null else "blank string"
+        SettingType.STRING -> when {
+            raw.isBlank() -> "blank string"
+            spec.maxLength != null && raw.length > spec.maxLength -> "string too long"
+            else -> null
+        }
         SettingType.ENUM -> if (raw in spec.choices) null else "not a valid choice"
     }
 
@@ -102,6 +108,7 @@ object PortalSettingsSchema {
             SettingSpec("hook_wifi", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_physical_noise", SettingType.BOOLEAN, "false"),
             SettingSpec("wifi_fingerprint_enabled", SettingType.BOOLEAN, "false"),
+            SettingSpec("wifi_fingerprint_json", SettingType.STRING, "", maxLength = 262_144),
             SettingSpec("physical_noise_seed", SettingType.LONG, "0"),
             SettingSpec("speed_amplitude", SettingType.DOUBLE, "1.0", 0.0, 10.0),
             SettingSpec("environment_ap_count", SettingType.INT, "4", 1.0, 8.0),

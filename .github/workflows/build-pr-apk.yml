@@ -35,6 +35,7 @@ jobs:
           python3 scripts/check_backup_rules.py
           python3 scripts/check_manifest_exports.py
           python3 scripts/check_license_assets.py
+          python3 scripts/check_xposed_module.py
 
       - name: Unit tests
         run: |
@@ -48,6 +49,8 @@ jobs:
         run: ./gradlew lint --max-workers=1 --build-cache --stacktrace
       - name: Release APKs
         run: ./gradlew :app:assembleRelease :app:exportReleaseApks -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
+      - name: Verify modern Xposed APK packaging
+        run: python3 scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4

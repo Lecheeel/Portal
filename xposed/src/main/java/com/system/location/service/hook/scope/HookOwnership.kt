@@ -32,6 +32,7 @@ object HookOwnership {
             "fused",
             "sensor",
             "system-sdk",
+            "package-metadata",
         ),
         HookScope.PHONE_PROCESS to listOf("phone"),
         HookScope.FUSED_PROCESS to listOf("fused"),

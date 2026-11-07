@@ -16,6 +16,7 @@ import com.system.location.service.hook.hooks.telephony.TelephonyHook
 import com.system.location.service.hook.hooks.wlan.WlanHook
 import com.system.location.service.hook.hooks.LocationAvailabilityHook
 import com.system.location.service.hook.hooks.provider.ProviderRegistryHook
+import com.system.location.service.hook.hooks.pkg.PackageMetadataHook
 import com.system.location.service.hook.privacy.AppOpsHook
 import com.system.location.service.hook.privacy.SettingsHook
 import com.system.location.service.hook.utils.FakeLoc
@@ -87,6 +88,7 @@ class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
                 install("fused") { AndroidFusedLocationProviderHook(loader) }
                 install("sensor") { SystemSensorManagerHook(loader) }
                 install("system-sdk") { ThirdPartyLocationHook(loader) }
+                install("package-metadata") { PackageMetadataHook.hook(loader) }
             }
             com.system.location.service.hook.scope.HookScope.PHONE_PROCESS -> {
                 install("phone") { TelephonyHook(loader) }

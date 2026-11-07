@@ -4,7 +4,7 @@ import android.telephony.TelephonyManager
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.beforeHook
+import io.github.libxposed.api.XposedInterface.Hooker
 import com.system.location.service.hook.utils.hookAllMethods
 
 /**
@@ -14,22 +14,24 @@ import com.system.location.service.hook.utils.hookAllMethods
  */
 object PhoneTypeHooks {
     fun hook(classLoader: ClassLoader) {
-        val manager = de.robv.android.xposed.XposedHelpers
+        val manager = com.system.location.service.hook.runtime.Reflection
             .findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader) ?: return
 
-        val gsmPhoneType = beforeHook {
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@beforeHook
-            result = if (FakeLoc.simReady) TelephonyManager.PHONE_TYPE_GSM else TelephonyManager.PHONE_TYPE_NONE
-            if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: $result")
+        val gsmPhoneType = Hooker { chain ->
+            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker chain.proceed()
+            val result = if (FakeLoc.simReady) TelephonyManager.PHONE_TYPE_GSM else TelephonyManager.PHONE_TYPE_NONE
+            if (FakeLoc.enableDebugLog) Logger.debug("${chain.executable.name}: $result")
+            result
         }
         listOf("getActivePhoneType", "getActivePhoneTypeForSlot").forEach {
             manager.hookAllMethods(it, gsmPhoneType)
         }
 
-        val lteNetwork = beforeHook {
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@beforeHook
-            result = if (FakeLoc.simReady) TelephonyManager.NETWORK_TYPE_LTE else TelephonyManager.NETWORK_TYPE_UNKNOWN
-            if (FakeLoc.enableDebugLog) Logger.debug("${method.name}: $result")
+        val lteNetwork = Hooker { chain ->
+            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker chain.proceed()
+            val result = if (FakeLoc.simReady) TelephonyManager.NETWORK_TYPE_LTE else TelephonyManager.NETWORK_TYPE_UNKNOWN
+            if (FakeLoc.enableDebugLog) Logger.debug("${chain.executable.name}: $result")
+            result
         }
         listOf(
             "getNetworkType",

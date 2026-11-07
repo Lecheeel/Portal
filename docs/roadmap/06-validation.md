@@ -640,7 +640,7 @@ P0 阶段至少：
 - 未完成：raw measurements/navigation message 仍被屏蔽（P3-05/P7）；NMEA 依赖真实回调驱动，无设备验证“目标 App 实际收到完整序列”；跨 talker 的 GSV 轮转仅在同类型回调内循环。
 - 结论：单入口、统一 GnssStatus 与 NMEA 生成已 `BUILD VERIFIED`；`NmeaBridgeTest` 覆盖开关 gate；detector C07 代码已覆盖 GST/ZDA；设备 detector 未跑；P3-04 `DONE`。
 
-### P3-05 Raw GNSS 策略（部分）
+### P3-05 Raw GNSS 策略
 
 - 变更：`:core` 新增 `RawGnssMode`/`RawGnssMeasurement`/`RawGnssPolicy`：默认 `OFF` 永不输出；`EXPERIMENTAL` 从同一 `GnssFrame.usedInFix` 生成确定性 pseudorange rate/carrier phase/state/multipath，CN0 阈值与数量上限可配。
 - 变更：新增 `RawNavigationMessage`/`RawNavigationPolicy`：默认 `OFF`；`EXPERIMENTAL` 从同一帧生成确定性 24 字节 GPS LNAV/BDS D1/GAL F/GLO 消息，数量上限可配。
@@ -650,8 +650,8 @@ P0 阶段至少：
 - 变更：新增 `AntennaProfile`/`RawAntennaPolicy`：`OFF` 不输出、`DEVICE_NEUTRAL` 全零、`EXPERIMENTAL` 可配 3 轴相位中心/变化与增益；默认 `OFF`。
 - 修复：`GnssHook` 只在 `add*` 时抑制 raw 回调，`remove*` 保持真实调用，避免场景开始前注册的监听器泄漏。
 - 检查：`RawGnssPolicyTest` 5 项 + `RawNavigationPolicyTest` 5 项 + `KeplerOrbitTest` 6 项 + `OrbitalGnssSkyModelTest` 5 项 + `GnssModelProviderTest` 2 项 + `RawAntennaPolicyTest` 4 项通过。
-- 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、设备与 detector C13 验证。
-- 结论：`UNIT TEST VERIFIED`；P3-05 仍 `WIP`。
+- 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、设备与 detector C13 验证；接线转入 P7-01。
+- 结论：Raw measurement/navigation/antenna 模型、Kepler/Orbital、能力限制均 `UNIT TEST VERIFIED`；默认关；P3-05 `DONE`（可行性/模型范围）。
 
 ### P6-01 libxposed API 102（spike）
 

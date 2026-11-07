@@ -1,72 +1,104 @@
 package com.system.location.service.hook.hooks.gnss
 
 import android.location.Location
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation.invoke
+import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.beforeHook
 import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.onceHookAllMethod
+import io.github.libxposed.api.XposedInterface
 
-object GnssHook: BaseLocationHook() {
+object GnssHook : BaseLocationHook() {
     operator fun invoke(classLoader: ClassLoader) {
         hookFrameworkGnss(classLoader)
         hookHALGnss(classLoader)
     }
 
     private fun hookFrameworkGnss(classLoader: ClassLoader) {
-        val cGnssManagerService = XposedHelpers.findClassIfExists("com.android.server.location.GnssManagerService", classLoader) ?: return
+        val cGnssManagerService =
+            Reflection.findClassIfExists(
+                "com.android.server.location.GnssManagerService",
+                classLoader,
+            ) ?: return
 
-        val doNothingMethod = object: XC_MethodHook() {
-            override fun beforeHookedMethod(param: MethodHookParam?) {
-                if (param == null || param.args.isEmpty()) return
+        val doNothingMethod =
+            XposedInterface.Hooker intercept37@{ chain ->
+                val args = chain.args.toTypedArray()
+
+                if (args.isEmpty()) return@intercept37 chain.proceed(args)
 
                 if (FakeLoc.enableDebugLog) {
-                    Logger.debug("doNothingMethod: ${param.method.name}")
+                    Logger.debug("doNothingMethod: ${chain.executable.name}")
                 }
 
-                // Suppress only registration while raw output is hidden. Suppressing remove*
-                // would leak any listener that was registered before the scenario started.
-                if (FakeLoc.enable && FakeLoc.enableMockGnss && !FakeLoc.enableAGPS &&
-                    param.method.name.startsWith("add")) {
+                if (
+                    FakeLoc.enable &&
+                        FakeLoc.enableMockGnss &&
+                        !FakeLoc.enableAGPS &&
+                        chain.executable.name.startsWith("add")
+                ) {
                     if (FakeLoc.enableDebugLog) {
-                        Logger.debug("${param.method.name}: disable")
+                        Logger.debug("${chain.executable.name}: disable")
                     }
-                    param.result = null
+                    return@intercept37 null
                 }
+
+                chain.proceed(args)
             }
-        }
 
-        // AGPS Listener?
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "addGnssAntennaInfoListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "addGnssMeasurementsListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "addGnssNavigationMessageListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "removeGnssAntennaInfoListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "removeGnssMeasurementsListener", doNothingMethod)
-        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cGnssManagerService, "removeGnssNavigationMessageListener", doNothingMethod)
-
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            cGnssManagerService,
+            "addGnssAntennaInfoListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            cGnssManagerService,
+            "addGnssMeasurementsListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            cGnssManagerService,
+            "addGnssNavigationMessageListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            cGnssManagerService,
+            "removeGnssAntennaInfoListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            cGnssManagerService,
+            "removeGnssMeasurementsListener",
+            doNothingMethod,
+        )
+        com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+            cGnssManagerService,
+            "removeGnssNavigationMessageListener",
+            doNothingMethod,
+        )
     }
 
     private fun hookHALGnss(classLoader: ClassLoader) {
-//        hookGnssHALAnyVersion(XposedHelpers.findClassIfExists("android.hardware.gnss.IGnss\$Stub", classLoader))
-//        hookGnssHALAnyVersion(XposedHelpers.findClassIfExists("android.hardware.gnss.V1_0.IGnss\$Stub", classLoader))
-//        hookGnssHALAnyVersion(XposedHelpers.findClassIfExists("android.hardware.gnss.V1_1.IGnss\$Stub", classLoader))
-//        hookGnssHALAnyVersion(XposedHelpers.findClassIfExists("android.hardware.gnss.V2_1.IGnss\$Stub", classLoader))
-//        hookGnssHALAnyVersion(XposedHelpers.findClassIfExists("android.hardware.gnss.V2_0.IGnss\$Stub", classLoader))
         var hookedGnssLocationProvider = 0
-        val cGnssLocationProviderImpl = XposedHelpers.findClassIfExists("com.android.server.location.gnss.GnssLocationProviderImpl", classLoader)
+        val cGnssLocationProviderImpl =
+            Reflection.findClassIfExists(
+                "com.android.server.location.gnss.GnssLocationProviderImpl",
+                classLoader,
+            )
         if (cGnssLocationProviderImpl != null) {
             BlindHookLocation(cGnssLocationProviderImpl, classLoader)
             hookedGnssLocationProvider = 1
         }
 
         if (hookedGnssLocationProvider == 0) {
-            val cGnssLocationProvider = XposedHelpers.findClassIfExists("com.android.server.location.gnss.GnssLocationProvider", classLoader)
+            val cGnssLocationProvider =
+                Reflection.findClassIfExists(
+                    "com.android.server.location.gnss.GnssLocationProvider",
+                    classLoader,
+                )
             if (cGnssLocationProvider != null) {
                 BlindHookLocation(cGnssLocationProvider, classLoader)
                 hookedGnssLocationProvider = 2
@@ -79,18 +111,29 @@ object GnssHook: BaseLocationHook() {
             Logger.info("GnssLocationProvider done, status: $hookedGnssLocationProvider")
         }
 
-        val cGnssNative = XposedHelpers.findClassIfExists("com.android.server.location.gnss.hal.GnssNative", classLoader)
+        val cGnssNative =
+            Reflection.findClassIfExists(
+                "com.android.server.location.gnss.hal.GnssNative",
+                classLoader,
+            )
         if (cGnssNative != null) {
             BlindHookLocation(cGnssNative, classLoader)
 
-            cGnssNative.hookAllMethods("reportLocationBatch", beforeHook {
-                if (FakeLoc.enable && args.size > 1 && args[0] is Array<*>) {
-                    val locations = args[0] as Array<Location>
-                    locations.forEachIndexed { index, location ->
-                        locations[index] = injectLocation(location)
+            cGnssNative.hookAllMethods(
+                "reportLocationBatch",
+                XposedInterface.Hooker intercept38@{ chain ->
+                    val args = chain.args.toTypedArray()
+
+                    if (FakeLoc.enable && args.size > 1 && args[0] is Array<*>) {
+                        val locations = args[0] as Array<Location>
+                        locations.forEachIndexed { index, location ->
+                            locations[index] = injectLocation(location)
+                        }
                     }
-                }
-            })
+
+                    chain.proceed(args)
+                },
+            )
         } else {
             Logger.error("GnssNative not found")
         }
@@ -98,28 +141,44 @@ object GnssHook: BaseLocationHook() {
 
     private fun hookGnssHALAnyVersion(cIGnssStub: Class<*>?) {
         if (cIGnssStub != null) {
-            cIGnssStub.hookAllMethods("onTransact", beforeHook {
-                val clazz = thisObject.javaClass
-                clazz.onceHookAllMethod("injectBestLocation", beforeHook {
-                    if (FakeLoc.enable) {
-                        result = Unit
-                    }
+            cIGnssStub.hookAllMethods(
+                "onTransact",
+                XposedInterface.Hooker intercept39@{ chain ->
+                    val args = chain.args.toTypedArray()
 
-                    if (FakeLoc.enableDebugLog) {
-                        Logger.debug("injectLocation: $method")
-                    }
-                })
+                    val clazz =
+                        chain.thisObject?.javaClass ?: return@intercept39 chain.proceed(args)
+                    clazz.onceHookAllMethod(
+                        "injectBestLocation",
+                        XposedInterface.Hooker intercept40@{ chain ->
+                            val args = chain.args.toTypedArray()
 
-                clazz.onceHookAllMethod("injectLocation", beforeHook {
-                    if (FakeLoc.enable) {
-                        result = Unit
-                    }
+                            if (FakeLoc.enableDebugLog) {
+                                Logger.debug("injectLocation: ${chain.executable}")
+                            }
+                            if (FakeLoc.enable) return@intercept40 null
 
-                    if (FakeLoc.enableDebugLog) {
-                        Logger.debug("injectLocation: $method")
-                    }
-                })
-            })
+                            chain.proceed(args)
+                        },
+                    )
+
+                    clazz.onceHookAllMethod(
+                        "injectLocation",
+                        XposedInterface.Hooker intercept41@{ chain ->
+                            val args = chain.args.toTypedArray()
+
+                            if (FakeLoc.enableDebugLog) {
+                                Logger.debug("injectLocation: ${chain.executable}")
+                            }
+                            if (FakeLoc.enable) return@intercept41 null
+
+                            chain.proceed(args)
+                        },
+                    )
+
+                    chain.proceed(args)
+                },
+            )
         } else {
             Logger.error("IGnss\$Stub not found")
         }

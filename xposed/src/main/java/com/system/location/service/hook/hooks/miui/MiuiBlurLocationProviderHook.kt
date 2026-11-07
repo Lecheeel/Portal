@@ -6,74 +6,110 @@ import android.telephony.CellIdentityCdma
 import android.telephony.CellInfo
 import android.telephony.CellInfoCdma
 import android.telephony.CellSignalStrengthCdma
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
+import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
-import com.system.location.service.hook.utils.beforeHook
 import com.system.location.service.hook.utils.onceHookAllMethod
-import com.system.location.service.hook.utils.onceHookMethodBefore
+import com.system.location.service.hook.utils.onceHookMethod
+import io.github.libxposed.api.XposedInterface
 
-object MiuiBlurLocationProviderHook: BaseLocationHook() {
+object MiuiBlurLocationProviderHook : BaseLocationHook() {
     operator fun invoke(classLoader: ClassLoader) {
-        val cMiuiBlurLocationManagerImpl = XposedHelpers.findClassIfExists("com.android.server.location.MiuiBlurLocationManagerImpl", classLoader)
+        val cMiuiBlurLocationManagerImpl =
+            Reflection.findClassIfExists(
+                "com.android.server.location.MiuiBlurLocationManagerImpl",
+                classLoader,
+            )
         if (cMiuiBlurLocationManagerImpl != null) {
             BlindHookLocation(cMiuiBlurLocationManagerImpl, classLoader)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val hooker: XC_MethodHook.MethodHookParam.() -> Unit = {
-                    if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
-                        result = CellIdentityCdma::class.java.getConstructor(
-                            Int::class.java,
-                            Int::class.java,
-                            Int::class.java,
-                            Int::class.java,
-                            Int::class.java,
-                            String::class.java,
-                            String::class.java
-                        ).newInstance(
-                            Int.MAX_VALUE,
-                            Int.MAX_VALUE,
-                            Int.MAX_VALUE,
-                            (FakeLoc.latitude * 14400.0).toInt(),
-                            (FakeLoc.longitude * 14400.0).toInt(),
-                            null, null
-                        )
+                val hooker =
+                    XposedInterface.Hooker { chain ->
+                        if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
+                            CellIdentityCdma::class
+                                .java
+                                .getConstructor(
+                                    Int::class.java,
+                                    Int::class.java,
+                                    Int::class.java,
+                                    Int::class.java,
+                                    Int::class.java,
+                                    String::class.java,
+                                    String::class.java,
+                                )
+                                .newInstance(
+                                    Int.MAX_VALUE,
+                                    Int.MAX_VALUE,
+                                    Int.MAX_VALUE,
+                                    (FakeLoc.latitude * 14400.0).toInt(),
+                                    (FakeLoc.longitude * 14400.0).toInt(),
+                                    null,
+                                    null,
+                                )
+                        } else chain.proceed()
                     }
-                }
-                if(cMiuiBlurLocationManagerImpl.onceHookMethodBefore("getBlurryCellLocation", CellIdentity::class.java) { hooker() } == null) {
-                    cMiuiBlurLocationManagerImpl.onceHookMethodBefore("getBlurryCellLocation",
-                        CellIdentity::class.java, Int::class.java, String::class.java) { hooker() }
+                if (
+                    cMiuiBlurLocationManagerImpl.onceHookMethod(
+                        "getBlurryCellLocation",
+                        CellIdentity::class.java,
+                        callback = hooker,
+                    ) == null
+                ) {
+                    cMiuiBlurLocationManagerImpl.onceHookMethod(
+                        "getBlurryCellLocation",
+                        CellIdentity::class.java,
+                        Int::class.java,
+                        String::class.java,
+                        callback = hooker,
+                    )
                 }
             }
 
-            cMiuiBlurLocationManagerImpl.onceHookAllMethod("getBlurryCellInfos", beforeHook {
-                if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
-                    val cellInfos = arrayListOf<CellInfo>()
-                    val cellInfo = kotlin.runCatching {
-                        CellInfoCdma::class.java.getConstructor().newInstance().also {
-                            XposedHelpers.callMethod(it, "setRegistered", true)
-                            XposedHelpers.callMethod(it, "setTimeStamp", System.nanoTime())
-                            XposedHelpers.callMethod(it, "setCellConnectionStatus", 0)
-                        }
-                    }.getOrElse {
-                        CellInfoCdma::class.java.getConstructor(
-                            Int::class.java,
-                            Boolean::class.java,
-                            Long::class.java,
-                            CellIdentityCdma::class.java,
-                            CellSignalStrengthCdma::class.java
-                        ).newInstance(0, true, System.nanoTime(), CellIdentityCdma::class.java.newInstance(), CellSignalStrengthCdma::class.java.newInstance())
-                    }
-                    cellInfos.add(cellInfo)
+            cMiuiBlurLocationManagerImpl.onceHookAllMethod(
+                "getBlurryCellInfos",
+                XposedInterface.Hooker intercept69@{ chain ->
+                    val args = chain.args.toTypedArray()
 
-                    result = cellInfos
-                }
-            })
+                    if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
+                        val cellInfos = arrayListOf<CellInfo>()
+                        val cellInfo =
+                            kotlin
+                                .runCatching {
+                                    CellInfoCdma::class.java.getConstructor().newInstance().also {
+                                        Reflection.callMethod(it, "setRegistered", true)
+                                        Reflection.callMethod(it, "setTimeStamp", System.nanoTime())
+                                        Reflection.callMethod(it, "setCellConnectionStatus", 0)
+                                    }
+                                }
+                                .getOrElse {
+                                    CellInfoCdma::class
+                                        .java
+                                        .getConstructor(
+                                            Int::class.java,
+                                            Boolean::class.java,
+                                            Long::class.java,
+                                            CellIdentityCdma::class.java,
+                                            CellSignalStrengthCdma::class.java,
+                                        )
+                                        .newInstance(
+                                            0,
+                                            true,
+                                            System.nanoTime(),
+                                            CellIdentityCdma::class.java.newInstance(),
+                                            CellSignalStrengthCdma::class.java.newInstance(),
+                                        )
+                                }
+                        cellInfos.add(cellInfo)
+
+                        return@intercept69 cellInfos
+                    }
+
+                    chain.proceed(args)
+                },
+            )
         }
     }
-
-
 }

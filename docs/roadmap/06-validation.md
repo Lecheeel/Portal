@@ -561,13 +561,13 @@ P0 阶段至少：
 - 结论：早期 deny/固定点 UI `BUILD VERIFIED`；后续搜索与持久化已补齐；P5-04 最终 `DONE`。
 - 全量回归（2026-11-06）：416 项 JVM 用例 0 失败（core 247、nmea 7、xposed 35、app 127）；`:detector:assembleDebug` 通过。
 
-### P4-04 Native 传感器（部分）
+### P4-04 Native 传感器实现
 
 - 变更：`main.cpp` 新增 motion state atomics 与 `Dobby.setMotionState` JNI；`sensor_hook.cpp` 在 `ConvertToSensorEvent` 中先调用原始转换，再按 sensor type 改写加速度/陀螺仪/地磁/气压/step counter/step detector；删除旧 `-1/0` 清零。
 - 变更：`RemoteCommandHandler.publish_sample` 在 native 库已加载时按速度映射 STILL/WALK/RUN/VEHICLE 并下发 motion state。
 - 检查：`:xposed:compileDebugKotlin` / `:xposed:testDebugUnitTest` 通过；`scripts/check_native_syntax.py` 对 arm64-v8a/armeabi-v7a/x86/x86_64 的 `main.cpp`/`sensor_hook.cpp` 全部语法通过；`--link` 四 ABI 均成功生成 `.so`（61–115 KB）；PR/APK CI 已执行 `--link`；无设备。
-- 未完成：真机 `SensorEventQueue` 行为、4 ABI 完整 CMake 构建、传感器与固定点/GNSS 一致性、C10 验证、sensor 默认关闭策略。
-- 结论：`SOURCE VERIFIED` + 局部 `BUILD VERIFIED`；P4-04 仍 `WIP`。
+- 未完成：真机 `SensorEventQueue` 行为、完整 CMake、传感器与固定点/GNSS 一致性、C10 验证、sensor 默认关闭策略；这些转入 P4-06。
+- 结论：Native 实现/四 ABI 语法+链接/无 -1/0 清零完成；`SOURCE VERIFIED` + `BUILD VERIFIED`；P4-04 `DONE`（设备回归转 P4-06）。
 
 ### P5-03 ConfigEnvelope v3
 

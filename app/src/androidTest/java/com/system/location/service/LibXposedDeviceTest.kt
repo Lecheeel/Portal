@@ -5,7 +5,9 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.location.LocationRequest
 import android.os.Bundle
+import android.os.CancellationSignal
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -14,6 +16,8 @@ import com.system.location.service.core.location.LocationSample
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -134,6 +138,56 @@ class LibXposedDeviceTest {
                     )
                 }
             }
+        }
+    }
+
+    @Test
+    fun currentLocationCallbackUsesPublishedSampleWhenGpsCanSupplyAFix() {
+        val initial = connectAndReadStatus()
+        assumeFalse("Preserving the user's active simulation", initial.getBoolean("is_start"))
+        assumeTrue("Fine location permission required", hasPermission(Manifest.permission.ACCESS_FINE_LOCATION))
+        assumeTrue("Background location permission required", hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+        assumeTrue("GPS must already be enabled", manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
+
+        // Establish provider availability before enabling simulation. A real provider with no fix
+        // cannot establish whether the independent current-location rewrite path works.
+        assumeTrue("GPS supplied no baseline single fix", boundedCurrentFix(30_000L) != null)
+        var publicationAttempted = false
+        try {
+            val outgoing = sample(31.230416, 121.473701)
+            publicationAttempted = true
+            assertTrue("Sample command failed", MockServiceHelper.publishSample(manager, outgoing))
+            assertActive(outgoing)
+            val received = boundedCurrentFix()
+            assertActive(outgoing)
+            assertSample(outgoing, received, "GPS current callback")
+        } finally {
+            if (publicationAttempted) {
+                assertTrue("Stop command failed", MockServiceHelper.tryCloseMock(manager))
+                val stopped = requireStatus()
+                assertTrue("Stop response has no start state", stopped.containsKey("is_start"))
+                assertFalse("Simulation remained active after cleanup", stopped.getBoolean("is_start"))
+            }
+        }
+    }
+
+    private fun boundedCurrentFix(durationMillis: Long = 2_000L): Location? {
+        val cancellation = CancellationSignal()
+        val delivered = CountDownLatch(1)
+        val received = AtomicReference<Location?>()
+        return try {
+            manager.getCurrentLocation(
+                LocationManager.GPS_PROVIDER,
+                LocationRequest.Builder(0L).setDurationMillis(durationMillis).build(),
+                cancellation,
+                { task -> task.run() },
+            ) { location ->
+                received.set(location?.let { Location(it) })
+                delivered.countDown()
+            }
+            if (delivered.await(durationMillis + 1_000L, TimeUnit.MILLISECONDS)) received.get() else null
+        } finally {
+            cancellation.cancel()
         }
     }
 

@@ -700,6 +700,13 @@ P0 阶段至少：
 
 ## 20. P7 实施记录（2026-11-06）
 
+### P7-02 网络/IP/时区（时区策略层）
+
+- 变更：`:core` 新增 `TimeZoneConsistencyPolicy`，按经度计算名义太阳时偏移（-12h..+14h），提供容差一致性判断与 `UTC±HH:MM` 格式化。
+- 检查：`TimeZoneConsistencyPolicyTest` 3 项通过；`:core` 编译/测试通过。
+- 未完成：per-app 代理/VPN、出口 IP 一致性、系统时区/locale/carrier Hook；策略仅作为告警/辅助。
+- 结论：时区策略层 `UNIT TEST VERIFIED`；P7-02 仍 `TODO`（网络层未实现）。
+
 ### P7-03 Activity Recognition（策略层）
 
 - 变更：`:core` 新增 `ActivityRecognitionPolicy`，把 `MotionMode` 映射为确定性 `ActivityKind` 概率分布（总和 100，单一最大项），供后续 GMS/AOSP 适配使用。

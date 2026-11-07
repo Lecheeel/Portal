@@ -660,7 +660,7 @@ P0 阶段至少：
 ### libxposed API 102 正式迁移
 
 - 变更：正式入口改为 `PortalModule`（`hook/META-INF/xposed`），Hook 直接使用 `XposedInterface` 的 `Hooker`/`Chain`/`HookHandle`；移除 `de.robv.android.xposed`、legacy compat、`assets/xposed_init` 与 manifest 模块 metadata。
-- 变更：`scope.list` 使用 `system`（system_server）+ phone/fused/Settings provider 五个包；`module.prop` 为 `minApiVersion=102`、`targetApiVersion=102`、`staticScope=true`、`autoHotReload=false`。
+- 变更：`scope.list` 使用 `system`（system_server）+ phone/fused/Settings provider 五个包；`module.prop` 为 `minApiVersion=102`、`targetApiVersion=102`、`staticScope=true`、`autoHotReload=true`。
 - 检查：`check_xposed_module.py` 源码/APK 均 0 violation；JVM 474 项 0 失败（xposed 70/core 269/nmea 8/app 127）；四 ABI CMake 产物存在；ARM64 Debug APK 含现代入口与 `liblocationext.so`。
 - 设备：Vector 2.2 (3118)/API 102，Xiaomi 11 Ultra/Android 14；system_server、phone、Xiaomi fused 均加载 `PortalModule`，XPOSED 场景通过调试 API 到 `RUNNING`；instrumentation 为 3 passed / 1 skipped（未收到真实 GPS 基线的 current 用例跳过）。
 - 未完成：phone/fused 进程热重载仍拒绝（需重启目标进程）；Native Dobby 加载后也拒绝热重载；双设备/OEM 矩阵与完整 detector 回归（P6-05）；Python unittest 在本机 DSH 沙箱因临时目录 ACL 假失败，需 CI/Linux 复跑。

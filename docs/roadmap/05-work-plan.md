@@ -222,7 +222,7 @@ P0 基线
 > 2026-11-06：P5-06 已加入存储抽象、原子 `FileConfigStore`、active config、完整恢复入口、`SeqLockSampleStore`、`SharedSampleCodec`/`Header`/`Buffer`/`Layout` 与 Android `SharedMemorySampleBuffer`；Binder fd 未做。
 > 2026-11-06：P6-01 已加入 `io.github.libxposed:api:102.0.0` compileOnly 依赖、`LibXposedSpike` 与独立 `:libxposed-spike` APK（元数据打包验证）；LSPosed 加载/scope/热重载未做。
 
-> 2026-11-07：上条是原型阶段记录。正式模块现已全面使用 API 102 原生 Hooker/Chain，保留六个静态 scope；自动和手动热重载均关闭，legacy 回退及 spike 已删除。本轮本地构建/回归证据已具备，但 设备已观察到 system/phone/Xiaomi fused 生命周期和安装路径，完整定位回归受测试包安装限制仍未完成，不据此将 Phase 6 的设备回归标记完成。
+> 2026-11-07：上条是原型阶段记录。正式模块现已全面使用 API 102 原生 Hooker/Chain，保留六个静态 scope；system_server 自动热重载已实测通过，phone/fused 仍按设计拒绝热重载；legacy 回退及 spike 已删除。本轮本地构建/回归证据已具备，但设备已观察到 system/phone/Xiaomi fused 生命周期和安装路径，完整定位回归受测试包安装限制仍未完成，不据此将 Phase 6 的设备回归标记完成。
 
 > 2026-11-06：P6-06 已更新 `01-current-state.md` 的过期描述，并在 README 补充环境回放/per-app 实验能力；完整默认值清单未做。
 

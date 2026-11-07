@@ -54,7 +54,7 @@ HookStatusRegistry 分别记录 supported/installed/matched/skipped/failed；ins
 
 `Reflection` 负责字段查找、重载匹配及普通反射调用，匹配时区分静态/实例方法、null、装箱和基本类型扩宽，并拒绝歧义。连接框架后的普通调用使用默认 `FULL` invoker 保留其他 Hook；明确的原始 listener 投递通过 `HookRuntime.invokeOriginalMethod` 使用 `ORIGIN`，两者都解包目标的 `InvocationTargetException`。
 
-模块配置要求框架支持 API 102，不提供 legacy API 82 回退。自动热重载关闭，`onHotReloading` 也拒绝手动热重载，因为定时器、listener 和 Native 状态仍随目标进程存活。安装或更新模块后需要重启受影响的目标进程；system_server 的变更通过设备重启加载。
+模块配置要求框架支持 API 102，不提供 legacy API 82 回退。system_server 支持自动热重载（`autoHotReload=true`）：`onHotReloading` 停止定时器、保留跨 classloader 状态，`onHotReloaded` 卸载旧句柄并重建 Hook；phone/fused 进程和加载 Native Dobby 后仍拒绝热重载，需要重启目标进程。
 
 ## 数据与地图
 

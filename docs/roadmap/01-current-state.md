@@ -1,6 +1,6 @@
 # 01 · 当前状态、优点与缺口
 
-> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 474 项 JVM、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过；Python 29 项在迁移验证环境通过（本机 DSH 沙箱的临时目录 ACL 会使 `test_xposed_module.py` 出现假失败）。设备为 Xiaomi 11 Ultra / Android 14 / Vector 2.2 (3118) / API 102：system_server、phone、Xiaomi fused 均已加载 `PortalModule`，通过调试 API 启动 XPOSED 场景达到 `RUNNING`；instrumentation 4 项为 3 passed / 1 skipped，尚缺双设备矩阵、完整 detector 回归和热重载验证。远端 CI、push、release 及正式签名交付未执行。当前证据见 [libxposed-migration.md](../libxposed-migration.md)；下方基线表、百分比及旧测试数量保留历史快照含义。
+> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 481 项 JVM、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过；Python 29 项在迁移验证环境通过（本机 DSH 沙箱的临时目录 ACL 会使 `test_xposed_module.py` 出现假失败）。设备为 Xiaomi 11 Ultra / Android 14 / Vector 2.2 (3118) / API 102：system_server、phone、Xiaomi fused 均已加载 `PortalModule`，通过调试 API 启动 XPOSED 场景达到 `RUNNING`；system_server 热重载已实测 PID 不变，C03/C13 在重载后仍 PASS；instrumentation 4 项为 3 passed / 1 skipped。尚缺双设备矩阵/完整 detector 回归（P6-05）、CI、push、release 及正式签名交付。当前证据见 [libxposed-migration.md](../libxposed-migration.md)；下方基线表、百分比及旧测试数量保留历史快照含义。
 
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。

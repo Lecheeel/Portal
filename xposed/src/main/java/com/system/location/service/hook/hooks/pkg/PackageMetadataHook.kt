@@ -5,8 +5,7 @@ import android.os.Binder
 import android.os.Bundle
 import com.system.location.service.core.privacy.XposedMetadataVisibilityPolicy
 import com.system.location.service.hook.scope.HookInstaller
-import com.system.location.service.hook.utils.afterHook
-import de.robv.android.xposed.XC_MethodHook
+import io.github.libxposed.api.XposedInterface.Hooker
 
 /**
  * P6-02: hide legacy Xposed meta-data from ordinary PackageManager callers.
@@ -23,16 +22,18 @@ object PackageMetadataHook {
         names.forEach { name ->
             val type = runCatching { classLoader.loadClass(name) }.getOrNull() ?: return@forEach
             listOf("getApplicationInfo", "getApplicationInfoAsUser").forEach { method ->
-                HookInstaller.hookAllMethods(type, method, afterHook { sanitizeResult() })
+                HookInstaller.hookAllMethods(type, method, Hooker { chain ->
+                    sanitizeResult(chain.proceed())
+                })
             }
         }
     }
 
-    private fun XC_MethodHook.MethodHookParam.sanitizeResult() {
+    private fun sanitizeResult(result: Any?): Any? {
         val callerUid = runCatching { Binder.getCallingUid() }.getOrDefault(-1)
-        val info = this.result as? ApplicationInfo ?: return
-        if (!XposedMetadataVisibilityPolicy.shouldHide(info.packageName, callerUid)) return
-        this.result = sanitize(info)
+        val info = result as? ApplicationInfo ?: return result
+        if (!XposedMetadataVisibilityPolicy.shouldHide(info.packageName, callerUid)) return result
+        return sanitize(info)
     }
 
     private fun sanitize(info: ApplicationInfo): ApplicationInfo {

@@ -1,96 +1,86 @@
 package com.system.location.service.hook.hooks
 
-import com.system.location.service.hook.utils.toLocation
-
 import android.location.Location
-import android.location.LocationManager
-import android.os.Build
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
+import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.hookAllMethodsAfter
-import com.system.location.service.hook.utils.hookAllMethodsBefore
-import com.system.location.service.hook.utils.toClass
+import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.toClassOrThrow
-import kotlin.random.Random
+import com.system.location.service.hook.utils.toLocation
+import io.github.libxposed.api.XposedInterface
 
-object BasicLocationHook: BaseLocationHook() {
+object BasicLocationHook : BaseLocationHook() {
     operator fun invoke(classLoader: ClassLoader) {
-//        val hookSetLatitude = object: XC_MethodHook() {
-//            override fun beforeHookedMethod(param: MethodHookParam?) {
-//                if (param == null) return
-//                if (!FakeLocationConfig.enable) return
-//
-//            }
-//        }
-//        val hookSetLongitude = object: XC_MethodHook() {
-//            override fun beforeHookedMethod(param: MethodHookParam?) {
-//                if (param == null) return
-//
-//
-//            }
-//        }
-//        XposedHelpers.findAndHookMethod("android.location.Location", classLoader, "setLatitude", Double::class.java, hookSetLatitude)
-//        XposedHelpers.findAndHookMethod("android.location.Location", classLoader, "setLongitude", Double::class.java, hookSetLongitude)
 
-        kotlin.runCatching {
-            val cLocationResult = "android.location.LocationResult".toClassOrThrow(classLoader)
-            BlindHookLocation(cLocationResult, classLoader)
+        kotlin
+            .runCatching {
+                val cLocationResult = "android.location.LocationResult".toClassOrThrow(classLoader)
+                BlindHookLocation(cLocationResult, classLoader)
 
-            cLocationResult.hookAllMethodsAfter("asList") {
-                if (!FakeLoc.enable) return@hookAllMethodsAfter
+                cLocationResult.hookAllMethods(
+                    "asList",
+                    XposedInterface.Hooker intercept1@{ chain ->
+                        val args = chain.args.toTypedArray()
+                        var result = chain.proceed()
 
-                val locations = result as List<*>
-                result = locations.map { injectLocation(it as Location) }
+                        if (!FakeLoc.enable) return@intercept1 result
+
+                        val locations = result as List<*>
+                        result = locations.map { injectLocation(it as Location) }
+
+                        result
+                    },
+                )
+
+                cLocationResult.hookAllMethods(
+                    "writeToParcel",
+                    XposedInterface.Hooker intercept2@{ chain ->
+                        val args = chain.args.toTypedArray()
+
+                        if (!FakeLoc.enable) return@intercept2 chain.proceed(args)
+
+                        val locationResult = chain.thisObject
+                        val mLocationsField =
+                            Reflection.findFieldIfExists(
+                                locationResult?.javaClass ?: return@intercept2 chain.proceed(args),
+                                "mLocations",
+                            )
+                        if (mLocationsField == null) {
+                            Logger.error("Failed to find mLocations in LocationResult")
+                            return@intercept2 chain.proceed(args)
+                        }
+                        mLocationsField.isAccessible = true
+                        val locations =
+                            mLocationsField.get(locationResult) as? List<*>
+                                ?: return@intercept2 chain.proceed(args)
+                        if (locations.isEmpty() || locations.any { it !is Location })
+                            return@intercept2 chain.proceed(args)
+                        val sample = FakeLoc.snapshot()
+                        mLocationsField.set(
+                            locationResult,
+                            locations.map { sample.toLocation((it as Location).provider) },
+                        )
+
+                        chain.proceed(args)
+                    },
+                )
             }
+            .onFailure { Logger.error("Failed to hook LocationResult", it) }
 
-            cLocationResult.hookAllMethodsBefore("writeToParcel") {
-                if (!FakeLoc.enable) return@hookAllMethodsBefore
+        Location::class
+            .java
+            .hookAllMethods(
+                "set",
+                XposedInterface.Hooker intercept3@{ chain ->
+                    val args = chain.args.toTypedArray()
 
-                val locationResult = thisObject
-                val mLocationsField = XposedHelpers.findFieldIfExists(locationResult.javaClass, "mLocations")
-                if (mLocationsField == null) {
-                    Logger.error("Failed to find mLocations in LocationResult")
-                    return@hookAllMethodsBefore
-                }
-                mLocationsField.isAccessible = true
-                val locations = mLocationsField.get(locationResult) as? List<*> ?: return@hookAllMethodsBefore
-                if (locations.isEmpty() || locations.any { it !is Location }) return@hookAllMethodsBefore
-                val sample = FakeLoc.snapshot()
-                mLocationsField.set(locationResult, locations.map { sample.toLocation((it as Location).provider) })
-            }
-        }.onFailure {
-           Logger.error("Failed to hook LocationResult", it)
-        }
+                    if (!FakeLoc.enable) return@intercept3 chain.proceed(args)
+                    args[0] = injectLocation(args[0] as Location)
 
-        Location::class.java.hookAllMethodsBefore("set") {
-            if (!FakeLoc.enable) return@hookAllMethodsBefore
-            args[0] = injectLocation(args[0] as Location)
-        }
-//        if (FakeLocationConfig.DEBUG) {
-//            // Track the invocation of AutoNavi map system services
-//            val cBundle = XposedHelpers.findClass("android.os.Bundle", classLoader)
-//            XposedBridge.hookAllMethods(cBundle, "putInt", object : XC_MethodHook() {
-//                override fun beforeHookedMethod(param: MethodHookParam) {
-//                    val key = param.args[0] as? String
-//                    val value = param.args[1] as Int
-//
-//                    if (key == "amap" || key == "resubtype" || key == "maxCn0") {
-//                        XposedBridge.log(RuntimeException())
-//                    }
-//                }
-//            })
-//            XposedBridge.hookAllMethods(Location::class.java, "setExtras", object : XC_MethodHook() {
-//                override fun beforeHookedMethod(param: MethodHookParam) {
-//                    XposedBridge.log(RuntimeException())
-//                }
-//            })
-//        }
-
-
+                    chain.proceed(args)
+                },
+            )
     }
 }

@@ -2,8 +2,8 @@ package com.system.location.service.hook.privacy
 
 import android.app.AppOpsManager
 import android.os.Binder
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedHelpers
+import io.github.libxposed.api.XposedInterface.Hooker
+import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.scope.HookInstaller
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.core.privacy.AppOpsVisibilityPolicy
@@ -20,23 +20,21 @@ import com.system.location.service.hook.utils.Logger
  */
 object AppOpsHook {
     fun hook(classLoader: ClassLoader): Boolean {
-        val service = XposedHelpers.findClassIfExists("com.android.server.appop.AppOpsService", classLoader)
+        val service = Reflection.findClassIfExists("com.android.server.appop.AppOpsService", classLoader)
             ?: return false
-        val callback = object : XC_MethodHook() {
-            override fun afterHookedMethod(param: MethodHookParam) {
-                if (param.result !is Int) return
-                val ints = param.args.filterIsInstance<Int>()
-                if (ints.size < 2 || ints[0] != AppOpsVisibilityPolicy.OP_MOCK_LOCATION) return
-                val queriedUid = ints[1]
-                val callerUid = Binder.getCallingUid()
-                // System processes and the controller checking its own UID keep the real answer.
-                if (!AppOpsVisibilityPolicy.shouldHideMockLocation(ints[0], queriedUid, callerUid)) return
-                param.result = AppOpsManager.MODE_ERRORED
-                if (FakeLoc.enableDebugLog) {
-                    val packageName = param.args.filterIsInstance<String>().firstOrNull()
-                    Logger.debug("AppOps hidden mock_location queriedUid=$queriedUid caller=$callerUid package=$packageName")
-                }
+        val callback = Hooker { chain ->
+            val original = chain.proceed()
+            if (original !is Int) return@Hooker original
+            val ints = chain.args.filterIsInstance<Int>()
+            if (ints.size < 2 || ints[0] != AppOpsVisibilityPolicy.OP_MOCK_LOCATION) return@Hooker original
+            val queriedUid = ints[1]
+            val callerUid = Binder.getCallingUid()
+            if (!AppOpsVisibilityPolicy.shouldHideMockLocation(ints[0], queriedUid, callerUid)) return@Hooker original
+            if (FakeLoc.enableDebugLog) {
+                val packageName = chain.args.filterIsInstance<String>().firstOrNull()
+                Logger.debug("AppOps hidden mock_location queriedUid=$queriedUid caller=$callerUid package=$packageName")
             }
+            AppOpsManager.MODE_ERRORED
         }
         var installed = false
         for (name in HOOK_METHODS) {

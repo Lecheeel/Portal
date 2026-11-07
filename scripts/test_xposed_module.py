@@ -71,7 +71,7 @@ class XposedModuleVerificationTest(unittest.TestCase):
         changes = (
             ("module.prop", b"minApiVersion=102", b"minApiVersion=101"),
             ("module.prop", b"targetApiVersion=102", b"targetApiVersion=101"),
-            ("module.prop", b"autoHotReload=false", b"autoHotReload=true"),
+            ("module.prop", b"autoHotReload=true", b"autoHotReload=false"),
             ("module.prop", b"staticScope=true", b"staticScope=false"),
             ("scope.list", b"system", b"android"),
             ("java_init.list", ENTRY.encode(), b"example.WrongModule"),
@@ -84,7 +84,7 @@ class XposedModuleVerificationTest(unittest.TestCase):
                     validate_metadata(resources)
 
     def test_duplicate_properties_or_scope_are_rejected(self):
-        for name, suffix in (("module.prop", b"autoHotReload=false\n"), ("scope.list", b"\nsystem\n")):
+        for name, suffix in (("module.prop", b"autoHotReload=true\n"), ("scope.list", b"\nsystem\n")):
             with self.subTest(name=name):
                 resources = metadata()
                 resources[name] += suffix

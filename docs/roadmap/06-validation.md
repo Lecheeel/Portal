@@ -336,7 +336,7 @@ P0 阶段至少：
 - 日期：2026-11-06
 - 变更：`scripts/check_module_rules.py` 检查 `:core`/`:nmea` 纯 JVM、`:xposed` 不依赖 `:app`、`:app` 不依赖 `:detector`、`:detector` 不引用实现类、400 行预算（存量基线 `docs/roadmap/line-budget-baseline.json`）、`docs/roadmap` 链接；PR 模板加入任务 ID/证据/许可证检查；PR workflow 增加 guardrails step。
 - 检查：`python scripts/check_module_rules.py` → `module rules: 0 violation(s)`；`python -m unittest discover -s scripts -p "test_module_rules.py"` 8 项通过；全量 JVM 用例 236 项 0 失败（core 82、nmea 2、xposed 30、app 122）。
-- 许可证：2026-11-07 确认上游 `ella8192/Portal` 为 Apache-2.0；已添加 `LICENSE`/`NOTICE`，README 增加许可证与来源说明。详见 ADR-024/`07-risks-and-licensing.md`。
+- 许可证：2026-11-07 确认上游 `ella8192/Portal` 为 Apache-2.0；已添加 `LICENSE`/`NOTICE`，README 增加许可证与来源说明；主 app/detector 的 `assets/` 同步打包，`check_license_assets.py` 校验一致性；详见 ADR-024/`07-risks-and-licensing.md`。
 - 结论：护栏 `UNIT TEST VERIFIED`；许可证子项已解除 `BLOCKED`；P0-05 `DONE`。
 
 ### P0-06 Hook 拆分设计

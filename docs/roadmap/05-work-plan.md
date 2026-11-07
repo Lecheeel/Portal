@@ -208,7 +208,7 @@ P0 基线
 
 | ID | 任务 | 产出 | 验收 | 依赖 | 规模 | 状态 |
 |---|---|---|---|---|---|---|
-| P6-01 | libxposed 迁移 spike | API 102 入口/元数据/scope；可编译运行 | LSPosed 能加载；旧 API 可回退 | P4 | L | WIP |
+| P6-01 | libxposed 迁移 spike | API 102 入口/元数据/scope；可编译运行 | LSPosed 能加载；旧 API 可回退 | P4 | L | DONE |
 | P6-02 | 元数据迁移/模块拆分 | 移除 manifest `xposedmodule`；`META-INF/xposed/*` | `PackageManager` 查不到 Xposed 元数据 | P6-01 | M | TODO |
 | P6-03 | Native 隐藏实验 | 参考 Kail：符号解析、`/proc/self/maps`/痕迹；默认关 | 目标检测项改善；无崩溃；可重启回退 | P6-01/P4-04 | L | TODO |
 | P6-04 | 安全/权限审查 | 导出组件、IPC、日志、Bugly、包可见性 | 无高危项；权限最小化 | P5 | M | DONE |

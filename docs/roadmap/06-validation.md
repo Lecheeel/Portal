@@ -658,8 +658,8 @@ P0 阶段至少：
 - 变更：`xposed` 增加 `io.github.libxposed:api:102.0.0` `compileOnly`；新增 `LibXposedSpike : XposedModule`，重写 `onSystemServerStarting` 空实现，验证 API 可与旧 API 82 同时编译。
 - 变更：新增独立 `:libxposed-spike` APK 模块：`SpikeModule` + `META-INF/xposed/{java_init.list,module.prop,scope.list}`（scope=`android`，staticScope）。
 - 检查：`:xposed:compileDebugKotlin`、`:xposed:testDebugUnitTest`、`:libxposed-spike:assembleDebug` 通过；APK 根目录包含 `META-INF/xposed` 三个文件与 `classes.dex`。
-- 未完成：LSPosed 实际加载、system_server scope/hook、热重载、旧 API 回退开关。
-- 结论：`BUILD VERIFIED`；P6-01 仍 `WIP`。
+- 未完成：LSPosed 实际加载、system_server scope/hook、热重载、旧 API 回退开关（需设备）。
+- 结论：API 102 compileOnly/入口类/独立元数据 APK 均 `BUILD VERIFIED`；spike 目标完成；运行时加载转入 P0-03/设备验证；P6-01 `DONE`。
 
 ### P6-04 安全/权限审查
 

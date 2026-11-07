@@ -1,65 +1,53 @@
 package com.system.location.service.hook.hooks.blindhook
 
 import android.location.Location
-import de.robv.android.xposed.XC_MethodHook
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.onceHook
+import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Member
 
 object BlindHook {
-    operator fun <T> invoke(clazz: Class<*>, classLoader: ClassLoader, handler: (Member, T?) -> T?): Int {
+    operator fun <T> invoke(
+        clazz: Class<*>,
+        classLoader: ClassLoader,
+        handler: (Member, T?) -> T?,
+    ): Int {
         var count = 0
-        clazz.declaredMethods.forEach {
-            if (it.returnType == Location::class.java) {
+        clazz.declaredMethods.forEach { method ->
+            if (method.returnType == Location::class.java) {
                 if (FakeLoc.enableDebugLog) {
-                    Logger.debug("BlindHookV2 ${it.name}: ${it.parameterTypes.joinToString()}")
+                    Logger.debug(
+                        "BlindHookV2 ${method.name}: ${method.parameterTypes.joinToString()}"
+                    )
                 }
-
-                it.onceHook(BlindHookForRETLocation(false, false, handler))
+                method.onceHook(
+                    XposedInterface.Hooker { chain ->
+                        @Suppress("UNCHECKED_CAST") val location = chain.proceed() as? T
+                        if (location == null) null else handler(chain.executable, location)
+                    }
+                )
                 count++
                 return@forEach
             }
-
-            it.parameterTypes.forEachIndexed { index, type ->
-                if (type == Location::class.java) {
-                    if (FakeLoc.enableDebugLog) {
-                        Logger.debug("BlindHookV2 ${it.name}: ${it.parameterTypes.joinToString()}")
-                    }
-
-                    it.onceHook(BlindHookForLocation(index, false, false, handler))
-                    count++
-                    return@forEach
+            val index = method.parameterTypes.indexOfFirst { it == Location::class.java }
+            if (index >= 0) {
+                if (FakeLoc.enableDebugLog) {
+                    Logger.debug(
+                        "BlindHookV2 ${method.name}: ${method.parameterTypes.joinToString()}"
+                    )
                 }
+                method.onceHook(
+                    XposedInterface.Hooker { chain ->
+                        val args = chain.args.toTypedArray()
+                        @Suppress("UNCHECKED_CAST") val location = args[index] as? T
+                        if (location != null) args[index] = handler(chain.executable, location)
+                        chain.proceed(args)
+                    }
+                )
+                count++
             }
         }
         return count
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private class BlindHookForLocation<T>(
-        val index: Int,
-        val isList: Boolean,
-        val isArray: Boolean,
-        val handler: (Member, T?) -> T?
-    ): XC_MethodHook() {
-        override fun beforeHookedMethod(param: MethodHookParam) {
-            val data = param.args[index] as? T ?: return
-
-            param.args[index] = handler(param.method, data)
-        }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private class BlindHookForRETLocation<T>(
-        val isList: Boolean,
-        val isArray: Boolean,
-        val handler: (Member, T?) -> T?
-    ): XC_MethodHook() {
-        override fun afterHookedMethod(param: MethodHookParam) {
-            val data = param.result as? T ?: return
-
-            param.result = handler(param.method, data)
-        }
     }
 }

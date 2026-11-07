@@ -77,6 +77,9 @@ class FakeLocation {
                 install("fused") { AndroidFusedLocationProviderHook(loader) }
                 install("sensor") { SystemSensorManagerHook(loader) }
                 install("system-sdk") { ThirdPartyLocationHook(loader) }
+                // Some ROMs host SettingsProvider inside system_server; the Settings-provider
+                // scope still handles the separate-process case.
+                install("settings") { SettingsHook.hook(loader) }
                 install("package-metadata") { PackageMetadataHook.hook(loader) }
             }
             com.system.location.service.hook.scope.HookScope.PHONE_PROCESS -> {

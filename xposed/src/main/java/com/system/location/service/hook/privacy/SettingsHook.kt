@@ -1,5 +1,6 @@
 package com.system.location.service.hook.privacy
 
+import android.content.Context
 import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
@@ -23,11 +24,16 @@ import com.system.location.service.core.privacy.SettingsPrivacyPolicy
  * handled as a fallback for clients that read the provider directly.
  */
 object SettingsHook {
+    @Volatile private var installed = false
+
     fun hook(classLoader: ClassLoader): Boolean {
+        if (installed) return true
         val provider = Reflection.findClassIfExists(
             "com.android.providers.settings.SettingsProvider",
             classLoader,
-        ) ?: return false
+        ) ?: settingsPackageLoader()?.let { loader ->
+            Reflection.findClassIfExists("com.android.providers.settings.SettingsProvider", loader)
+        } ?: return false
 
         val callHook = HookInstaller.hookAllMethods(provider, "call", Hooker { chain ->
             val original = chain.proceed()
@@ -38,6 +44,9 @@ object SettingsHook {
             val key = strings[1]
             if (!SettingsPrivacyPolicy.isRestricted(command, key)) return@Hooker original
             val reply = original as? Bundle ?: return@Hooker original
+            // SettingsProvider returns the value under "value"; keep the keyed entry as a
+            // fallback for clients that read the provider reply directly.
+            reply.putString("value", SettingsPrivacyPolicy.HIDDEN_VALUE)
             reply.putString(key, SettingsPrivacyPolicy.HIDDEN_VALUE)
             if (FakeLoc.enableDebugLog) {
                 Logger.debug("Settings hidden $command/$key from uid=${Binder.getCallingUid()}")
@@ -54,6 +63,23 @@ object SettingsHook {
             MatrixCursor(arrayOf("value"), 0)
         })
 
-        return callHook.isNotEmpty() || queryHook.isNotEmpty()
+        com.system.location.service.hook.runtime.HookRuntime.log(
+            "settings hook class=${provider.name} call=${callHook.size} query=${queryHook.size}"
+        )
+
+        val hooked = callHook.isNotEmpty() || queryHook.isNotEmpty()
+        if (hooked) installed = true
+        return hooked
     }
+
+    /** SettingsProvider is a package loaded into system_server on some ROMs; resolve its loader. */
+    private fun settingsPackageLoader(): ClassLoader? = runCatching {
+        val activityThreadClass = Class.forName("android.app.ActivityThread")
+        val activityThread = activityThreadClass.getMethod("currentActivityThread").invoke(null)
+        val systemContext = activityThreadClass.getMethod("getSystemContext").invoke(activityThread) as Context
+        systemContext.createPackageContext(
+            "com.android.providers.settings",
+            Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY,
+        ).classLoader
+    }.getOrNull()
 }

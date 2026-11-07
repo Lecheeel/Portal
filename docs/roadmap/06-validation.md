@@ -665,6 +665,14 @@ P0 阶段至少：
 - 未完成：LSPosed 实际加载、system_server scope/hook、热重载、旧 API 回退开关（需设备）。
 - 结论：API 102 compileOnly/入口类/独立元数据 APK 均 `BUILD VERIFIED`；spike 目标完成；运行时加载转入 P0-03/设备验证；P6-01 `DONE`。
 
+### P6-02 Xposed 元数据隐藏
+
+- 变更：`:core` 新增 `XposedMetadataVisibilityPolicy`，只有本模块且调用方 UID 非 0/1000 时隐藏 `xposedmodule`/`xposedscope`/`xposeddescription`/`xposedminversion`/`xposedsharedprefs`。
+- 变更：xposed 新增 `PackageMetadataHook`，在 `PackageManagerService`/`ComputerEngine` 的 `getApplicationInfo*` 返回前复制并清洗 `ApplicationInfo.metaData`；系统与 LSPosed 调用方保留原值。
+- 检查：`XposedMetadataVisibilityPolicyTest` 2 项通过；`:xposed:compileDebugKotlin` 通过；`HookOwnership` 加入 `package-metadata`。
+- 未完成：设备 detector C13、不同 ROM 的 PackageManager 方法名/缓存行为。
+- 结论：`UNIT TEST VERIFIED`（策略）+ `BUILD VERIFIED`（Hook）；P6-02 `DONE`，设备验证转 P6-05。
+
 ### P6-04 安全/权限审查
 
 - 变更：`APSService` 显式 `android:exported="false"`；`backup_rules.xml` 与 `data_extraction_rules.xml` 排除 `environment/`（采集的 WiFi/基站/BLE 快照），避免云备份/换机迁移带出敏感环境。

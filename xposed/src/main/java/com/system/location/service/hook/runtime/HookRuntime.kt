@@ -4,14 +4,23 @@ import android.util.Log
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** Process-local framework access. Interceptors use the native libxposed chain directly. */
 object HookRuntime {
     @Volatile private var framework: XposedInterface? = null
+    private val handles = CopyOnWriteArrayList<XposedInterface.HookHandle>()
     internal fun attachedInterface(): XposedInterface? = framework
     fun attach(value: XposedInterface) { framework = value }
     fun interfaceInstance(): XposedInterface = checkNotNull(framework) {
         "libxposed module has not been loaded"
+    }
+    internal fun track(handle: XposedInterface.HookHandle) {
+        handles.add(handle)
+    }
+    fun clearHooks() {
+        handles.forEach { runCatching { it.unhook() } }
+        handles.clear()
     }
     fun log(message: String) {
         framework?.log(Log.INFO, "Portal", message) ?: Log.i("Portal", message)

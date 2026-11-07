@@ -35,6 +35,7 @@ object HookInstaller {
             throw error
         }
         HookStatusRegistry.installed(key)
+        HookRuntime.track(handle)
         // A call can arrive while the framework is still returning the registration handle.
         if (matched.get()) HookStatusRegistry.matched(key)
         return handle

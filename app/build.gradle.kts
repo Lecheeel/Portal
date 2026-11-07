@@ -160,6 +160,7 @@ fun configureAppSigningConfigsForRelease(project: Project) {
 dependencies {
     implementation(project(":core"))
     implementation(project(":xposed"))
+    implementation(libs.libxposed.service)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

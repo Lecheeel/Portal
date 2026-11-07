@@ -3,8 +3,6 @@ package com.system.location.service.hook
 import com.system.location.service.hook.scope.HookScope
 import com.system.location.service.hook.scope.HookScopeResolver
 import com.system.location.service.hook.scope.ProcessIdentity
-import io.github.libxposed.api.XposedModuleInterface
-import java.lang.reflect.Proxy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -89,14 +87,10 @@ class PortalModuleLifecycleTest {
     }
 
     @Test
-    fun manualHotReloadIsRejectedWithoutTransferringPartialState() {
-        val param = Proxy.newProxyInstance(
-            javaClass.classLoader,
-            arrayOf(XposedModuleInterface.HotReloadingParam::class.java),
-        ) { _, method, _ -> error("Reload must not access ${method.name}") }
-            as XposedModuleInterface.HotReloadingParam
-
-        assertFalse(PortalModule().onHotReloading(param))
+    fun hotReloadIsLimitedToSystemServerWithoutNativeHooks() {
+        assertFalse(HotReloadPolicy.allowed(isSystemProcess = false, nativeLoaded = false))
+        assertTrue(HotReloadPolicy.allowed(isSystemProcess = true, nativeLoaded = false))
+        assertFalse(HotReloadPolicy.allowed(isSystemProcess = true, nativeLoaded = true))
     }
 
     private fun recorder(installations: MutableList<Installation>): ModuleInstallScheduler =

@@ -23,4 +23,8 @@ object HookStatusRegistry {
     fun recordScope(scope: HookScope) { processScope = scope }
     fun scope(): HookScope? = processScope
     fun snapshot(): Map<String, HookStatus> = entries.toSortedMap()
+    fun reset() {
+        entries.clear()
+        processScope = null
+    }
 }

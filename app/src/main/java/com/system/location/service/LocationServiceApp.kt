@@ -9,6 +9,7 @@ open class LocationServiceApp: Application() {
     override fun onCreate() {
         super.onCreate()
         appContext = applicationContext
+        com.system.location.service.runtime.XposedServiceBridge.register()
         // The receiver must not initialize playback or clean the main process's providers.
         if (getProcessName() == "$packageName:location_probe") return
 

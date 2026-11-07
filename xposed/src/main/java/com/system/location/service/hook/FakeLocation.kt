@@ -1,10 +1,7 @@
 @file:Suppress("LocalVariableName", "PrivateApi", "UNCHECKED_CAST")
 package com.system.location.service.hook
 
-import de.robv.android.xposed.IXposedHookLoadPackage
-import de.robv.android.xposed.IXposedHookZygoteInit
-import de.robv.android.xposed.XposedHelpers
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.hooks.LocationManagerHook
 import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.hook.hooks.fused.AndroidFusedLocationProviderHook
@@ -22,7 +19,7 @@ import com.system.location.service.hook.privacy.SettingsHook
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 
-class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
+class FakeLocation {
     private lateinit var cServiceManager: Class<*> // android.os.ServiceManager
     private val mServiceManagerCache by lazy {
         kotlin.runCatching { cServiceManager.getDeclaredField("sCache") }.onSuccess {
@@ -32,35 +29,27 @@ class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     /**
-     * Called very early during startup of Zygote.
-     * @param startupParam Details about the module itself and the started process.
-     * @throws Throwable everything is caught, but will prevent further initialization of the module.
+     * Entry point shared by the modern libxposed callbacks.
      */
-    override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam?) {
-        if(startupParam == null) return
-
-    }
-
-    /**
-     * This method is called when an app is loaded. It's called very early, even before
-     * [Application.onCreate] is called.
-     * Modules can set up their app-specific hooks here.
-     *
-     * @param lpparam Information about the app.
-     * @throws Throwable Everything the callback throws is caught and logged.
-     */
-    override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam?) {
-        lpparam ?: return
+    fun install(
+        processName: String,
+        packageName: String,
+        classLoader: ClassLoader,
+        uid: Int,
+        appFlags: Int = 0,
+    ) {
         val identity = com.system.location.service.hook.scope.ProcessIdentity(
-            lpparam.packageName, lpparam.processName, lpparam.appInfo?.uid ?: android.os.Process.myUid(),
+            packageName, processName, uid,
             android.os.Build.VERSION.SDK_INT, android.os.Build.MANUFACTURER,
         )
         // This callback is already restricted by the framework's explicitly selected scope.
-        val targets = if (lpparam.packageName != "com.system.location.service" &&
-            lpparam.appInfo?.flags?.and(android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0)
-            setOf(lpparam.packageName) else emptySet()
+        val targets = if (packageName != "com.system.location.service" &&
+            appFlags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0)
+            setOf(packageName) else emptySet()
         val scope = com.system.location.service.hook.scope.HookScopeResolver.resolve(identity, targets)
         val status = com.system.location.service.hook.scope.HookStatusRegistry
+        android.util.Log.i("PortalModule", "install process=$processName package=$packageName uid=$uid scope=$scope hooks=${status.snapshot().size}")
+        com.system.location.service.hook.runtime.HookRuntime.log("install process=$processName package=$packageName uid=$uid scope=$scope hooks=${status.snapshot().size}")
         if (scope == null) {
             status.record("process:${identity.processName}", com.system.location.service.hook.scope.HookStatus(
                 skipped = true, reason = "Outside supported process scope (SDK ${identity.sdk})"))
@@ -68,7 +57,7 @@ class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
         status.recordScope(scope)
         status.record("process:${identity.processName}", com.system.location.service.hook.scope.HookStatus(supported = true))
-        val loader = lpparam.classLoader
+        val loader = classLoader
         fun install(name: String, action: () -> Unit) {
             runCatching(action).onFailure {
                 status.record(name, com.system.location.service.hook.scope.HookStatus(supported = true,
@@ -114,14 +103,14 @@ class FakeLocation: IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
     private fun startFakeLocHook(classLoader: ClassLoader) {
-        cServiceManager = XposedHelpers.findClass("android.os.ServiceManager", classLoader)
+        cServiceManager = Reflection.findClass("android.os.ServiceManager", classLoader)
 
-        XposedHelpers.findClassIfExists("com.android.server.TelephonyRegistry", classLoader)?.let {
+        Reflection.findClassIfExists("com.android.server.TelephonyRegistry", classLoader)?.let {
             TelephonyHook.hookTelephonyRegistry(it)
         } // for MUMU emulator
 
         val cLocationManager =
-            XposedHelpers.findClass("android.location.LocationManager", classLoader)
+            Reflection.findClass("android.location.LocationManager", classLoader)
 
         LocationServiceHook(classLoader)
         LocationManagerHook(cLocationManager)  // intrusive hooks

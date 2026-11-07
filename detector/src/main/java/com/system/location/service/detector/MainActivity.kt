@@ -15,14 +15,10 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.Toolbar
-import com.system.location.service.detector.checks.AllChecks
-import com.system.location.service.detector.model.CheckContext
 import com.system.location.service.detector.model.CheckResult
 import com.system.location.service.detector.model.CheckStatus
 import com.system.location.service.detector.model.DetectorReport
 import com.system.location.service.detector.model.DeviceInfoCollector
-import com.system.location.service.detector.model.SampleSnapshot
-import com.system.location.service.detector.sample.CheckSampler
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -90,7 +86,6 @@ class MainActivity : Activity() {
         if (running) return
         running = true
         val startedAt = System.currentTimeMillis()
-        val checks = AllChecks.list()
         val runSettings = settings
         val appContext = applicationContext
 
@@ -104,39 +99,25 @@ class MainActivity : Activity() {
         resultsContainer.removeAllViews()
 
         Thread({
-            val sampler = CheckSampler(appContext, runSettings)
-            val snapshot = runCatching {
-                sampler.collect { remaining ->
-                    runOnUiThread {
-                        if (!destroyed) progressText.text = getString(R.string.progress_sampling, remaining)
-                    }
-                }
-            }.getOrElse { error ->
-                SampleSnapshot(notes = listOf("采样失败：${error.javaClass.simpleName}: ${error.message}"))
-            }
-
-            val context = CheckContext(appContext, runSettings, snapshot)
-            val results = CheckRunner.runAll(context, checks) { check, index, total ->
-                runOnUiThread {
-                    if (!destroyed) {
-                        progress.progress = (index * 100) / total
-                        progressText.text = getString(R.string.progress_check, check.id, index, total)
-                    }
-                }
-            }
-            val report = DetectorReport(
-                generatedAtMillis = System.currentTimeMillis(),
-                device = DeviceInfoCollector.collect(appContext),
-                checks = results,
-            )
+            val report = DetectorRunner.run(appContext, runSettings)
             runOnUiThread {
-                if (!destroyed) finishRun(report, startedAt)
+                if (destroyed) return@runOnUiThread
+                if (report != null) {
+                    finishRun(report, startedAt)
+                } else {
+                    running = false
+                    runButton.isEnabled = true
+                    exportButton.isEnabled = lastReportJson != null
+                    copyButton.isEnabled = lastReportJson != null
+                    progress.visibility = View.GONE
+                    progressText.visibility = View.GONE
+                }
             }
         }, "detector-run").start()
     }
 
     private fun finishRun(report: DetectorReport, startedAt: Long) {
-        lastReportJson = report.toJson()
+        lastReportJson = DetectorRunner.lastReportJson
         render(report)
         progress.visibility = View.GONE
         progressText.text = getString(

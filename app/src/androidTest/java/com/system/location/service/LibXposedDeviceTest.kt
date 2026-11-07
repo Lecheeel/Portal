@@ -151,7 +151,9 @@ class LibXposedDeviceTest {
 
         // Establish provider availability before enabling simulation. A real provider with no fix
         // cannot establish whether the independent current-location rewrite path works.
-        assumeTrue("GPS supplied no baseline single fix", boundedCurrentFix(30_000L) != null)
+        val baselineMillis = InstrumentationRegistry.getArguments()
+            .getString("gpsBaselineMillis")?.toLongOrNull()?.coerceIn(2_000L, 120_000L) ?: 30_000L
+        assumeTrue("GPS supplied no baseline single fix", awaitBaselineFix(baselineMillis) != null)
         var publicationAttempted = false
         try {
             val outgoing = sample(31.230416, 121.473701)
@@ -169,6 +171,18 @@ class LibXposedDeviceTest {
                 assertFalse("Simulation remained active after cleanup", stopped.getBoolean("is_start"))
             }
         }
+    }
+
+    private fun awaitBaselineFix(maxWaitMillis: Long): Location? {
+        val deadline = SystemClock.elapsedRealtime() + maxWaitMillis
+        do {
+            val remaining = deadline - SystemClock.elapsedRealtime()
+            if (remaining <= 0L) break
+            // Android may cap each current-location request at 30 seconds. Repeat only the
+            // inactive baseline request within the explicit overall bound.
+            boundedCurrentFix(minOf(30_000L, remaining))?.let { return it }
+        } while (SystemClock.elapsedRealtime() < deadline)
+        return null
     }
 
     private fun boundedCurrentFix(durationMillis: Long = 2_000L): Location? {

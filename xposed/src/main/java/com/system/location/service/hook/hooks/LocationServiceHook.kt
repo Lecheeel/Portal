@@ -33,15 +33,6 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.uuid.ExperimentalUuidApi
 
-import android.os.Build
-import android.os.DeadObjectException
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
-import com.system.location.service.hook.utils.afterHook
-import com.system.location.service.hook.utils.beforeHook
-import java.lang.reflect.InvocationTargetException
-
 internal object LocationServiceHook : BaseLocationHook() {
     val locationListeners = LinkedBlockingQueue<Pair<String, IInterface>>()
 
@@ -731,75 +722,58 @@ internal object LocationServiceHook : BaseLocationHook() {
         if (FakeLoc.enableDebugLog)
             Logger.debug("will hook ILocationListener: ${classListener.name}")
 
-        if(com.system.location.service.hook.scope.HookInstaller.hookAllMethods(classListener, "onLocationChanged", object: XC_MethodHook() {
-                override fun beforeHookedMethod(param: MethodHookParam) {
-                    if (param.args.isEmpty()) return
-                    if (!FakeLoc.enable) return
+        if (
+            com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
+                    classListener,
+                    "onLocationChanged",
+                    XposedInterface.Hooker intercept34@{ chain ->
+                        val args = chain.args.toTypedArray()
 
-                    when (param.args[0]) {
-                        is Location -> {
-                            val location = param.args[0] as? Location ?: run {
-                                param.result = null
-                                return
+                        if (args.isEmpty()) return@intercept34 chain.proceed(args)
+                        if (!FakeLoc.enable) return@intercept34 chain.proceed(args)
+
+                        when (args[0]) {
+                            is Location -> {
+                                val location =
+                                    args[0] as? Location
+                                        ?: run {
+                                            return@intercept34 null
+                                        }
+                                args[0] = injectLocation(location)
                             }
-                            param.args[0] = injectLocation(location)
+
+                            is List<*> -> {
+                                val locations = args[0] as List<*>
+                                args[0] = locations.map { injectLocation(it as Location) }
+                            }
+                            else -> Logger.error("onLocationChanged args is not `Location`")
                         }
 
-                        is List<*> -> {
-                            val locations = param.args[0] as List<*>
-                            param.args[0] = locations.map { injectLocation(it as Location) }
+                        if (FakeLoc.enableDebugLog) {
+                            Logger.debug("${chain.executable}: injected! ${args[0]}")
                         }
-                        else -> Logger.error("onLocationChanged args is not `Location`")
-                    }
 
-                    if (FakeLoc.enableDebugLog) {
-                        Logger.debug("${param.method}: injected! ${param.args[0]}")
-                    }
-                }
-            }).isEmpty()) {
+                        chain.proceed(args)
+                    },
+                )
+                .isEmpty()
+        ) {
             Logger.error("hook onLocationChanged failed")
             return // If the hook fails, the listener is not added
         }
     }
 
-//    private fun startDaemon(classLoader: ClassLoader) {
-//        //val cIRemoteCallback = XposedHelpers.findClass("android.os.IRemoteCallback", classLoader)
-//        thread(
-//            name = "LocationUpdater",
-//            isDaemon = true,
-//            start = true,
-//        ) {
-//            while (true) {
-//                kotlin.runCatching {
-//                    if (!FakeLoc.enable) {
-//                        Thread.sleep(3000)
-//                        return@runCatching
-//                    } else {
-//                        Thread.sleep(FakeLoc.updateInterval)
-//                    }
-//
-//                    if (!FakeLoc.enable) return@runCatching // Prevent the last loop from being executed
-//
-//                    if (FakeLoc.enableDebugLog)
-//                        Logger.debug("LocationUpdater: callOnLocationChanged: ${locationListeners.size}")
-//
-//                    callOnLocationChanged()
-//                }.onFailure {
-//                    Logger.error("LocationUpdater", it)
-//                }
-//            }
-//        }
-//    }
-
     private fun addLocationListenerInner(provider: String, listener: IInterface) {
         ListenerRouting.register(listener)
-        val mDeathRecipient = object: IBinder.DeathRecipient {
-            override fun binderDied() {}
-            override fun binderDied(who: IBinder) {
-                who.unlinkToDeath(this, 0)
-                removeLocationListenerByBinder(who)
+        val mDeathRecipient =
+            object : IBinder.DeathRecipient {
+                override fun binderDied() {}
+
+                override fun binderDied(who: IBinder) {
+                    who.unlinkToDeath(this, 0)
+                    removeLocationListenerByBinder(who)
+                }
             }
-        }
         listener.asBinder().linkToDeath(mDeathRecipient, 0)
         locationListeners.add(provider to listener)
         hookILocationListener(listener)
@@ -815,123 +789,60 @@ internal object LocationServiceHook : BaseLocationHook() {
     }
 
     @Synchronized
-    fun callOnLocationChanged() {
-        if (!FakeLoc.enable) return
-        val sample = FakeLoc.snapshot(force = true)
-        if (FakeLoc.enableDebugLog) {
-            Logger.debug("==> callOnLocationChanged: ${locationListeners.size}")
-        }
-        locationListeners.forEach { listenerWithProvider ->
-            val listener = listenerWithProvider.second
-            if (!FakeLoc.enable) return
-            val route = ListenerRouting.route(listener)
-            if (route is ListenerRouting.Route.Denied) return@forEach
-            val scenarioId = (route as? ListenerRouting.Route.Scenario)?.scenarioId
-            val point = (route as? ListenerRouting.Route.Point)?.point
-            val location = sampleForProvider(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first, scenarioId, point)
-                .toLocation(if (listenerWithProvider.first == "GnssBatch") "gps" else listenerWithProvider.first)
-            var called = false
-            var error: Throwable? = null
-            kotlin.runCatching {
-                val locations = listOf(location)
-                val mOnLocationChanged = XposedHelpers.findMethodBestMatch(listener.javaClass, "onLocationChanged", locations, null)
-                XposedBridge.invokeOriginalMethod(mOnLocationChanged, listener, arrayOf(locations, null))
-                called = true
-            }.onFailure {
-                if (it is InvocationTargetException && it.targetException is DeadObjectException) {
-                    return@forEach
-                }
-                error = it
-            }
-
-            if (!called) runCatching {
-                val mOnLocationChanged = XposedHelpers.findMethodBestMatch(listener.javaClass, "onLocationChanged", location)
-                XposedBridge.invokeOriginalMethod(mOnLocationChanged, listener, arrayOf(location))
-                called = true
-            }.onFailure {
-                if (it is InvocationTargetException && it.targetException is DeadObjectException) {
-                    return@forEach
-                }
-                error = it
-            }
-
-            if (!called) {
-                Logger.error("Location listener delivery failed", error ?: IllegalStateException("No supported listener method"))
-            }
-        }
-
-        if (FakeLoc.enableDebugLog) {
-            Logger.debug("==> callOnLocationChanged: end")
-        }
-    }
+    fun callOnLocationChanged() = LocationListenerDelivery.deliver(locationListeners)
 
     private fun hookLocationManagerServiceV2(classLoader: ClassLoader) {
-        // As a system_server, the hook can get all the location information here
-        kotlin.runCatching {
-            XposedHelpers.findClass("android.location.ILocationManager\$Stub", classLoader)
-        }.onSuccess {
-            fun hookOnTransactForServiceInstance(m: Method) {
-                val isHooked = AtomicBoolean(false)
-                com.system.location.service.hook.scope.HookInstaller.hookMethod(m, object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam?) {
-                        if (param?.thisObject == null || param.args.size < 4) return
-
-                        val thisObject = param.thisObject
-                        val code = param.args[0] as? Int ?: return
-                        val data = param.args[1] as? Parcel ?: return
-                        val reply = param.args[2] as? Parcel ?: return
-                        val flags = param.args[3] as? Int ?: return
-
-                        if (isHooked.compareAndSet(false, true)) {
-                            onService(thisObject.javaClass)
-                        }
-
-                        if (!FakeLoc.enable) {
-                            return
-                        }
-
-                        if (FakeLoc.enable && code == 43) {
-                            param.result = true
-                        }
-
-                        if (FakeLoc.enableDebugLog) {
-                            Logger.debug("ILocationManager.Stub: onTransact(code=$code)")
-                        }
-                    }
-                })
+        kotlin
+            .runCatching {
+                Reflection.findClass("android.location.ILocationManager\$Stub", classLoader)
             }
+            .onSuccess {
+                fun hookOnTransactForServiceInstance(m: Method) {
+                    val isHooked = AtomicBoolean(false)
+                    com.system.location.service.hook.scope.HookInstaller.hookMethod(
+                        m,
+                        XposedInterface.Hooker intercept35@{ chain ->
+                            val args = chain.args.toTypedArray()
 
-            it.declaredMethods.forEach {
-                if (it.name == "onTransact") {
-                    hookOnTransactForServiceInstance(it)
+                            if (chain.thisObject == null || args.size < 4)
+                                return@intercept35 chain.proceed(args)
 
-                    // Hey, hey, you've found onTransact, what else are you looking for
-                    // It's time to end the cycle! BaKa!
-                    return@forEach
+                            val service = chain.thisObject ?: return@intercept35 chain.proceed(args)
+                            val code = args[0] as? Int ?: return@intercept35 chain.proceed(args)
+                            val data = args[1] as? Parcel ?: return@intercept35 chain.proceed(args)
+                            val reply = args[2] as? Parcel ?: return@intercept35 chain.proceed(args)
+                            val flags = args[3] as? Int ?: return@intercept35 chain.proceed(args)
+
+                            if (isHooked.compareAndSet(false, true)) {
+                                onService(service.javaClass)
+                            }
+
+                            if (!FakeLoc.enable) {
+                                return@intercept35 chain.proceed(args)
+                            }
+
+                            if (FakeLoc.enableDebugLog) {
+                                Logger.debug("ILocationManager.Stub: onTransact(code=$code)")
+                            }
+                            if (FakeLoc.enable && code == 43) return@intercept35 true
+
+                            chain.proceed(args)
+                        },
+                    )
+                }
+
+                it.declaredMethods.forEach {
+                    if (it.name == "onTransact") {
+                        hookOnTransactForServiceInstance(it)
+
+                        return@forEach
+                    }
                 }
             }
-        }.onFailure {
-            Logger.error("ILocationManager.Stub not found", it)
-        }
-
-//        // This is the intrusive hook
-//        kotlin.runCatching {
-//            XposedHelpers.findClass("android.location.ILocationManager\$Stub\$Proxy", cLocationManager.classLoader)
-//        }.onSuccess {
-//            it.declaredMethods.forEach {
-//                XposedBridge.hookMethod(it, object : XC_MethodHook() {
-//                    override fun beforeHookedMethod(param: MethodHookParam?) {
-//                        if (param == null) return
-//
-//                        XposedBridge.log("[LocationService] ILocationManager.Stub.Proxy: c = ${param.thisObject?.javaClass}, m = ${param.method}")
-//                    }
-//                })
-//            }
-//        }
+            .onFailure { Logger.error("ILocationManager.Stub not found", it) }
     }
 
-    private inline fun handleInstruction(command: String, rely: Bundle): Boolean {
+    private fun handleInstruction(command: String, rely: Bundle): Boolean {
         return RemoteCommandHandler.handleInstruction(command, rely)
     }
 }
-

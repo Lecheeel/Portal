@@ -22,7 +22,6 @@ dependencyResolutionManagement {
         maven ( url = "https://maven.aliyun.com/nexus/content/repositories/jcenter")
         maven (url = "https://maven.pkg.jetbrains.space/public/p/ktor/eap")
         maven (url = "https://dl.bintray.com/kotlin/kotlin-eap" )
-        maven (url = "https://api.xposed.info/" )
         maven (url = "https://jitpack.io" )
     }
 }
@@ -44,4 +43,3 @@ include(":system-api")
 include(":nmea")
 include(":core")
 include(":detector")
-include(":libxposed-spike")

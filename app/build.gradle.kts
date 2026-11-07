@@ -106,7 +106,6 @@ android {
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/*"
             excludes += "/META-INF/NOTICE.txt"
             excludes += "/META-INF/DEPENDENCIES.txt"
             excludes += "/META-INF/NOTICE"

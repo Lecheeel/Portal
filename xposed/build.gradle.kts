@@ -57,7 +57,6 @@ kotlin {
 dependencies {
     implementation(project(":core"))
     implementation(libs.kotlinx.serialization.json)
-    compileOnly(libs.xposed.api)
     compileOnly(libs.libxposed.api)
     compileOnly(project(":system-api"))
     implementation(project(":nmea"))
@@ -69,6 +68,7 @@ dependencies {
     implementation("io.github.vvb2060.ndk:dobby:1.2")
 
     testImplementation(libs.junit)
+    testImplementation(libs.libxposed.api)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

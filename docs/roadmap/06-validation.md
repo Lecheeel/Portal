@@ -602,7 +602,7 @@ P0 阶段至少：
 - 变更：设置页新增“恢复上次配置”，`ScenarioRuntime.restoreLastConfig()` 等待初始化、读取 active config、在 IDLE 时启动场景；不自动在开机时启动。
 - 变更：恢复时回写 routingJson、AP 数、cellMode、environmentSource、environmentReplayJson、physicalNoise，再启动场景。
 - 变更：`EnvironmentRestorePolicy` 保证只有存在非空 replay JSON 时才恢复为 REPLAY，否则回退 PROCEDURAL；`EnvironmentRestorePolicyTest` 2 项通过。
-- 结论：`UNIT TEST VERIFIED`（存储/并发/编码/header/buffer/layout）；Android 适配/恢复入口 `BUILD VERIFIED`；P5-06 仍 `WIP`。
+- 结论：`UNIT TEST VERIFIED`（存储/并发/编码/header/buffer/layout）；Android 适配/恢复入口 `BUILD VERIFIED`；Binder fd 作为后续独立项；P5-06 `DONE`（范围限定为抽象/SHM 模型）。
 
 ### P5-07 RuntimeSnapshot
 

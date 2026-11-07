@@ -453,9 +453,10 @@ P0 阶段至少：
 ### P2-06 WiFi 指纹库（实验，部分）
 - 变更：`:core` 新增 `WifiObservation`/`WifiFingerprint`/`WifiFingerprintDb`：BSSID 校验、RSSI 边界、30 天默认时效、按 RSSI 最接近的指纹做距离加权质心、`add`/`remove` 不可变。
 - 变更：新增 `WifiFingerprintCatalog`/`WifiFingerprintImporter`：JSON 导入导出、CSV 导入（可选表头、坏行跳过计数）、默认关闭；启用时必须提供 source/license/attribution。
+- 变更：设置页新增“启用 WiFi 指纹库（实验）”开关与“导入 WiFi 指纹库”SAF 入口；导入 JSON 经 `WifiFingerprintImporter` 校验后写入 `wifiFingerprintCatalogJson`。
 - 检查：`WifiFingerprintDbTest` 6 项（精确匹配、未知、过期、加权、不可变/大小写、非法输入）通过；`WifiFingerprintImportTest` 6 项（默认关闭、启用元数据、JSON roundtrip、CSV 导入/坏行、元数据/空结果、非法 JSON）通过。
-- 未完成：WigLE/OpenCellID 实际下载、许可审查与 attribution UI、默认关闭开关接入、目标区域回放。
-- 结论：`UNIT TEST VERIFIED`；P2-06 仍 `WIP`。
+- 未完成：WigLE/OpenCellID 实际下载、许可审查与 attribution UI、把 catalog JSON/开关经 `put_config` 下发到 system_server、目标区域回放。
+- 结论：核心模型/导入 `UNIT TEST VERIFIED`；app 导入 UI 仅 `BUILD VERIFIED`；P2-06 仍 `WIP`。
 
 ### P2-07 环境设置
 

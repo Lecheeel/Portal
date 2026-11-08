@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_risk_title">实验性模式风险须知</string>
+    <string name="native_risk_message">此模式需要 Root 和已激活的 Xposed，将在系统进程中加载 Native 扩展。不同 ROM 的兼容性有限，可能导致应用或系统进程异常、设备重启。\n\n停止模拟仅禁用行为；已加载的 Native Hook 需重启相关进程或设备才能卸载，更新后也可能需要重启。\n\n请确认已了解恢复方式，再启用此模式。</string>
+    <string name="native_risk_accept">已知悉并选择</string>
+    <string name="simulation_title">模拟</string>
+    <string name="simulation_location_tab">位置</string>
+    <string name="simulation_satellite_tab">卫星</string>
+    <string name="environment_tools_title">环境工具</string>
+</resources>

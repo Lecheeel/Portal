@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_risk_title">試験的モードのリスク</string>
+    <string name="native_risk_message">Root と有効な Xposed が必要です。システムプロセスに Native 拡張を読み込むため、ROM によってはアプリやシステムの異常、端末の再起動が発生する可能性があります。\n\nシミュレーションを停止しても Hook は読み込まれたままです。解除や更新には対象プロセスまたは端末の再起動が必要になる場合があります。\n\n復旧方法を確認してから選択してください。</string>
+    <string name="native_risk_accept">理解して選択</string>
+    <string name="simulation_title">シミュレーション</string>
+    <string name="simulation_location_tab">位置</string>
+    <string name="simulation_satellite_tab">衛星</string>
+    <string name="environment_tools_title">環境ツール</string>
+</resources>

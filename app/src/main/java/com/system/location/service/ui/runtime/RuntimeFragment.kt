@@ -119,25 +119,41 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
         binding.backend.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item,
             listOf(getString(R.string.runtime_mode_mock), getString(R.string.runtime_mode_xposed), getString(R.string.runtime_mode_native)))
         binding.backend.setSelection(types.indexOf(ScenarioRuntime.state.value.backend).coerceAtLeast(0))
+        var nativeConfirmed = false
+        fun restoreBackendSelection() {
+            binding.backend.setSelection(types.indexOf(ScenarioRuntime.state.value.backend).coerceAtLeast(0))
+        }
+        fun confirmNative() {
+            if (childFragmentManager.findFragmentByTag(NativeRiskDialog.TAG) == null) {
+                NativeRiskDialog().showNow(childFragmentManager, NativeRiskDialog.TAG)
+            }
+        }
+        childFragmentManager.setFragmentResultListener(NativeRiskDialog.RESULT, viewLifecycleOwner) { _, result ->
+            nativeConfirmed = result.getBoolean(NativeRiskDialog.ACCEPTED)
+            if (!nativeConfirmed) restoreBackendSelection()
+        }
+        binding.backend.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, selectedView: View?, position: Int, id: Long) {
+                if (types[position] != BackendType.NATIVE) nativeConfirmed = false
+                else if (ScenarioRuntime.state.value.backend != BackendType.NATIVE && !nativeConfirmed) confirmNative()
+            }
+        }
         binding.applyBackend.setOnClickListener {
-            if (types[binding.backend.selectedItemPosition] == BackendType.NATIVE) {
-                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("启用实验性 Native 后端")
-                    .setMessage("需要 Root 与 Xposed。当前实现使用固定系统库路径、符号和偏移，可能不兼容当前 ROM。停止可禁用行为，卸载 Hook 需要重启系统。不会自动关闭 SELinux。")
-                    .setNegativeButton("取消", null)
-                    .setPositiveButton("明确启用") { _, _ ->
-                        requireContext().getSharedPreferences("scenario_runtime", android.content.Context.MODE_PRIVATE)
-                            .edit().putBoolean("native_opt_in", true).apply()
-                        viewLifecycleOwner.lifecycleScope.launch {
-                            val selected = ScenarioRuntime.selectBackend(BackendType.NATIVE).await()
-                            Toast.makeText(requireContext(), if (selected) "已切换模式" else "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
-                        }
-                    }.show()
+            val target = types[binding.backend.selectedItemPosition]
+            if (target == BackendType.NATIVE && !nativeConfirmed &&
+                ScenarioRuntime.state.value.backend != BackendType.NATIVE) {
+                confirmNative()
                 return@setOnClickListener
             }
+            if (target == BackendType.NATIVE) {
+                requireContext().getSharedPreferences("scenario_runtime", Context.MODE_PRIVATE)
+                    .edit().putBoolean("native_opt_in", true).apply()
+            }
             viewLifecycleOwner.lifecycleScope.launch {
-                val selected = ScenarioRuntime.selectBackend(types[binding.backend.selectedItemPosition]).await()
-                Toast.makeText(requireContext(), if (selected) "已切换模式" else "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
+                val selected = ScenarioRuntime.selectBackend(target).await()
+                if (!selected) restoreBackendSelection()
+                Toast.makeText(context, if (selected) "已切换模式" else "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
             }
         }
         binding.mockSettings.setOnClickListener {

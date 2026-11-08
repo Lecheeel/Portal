@@ -258,17 +258,21 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }
             line.addView(icon, android.widget.LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(12) })
-            line.addView(android.widget.TextView(ctx).apply {
+            val labels = android.widget.LinearLayout(ctx).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+            }
+            labels.addView(android.widget.TextView(ctx).apply {
                 text = getString(title)
                 textSize = 14f
                 setTextColor(androidx.core.content.ContextCompat.getColor(ctx, R.color.text_primary))
-            }, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            line.addView(android.widget.TextView(ctx).apply {
+            })
+            labels.addView(android.widget.TextView(ctx).apply {
                 text = getString(value)
                 textSize = 12f
-                gravity = android.view.Gravity.END
+                setPadding(0, dp(3), 0, 0)
                 setTextColor(color)
-            }, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1.4f))
+            })
+            line.addView(labels, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             binding.environmentRows.addView(line)
         }
         if (env == null) {

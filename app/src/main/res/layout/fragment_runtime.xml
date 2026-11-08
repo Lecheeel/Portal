@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="20dp">
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -24,6 +24,85 @@
             android:layout_marginBottom="20dp"
             android:text="@string/ui_runtime_desc"
             android:textAppearance="@style/Portal.Body" />
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            style="@style/Portal.Card">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+                <TextView
+                    android:id="@+id/phase_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="24sp"
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold"
+                    android:text="未运行" />
+                <TextView
+                    android:id="@+id/overview"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginTop="8dp" />
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/route_progress"
+                    android:layout_width="match_parent"
+                    android:layout_height="6dp"
+                    android:layout_marginVertical="16dp"
+                    android:max="1000"
+                    app:trackCornerRadius="4dp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/pause_resume"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="暂停"
+                        app:icon="@drawable/ic_pause" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/stop_runtime"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="停止"
+                        app:icon="@drawable/baseline_stop_24" />
+                </LinearLayout>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/toggle_state"
+                    style="@style/Portal.SectionButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="运行详情" />
+                <LinearLayout
+                    android:id="@+id/state_details"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+                    <TextView
+                        android:id="@+id/runtime_state"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_primary"
+                        android:textIsSelectable="true" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -67,86 +146,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
-                <TextView
-                    android:id="@+id/phase_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="24sp"
-                    android:textColor="@color/text_primary"
-                    android:textStyle="bold"
-                    android:text="未运行" />
-                <TextView
-                    android:id="@+id/overview"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_primary"
-                    android:layout_marginTop="8dp" />
-                <com.google.android.material.progressindicator.LinearProgressIndicator
-                    android:id="@+id/route_progress"
-                    android:layout_width="match_parent"
-                    android:layout_height="8dp"
-                    android:layout_marginVertical="16dp"
-                    android:max="1000"
-                    app:trackCornerRadius="4dp" />
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/pause_resume"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:text="暂停"
-                        app:icon="@drawable/ic_pause" />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/stop_runtime"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:text="停止"
-                        app:icon="@drawable/baseline_stop_24" />
-                </LinearLayout>
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/toggle_state"
-                    style="@style/Portal.SectionButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:minHeight="48dp"
-                    android:text="运行详情 ▾" />
-                <LinearLayout
-                    android:id="@+id/state_details"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:visibility="gone">
-                    <TextView
-                        android:id="@+id/runtime_state"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_primary"
-                        android:textIsSelectable="true" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            style="@style/Portal.Card">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -216,14 +216,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/toggle_capabilities"
                     style="@style/Portal.SectionButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
-                    android:text="能力与诊断 ▾" />
+                    android:text="能力与诊断" />
                 <LinearLayout
                     android:id="@+id/capability_details"
                     android:layout_width="match_parent"
@@ -270,14 +270,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/toggle_logs"
                     style="@style/Portal.SectionButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
-                    android:text="运行日志 ▾" />
+                    android:text="运行日志" />
                 <LinearLayout
                     android:id="@+id/log_details"
                     android:layout_width="match_parent"

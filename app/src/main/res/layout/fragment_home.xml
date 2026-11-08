@@ -25,12 +25,12 @@
         android:paddingTop="16dp"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:elevation="12dp">
+        android:elevation="4dp">
 
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            app:cardCornerRadius="26dp"
+            app:cardCornerRadius="20dp"
             app:cardElevation="2dp"
             app:cardBackgroundColor="@color/card_surface">
 
@@ -129,7 +129,7 @@
             app:backgroundTint="@color/surface_glass"
             app:tint="@color/primary"
             app:srcCompat="@drawable/ic_layers_modern"
-            app:elevation="4dp"
+            app:elevation="2dp"
             android:contentDescription="@string/normal_view" />
 
         <!-- Route Display Toggle -->
@@ -142,7 +142,7 @@
             app:backgroundTint="@color/surface_glass"
             app:tint="@color/icon_grey"
             app:srcCompat="@drawable/baseline_route_24"
-            app:elevation="4dp"
+            app:elevation="2dp"
             android:contentDescription="@string/show_route" />
 
         <!-- Target Direct Input -->
@@ -155,7 +155,7 @@
             app:backgroundTint="@color/surface_glass"
             app:tint="@color/primary"
             app:srcCompat="@drawable/baseline_edit_location_alt_24"
-            app:elevation="4dp"
+            app:elevation="2dp"
             android:contentDescription="@string/goto_location" />
 
         <!-- Locate Me / Center View -->
@@ -167,7 +167,7 @@
             app:backgroundTint="@color/primary"
             app:tint="@color/on_primary"
             app:srcCompat="@drawable/baseline_my_location_24"
-            app:elevation="6dp"
+            app:elevation="3dp"
             android:contentDescription="@string/follow_location" />
     </LinearLayout>
 
@@ -180,8 +180,8 @@
         android:layout_marginStart="12dp"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="16dp"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="3dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="2dp"
         app:cardBackgroundColor="@color/card_surface">
 
         <LinearLayout
@@ -248,7 +248,7 @@
                     android:layout_marginStart="8dp"
                     android:text="@string/save_location"
                     android:textSize="12sp"
-                    app:cornerRadius="20dp"
+                    app:cornerRadius="14dp"
                     app:icon="@drawable/baseline_save_24"
                     app:iconSize="16dp" />
             </LinearLayout>
@@ -274,14 +274,15 @@
                     android:id="@+id/btnQuickMock"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
                     android:text="停止模拟"
                     android:enabled="false"
                     android:textSize="13sp"
                     android:textStyle="bold"
-                    app:cornerRadius="22dp"
+                    app:cornerRadius="14dp"
                     app:icon="@drawable/baseline_stop_24"
                     app:iconSize="18dp" />
 
@@ -290,12 +291,13 @@
                     android:id="@+id/btnQuickRocker"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
                     android:layout_weight="1"
                     android:layout_marginStart="6dp"
                     android:text="@string/rocker"
                     android:textSize="13sp"
-                    app:cornerRadius="22dp"
+                    app:cornerRadius="14dp"
                     app:icon="@drawable/baseline_adjust_24"
                     app:iconSize="18dp" />
             </LinearLayout>

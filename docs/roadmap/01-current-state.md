@@ -1,11 +1,11 @@
 # 01 · 当前状态、优点与缺口
 
-> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 481 项 JVM、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过；Python 29 项在迁移验证环境通过（本机 DSH 沙箱的临时目录 ACL 会使 `test_xposed_module.py` 出现假失败）。2026-11-08 完成双设备基线：A 为 Xiaomi M2102K1C / Android 14 / APatch / Vector 2.2 / API 102，B 先做无 Root 标准 Mock 基线，随后获得 KernelSU root 并安装 Vector，B 的 XPOSED C01/C03/C13 也 PASS；两台框架版本相同，P6-05 的版本矩阵仍未完成。system_server 热重载和 phone/fused 自动重启重注入均在两台设备通过。当前证据见 [libxposed-migration.md](../libxposed-migration.md)、[双设备基线](baselines/2026-11-08-xiaomi-two-device.md) 和 [双设备 Xposed 矩阵](baselines/2026-11-08-two-device-xposed.md)；下方旧百分比/测试数量保留历史快照含义。
+> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 482 项 JVM、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过；Python 29 项在迁移验证环境通过（本机 DSH 沙箱的临时目录 ACL 会使 `test_xposed_module.py` 出现假失败）。2026-11-08 完成双设备基线：A 为 Xiaomi M2102K1C / Android 14 / APatch / Vector 2.2 / API 102，B 先做无 Root 标准 Mock 基线，随后获得 KernelSU root 并安装 Vector，B 的 XPOSED C01/C03/C13 也 PASS；两台框架版本相同，P6-05 的版本矩阵仍未完成。system_server 热重载和 phone/fused 自动重启重注入均在两台设备通过。本轮继续实现 Java 传感器帧、可调非线性步频、Native 自动加载和主动 NMEA/GNSS 注入；当前证据见 [libxposed-migration.md](../libxposed-migration.md)、[双设备基线](baselines/2026-11-08-xiaomi-two-device.md) 和 [双设备 Xposed 矩阵](baselines/2026-11-08-two-device-xposed.md)；下方旧百分比/测试数量保留历史快照含义。
 
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
 >
-> 进度快照（2026-11-08 双设备基线）：52 个 roadmap 任务中 0 `WIP` / 11 `TODO` / 1 `BLOCKED`（P7-04 性能基线）/ 40 `DONE`（P0-01～06、P1-01～05、P2-01～07、P3-01～05、P4-01～05、P5-01～08、P6-01、P6-02、P6-04、P6-06）；整体约 **90%**，代码/模型约 **99%**，设备验收覆盖两台小米设备（A：Vector/XPOSED；B：无 Root 标准 Mock）。本次迁移后 **481 项 JVM 用例 0 失败**；仍不能宣称完整 `DEVICE VERIFIED`。
+> 进度快照（2026-11-08 高级反检测轮）：52 个 roadmap 任务中 1 `WIP`（P6-03 Native 痕迹收敛）/ 10 `TODO` / 1 `BLOCKED`（P7-04 性能基线）/ 40 `DONE`（P0-01～06、P1-01～05、P2-01～07、P3-01～05、P4-01～05、P5-01～08、P6-01、P6-02、P6-04、P6-06）；整体约 **90%**，代码/模型约 **99%**；**482 项 JVM 用例 0 失败**，双设备 XPOSED 的 C06/C07/C10 已实际 PASS，C11 步数增长仍受真实传感器事件限制。仍不能宣称完整 `DEVICE VERIFIED`。
 > 发布就绪审计见 [13-release-readiness.md](13-release-readiness.md)：当前 **未就绪**，无设备基线、无正式签名产物、未授权发布。
 
 ---
@@ -164,7 +164,7 @@
 | D16 | 验证 | 没有 detector / 设备回归基线 | 无 `:detector` 模块；`verification.md` 明确 DEVICE 未完成 | S1：所有“隐藏/伪装”都不可验收 | P0-01～03 |
 | D17 | 法务 | 没有 `LICENSE`，上游许可证未确认 | 仓库根目录无 `LICENSE` | S2：无法合法复用/被复用 | P0-05 |
 | D18 | 体验 | 反射清除实验默认已改为 false；Native 默认 off | `Perfs.kt`；`NativeBackend` opt-in | 已对齐 ADR-017 | P6-06 |
-| D19 | Native | 当前 native 只做“清零传感器”，且安装依赖 root 复制 | `NativeLibraryInstaller.kt`、`sensor_hook.cpp` | S1：实验能力不可用 | P4-04/P6-03 |
+| D19 | Native | Native 传感器已改为 Java 帧驱动；加载仍依赖 root 复制，痕迹隐藏只覆盖临时文件/权限/RWX/符号，不覆盖 public APK 载荷和 root maps | `NativeLibraryInstaller.kt`、`sensor_hook.cpp` | S2：可减少静态证据，不能对 root 隐藏 | P4-04/P6-03 |
 | D20 | 体验 | 用户可勾选 target app，但代码明确跳过 | `FakeLocation.kt`；`HookScopeResolver` | S2：行为与 UI 不一致 | P5-05 或文档修正 |
 | D21 | 前沿 | 没有网络/IP/时区/locale 一致性 | 代码无相关处理 | S2：服务端风控可直接看出 IP 与 GPS 不一致 | P7-02 |
 | D22 | 前沿 | 没有传感器融合/Activity Recognition | 只有空壳传感器 Hook | S2：GPS 在动、计步为 0 等矛盾 | P4-05/P7-03 |
@@ -245,6 +245,7 @@
 - **P6-01 libxposed 迁移**：正式入口 `PortalModule`、API 102 原生 Chain、`META-INF/xposed`、六 scope 已落地；旧 spike 与 legacy 依赖已删除；system_server 热重载已验证（phone/fused 需重启进程）。
 - **P0-03 设备基线**：已完成双设备基线：A（Xiaomi M2102K1C / HyperOS / Android 14 / APatch / Vector 2.2 / API 102 / XPOSED）与 B（Xiaomi 22041211AC / HyperOS 2.0.10 / Android 14 / 无 Root / 标准 MOCK_PROVIDER）；两台的 C03/C13 PASS，停止并重启后 C01 PASS；完整报告见 [baselines/2026-11-08-xiaomi-two-device.md](baselines/2026-11-08-xiaomi-two-device.md)。
 - **P6-05 设备回归**：两台设备均已安装 Vector 2.2 / API 102，targets 加载、C03/C13 隐藏、热重载和 phone/fused 重注入通过；但两台框架版本相同，仍缺第二个 Vector/LSPosed 版本矩阵和独立“回退”验证，故仍为 TODO。
+- **P6-03 Native 痕迹**：已收紧 ext-lib 临时文件/权限、改用 `system_file` 上下文、移除无操作 write hook、Hook 后恢复 RX、清理 `LSPosed-Bridge`/源路径日志并同时 hook HIDL/AIDL convert；C14 是 detector 自身进程检查，不能验证 system_server 内部 Native；public APK 载荷和 root maps 仍可见。P6-03 保持 WIP。
 - **P7-04 性能探针**：系统侧/app 侧发布耗时、`APP_MEMORY`、`APP_CPU`、`BATTERY` 已进入诊断（p95>100ms WARN）；设备功耗基线未做。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

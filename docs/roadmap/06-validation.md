@@ -678,6 +678,15 @@ P0 阶段至少：
 - detector API：`POST /run` 与 `GET /report` 已验证；最终 C03 PASS（mock_location=0、开发者选项=0）、C13 PASS。
 - 结论：迁移代码/构建 `UNIT TEST VERIFIED` + `BUILD VERIFIED`，设备路径部分验证；不把单设备结果扩大为全量 `DEVICE VERIFIED`。
 
+### 2026-11-08 高级反检测 / 传感器 / NMEA
+
+- 传感器：Java `SyntheticSensorModel` 生成完整 `SensorFrame`，JNI 只做双帧线性插值和事件应用；步频由速度/步幅的连续非线性函数计算，`sensor_cadence_scale`/`sensor_variation` 可调，Native 不再持有 105/170 或波形参数。
+- Native：`NativeBackend.start()` 在用户选择 Native+Xposed 后自动加载/启用；A 设备 Native 场景 RUNNING，C05 PASS、C10 PASS（6 类传感器量级/方差/计步单调性通过）。**C11 FAIL**：真实硬件未产生 STEP_COUNTER 事件时，`convertToSensorEvent` 只能改写已有事件，无法凭空创建步数；这是当前明确边界。
+- NMEA/GNSS：新增主动 `GnssSignalInjection`（GnssManagerService / callback 注册），不再依赖真实 GNSS 回调；`enable_nmea=true` 后 A/B 的 C06/C07 均 PASS（GGA/RMC/GSA/GSV/GST/ZDA 齐全、校验和/UTC/卫星数自洽）；detector GST 字段数 off-by-one 已修。
+- Native 痕迹：ext-lib 仅 `/data/local/ext-lib/liblocationext.so`（root:system 0650、`system_file`），部署临时文件删除；移除 no-op `SensorEventQueue::write` hook；Dobby 后恢复 RX（实测 system_server maps 无 `rwxp`）；日志不再使用 `LSPosed-Bridge`/源路径；HIDL 与 AIDL `convertToSensorEvent` 均 hook。
+- C14 限制：C14 只读 detector 自身 `/proc/self/maps`，不能看到 system_server 的 Native 映射；C14 的 root `su` 失败按用户要求不处理。public APK 载荷、root 可见的 ext-lib 路径/maps 仍是残余暴露，P6-03 保持 WIP。
+- 验证：JVM 482 项 0 失败；`check_native_syntax.py --link` 四 ABI 通过（静态 libc++）；Native APK 实际加载/libc++/SELinux 已在 A 设备通过。
+
 ### P6-01 libxposed API 102（spike）
 
 - 变更：`xposed` 增加 `io.github.libxposed:api:102.0.0` `compileOnly`；新增 `LibXposedSpike : XposedModule`，重写 `onSystemServerStarting` 空实现，验证 API 可与旧 API 82 同时编译。

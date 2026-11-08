@@ -1,6 +1,8 @@
 package com.system.location.service.debug
 
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import android.net.LocalServerSocket
 import android.util.Log
 import com.system.location.service.BuildConfig
@@ -124,6 +126,7 @@ object DebugHttpServer {
         request.method == "GET" && request.path == "/status" -> 200 to status()
         request.method == "GET" && request.path == "/logs" -> 200 to logs(request)
         request.method == "GET" && request.path == "/targets" -> 200 to targets()
+        request.method == "GET" && request.path == "/sensors" -> 200 to sensorHandles()
         request.method == "POST" && request.path == "/location" -> location(request.body)
         request.method == "POST" && request.path == "/motion" -> motion(request.body)
         request.method == "POST" && request.path == "/scenario/start" -> location(request.body)
@@ -298,6 +301,29 @@ object DebugHttpServer {
                 put("environment_source", app.environmentSourceMode)
             })
         }.toString()
+    }
+
+    private fun sensorHandles(): String {
+        val manager = context?.getSystemService(SensorManager::class.java)
+            ?: return """{"ok":false,"error":"sensor manager unavailable"}"""
+        return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+            put("ok", true)
+            put("sensors", buildJsonArray {
+                manager.getSensorList(Sensor.TYPE_ALL)
+                    .filter { it.type == Sensor.TYPE_STEP_COUNTER || it.type == Sensor.TYPE_STEP_DETECTOR }
+                    .forEach { sensor ->
+                        add(buildJsonObject {
+                            put("name", sensor.name)
+                            put("type", sensor.type)
+                            put("wakeUp", sensor.isWakeUpSensor)
+                            put("handle", runCatching {
+                                sensor.javaClass.getMethod("getHandle").apply { isAccessible = true }
+                                    .invoke(sensor) as Int
+                            }.getOrDefault(-1))
+                        })
+                    }
+            })
+        })
     }
 
     private fun targets(): String {

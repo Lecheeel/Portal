@@ -58,6 +58,7 @@ class PortalModule : XposedModule() {
             return false
         }
         LocationTicker.stop()
+        com.system.location.service.hook.hooks.gnss.GnssSignalInjection.stop()
         param.setSavedInstanceState(Bundle().apply {
             putString("process", "system_server")
             putString("package", "android")

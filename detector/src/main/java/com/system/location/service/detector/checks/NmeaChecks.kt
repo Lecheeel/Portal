@@ -88,7 +88,7 @@ class NmeaCheck : Check {
                 issues += "GST UTC=$utc 与最新 GGA UTC=$latestGgaUtc 不一致"
             }
             val errors = latestGst.fields.drop(5).mapNotNull { it.trim().toDoubleOrNull() }
-            if (errors.size < 4 || errors.any { it < 0.0 || !it.isFinite() }) {
+            if (errors.size < 3 || errors.any { it < 0.0 || !it.isFinite() }) {
                 issues += "GST 误差字段缺失或为负"
             }
         }

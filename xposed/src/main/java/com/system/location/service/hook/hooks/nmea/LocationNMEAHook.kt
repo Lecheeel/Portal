@@ -12,6 +12,7 @@ import java.util.Collections
 object LocationNMEAHook : BaseLocationHook() {
     operator fun invoke(classILocationManager: Class<*>) {
         hookGnssNmea(classILocationManager)
+        NmeaServiceHook.hook(classILocationManager.classLoader!!)
 
         val doNothingMethod =
             nmeaRegistrationHook(debugLog = { if (FakeLoc.enableDebugLog) Logger.debug(it) })
@@ -82,17 +83,10 @@ object LocationNMEAHook : BaseLocationHook() {
                                         val args = chain.args.toTypedArray()
 
                                         if (!FakeLoc.enable) return@intercept66 chain.proceed(args)
-                                        val nmea =
-                                            args[1] as? String
-                                                ?: return@intercept66 chain.proceed(args)
-                                        args[1] =
-                                            NmeaBridge.rewrite(
-                                                nmea,
-                                                counters,
-                                                NmeaListenerRouting.fixedPointFor(chain.thisObject),
-                                            )
-
-                                        chain.proceed(args)
+                                        // Simulation owns NMEA delivery. Do not both rewrite the
+                                        // real stream and inject generated frames: that produces
+                                        // duplicate/partial bursts and invalid GSV numbering.
+                                        return@intercept66 null
                                     },
                             )
 

@@ -5,6 +5,7 @@ import androidx.navigation.findNavController
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.action.ViewActions.scrollTo
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.espresso.matcher.ViewMatchers.*
@@ -52,7 +53,7 @@ class SimulationNavigationTest {
             scenario.onActivity { activity ->
                 activity.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime)
             }
-            onView(withId(R.id.backend)).check(matches(isDisplayed()))
+            onView(withId(R.id.backend)).perform(scrollTo()).check(matches(isDisplayed()))
             scenario.onActivity { activity ->
                 activity.findViewById<Spinner>(R.id.backend).setSelection(BackendType.entries.indexOf(BackendType.NATIVE))
             }

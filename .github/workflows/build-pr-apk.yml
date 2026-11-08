@@ -44,6 +44,10 @@ jobs:
           python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Native ABI syntax and link
         run: python3 scripts/check_native_syntax.py --link
+      - name: Generate native payload from this revision
+        run: |
+          "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded .tmp/native-link/liblocationext-arm64-v8a.so
+          python3 scripts/encrypt_native_asset.py .tmp/native-link/liblocationext-arm64-v8a.so xposed/src/main/assets/liblocationext.bin
       - name: Lint
         # Run separately to avoid a reproduced Kotlin FIR analysis failure during combined builds.
         run: ./gradlew lint --max-workers=1 --build-cache --stacktrace

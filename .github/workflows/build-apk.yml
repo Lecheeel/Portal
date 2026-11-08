@@ -7,18 +7,18 @@ name: Verify and Build APKs
         description: Version name (for example 1.8.0-beta.1)
         required: true
         type: string
-        default: 1.7.7
+        default: 2.0.0
       version_code:
         description: Globally increasing Android version code
         required: true
         type: string
-        default: '1790000014'
+        default: '1790000065'
       release_channel:
         description: stable or beta/canary/rc pre-release metadata
         required: true
         type: choice
         options: [stable, beta]
-        default: beta
+        default: stable
   push:
     branches: [main]
 
@@ -32,9 +32,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      APP_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '1.7.7' }}
-      APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000014' }}
-      RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'beta' }}
+      APP_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '2.0.0' }}
+      APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000065' }}
+      RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'stable' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,6 +81,10 @@ jobs:
           python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Native ABI syntax and link
         run: python3 scripts/check_native_syntax.py --link
+      - name: Generate native payload from this revision
+        run: |
+          "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded .tmp/native-link/liblocationext-arm64-v8a.so
+          python3 scripts/encrypt_native_asset.py .tmp/native-link/liblocationext-arm64-v8a.so xposed/src/main/assets/liblocationext.bin
       - name: Lint
         # Run separately to avoid a reproduced Kotlin FIR analysis failure during combined builds.
         run: ./gradlew lint --max-workers=1 --build-cache --stacktrace

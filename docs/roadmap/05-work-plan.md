@@ -219,6 +219,8 @@ P0 基线
 
 **Phase 6 退出**：模块元数据不可见；libxposed 可用；Native 实验默认关且可回退；文档不再夸大。
 
+> 2026-11-08：A/B 两台均已安装 Vector 2.2 (3118)/API 102，PortalModule 在 system/phone/Xiaomi fused 均加载，XPOSED C01/C03/C13 全 PASS，热重载与 phone/fused 重注入通过。P6-05 仍缺第二个框架版本矩阵和独立回退验证，保持 TODO。
+
 > 2026-11-06：P5-06 已加入存储抽象、原子 `FileConfigStore`、active config、完整恢复入口、`SeqLockSampleStore`、`SharedSampleCodec`/`Header`/`Buffer`/`Layout` 与 Android `SharedMemorySampleBuffer`；Binder fd 未做。
 > 2026-11-06：P6-01 已加入 `io.github.libxposed:api:102.0.0` compileOnly 依赖、`LibXposedSpike` 与独立 `:libxposed-spike` APK（元数据打包验证）；LSPosed 加载/scope/热重载未做。
 

@@ -664,6 +664,7 @@ P0 阶段至少：
 - C03/C13：两台四个状态均 PASS。
 - 运行时状态：A 的 `authenticatedRuntimeStatusComesFromSystemServer` instrumentation 通过；libxposed 设备测试 3 项为 2 passed / 1 skipped（GPS 基线缺失）。
 - 结论：P0-03 `DONE`；完整报告见 [baselines/2026-11-08-xiaomi-two-device.md](baselines/2026-11-08-xiaomi-two-device.md)。P6-05 仍 TODO（缺第二个 Xposed/LSPosed 版本矩阵）。
+- 后续：B 已获得 KernelSU root 并安装 Vector 2.2；两台 XPOSED 的 C01/C03/C13 全 PASS，热重载与 phone/fused 重注入均通过，见 [baselines/2026-11-08-two-device-xposed.md](baselines/2026-11-08-two-device-xposed.md)。
 
 ### libxposed API 102 正式迁移
 

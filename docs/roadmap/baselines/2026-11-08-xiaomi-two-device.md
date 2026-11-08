@@ -76,6 +76,13 @@
 | C13 | PASS | PASS |
 | 结论 | 无残留假定位样本 | 无残留假定位样本 |
 
+## 后续复核
+
+2026-11-08 稍后 B 获得 KernelSU root 并安装 Vector 2.2 (3118)；B 的 XPOSED
+C01/C03/C13 已全部 PASS，热重载和 phone/fused 重注入也已通过。本文件保留 B
+早期“无 Root 标准 Mock”的历史基线，不作为当前 B 的 XPOSED 结论；当前矩阵见
+[2026-11-08-two-device-xposed.md](2026-11-08-two-device-xposed.md)。
+
 ## 结论
 
 - A 的 XPOSED 路径：C01/C03/C13 全 PASS；system_server 运行时状态测试

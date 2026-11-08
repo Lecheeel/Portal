@@ -1,6 +1,6 @@
 # 01 · 当前状态、优点与缺口
 
-> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 481 项 JVM、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过；Python 29 项在迁移验证环境通过（本机 DSH 沙箱的临时目录 ACL 会使 `test_xposed_module.py` 出现假失败）。2026-11-08 完成双设备基线：A 为 Xiaomi M2102K1C / Android 14 / APatch / Vector 2.2 / API 102，B 为 Xiaomi 22041211AC / Android 14 / 无 Root 标准 Mock；两台的 C03/C13 均 PASS，A 的 XPOSED C01 PASS，B 在模拟中 C01 FAIL 属标准 Mock 预期；停止并重启后两台 C01 均 PASS。system_server 热重载已实测 PID 不变；P6-05 的双 Xposed/LSPosed 版本矩阵仍未完成。当前证据见 [libxposed-migration.md](../libxposed-migration.md) 和 [双设备基线](baselines/2026-11-08-xiaomi-two-device.md)；下方旧百分比/测试数量保留历史快照含义。
+> 2026-11-07 更新：正式 Hook 已迁移到 libxposed API 102.0.0 原生 Chain，移除 legacy 兼容层及独立 spike，不提供旧 API 回退。本次 481 项 JVM、四 ABI 完整 CMake、实际 ARM64 Debug APK 现代入口校验及 app/xposed lint 均通过；Python 29 项在迁移验证环境通过（本机 DSH 沙箱的临时目录 ACL 会使 `test_xposed_module.py` 出现假失败）。2026-11-08 完成双设备基线：A 为 Xiaomi M2102K1C / Android 14 / APatch / Vector 2.2 / API 102，B 先做无 Root 标准 Mock 基线，随后获得 KernelSU root 并安装 Vector，B 的 XPOSED C01/C03/C13 也 PASS；两台框架版本相同，P6-05 的版本矩阵仍未完成。system_server 热重载和 phone/fused 自动重启重注入均在两台设备通过。当前证据见 [libxposed-migration.md](../libxposed-migration.md)、[双设备基线](baselines/2026-11-08-xiaomi-two-device.md) 和 [双设备 Xposed 矩阵](baselines/2026-11-08-two-device-xposed.md)；下方旧百分比/测试数量保留历史快照含义。
 
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
@@ -244,7 +244,7 @@
 - **P5-06 存储抽象**：`SampleStore`/`ConfigStore`、原子 `FileConfigStore`、active config、完整恢复入口、`SeqLockSampleStore`、`SharedSampleCodec`/`Header`/`Buffer`/`Layout` 与 Android `SharedMemorySampleBuffer` 已落地；Binder fd 未做。
 - **P6-01 libxposed 迁移**：正式入口 `PortalModule`、API 102 原生 Chain、`META-INF/xposed`、六 scope 已落地；旧 spike 与 legacy 依赖已删除；system_server 热重载已验证（phone/fused 需重启进程）。
 - **P0-03 设备基线**：已完成双设备基线：A（Xiaomi M2102K1C / HyperOS / Android 14 / APatch / Vector 2.2 / API 102 / XPOSED）与 B（Xiaomi 22041211AC / HyperOS 2.0.10 / Android 14 / 无 Root / 标准 MOCK_PROVIDER）；两台的 C03/C13 PASS，停止并重启后 C01 PASS；完整报告见 [baselines/2026-11-08-xiaomi-two-device.md](baselines/2026-11-08-xiaomi-two-device.md)。
-- **P6-05 设备回归**：仍未完成；当前只有 A 具备 Vector/libxposed，B 是无 Root 标准 Mock 基线，缺第二个 Xposed/LSPosed 版本矩阵与 OEM 差异验证。
+- **P6-05 设备回归**：两台设备均已安装 Vector 2.2 / API 102，targets 加载、C03/C13 隐藏、热重载和 phone/fused 重注入通过；但两台框架版本相同，仍缺第二个 Vector/LSPosed 版本矩阵和独立“回退”验证，故仍为 TODO。
 - **P7-04 性能探针**：系统侧/app 侧发布耗时、`APP_MEMORY`、`APP_CPU`、`BATTERY` 已进入诊断（p95>100ms WARN）；设备功耗基线未做。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

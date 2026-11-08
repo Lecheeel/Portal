@@ -73,10 +73,24 @@ def update_db(device: Device, apk_path: str, package: str) -> None:
     tmp = Path(".tmp") / "portal-vector-deploy"
     tmp.mkdir(parents=True, exist_ok=True)
     local = tmp / "modules.db"
-    local.unlink(missing_ok=True)
+    for suffix in ("", "-wal", "-shm"):
+        (tmp / f"modules.db{suffix}").unlink(missing_ok=True)
     try:
-        device.root(f"cp {DB} {TMP_DB}; chmod 644 {TMP_DB}")
-        device.run("pull", TMP_DB, str(local))
+        # Vector may keep the current schema/data in WAL. Pull the WAL too, otherwise the main
+        # file can look like an empty database (or even lack the modules table).
+        device.root(
+            f"cp {DB} {TMP_DB}; chmod 644 {TMP_DB}; "
+            f"if test -e {DB}-wal; then cp {DB}-wal {TMP_DB}-wal; chmod 644 {TMP_DB}-wal; fi; "
+            f"if test -e {DB}-shm; then cp {DB}-shm {TMP_DB}-shm; chmod 644 {TMP_DB}-shm; fi"
+        )
+        for suffix in ("", "-wal", "-shm"):
+            remote = TMP_DB + suffix
+            local_file = tmp / f"modules.db{suffix}"
+            result = device.run("pull", remote, str(local_file), check=False)
+            if result.returncode != 0 and suffix != "":
+                local_file.unlink(missing_ok=True)
+            elif result.returncode != 0:
+                raise SystemExit(f"could not pull Vector database: {result.stderr.strip()}")
         connection = sqlite3.connect(local)
         try:
             row = connection.execute(
@@ -86,15 +100,19 @@ def update_db(device: Device, apk_path: str, package: str) -> None:
                 raise SystemExit(f"module {package} not found in Vector database")
             connection.execute("update modules set apk_path=? where mid=?", (apk_path, row[0]))
             connection.commit()
+            connection.execute("pragma wal_checkpoint(TRUNCATE)")
+            connection.execute("pragma journal_mode=delete")
+            connection.commit()
         finally:
             connection.close()
         device.run("push", str(local), TMP_DB)
         device.root(
             f"cp {TMP_DB} {DB}; chown root:root {DB}; chmod 660 {DB}; "
-            f"rm -f {DB}-wal {DB}-shm"
+            f"rm -f {DB}-wal {DB}-shm {TMP_DB}-wal {TMP_DB}-shm"
         )
     finally:
-        local.unlink(missing_ok=True)
+        for suffix in ("", "-wal", "-shm"):
+            (tmp / f"modules.db{suffix}").unlink(missing_ok=True)
 
 
 def ensure_scope(device: Device, package: str) -> None:
@@ -174,9 +192,13 @@ def main() -> int:
         print("pushing native library; restart required")
         device.run("push", str(args.native_lib), "/data/local/tmp/liblocationext.so")
         device.root(
-            "mkdir -p /data/local/ext-lib; "
+            "umask 077; mkdir -p /data/local/ext-lib; "
+            "chmod 0710 /data/local/ext-lib; chown 0:1000 /data/local/ext-lib; "
             "cp /data/local/tmp/liblocationext.so /data/local/ext-lib/liblocationext.so; "
-            "chmod 644 /data/local/ext-lib/liblocationext.so"
+            "chmod 0650 /data/local/ext-lib/liblocationext.so; "
+            "chown 0:1000 /data/local/ext-lib/liblocationext.so; "
+            "chcon u:object_r:system_file:s0 /data/local/ext-lib/liblocationext.so 2>/dev/null || true; "
+            "rm -f /data/local/tmp/liblocationext.so"
         )
         args.hot_reload = False
         args.restart_targets = False

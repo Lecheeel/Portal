@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_application_rules">アプリ別設定と構成</string>
+    <string name="settings_background_privacy">バックグラウンドとプライバシー</string>
+    <string name="settings_updates">アプリの更新</string>
+    <string name="settings_smooth_summary">カーブで減速し、滑らかに加減速します。設定速度は上限です。次回開始時に適用され、保存済みシナリオは自身の設定を使用します。</string>
+    <string name="settings_noise_summary">位置、高度、精度に範囲を制限した微小な揺らぎを加えます。次回開始時に適用されます。</string>
+    <string name="settings_gms_summary">Google Play 開発者サービスが必要です。失敗時も GPS／Network を継続します。</string>
+    <string name="settings_fused_summary">システムの fused モック Provider を追加します。互換性は端末によって異なり、失敗しても GPS／Network に影響しません。</string>
+    <string name="settings_clear_mock_summary">標準 Mock モード専用。ローカルの模擬位置マークの解除を試みます。システムが再びマークする場合があり、位置の巻き戻りを防ぐ保証はありません。</string>
+    <string name="settings_per_app_summary">模擬位置を受信しないアプリを選択します。</string>
+    <string name="settings_per_app_point_summary">選択したアプリを保存済みの位置に固定します。他のアプリは現在のシナリオを使用します。</string>
+    <string name="settings_update_summary">Beta はテスト版と正式版を受信します。正式チャンネルに戻してもインストール済みのバージョンは下がりません。</string>
+    <string name="settings_environment_title">環境とフィンガープリント</string>
+    <string name="settings_environment_fingerprint">WiFi フィンガープリント</string>
+    <string name="settings_environment_replay">環境の生成と再現</string>
+    <string name="settings_environment_ap_range">AP 数は 1〜8 で指定してください</string>
+    <string name="settings_wifi_imported">WiFi フィンガープリントを %1$d 件インポートしました</string>
+    <string name="settings_wifi_import_failed">WiFi フィンガープリントのインポートに失敗しました：%1$s</string>
+</resources>

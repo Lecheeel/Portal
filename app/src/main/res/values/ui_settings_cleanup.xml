@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_application_rules">分应用与配置</string>
+    <string name="settings_background_privacy">后台与隐私</string>
+    <string name="settings_updates">版本更新</string>
+    <string name="settings_smooth_summary">弯道减速、平滑加减速，设定速度为上限。下次启动生效，已保存场景保留自身参数。</string>
+    <string name="settings_noise_summary">为位置、海拔和精度添加有界微漂移，下次启动生效。</string>
+    <string name="settings_gms_summary">需 Google Play 服务；失败时继续使用 GPS／Network。</string>
+    <string name="settings_fused_summary">额外注册系统 fused 模拟 Provider，兼容性取决于系统；失败不影响 GPS／Network。</string>
+    <string name="settings_clear_mock_summary">仅标准 Mock 模式。尝试清除本地模拟标记，系统可能重新标记，不能保证防止回跳。</string>
+    <string name="settings_per_app_summary">选择不接收模拟定位的应用。</string>
+    <string name="settings_per_app_point_summary">为选定应用指定已保存位置，其余应用沿用当前场景。</string>
+    <string name="settings_update_summary">Beta 同时接收测试版与正式版。切回正式通道不会降级已安装版本。</string>
+    <string name="settings_environment_title">环境与指纹</string>
+    <string name="settings_environment_fingerprint">WiFi 指纹库</string>
+    <string name="settings_environment_replay">环境生成与回放</string>
+    <string name="settings_environment_ap_range">AP 数需在 1 至 8 之间</string>
+    <string name="settings_wifi_imported">已导入 %1$d 条 WiFi 指纹</string>
+    <string name="settings_wifi_import_failed">WiFi 指纹导入失败：%1$s</string>
+</resources>

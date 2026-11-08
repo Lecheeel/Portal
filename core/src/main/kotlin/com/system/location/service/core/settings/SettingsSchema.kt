@@ -111,6 +111,8 @@ object PortalSettingsSchema {
             SettingSpec("wifi_fingerprint_json", SettingType.STRING, "", maxLength = 262_144),
             SettingSpec("physical_noise_seed", SettingType.LONG, "0"),
             SettingSpec("speed_amplitude", SettingType.DOUBLE, "1.0", 0.0, 10.0),
+            SettingSpec("sensor_cadence_scale", SettingType.DOUBLE, "1.0", 0.5, 2.0),
+            SettingSpec("sensor_variation", SettingType.DOUBLE, "0.15", 0.0, 0.5),
             SettingSpec("environment_ap_count", SettingType.INT, "4", 1.0, 8.0),
             SettingSpec("cell_mode", SettingType.ENUM, "FULL_REPLAY", choices = setOf(
                 "AUTO", "FULL_REPLAY", "NO_SIM_WIFI_ONLY", "LEGACY_CDMA",

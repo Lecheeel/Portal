@@ -16,7 +16,7 @@ object ConfigCommand {
         if (!ConfigGate.valid(rely)) return false
         FakeLoc.enable = rely.getBoolean("enable", FakeLoc.enable)
         FakeLoc.enableMockWifi = rely.getBoolean("enable_mock_wifi", FakeLoc.enableMockWifi)
-        FakeLoc.speed = rely.getDouble("speed", FakeLoc.speed)
+        if (!FakeLoc.enable) FakeLoc.speed = rely.getDouble("speed", FakeLoc.speed)
         FakeLoc.altitude = rely.getDouble("altitude", FakeLoc.altitude)
         FakeLoc.accuracy = rely.getFloat("accuracy", FakeLoc.accuracy)
         FakeLoc.enableDebugLog = rely.getBoolean("enable_debug_log", FakeLoc.enableDebugLog)
@@ -53,6 +53,10 @@ object ConfigCommand {
             ?.takeIf { it.isNotBlank() }
             ?.let { json -> runCatching { EnvironmentProfileCodec.decode(json) }.getOrNull() }
         FakeLoc.reportIntervalMs = rely.getLong("report_interval", FakeLoc.reportIntervalMs).coerceIn(50, 1000)
+        FakeLoc.sensorCadenceScale = rely.getDouble("sensor_cadence_scale", FakeLoc.sensorCadenceScale)
+            .takeIf { it.isFinite() }?.coerceIn(0.5, 2.0) ?: FakeLoc.sensorCadenceScale
+        FakeLoc.sensorVariation = rely.getDouble("sensor_variation", FakeLoc.sensorVariation)
+            .takeIf { it.isFinite() }?.coerceIn(0.0, 0.5) ?: FakeLoc.sensorVariation
         FakeLoc.wifiFingerprintEnabled = rely.getBoolean("wifi_fingerprint_enabled", false)
         FakeLoc.wifiFingerprintCatalogJson = rely.getString("wifi_fingerprint_json")
             ?.takeIf { it.isNotBlank() }

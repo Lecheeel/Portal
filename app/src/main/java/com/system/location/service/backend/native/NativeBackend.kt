@@ -31,9 +31,16 @@ class NativeBackend(private val context: Context) : LocationBackend {
             "当前 ROM 缺少所需符号，或 Hook 安装失败", "改用 Xposed 后端；Native 不保证兼容当前系统")
         return BackendResult.Success
     }
-    override suspend fun start() = xposed.start()
+    override suspend fun start(): BackendResult {
+        xposed.start()
+        sensorsEnabled = MockServiceHelper.setNativeEnabled(manager, true)
+        if (!sensorsEnabled) return BackendResult.Failure(
+            "NATIVE_ENABLE", "无法启用 Native 传感器", "停止后重试或改用 Xposed 后端"
+        )
+        return BackendResult.Success
+    }
     override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
-        val published = xposed.publish(sample)
+        val published = xposed.publish(sample, scenarioId)
         if (published is BackendResult.Failure) return published
         if (!sensorsEnabled) {
             sensorsEnabled = MockServiceHelper.setNativeEnabled(manager, true)

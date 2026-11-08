@@ -17,11 +17,15 @@ object NativeLibraryInstaller {
         fun quote(path: String) = "'" + path.replace("'", "'\\''") + "'"
         val directory = "/data/local/ext-lib"
         val temporary = "$DESTINATION.tmp"
-        // Refuse symlinks before a privileged copy; replace through a temporary regular file.
-        val script = "test ! -L ${quote(directory)} && test ! -L ${quote(temporary)} && " +
-            "mkdir -p ${quote(directory)} && chmod 0755 ${quote(directory)} && " +
-            "cp ${quote(source.absolutePath)} ${quote(temporary)} && chmod 0644 ${quote(temporary)} && " +
-            "chown 0:0 ${quote(temporary)} && mv -f ${quote(temporary)} ${quote(DESTINATION)}"
+        // Only root and system_server (gid 1000) need access; target apps must not read the
+        // payload, and /data/local/tmp must never retain a copy.
+        val script = "umask 077 && test ! -L ${quote(directory)} && test ! -L ${quote(temporary)} && " +
+            "mkdir -p ${quote(directory)} && chmod 0710 ${quote(directory)} && " +
+            "chown 0:1000 ${quote(directory)} && " +
+            "cp ${quote(source.absolutePath)} ${quote(temporary)} && chmod 0650 ${quote(temporary)} && " +
+            "chown 0:1000 ${quote(temporary)} && " +
+            "chcon u:object_r:system_file:s0 ${quote(temporary)} 2>/dev/null || true; " +
+            "mv -f ${quote(temporary)} ${quote(DESTINATION)}"
         return try {
             val process = ProcessBuilder("su", "-c", script).redirectErrorStream(true).start()
             try {

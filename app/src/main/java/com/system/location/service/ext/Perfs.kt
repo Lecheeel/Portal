@@ -182,6 +182,19 @@ var Context.hookSensor: Boolean
         putBoolean("hookSensor", value)
     }
 
+/** Java-side cadence tuning; Native receives the resulting cadence and variation only. */
+var Context.sensorCadenceScale: Double
+    get() = sharedPrefs.getFloat("sensorCadenceScale", 1.0f).toDouble()
+    set(value) = sharedPrefs.edit {
+        putFloat("sensorCadenceScale", value.toFloat().coerceIn(0.5f, 2.0f))
+    }
+
+var Context.sensorVariation: Double
+    get() = sharedPrefs.getFloat("sensorVariation", 0.15f).toDouble()
+    set(value) = sharedPrefs.edit {
+        putFloat("sensorVariation", value.toFloat().coerceIn(0f, 0.5f))
+    }
+
 var Context.debug: Boolean
     get() = sharedPrefs.getBoolean("debug", FakeLoc.enableDebugLog)
     set(value) = sharedPrefs.edit {

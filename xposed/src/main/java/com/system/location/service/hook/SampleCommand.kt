@@ -13,6 +13,7 @@ import com.system.location.service.hook.utils.FakeLoc
 object SampleCommand {
     private val lease = PublicationLease()
     private val publishProbe = PerformanceProbe()
+    private val sensorModel = com.system.location.service.core.sensors.SyntheticSensorModel()
 
     @Volatile
     var lastPublishMillis = 0L
@@ -42,13 +43,15 @@ object SampleCommand {
         FakeLoc.acceptSample(fix)
         rely.getString("scenario_id")?.takeIf { it.isNotBlank() }?.let { FakeLoc.acceptScenarioSample(it, fix) }
         if (FakeLoc.isSystemServerProcess) {
-            val mode = when {
-                FakeLoc.speed < 0.3 -> 0
-                FakeLoc.speed < 2.5 -> 1
-                FakeLoc.speed < 7.0 -> 2
-                else -> 3
-            }
-            NativeCommand.setMotionState(mode, FakeLoc.speed.toFloat(), FakeLoc.bearing.toFloat(), FakeLoc.altitude.toFloat())
+            sensorModel.tuning = com.system.location.service.core.sensors.SensorTuning(
+                cadenceScale = FakeLoc.sensorCadenceScale,
+                variability = FakeLoc.sensorVariation,
+            )
+            val frame = sensorModel.frame(
+                com.system.location.service.core.sensors.SensorMotion.from(fix),
+                fix.elapsedNanos / 1_000_000L,
+            )
+            NativeCommand.setSensorFrame(frame, fix.elapsedNanos)
         }
         FakeLoc.enable = true
         lastPublishMillis = fix.timeMillis

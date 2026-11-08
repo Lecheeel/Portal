@@ -92,6 +92,7 @@ def main() -> int:
             command = [
                 str(clang), f"--target={target}", f"--sysroot={sysroot}",
                 "-std=c++23", "-shared", "-fPIC", "-O2",
+                "-static-libstdc++", "-static-libgcc",
                 "-I", str(cpp_dir), "-I", str(include),
                 *[str(cpp_dir / source) for source in LINK_SOURCES],
                 str(include.parent / "libs" / f"android.{abi}" / "libdobby.a"),

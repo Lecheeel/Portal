@@ -24,6 +24,8 @@ object DiagnosticCommand {
         rely.putString("hook_scope", scope?.name ?: "unknown")
         rely.putInt("hook_expected", ownership?.expected?.size ?: 0)
         rely.putInt("hook_missing", ownership?.missing?.size ?: 0)
+        rely.putBoolean("native_loaded", NativeCommand.isLoaded)
+        rely.putBoolean("native_enabled", NativeCommand.isEnabled)
         SampleCommand.publishStats()?.let { stats ->
             rely.putInt("publish_samples", stats.samples)
             rely.putLong("publish_p50_nanos", stats.p50Nanos)

@@ -22,6 +22,8 @@ import com.system.location.service.ext.needDowngradeToCdma
 import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.routingJson
 import com.system.location.service.ext.simReady
+import com.system.location.service.ext.sensorCadenceScale
+import com.system.location.service.ext.sensorVariation
 import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.cellMode
@@ -322,6 +324,8 @@ object MockServiceHelper {
         FakeLoc.minSatellites = context.minSatelliteCount
         FakeLoc.enableAGPS = context.enableAGPS
         FakeLoc.enableNMEA = context.enableNMEA
+        FakeLoc.sensorCadenceScale = context.sensorCadenceScale
+        FakeLoc.sensorVariation = context.sensorVariation
         FakeLoc.disableRequestGeofence = !context.enableRequestGeofence
         FakeLoc.disableGetFromLocation = !context.enableGetFromLocation
 
@@ -340,6 +344,8 @@ object MockServiceHelper {
         rely.putInt("min_satellites", FakeLoc.minSatellites)
         rely.putBoolean("enable_agps", FakeLoc.enableAGPS)
         rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
+        rely.putDouble("sensor_cadence_scale", FakeLoc.sensorCadenceScale)
+        rely.putDouble("sensor_variation", FakeLoc.sensorVariation)
         rely.putBoolean("disable_request_geofence", FakeLoc.disableRequestGeofence)
         rely.putBoolean("disable_get_from_location", FakeLoc.disableGetFromLocation)
         rely.putBoolean("enable_physical_noise", context.physicalNoise)

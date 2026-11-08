@@ -16,11 +16,17 @@
                                             page_align(uintval(p) + (n)) != page_align(uintval(p)) \
                                                 ? page_align(n) + page_size : page_align(n),       \
                                             PROT_READ | PROT_WRITE | PROT_EXEC)
+#define make_rx(p, n)           ::mprotect(ptr_align(p), \
+                                            page_align(uintval(p) + (n)) != page_align(uintval(p)) \
+                                                ? page_align(n) + page_size : page_align(n),       \
+                                            PROT_READ | PROT_EXEC)
 
 void* InlineHook(void* target, void* hooker) {
     make_rwx(target, page_size);
     void* origin_call;
     if (DobbyHook(target, hooker, &origin_call) == RS_SUCCESS) {
+        // Leave the patched code RX; RWX is a conspicuous maps artifact.
+        make_rx(target, page_size);
         return origin_call;
     } else {
         return nullptr;

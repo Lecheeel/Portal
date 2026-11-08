@@ -16,4 +16,6 @@ add_library(locationext SHARED
 
 target_link_libraries(locationext android log)
 target_link_libraries(locationext dobby::dobby)
+# Keep the deployed library self-contained and hide Dobby/internal symbols from dynsym.
+target_link_options(locationext PRIVATE -static-libstdc++ -Wl,--exclude-libs,ALL)
 #target_link_libraries(${CMAKE_PROJECT_NAME} lsplant::lsplant)

@@ -10,6 +10,10 @@ object NativeCommand {
     var isLoaded = false
         private set
 
+    @Volatile
+    var isEnabled = false
+        private set
+
     fun load(rely: Bundle): Boolean {
         val path = rely.getString("path") ?: return false
         if (!FakeLoc.isSystemServerProcess || path != "/data/local/ext-lib/liblocationext.so") return false
@@ -28,22 +32,40 @@ object NativeCommand {
 
     fun prepare(): Boolean {
         if (!FakeLoc.isSystemServerProcess || !isLoaded) return false
+        Dobby.setStatus(false)
+        isEnabled = false
         return Dobby.prepareSensors()
     }
 
-    fun setEnabled(rely: Bundle): Boolean {
+    fun setEnabled(enabled: Boolean): Boolean {
         if (!FakeLoc.isSystemServerProcess) return false
-        if (!isLoaded) return !rely.getBoolean("enabled")
-        if (rely.getBoolean("enabled") && (!FakeLoc.enable || !FakeLoc.externallyDriven)) return false
-        Dobby.setStatus(rely.getBoolean("enabled"))
+        if (!isLoaded) return !enabled
+        Dobby.setStatus(enabled)
+        isEnabled = enabled
         return true
     }
 
-    fun setMotionState(mode: Int, speed: Float, bearing: Float, altitude: Float) {
-        if (isLoaded) Dobby.setMotionState(mode, speed, bearing, altitude)
+    fun setEnabled(rely: Bundle): Boolean = setEnabled(rely.getBoolean("enabled"))
+
+    fun setSensorFrame(
+        frame: com.system.location.service.core.sensors.SensorFrame,
+        syncNanos: Long,
+    ) {
+        if (isLoaded) {
+            Dobby.setSensorFrame(
+                frame.stepCount,
+                frame.stepCadence,
+                syncNanos,
+                frame.accelerometer,
+                frame.gyroscope,
+                frame.magnetometer,
+                frame.barometerHpa,
+            )
+        }
     }
 
     fun disable() {
         if (isLoaded) Dobby.setStatus(false)
+        isEnabled = false
     }
 }

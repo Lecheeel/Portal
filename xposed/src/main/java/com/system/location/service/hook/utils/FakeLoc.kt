@@ -181,6 +181,10 @@ object FakeLoc {
         get() = runtimeSnapshots.current().bearingDeg
         set(value) { runtimeSnapshots.update { it.copy(bearingDeg = value) } }
     @Volatile var reportIntervalMs = 100L
+
+    /** Java-side sensor tuning; Native only consumes the resulting cadence/variation values. */
+    @Volatile var sensorCadenceScale = 1.0
+    @Volatile var sensorVariation = 0.15
     /** P5-02: per-scenario samples; routing falls back to the active fix when a scenario has none. */
     val scenarioSamples = com.system.location.service.core.runtime.ScenarioSampleStore()
 

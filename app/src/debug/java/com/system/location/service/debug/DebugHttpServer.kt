@@ -3,6 +3,7 @@ package com.system.location.service.debug
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorManager
+import android.location.LocationManager
 import android.net.LocalServerSocket
 import android.util.Log
 import com.system.location.service.BuildConfig
@@ -24,6 +25,7 @@ import com.system.location.service.ext.simReady
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.wifiFingerprintEnabled
 import com.system.location.service.runtime.ScenarioRuntime
+import com.system.location.service.service.MockServiceHelper
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
@@ -127,6 +129,7 @@ object DebugHttpServer {
         request.method == "GET" && request.path == "/logs" -> 200 to logs(request)
         request.method == "GET" && request.path == "/targets" -> 200 to targets()
         request.method == "GET" && request.path == "/sensors" -> 200 to sensorHandles()
+        request.method == "GET" && request.path == "/runtime_status" -> 200 to runtimeStatus()
         request.method == "POST" && request.path == "/location" -> location(request.body)
         request.method == "POST" && request.path == "/motion" -> motion(request.body)
         request.method == "POST" && request.path == "/scenario/start" -> location(request.body)
@@ -301,6 +304,19 @@ object DebugHttpServer {
                 put("environment_source", app.environmentSourceMode)
             })
         }.toString()
+    }
+
+    private fun runtimeStatus(): String {
+        val manager = context?.getSystemService(LocationManager::class.java)
+            ?: return """{"ok":false,"error":"location manager unavailable"}"""
+        val status = MockServiceHelper.runtimeStatus(manager)
+            ?: return """{"ok":false,"error":"runtime status unavailable"}"""
+        return json.encodeToString(JsonObject.serializer(), buildJsonObject {
+            put("ok", true)
+            status.keySet().sorted().forEach { key ->
+                put(key, status.get(key)?.toString())
+            }
+        })
     }
 
     private fun sensorHandles(): String {

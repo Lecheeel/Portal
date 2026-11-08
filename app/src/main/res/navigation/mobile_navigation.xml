@@ -15,15 +15,18 @@
 
     <fragment
         android:id="@+id/nav_mock"
-        android:name="com.system.location.service.ui.mock.MockFragment"
-        android:label="@string/menu_mock"
-        tools:layout="@layout/fragment_mock" />
+        android:name="com.system.location.service.ui.mock.SimulationFragment"
+        android:label="@string/simulation_title"
+        tools:layout="@layout/fragment_simulation" />
 
+    <!-- Compatibility destination for existing links; opens the satellite tab. -->
     <fragment
         android:id="@+id/nav_gnss_mock"
-        android:name="com.system.location.service.ui.gnss.GnssMockFragment"
-        android:label="@string/menu_gnss_mock"
-        tools:layout="@layout/fragment_gnss_mock" />
+        android:name="com.system.location.service.ui.mock.SimulationFragment"
+        android:label="@string/simulation_title"
+        tools:layout="@layout/fragment_simulation">
+        <argument android:name="initialTab" app:argType="integer" android:defaultValue="1" />
+    </fragment>
 
     <fragment
         android:id="@+id/nav_route_gallery"

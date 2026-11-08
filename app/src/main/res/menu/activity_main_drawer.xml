@@ -11,12 +11,8 @@
             android:title="@string/menu_home" />
         <item
             android:id="@+id/nav_mock"
-            android:icon="@drawable/baseline_label_important_24"
-            android:title="@string/menu_mock" />
-        <item
-            android:id="@+id/nav_gnss_mock"
-            android:icon="@drawable/baseline_satellite_alt_24"
-            android:title="@string/menu_gnss_mock" />
+            android:icon="@drawable/baseline_location_on_24"
+            android:title="@string/simulation_title" />
         <item
             android:id="@+id/nav_route_gallery"
             android:icon="@drawable/baseline_route_24"

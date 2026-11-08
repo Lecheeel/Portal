@@ -216,6 +216,7 @@ class GnssMockFragment : Fragment() {
         }
 
     private fun setupGnssStatusCallback() {
+        if (gnssStatusCallback != null) return
         gnssStatusCallback = object: GnssStatus.Callback() {
             @SuppressLint("SetTextI18n")
             override fun onSatelliteStatusChanged(status: GnssStatus) {
@@ -286,6 +287,7 @@ class GnssMockFragment : Fragment() {
                 locationManager.registerGnssStatusCallback(gnssStatusCallback!!, null)
             }
         } catch (e: SecurityException) {
+            gnssStatusCallback = null
             CrashReport.postCatchedException(e)
         }
     }
@@ -314,7 +316,9 @@ class GnssMockFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-        if (gnssStatusCallback != null)
+        if (gnssStatusCallback != null) {
             locationManager.unregisterGnssStatusCallback(gnssStatusCallback!!)
+            gnssStatusCallback = null
+        }
     }
 }

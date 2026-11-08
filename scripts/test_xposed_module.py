@@ -55,6 +55,12 @@ class XposedModuleVerificationTest(unittest.TestCase):
                 archive.writestr(name, data)
         return path
 
+    def test_plain_native_elf_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.apk(directory, extra={"lib/arm64-v8a/liblocationext.so": b"\x7fELF"})
+            with self.assertRaisesRegex(ValueError, "plain native payload"):
+                validate_apk(path)
+
     def test_valid_apk_can_reference_framework_api_without_packaging_it(self):
         with tempfile.TemporaryDirectory() as directory:
             validate_apk(self.apk(directory))

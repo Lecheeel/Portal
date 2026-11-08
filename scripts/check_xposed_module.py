@@ -149,6 +149,13 @@ def validate_apk(apk: Path) -> None:
         validate_metadata(resources)
         if "assets/xposed_init" in names:
             raise ValueError(f"{apk.name}: legacy assets/xposed_init remains")
+        native_libs = [name for name in names if name.endswith("/liblocationext.so")]
+        if native_libs:
+            raise ValueError(f"{apk.name}: plain native payload remains in {native_libs[0]}")
+        if "assets/liblocationext.bin" in names:
+            asset = archive.read("assets/liblocationext.bin")
+            if asset.startswith(b"\x7fELF"):
+                raise ValueError(f"{apk.name}: native asset is not encrypted")
         dex_names = [name for name in names if re.fullmatch(r"classes(?:[2-9]|[1-9][0-9]+)?\.dex", name)]
         if names.count("AndroidManifest.xml") != 1 or len(set(dex_names)) != len(dex_names):
             raise ValueError(f"{apk.name}: missing or duplicate manifest/DEX entries")

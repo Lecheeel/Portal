@@ -31,6 +31,26 @@ API 依赖在正式模块使用 `compileOnly`，由框架在目标进程提供�
 
 system_server 支持热重载：`autoHotReload=true`，模块通过 `libxposed:service` 绑定并暴露 targets/hot reload 调试接口。`onHotReloading` 只接受 system_server 且未加载 Native Dobby 的进程，先停止 `LocationTicker`，保存可跨 classloader 的进程状态；`onHotReloaded` 卸载旧句柄、重建 Hook 和 SettingsProvider hook。phone/fused 进程拒绝热重载，仍需重启目标进程；Native Hook 一旦加载也必须重启。运行场景的开始、停止和参数调整仍使用现有运行控制协议。
 
+### 真机调试循环
+
+- Java-only 改动（system_server + phone/fused）：
+
+  ```powershell
+  python scripts/deploy_vector_module.py <apk> --hot-reload --restart-targets
+  ```
+
+  流程：安装 APK → 修 Vector 缓存路径 → system_server 自动热重载（PID 不变）→ kill phone/fused 使其由系统重新拉起并重新注入。v24 实测三个 target 均为 `UP_TO_DATE`，system_server PID 保持不变。
+
+- Native `.so` 改动：
+
+  ```powershell
+  python scripts/deploy_vector_module.py <apk> --native-lib <liblocationext.so>
+  ```
+
+  Dobby inline hook 无法卸载；脚本推送 `.so` 后强制重启 zygote，不尝试热重载。
+
+- 只改位置/配置/场景参数：直接走调试 API `/location`、`/scenario/*`、`/config`，不需要安装 APK 或重启进程。
+
 ## 原生 Hook 与反射
 
 `HookInstaller` 通过框架 `hook(...).setPriority(...).setExceptionMode(...).intercept(...)` 安装，返回原生 `HookHandle`。首次命中记录与业务逻辑共用拦截器，处理注册尚未返回时即发生调用的竞态；installed 与 matched 保持独立含义。

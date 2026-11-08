@@ -104,6 +104,27 @@ def ensure_scope(device: Device, package: str) -> None:
         print("added system/0 scope")
 
 
+def target_pids(device: Device) -> dict[str, str]:
+    result = {}
+    for package in ("com.android.phone", "com.xiaomi.location.fused"):
+        pid = device.shell(f"pidof {package}", check=False).strip()
+        if pid:
+            result[package] = pid
+    return result
+
+
+def restart_target_processes(device: Device) -> None:
+    pids = target_pids(device)
+    if not pids:
+        print("no phone/fused process to restart")
+        return
+    # These are system-spawned processes; killing them makes Android respawn and Vector
+    # reinject the module from the refreshed APK path.
+    device.root("kill -9 " + " ".join(pids.values()))
+    time.sleep(6)
+    print("restarted: " + ", ".join(f"{pkg}={device.shell(f'pidof {pkg}', check=False).strip()}" for pkg in pids))
+
+
 def hot_reload(device: Device, package: str) -> None:
     device.shell("am force-stop " + package, check=False)
     time.sleep(2)
@@ -127,6 +148,8 @@ def main() -> int:
     parser.add_argument("--serial", default=None)
     parser.add_argument("--package", default=PACKAGE)
     parser.add_argument("--hot-reload", action="store_true", help="install and trigger hot reload; no reboot")
+    parser.add_argument("--restart-targets", action="store_true", help="kill phone/fused so they reinject the new APK")
+    parser.add_argument("--native-lib", type=Path, default=None, help="push a new liblocationext.so; requires a restart")
     parser.add_argument("--soft-restart", action="store_true", help="restart zygote instead of a full reboot")
     args = parser.parse_args()
 
@@ -144,9 +167,29 @@ def main() -> int:
     update_db(device, apk_path, args.package)
     ensure_scope(device, args.package)
 
+    if args.native_lib:
+        if not args.native_lib.is_file():
+            raise SystemExit(f"native library not found: {args.native_lib}")
+        # Dobby hook state cannot be unloaded; never hot reload after a native library update.
+        print("pushing native library; restart required")
+        device.run("push", str(args.native_lib), "/data/local/tmp/liblocationext.so")
+        device.root(
+            "mkdir -p /data/local/ext-lib; "
+            "cp /data/local/tmp/liblocationext.so /data/local/ext-lib/liblocationext.so; "
+            "chmod 644 /data/local/ext-lib/liblocationext.so"
+        )
+        args.hot_reload = False
+        args.restart_targets = False
+        args.soft_restart = True
+
     if args.hot_reload:
         hot_reload(device, args.package)
+        if args.restart_targets:
+            restart_target_processes(device)
         return 0
+
+    if args.restart_targets:
+        restart_target_processes(device)
 
     if args.soft_restart:
         device.root("setprop ctl.restart zygote")

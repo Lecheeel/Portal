@@ -173,6 +173,9 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
                 Toast.makeText(context, if (rebuilt) "通道已重建，场景进度已保留" else "重建失败，请查看运行日志并检查授权", Toast.LENGTH_LONG).show()
             }
         }
+        binding.openEnvironmentTools.setOnClickListener {
+            androidx.navigation.Navigation.findNavController(view).navigate(R.id.nav_environment)
+        }
         binding.openLocationProbe.setOnClickListener {
             startActivity(Intent(requireContext(), com.system.location.service.ui.diagnostics.LocationProbeActivity::class.java))
         }

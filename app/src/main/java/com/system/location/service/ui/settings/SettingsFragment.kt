@@ -1,10 +1,7 @@
 package com.system.location.service.ui.settings
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,9 +10,6 @@ import android.widget.CompoundButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -25,22 +19,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.system.location.service.R
 import com.system.location.service.databinding.FragmentSettingsBinding
-import com.system.location.service.environment.EnvironmentCollector
-import com.system.location.service.environment.EnvironmentStore
-import com.system.location.service.ext.environmentReplayJson
 import com.system.location.service.ext.routingJson
-import com.system.location.service.core.environment.EnvironmentProfile
-import com.system.location.service.core.environment.EnvironmentProfileCodec
-import com.system.location.service.core.environment.WifiFingerprintImporter
 import com.system.location.service.core.routing.AppRoute
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.routing.RoutingMode
 import com.system.location.service.core.repository.SavedLocation
 import com.system.location.service.data.repository.LibraryRepositories
 import kotlinx.serialization.json.Json
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
 import com.system.location.service.ext.debug
@@ -48,35 +33,21 @@ import com.system.location.service.ext.disableFusedProvider
 import com.system.location.service.ext.disableGetCurrentLocation
 import com.system.location.service.ext.disableRegisterLocationListener
 import com.system.location.service.ext.disableWifiScan
-import com.system.location.service.ext.hookSensor
 import com.system.location.service.ext.loopBroadcastlocation
 import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
-import com.system.location.service.ext.needOpenSELinux
-import com.system.location.service.ext.environmentApCount
-import com.system.location.service.ext.cellMode
-import com.system.location.service.ext.environmentSourceMode
 import com.system.location.service.ext.physicalNoise
-import com.system.location.service.ext.wifiFingerprintEnabled
-import com.system.location.service.ext.wifiFingerprintCatalogJson
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.experimentalClearMockFlag
-import com.system.location.service.ext.experimentalOrbitMotion
-import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.smoothRouteMotion
-import com.system.location.service.ext.orbitPeriodSeconds
 import com.system.location.service.ext.gmsMockEnabled
 import com.system.location.service.ext.platformFusedEnabled
 import com.system.location.service.ext.startupBurstEnabled
-import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.update.UpdateChecker
 import com.system.location.service.update.UpdateDialogFragment
-import com.system.location.service.ui.viewmodel.MockServiceViewModel
-import com.system.location.service.ui.viewmodel.SettingsViewModel
-import kotlin.getValue
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -84,19 +55,6 @@ class SettingsFragment : Fragment() {
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
     private var updateRequest = 0L
-    private var environmentExport: Pair<String, EnvironmentProfile>? = null
-    private var pendingEnvironmentCapture: (() -> Unit)? = null
-
-    private val bleScanPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        val pending = pendingEnvironmentCapture
-        pendingEnvironmentCapture = null
-        if (granted) {
-            pending?.invoke()
-        } else if (isAdded) {
-            showToast(getString(R.string.environment_ble_permission_denied))
-        }
-    }
-
     private fun launchableApps(): List<android.content.pm.ApplicationInfo> {
         val pm = requireContext().packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -107,78 +65,12 @@ class SettingsFragment : Fragment() {
             .sortedBy { pm.getApplicationLabel(it).toString().lowercase() }
     }
 
-    private val createEnvironmentDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        val pending = environmentExport
-        environmentExport = null
-        if (uri == null || pending == null) return@registerForActivityResult
-        runCatching {
-            requireContext().contentResolver.openOutputStream(uri)?.use { stream ->
-                stream.write(EnvironmentProfileCodec.encode(pending.second).toByteArray(Charsets.UTF_8))
-            } ?: error("无法写入文件")
-        }.onSuccess {
-            if (isAdded) showToast(getString(R.string.environment_export_success))
-        }.onFailure { error ->
-            if (isAdded) showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
-        }
-    }
-
-    private val importEnvironmentDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@registerForActivityResult
-        val appContext = requireContext().applicationContext
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    val raw = appContext.contentResolver.openInputStream(uri)
-                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
-                        ?: error("无法读取文件")
-                    val profile = EnvironmentProfileCodec.decode(raw)
-                    val name = "import-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-                    EnvironmentStore(appContext).save(name, profile)
-                    name
-                }
-            }
-            result.onSuccess { name ->
-                if (isAdded) showToast(getString(R.string.environment_import_success, name))
-            }.onFailure { error ->
-                if (isAdded) showToast(getString(R.string.environment_import_failed, error.message ?: "unknown"))
-            }
-        }
-    }
-
-    private val importWifiFingerprintDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@registerForActivityResult
-        val appContext = requireContext().applicationContext
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    val raw = appContext.contentResolver.openInputStream(uri)
-                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
-                        ?: error("无法读取文件")
-                    val imported = WifiFingerprintImporter.importJson(raw)
-                    appContext.wifiFingerprintCatalogJson =
-                        WifiFingerprintImporter.encodeJson(imported.catalog)
-                    imported
-                }
-            }
-            result.onSuccess { imported ->
-                if (isAdded) showToast("已导入 ${imported.imported} 条 WiFi 指纹")
-            }.onFailure { error ->
-                if (isAdded) showToast("WiFi 指纹导入失败：${error.message ?: "unknown"}")
-            }
-        }
-    }
-
-    private val mockServiceViewModel by activityViewModels<MockServiceViewModel>()
-
     @SuppressLint("SetTextI18n")
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val settingsViewModel =
-            ViewModelProvider(this)[SettingsViewModel::class.java]
-
         _binding = FragmentSettingsBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
@@ -224,35 +116,6 @@ class SettingsFragment : Fragment() {
         binding.startupBurstSwitch.isChecked = context.startupBurstEnabled
         binding.startupBurstSwitch.setOnCheckedChangeListener { _, enabled -> context.startupBurstEnabled = enabled }
         binding.backgroundGuidance.setOnClickListener { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) }
-        binding.environmentListButton.setOnClickListener {
-            val names = EnvironmentStore(context.applicationContext).list()
-            if (names.isEmpty()) {
-                showToast(getString(R.string.environment_list_empty))
-                return@setOnClickListener
-            }
-            showEnvironmentList(names)
-        }
-        fun captureEnvironment() {
-            binding.environmentCaptureButton.isEnabled = false
-            val appContext = context.applicationContext
-            lifecycleScope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val profile = EnvironmentCollector(appContext)
-                            .capture(origin = null, seed = System.currentTimeMillis())
-                        val name = "capture-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-                        EnvironmentStore(appContext).save(name, profile)
-                        Triple(name, profile.wifi.size, profile.cells.size)
-                    }
-                }
-                if (_binding != null) binding.environmentCaptureButton.isEnabled = true
-                result.onSuccess { (name, wifi, cells) ->
-                    if (isAdded) showToast(getString(R.string.environment_capture_saved, name, wifi, cells))
-                }.onFailure { error ->
-                    if (isAdded) showToast(getString(R.string.environment_capture_failed, error.message ?: "unknown"))
-                }
-            }
-        }
         fun showAppPicker(title: String, initiallySelected: Set<String>, onDone: (Set<String>) -> Unit) {
             val pm = requireContext().packageManager
             val apps = launchableApps().sortedBy { pm.getApplicationLabel(it).toString().lowercase() }
@@ -359,9 +222,6 @@ class SettingsFragment : Fragment() {
                 }
             }
         }
-        binding.environmentImportButton.setOnClickListener {
-            importEnvironmentDocument.launch(arrayOf("application/json", "text/plain", "*/*"))
-        }
         binding.restoreConfigButton.setOnClickListener {
             lifecycleScope.launch {
                 val restored = withContext(Dispatchers.IO) {
@@ -370,79 +230,6 @@ class SettingsFragment : Fragment() {
                 showToast(if (restored) getString(R.string.restore_last_config_success)
                     else getString(R.string.restore_last_config_unavailable))
             }
-        }
-        binding.wifiFingerprintSwitch.isChecked = context.wifiFingerprintEnabled
-        binding.wifiFingerprintSwitch.setOnCheckedChangeListener { _, enabled ->
-            context.wifiFingerprintEnabled = enabled
-            applyConfigNowWithToast()
-        }
-        binding.wifiFingerprintImportButton.setOnClickListener {
-            importWifiFingerprintDocument.launch(arrayOf("application/json", "text/plain", "*/*"))
-        }
-        fun apLabel() {
-            binding.environmentApButton.text = getString(R.string.environment_ap_value, context.environmentApCount)
-        }
-        apLabel()
-        binding.environmentApButton.setOnClickListener {
-            showDialog(getString(R.string.environment_ap_title), context.environmentApCount.toString()) { value ->
-                val count = value.toIntOrNull()
-                if (count == null || count !in 1..8) {
-                    showToast("AP 数需在 1 至 8 之间")
-                    return@showDialog
-                }
-                context.environmentApCount = count
-                apLabel()
-                applyConfigNowWithToast()
-            }
-        }
-        fun cellLabel() {
-            binding.cellModeButton.text = getString(R.string.cell_mode_value, context.cellMode)
-        }
-        cellLabel()
-        binding.cellModeButton.setOnClickListener {
-            val modes = arrayOf("AUTO", "FULL_REPLAY", "NO_SIM_WIFI_ONLY", "LEGACY_CDMA")
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.cell_mode_title)
-                .setSingleChoiceItems(modes, modes.indexOf(context.cellMode).coerceAtLeast(0)) { dialog, which ->
-                    context.cellMode = modes[which]
-                    cellLabel()
-                    dialog.dismiss()
-                    applyConfigNowWithToast()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
-        fun sourceLabel() {
-            binding.environmentSourceButton.text =
-                getString(R.string.environment_source_value, context.environmentSourceMode)
-        }
-        sourceLabel()
-        binding.environmentSourceButton.setOnClickListener {
-            val modes = arrayOf("AUTO", "PROCEDURAL", "REPLAY")
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.environment_source_title)
-                .setSingleChoiceItems(modes, modes.indexOf(context.environmentSourceMode).coerceAtLeast(0)) { dialog, which ->
-                    context.environmentSourceMode = modes[which]
-                    sourceLabel()
-                    dialog.dismiss()
-                    applyConfigNowWithToast()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
-        binding.environmentCaptureButton.setOnClickListener {
-            if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                showToast(getString(R.string.environment_capture_requires_location))
-                return@setOnClickListener
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED
-            ) {
-                pendingEnvironmentCapture = { captureEnvironment() }
-                bleScanPermission.launch(Manifest.permission.BLUETOOTH_SCAN)
-                return@setOnClickListener
-            }
-            captureEnvironment()
         }
         binding.smoothRouteSwitch.isChecked = context.smoothRouteMotion
         binding.smoothRouteSwitch.setOnCheckedChangeListener { _, enabled -> context.smoothRouteMotion = enabled }
@@ -461,19 +248,6 @@ class SettingsFragment : Fragment() {
             context.gnssOrbital = orbital
             applyConfigNowWithToast()
         }
-        fun periodLabel() { binding.orbitPeriodButton.text = getString(R.string.orbit_period) + " · " + getString(R.string.orbit_period_value, context.orbitPeriodSeconds) }
-        periodLabel()
-        binding.orbitPeriodButton.setOnClickListener {
-            showDialog(getString(R.string.orbit_period), context.orbitPeriodSeconds.toString()) {
-                val value = it.toDoubleOrNull()
-                if (value == null || !value.isFinite() || value !in 5.0..120.0) { showToast("周期需在5至120秒之间"); return@showDialog }
-                context.orbitPeriodSeconds = value
-                periodLabel()
-                showToast("已保存，下次启动生效")
-            }
-        }
-        binding.selinuxLayout.visibility = View.GONE
-        binding.sensorHookLayout.visibility = View.GONE
         binding.altitudeValue.text = "%.2f米".format(context.altitude)
         binding.speedValue.text = "%.2f米/秒".format(context.speed)
         binding.accuracyValue.text = "%.2f米".format(context.accuracy)
@@ -483,24 +257,6 @@ class SettingsFragment : Fragment() {
             context.experimentalClearMockFlag = enabled
             showToast(if (enabled) "反射清除实验已开启，下次提交生效；系统可能重新标记" else "反射清除实验已关闭")
             com.system.location.service.runtime.ScenarioRuntime.refreshDiagnostics()
-        }
-        binding.orbitMotionSwitch.isChecked = context.experimentalOrbitMotion
-        binding.orbitMotionSwitch.setOnCheckedChangeListener { _, enabled ->
-            context.experimentalOrbitMotion = enabled
-            showToast(if (enabled) "圆周运动实验已开启，下次启动场景生效" else "圆周运动实验已关闭")
-        }
-        binding.orbitRadiusValue.text = "%.2f米".format(context.experimentalOrbitRadius)
-        binding.orbitRadiusLayout.setOnClickListener {
-            showDialog("设置圆周半径（米）", "%.2f".format(context.experimentalOrbitRadius)) {
-                val value = it.toDoubleOrNull()
-                if (value == null || !value.isFinite() || value < 0.05 || value > 5.0) {
-                    showToast("半径需在0.05至5米之间")
-                    return@showDialog
-                }
-                context.experimentalOrbitRadius = value
-                binding.orbitRadiusValue.text = "%.2f米".format(value)
-                showToast("圆周半径已保存，下次启动场景生效")
-            }
         }
         binding.satelliteCountValue.text = "%d颗".format(context.minSatelliteCount)
 
@@ -778,99 +534,6 @@ class SettingsFragment : Fragment() {
                 handler(value.text.toString())
             }
             .setNegativeButton("取消", null)
-            .show()
-    }
-
-    private fun showEnvironmentList(names: List<String>) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.environment_list_title)
-            .setItems(names.toTypedArray()) { _, index -> showEnvironmentActions(names[index]) }
-            .setNeutralButton(R.string.environment_search) { _, _ -> showEnvironmentSearch(names) }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun showEnvironmentSearch(all: List<String>) {
-        val input = TextInputEditText(requireContext()).apply {
-            hint = getString(R.string.environment_search_hint)
-            setSingleLine()
-        }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.environment_search)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val query = input.text?.toString()?.trim().orEmpty()
-                if (query.isEmpty()) return@setPositiveButton
-                val matches = all.filter { it.contains(query, ignoreCase = true) }
-                if (matches.isEmpty()) showToast(getString(R.string.environment_no_match))
-                else showEnvironmentList(matches)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun showEnvironmentActions(name: String) {
-        val appContext = requireContext().applicationContext
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(name)
-            .setItems(arrayOf(
-                getString(R.string.environment_export),
-                getString(R.string.environment_replay),
-                getString(R.string.environment_rename),
-                getString(R.string.environment_delete),
-            )) { _, action ->
-                when (action) {
-                    3 -> {
-                        val deleted = EnvironmentStore(appContext).delete(name)
-                        showToast(if (deleted) getString(R.string.environment_deleted)
-                            else getString(R.string.environment_delete_failed))
-                    }
-                    2 -> {
-                        val input = TextInputEditText(requireContext()).apply {
-                            setText(name)
-                            setSelection(name.length)
-                        }
-                        MaterialAlertDialogBuilder(requireContext())
-                            .setTitle(R.string.environment_rename)
-                            .setView(input)
-                            .setPositiveButton(android.R.string.ok) { _, _ ->
-                                runCatching {
-                                    EnvironmentStore(appContext).rename(
-                                        name, input.text?.toString().orEmpty().trim(),
-                                    )
-                                }.onSuccess {
-                                    showToast(getString(R.string.environment_renamed))
-                                }.onFailure { error ->
-                                    showToast(getString(
-                                        R.string.environment_rename_failed,
-                                        error.message ?: "unknown",
-                                    ))
-                                }
-                            }
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .show()
-                    }
-                    else -> runCatching { EnvironmentStore(appContext).load(name) }
-                        .onSuccess { profile ->
-                            if (action == 0) {
-                                environmentExport = name to profile
-                                createEnvironmentDocument.launch("$name.json")
-                            } else {
-                                requireContext().environmentReplayJson = EnvironmentProfileCodec.encode(profile)
-                                lifecycleScope.launch {
-                                    val applied = withContext(Dispatchers.IO) {
-                                        com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
-                                    }
-                                    showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
-                                }
-                            }
-                        }
-                        .onFailure { error ->
-                            showToast(getString(R.string.environment_export_failed, error.message ?: "unknown"))
-                        }
-                }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 

@@ -12,9 +12,12 @@ import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
 import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.environmentSourceMode
+import com.system.location.service.ext.enableNMEA
 import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.reportDuration
+import com.system.location.service.ext.sensorCadenceScale
+import com.system.location.service.ext.sensorVariation
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.wifiFingerprintEnabled
@@ -122,6 +125,7 @@ object DebugHttpServer {
         request.method == "GET" && request.path == "/logs" -> 200 to logs(request)
         request.method == "GET" && request.path == "/targets" -> 200 to targets()
         request.method == "POST" && request.path == "/location" -> location(request.body)
+        request.method == "POST" && request.path == "/motion" -> motion(request.body)
         request.method == "POST" && request.path == "/scenario/start" -> location(request.body)
         request.method == "POST" && request.path == "/scenario/stop" -> stopScenario()
         request.method == "POST" && request.path == "/config" -> config(request.body)
@@ -228,8 +232,21 @@ object DebugHttpServer {
         return if (started) 200 to status() else 500 to """{"ok":false,"error":"start failed"}"""
     }
 
-    private fun stopScenario(): Pair<Int, String> = 200 to buildJsonObject {
-        val stopped = runBlocking { ScenarioRuntime.stop().await() }
+    private fun motion(body: String): Pair<Int, String> {
+        val obj = parseObject(body)
+        val bearing = obj["bearing"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+        val moving = obj["moving"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: true
+        val strength = obj["strength"]?.jsonPrimitive?.doubleOrNull?.coerceIn(0.0, 1.0) ?: 1.0
+        val applied = runBlocking { ScenarioRuntime.motion(bearing, moving, strength).await() }
+        return 200 to buildJsonObject {
+            put("ok", applied)
+            put("bearing", bearing)
+            put("moving", moving)
+            put("strength", strength)
+        }.toString()
+    }
+
+    private fun stopScenario(): Pair<Int, String> = 200 to buildJsonObject {        val stopped = runBlocking { ScenarioRuntime.stop().await() }
         put("ok", stopped)
         put("phase", ScenarioRuntime.state.value.phase.name)
     }.toString()
@@ -243,6 +260,12 @@ object DebugHttpServer {
                 ?: return 400 to """{"ok":false,"error":"unknown backend"}"""
             runBlocking { ScenarioRuntime.selectBackend(backend).await() }
         }
+        obj["enable_nmea"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()
+            ?.let { app.enableNMEA = it }
+        obj["sensor_cadence_scale"]?.jsonPrimitive?.doubleOrNull
+            ?.let { app.sensorCadenceScale = it.coerceIn(0.5, 2.0) }
+        obj["sensor_variation"]?.jsonPrimitive?.doubleOrNull
+            ?.let { app.sensorVariation = it.coerceIn(0.0, 0.5) }
         obj["speed"]?.jsonPrimitive?.doubleOrNull?.let { app.speed = it.coerceIn(0.0, 1000.0) }
         obj["altitude"]?.jsonPrimitive?.doubleOrNull?.let { app.altitude = it.coerceIn(0.0, 20_000.0) }
         obj["accuracy"]?.jsonPrimitive?.doubleOrNull?.let { app.accuracy = it.toFloat().coerceIn(0.1f, 10_000f) }

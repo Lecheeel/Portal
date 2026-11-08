@@ -47,7 +47,7 @@ system_server 支持热重载：`autoHotReload=true`，模块通过 `libxposed:s
   python scripts/deploy_vector_module.py <apk> --native-lib <liblocationext.so>
   ```
 
-  Dobby inline hook 无法卸载；脚本推送 `.so` 后强制重启 zygote，不尝试热重载。
+  Dobby inline hook 无法卸载；脚本推送 `.so` 后强制重启 zygote，不尝试热重载。已实测该路径：system_server PID 改变，重启后三个 target 均为新 versionCode/`UP_TO_DATE`。
 
 - 只改位置/配置/场景参数：直接走调试 API `/location`、`/scenario/*`、`/config`，不需要安装 APK 或重启进程。
 

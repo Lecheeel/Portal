@@ -665,7 +665,7 @@ P0 阶段至少：
 - 设备：Vector 2.2 (3118)/API 102，Xiaomi 11 Ultra/Android 14；system_server、phone、Xiaomi fused 均加载 `PortalModule`，XPOSED 场景通过调试 API 到 `RUNNING`；instrumentation 为 3 passed / 1 skipped（未收到真实 GPS 基线的 current 用例跳过）。
 - 未完成：phone/fused 进程热重载仍拒绝（需重启目标进程）；Native Dobby 加载后也拒绝热重载；双设备/OEM 矩阵与完整 detector 回归（P6-05）；Python unittest 在本机 DSH 沙箱因临时目录 ACL 假失败，需 CI/Linux 复跑。
 - 热重载：`autoHotReload=true`，v17→v18、v22→v23 两次安装后 system_server PID 保持不变，targets 显示新 versionCode 且 `UP_TO_DATE`；`onHotReloaded` 重新安装 SettingsProvider hook 后 C03/C13 仍 PASS。phone/fused 明确返回 FAILED，符合只支持 system_server 的策略。
-- 目标进程重启：v24 实测 `--hot-reload --restart-targets` 后 system_server PID 2319 不变，phone/fused 被系统重新拉起并注入新 APK，三个 target 均为 `UP_TO_DATE`；Native 更新走 `--native-lib` 强制重启 zygote。
+- 目标进程重启：v24 实测 `--hot-reload --restart-targets` 后 system_server PID 2319 不变，phone/fused 被系统重新拉起并注入新 APK，三个 target 均为 `UP_TO_DATE`；Native 更新走 `--native-lib` 强制重启 zygote，实测 PID 改变且三个 target 均重新注入。
 - detector API：`POST /run` 与 `GET /report` 已验证；最终 C03 PASS（mock_location=0、开发者选项=0）、C13 PASS。
 - 结论：迁移代码/构建 `UNIT TEST VERIFIED` + `BUILD VERIFIED`，设备路径部分验证；不把单设备结果扩大为全量 `DEVICE VERIFIED`。
 

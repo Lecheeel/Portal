@@ -44,7 +44,7 @@ class SimulationFeaturesTest {
                 onView(withId(R.id.startup_burst_switch)).perform(scrollTo()).check(matches(isDisplayed()))
                 captureUi("settings-channels")
                 onView(withId(R.id.smooth_route_switch)).perform(scrollTo()).check(matches(isDisplayed()))
-                onView(withId(R.id.orbit_period_button)).perform(scrollTo()).check(matches(isDisplayed()))
+                onView(withId(R.id.gnss_orbital_switch)).perform(scrollTo()).check(matches(isDisplayed()))
                 onView(withId(R.id.background_guidance)).perform(scrollTo(), click())
                 onView(withText(R.string.background_guidance)).check(matches(isDisplayed()))
                 captureUi("background-guidance")

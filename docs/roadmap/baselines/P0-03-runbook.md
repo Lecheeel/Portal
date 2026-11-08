@@ -1,6 +1,6 @@
 # P0-03 · 设备基线报告 Runbook
 
-> 状态：BLOCKED（本机没有连接设备，也没有可用 Android Emulator）。
+> 状态：DONE（2026-11-08，双设备基线见 [2026-11-08-xiaomi-two-device.md](2026-11-08-xiaomi-two-device.md)）。
 > 目的：把“模拟前 / 模拟中 / 停止后”的 detector 结果固化成可对比的基线。
 
 ---
@@ -90,6 +90,6 @@ P0 至少：
 
 ## 5. 当前阻塞
 
-- 2026-11-06 本机 `adb devices` 为空，SDK 未安装 Emulator；无法产出 `DEVICE VERIFIED`。
-- 解除条件：接入一台目标设备，或安装 Android Emulator + API 35/37 system image。
-- 在此之前，detector 的结果只能标 `BUILD VERIFIED`，不能把 P0-03 标 `DONE`。
+- 2026-11-08：已接入两台设备并完成基线采集；P0-03 不再阻塞。
+- 2026-11-06 的历史记录：本机 `adb devices` 为空，无法产出 `DEVICE VERIFIED`；该条已由双设备基线取代。
+- P6-05 仍受限于第二个 Xposed/LSPosed 版本矩阵，不要把本基线当作 P6-05 完成。

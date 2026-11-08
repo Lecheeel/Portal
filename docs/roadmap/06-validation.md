@@ -657,6 +657,14 @@ P0 阶段至少：
 - 未完成：Kepler/星历/Doppler/钟差模型、`GnssHook` 接线、设备与 detector C13 验证；接线转入 P7-01。
 - 结论：Raw measurement/navigation/antenna 模型、Kepler/Orbital、能力限制均 `UNIT TEST VERIFIED`；默认关；P3-05 `DONE`（可行性/模型范围）。
 
+### P0-03 双设备基线（2026-11-08）
+
+- 设备：A = Xiaomi M2102K1C / HyperOS / Android 14 / APatch / Vector 2.2 / API 102；B = Xiaomi 22041211AC / HyperOS 2.0.10 / Android 14 / 无 Root / 标准 Mock。
+- 状态：两台均完成模拟前 10 s、模拟中 30 s、停止后 10 s 及重启后复测；A 的 XPOSED C01 PASS，B 模拟中 C01 FAIL 是标准 Mock 标记，停止/重启后两台 C01 PASS。
+- C03/C13：两台四个状态均 PASS。
+- 运行时状态：A 的 `authenticatedRuntimeStatusComesFromSystemServer` instrumentation 通过；libxposed 设备测试 3 项为 2 passed / 1 skipped（GPS 基线缺失）。
+- 结论：P0-03 `DONE`；完整报告见 [baselines/2026-11-08-xiaomi-two-device.md](baselines/2026-11-08-xiaomi-two-device.md)。P6-05 仍 TODO（缺第二个 Xposed/LSPosed 版本矩阵）。
+
 ### libxposed API 102 正式迁移
 
 - 变更：正式入口改为 `PortalModule`（`hook/META-INF/xposed`），Hook 直接使用 `XposedInterface` 的 `Hooker`/`Chain`/`HookHandle`；移除 `de.robv.android.xposed`、legacy compat、`assets/xposed_init` 与 manifest 模块 metadata。

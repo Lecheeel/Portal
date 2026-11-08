@@ -76,6 +76,7 @@ object LocationCommand {
         rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
         rely.putBoolean("hide_mock", FakeLoc.hideMock)
         rely.putBoolean("hook_wifi", FakeLoc.hookWifi)
+        rely.putBoolean("enable_mock_wifi", FakeLoc.enableMockWifi)
         rely.putBoolean("need_downgrade_to_2g", FakeLoc.needDowngradeToCdma)
         return true
     }

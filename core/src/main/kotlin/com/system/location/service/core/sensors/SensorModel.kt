@@ -55,18 +55,25 @@ interface SensorModel {
  * The same seed and timestamp sequence always produce the same frames; the model never uses a
  * global RNG. Step counting keeps the fractional remainder so a 1 Hz caller still advances steps.
  */
-class SyntheticSensorModel(seed: Long = 0L) : SensorModel {
+class SyntheticSensorModel(
+    seed: Long = 0L,
+    var tuning: SensorTuning = SensorTuning(seed = seed),
+) : SensorModel {
     private var random = SplitMix64(seed)
     private val seed = seed
     private var lastMillis: Long? = null
     private var fractionalSteps = 0.0
     private var stepCount = 0L
+    private var accelPhase = 0.0
+    private var gyroPhase = 0.0
 
-    fun reset() {
+    fun reset(startStepCount: Long = 0L) {
         random = SplitMix64(seed)
         lastMillis = null
         fractionalSteps = 0.0
-        stepCount = 0L
+        stepCount = startStepCount.coerceAtLeast(0L)
+        accelPhase = 0.0
+        gyroPhase = 0.0
     }
 
     override fun frame(state: MotionState, atMillis: Long): SensorFrame {
@@ -76,12 +83,8 @@ class SyntheticSensorModel(seed: Long = 0L) : SensorModel {
         val dt = if (previous == null) 0.0 else ((atMillis - previous) / 1_000.0).coerceIn(0.0, 5.0)
         val t = atMillis / 1_000.0
 
-        val cadence = when (state.mode) {
-            MotionMode.STILL, MotionMode.VEHICLE -> 0
-            MotionMode.WALK -> 105
-            MotionMode.RUN -> 170
-        }
-        if (cadence > 0 && dt > 0.0) {
+        val cadence = SensorCadence.cadence(state.mode, state.speedMps, tuning, atMillis)
+        if (cadence > 0.0 && dt > 0.0) {
             fractionalSteps += cadence / 60.0 * dt
             val whole = floor(fractionalSteps).toLong()
             if (whole > 0) {
@@ -90,18 +93,34 @@ class SyntheticSensorModel(seed: Long = 0L) : SensorModel {
             }
         }
 
+        val stepHz = when (state.mode) {
+            MotionMode.STILL -> 0.0
+            MotionMode.VEHICLE -> 8.0
+            MotionMode.WALK, MotionMode.RUN -> cadence / 120.0
+        }
+        val gyroHz = when (state.mode) {
+            MotionMode.STILL -> 0.0
+            MotionMode.VEHICLE -> 0.5
+            MotionMode.WALK, MotionMode.RUN -> stepHz
+        }
+        accelPhase = (accelPhase + 2.0 * PI * stepHz * dt) % (2.0 * PI)
+        gyroPhase = (gyroPhase + 2.0 * PI * gyroHz * dt) % (2.0 * PI)
+        val swing = sin(accelPhase)
+        val gyroSwing = sin(gyroPhase)
+        val amplitude = 1.0 + tuning.variability * 0.15 * sin(2.0 * PI * 0.07 * t)
+
         val noise = { scale: Double -> (random.nextGaussian() * scale).toFloat() }
         val (ax, az) = when (state.mode) {
             MotionMode.STILL -> 0.0 to 9.81 + random.nextGaussian() * 0.02
-            MotionMode.WALK -> 0.45 * sin(2 * PI * 1.6 * t + 0.5) to 9.81 + 1.4 * sin(2 * PI * 1.6 * t)
-            MotionMode.RUN -> 1.2 * sin(2 * PI * 2.7 * t + 0.4) to 9.81 + 2.8 * sin(2 * PI * 2.7 * t)
-            MotionMode.VEHICLE -> 0.2 * sin(2 * PI * 8.0 * t) to 9.81 + 0.15 * sin(2 * PI * 8.0 * t)
+            MotionMode.WALK -> 0.45 * swing * amplitude to 9.81 + 1.4 * swing * amplitude
+            MotionMode.RUN -> 1.2 * swing * amplitude to 9.81 + 2.8 * swing * amplitude
+            MotionMode.VEHICLE -> 0.2 * swing * amplitude to 9.81 + 0.15 * swing * amplitude
         }
         val gyroZ = when (state.mode) {
             MotionMode.STILL -> 0.005
-            MotionMode.WALK -> 0.08 * sin(2 * PI * 1.6 * t)
-            MotionMode.RUN -> 0.22 * sin(2 * PI * 2.7 * t)
-            MotionMode.VEHICLE -> 0.012 * sin(2 * PI * 0.5 * t)
+            MotionMode.WALK -> 0.08 * gyroSwing * amplitude
+            MotionMode.RUN -> 0.22 * gyroSwing * amplitude
+            MotionMode.VEHICLE -> 0.012 * gyroSwing
         }
         val bearingRad = Math.toRadians(state.bearingDeg)
         val magnetometerX = cos(bearingRad) * 25.0 + random.nextGaussian() * 0.3
@@ -115,7 +134,7 @@ class SyntheticSensorModel(seed: Long = 0L) : SensorModel {
             magnetometer = floatArrayOf(magnetometerX.toFloat(), magnetometerY.toFloat(), magnetometerZ.toFloat()),
             barometerHpa = (pressure + random.nextGaussian() * 0.02).toFloat(),
             stepCount = stepCount,
-            stepCadence = cadence,
+            stepCadence = kotlin.math.round(cadence).toInt(),
             activity = state.mode.toActivity(),
         )
     }

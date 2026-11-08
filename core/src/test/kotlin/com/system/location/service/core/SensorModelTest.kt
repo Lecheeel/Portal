@@ -4,6 +4,7 @@ import com.system.location.service.core.sensors.ActivityKind
 import com.system.location.service.core.sensors.MotionMode
 import com.system.location.service.core.sensors.MotionState
 import com.system.location.service.core.sensors.SensorFrame
+import com.system.location.service.core.sensors.SensorTuning
 import com.system.location.service.core.sensors.SyntheticSensorModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -34,8 +35,8 @@ class SensorModelTest {
         val model = SyntheticSensorModel(seed = 2)
         val frames = (1..10).map { model.frame(state.copy(mode = MotionMode.WALK, speedMps = 1.4), 1_000L * it) }
         val last = frames.last()
-        assertEquals(105, last.stepCadence)
-        assertTrue("steps=${last.stepCount}", last.stepCount in 15L..20L)
+        assertTrue("cadence=${last.stepCadence}", last.stepCadence in 90..135)
+        assertTrue("steps=${last.stepCount}", last.stepCount in 14L..24L)
         assertEquals(ActivityKind.WALKING, last.activity)
     }
 
@@ -49,11 +50,27 @@ class SensorModelTest {
         }
         val walk = walkFrames.last()
         val run = runFrames.last()
-        assertEquals(170, run.stepCadence)
+        assertTrue("run cadence=${run.stepCadence}", run.stepCadence in 140..185)
+        assertTrue("walk cadence=${walk.stepCadence}", run.stepCadence > walk.stepCadence)
         assertTrue(run.stepCount > walk.stepCount)
         assertTrue(runFrames.maxOf { amplitude(it.accelerometer) } >
             walkFrames.maxOf { amplitude(it.accelerometer) })
         assertEquals(ActivityKind.RUNNING, run.activity)
+    }
+
+    @Test
+    fun cadenceScaleAndVariationAreAdjustableWithoutChangingNativeCode() {
+        val stateWalk = state.copy(mode = MotionMode.WALK, speedMps = 1.4)
+        val base = SyntheticSensorModel(seed = 11, tuning = SensorTuning(cadenceScale = 1.0, variability = 0.0))
+            .frame(stateWalk, 8_000L)
+        val faster = SyntheticSensorModel(seed = 11, tuning = SensorTuning(cadenceScale = 1.4, variability = 0.0))
+            .frame(stateWalk, 8_000L)
+        assertTrue(faster.stepCadence > base.stepCadence)
+
+        val varied = SyntheticSensorModel(seed = 12, tuning = SensorTuning(cadenceScale = 1.0, variability = 0.35))
+            .frame(stateWalk, 8_000L)
+        assertTrue(varied.stepCadence > 0)
+        assertTrue(varied.stepCadence != base.stepCadence || varied.accelerometer != base.accelerometer)
     }
 
     @Test

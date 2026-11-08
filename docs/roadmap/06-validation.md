@@ -685,6 +685,7 @@ P0 阶段至少：
 - NMEA/GNSS：新增主动 `GnssSignalInjection`（GnssManagerService / callback 注册），不再依赖真实 GNSS 回调；`enable_nmea=true` 后 A/B 的 C06/C07 均 PASS（GGA/RMC/GSA/GSV/GST/ZDA 齐全、校验和/UTC/卫星数自洽）；detector GST 字段数 off-by-one 已修。
 - Native 痕迹：ext-lib 仅 `/data/local/ext-lib/liblocationext.so`（root:system 0650、`system_file`），部署临时文件删除；移除 no-op `SensorEventQueue::write` hook；Dobby 后恢复 RX（实测 system_server maps 无 `rwxp`）；日志不再使用 `LSPosed-Bridge`/源路径；HIDL 与 AIDL `convertToSensorEvent` 均 hook。
 - C14 限制：C14 只读 detector 自身 `/proc/self/maps`，不能看到 system_server 的 Native 映射；C14 的 root `su` 失败按用户要求不处理。public APK 载荷、root 可见的 ext-lib 路径/maps 仍是残余暴露，P6-03 保持 WIP。
+- 匿名加载尝试：app 侧 memfd + Binder PFD 的 `/proc/self/fd/N` 加载在 A 设备未成功，已回退到 `system_file` ext-lib；不把 memfd 作为交付能力。
 - 验证：JVM 482 项 0 失败；`check_native_syntax.py --link` 四 ABI 通过（静态 libc++）；Native APK 实际加载/libc++/SELinux 已在 A 设备通过。
 
 ### P6-01 libxposed API 102（spike）

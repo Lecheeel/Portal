@@ -9,11 +9,31 @@ import java.util.concurrent.TimeUnit
 /** Explicit experimental path; never changes SELinux policy or grants world write access. */
 object NativeLibraryInstaller {
     const val DESTINATION = "/data/local/ext-lib/liblocationext.so"
+    private const val ASSET = "liblocationext.bin"
+    private val KEY = byteArrayOf(
+        0xA7.toByte(), 0x3C, 0x91.toByte(), 0x5E,
+        0xD2.toByte(), 0x44, 0xBB.toByte(), 0x6F,
+    )
+
+    /** Decode encrypted payload to app-private cache; removed after the privileged copy. */
+    private fun decodedAsset(context: Context): File? = runCatching {
+        val encoded = context.assets.open(ASSET).use { it.readBytes() }
+        require(encoded.size > 64)
+        val decoded = ByteArray(encoded.size) { index ->
+            (encoded[index].toInt() xor KEY[index % KEY.size].toInt()).toByte()
+        }
+        File(context.cacheDir, "liblocationext.so").apply { writeBytes(decoded) }
+    }.getOrNull()
+
     fun install(context: Context): BackendResult {
         if (Build.SUPPORTED_ABIS.firstOrNull() != "arm64-v8a") return BackendResult.Failure("NATIVE_ABI",
             "当前 Native 路径只评估 arm64 固定符号布局", "改用标准 Mock 或 Xposed 后端")
-        val source = File(context.applicationInfo.nativeLibraryDir, "liblocationext.so")
-        if (!source.isFile) return BackendResult.Failure("NATIVE_LIBRARY", "APK 中未找到 Native 库", "检查安装包 ABI")
+        val decoded = decodedAsset(context)
+        val source = decoded ?: File(context.applicationInfo.nativeLibraryDir, "liblocationext.so")
+        if (!source.isFile) {
+            decoded?.delete()
+            return BackendResult.Failure("NATIVE_LIBRARY", "APK 中未找到 Native 库", "检查安装包 ABI")
+        }
         fun quote(path: String) = "'" + path.replace("'", "'\\''") + "'"
         val directory = "/data/local/ext-lib"
         val temporary = "$DESTINATION.tmp"
@@ -37,5 +57,6 @@ object NativeLibraryInstaller {
                     "检查 Root 授权和系统访问策略；不会自动关闭 SELinux")
             } finally { process.inputStream.close(); process.outputStream.close(); process.errorStream.close() }
         } catch (error: Exception) { BackendResult.Failure("NATIVE_ROOT", error.message ?: "无法运行 su", "选择无 Root 模式或配置 Root") }
+        finally { decoded?.delete() }
     }
 }

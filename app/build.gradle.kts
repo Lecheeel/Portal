@@ -103,6 +103,8 @@ android {
             useLegacyPackaging = true
             excludes += "lib/armeabi/**"
             excludes += "lib/x86/**"
+            // Native payload ships as an encrypted asset; the plain ELF is never in lib/.
+            excludes += "**/liblocationext.so"
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

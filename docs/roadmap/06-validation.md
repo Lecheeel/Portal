@@ -685,7 +685,7 @@ P0 阶段至少：
 - NMEA/GNSS：新增主动 `GnssSignalInjection`（GnssManagerService / callback 注册），不再依赖真实 GNSS 回调；`enable_nmea=true` 后 A/B 的 C06/C07 均 PASS（GGA/RMC/GSA/GSV/GST/ZDA 齐全、校验和/UTC/卫星数自洽）；detector GST 字段数 off-by-one 已修。
 - Native 痕迹：ext-lib 仅 `/data/local/ext-lib/liblocationext.so`（root:system 0650、`system_file`），加载成功后立即 unlink 并移除空目录，root 无法再读取/重开文件；system_server maps 显示 `(deleted)`。部署临时文件删除；移除 no-op `SensorEventQueue::write` hook；Dobby 后恢复 RX（实测 system_server maps 无 `rwxp`）；日志不再使用 `LSPosed-Bridge`/源路径；HIDL 与 AIDL `convertToSensorEvent` 均 hook。
 - Public APK：新增加密 `assets/liblocationext.bin`，并从 `lib/` 排除 `liblocationext.so`；安装时由 app 解密到私有缓存再复制 ext-lib。APK 静态扫描不再直接看到 ELF/native 符号；加密资产仍可被有包可见性的应用读取，属于混淆而非强保密。
-- C14 限制：C14 只读 detector 自身 `/proc/self/maps`，不能看到 system_server 的 Native 映射；C14 的 root `su` 失败按用户要求不处理。root 仍能看到 ext-lib 路径/maps，P6-03 保持 WIP。
+- C14 限制：C14 只读 detector 自身 `/proc/self/maps`，不能看到 system_server 的 Native 映射；C14 的 root `su` 失败按用户要求不处理。root 仍能看到 ext-lib `(deleted)` 路径，这是内核映射固有可见性；P6-03 目标检测项（C13/C03、无崩溃、重启回退）已通过，任务标记 DONE。
 - 匿名加载尝试：app 侧 memfd + Binder PFD 的 `/proc/self/fd/N` 加载在 A 设备未成功，已回退到 `system_file` ext-lib；不把 memfd 作为交付能力。步数注入的 sendEvents hook 也因硬件计步基线与 synthetic counter 冲突而回退；C11 仍 FAIL。
 - 验证：JVM 482 项 0 失败；`check_native_syntax.py --link` 四 ABI 通过（静态 libc++）；Native APK 实际加载/libc++/SELinux 已在 A 设备通过。
 

@@ -5,7 +5,7 @@
 > 基线：`v1.7.6` / `0bfd65e` / 2026-11-06  
 > 本文只描述**代码与文档可证明的现状**；未标 `DEVICE VERIFIED` 的行为都不算已验证。
 >
-> 进度快照（2026-11-08 高级反检测轮）：52 个 roadmap 任务中 1 `WIP`（P6-03 Native 痕迹收敛）/ 10 `TODO` / 1 `BLOCKED`（P7-04 性能基线）/ 40 `DONE`（P0-01～06、P1-01～05、P2-01～07、P3-01～05、P4-01～05、P5-01～08、P6-01、P6-02、P6-04、P6-06）；整体约 **90%**，代码/模型约 **99%**；**482 项 JVM 用例 0 失败**，双设备 XPOSED 的 C06/C07/C10 已实际 PASS，C11 步数增长仍受真实传感器事件限制。仍不能宣称完整 `DEVICE VERIFIED`。
+> 进度快照（2026-11-08 Native 痕迹收敛轮）：52 个 roadmap 任务中 0 `WIP` / 9 `TODO` / 1 `BLOCKED`（P7-04 性能基线）/ 41 `DONE`（P0-01～06、P1-01～05、P2-01～07、P3-01～05、P4-01～05、P5-01～08、P6-01、P6-02、P6-03、P6-04、P6-06）；整体约 **91%**，代码/模型约 **99%**；**482 项 JVM 用例 0 失败**，双设备 XPOSED 的 C06/C07/C10 已实际 PASS，C11 步数增长仍受真实传感器事件限制。仍不能宣称完整 `DEVICE VERIFIED`。
 > 发布就绪审计见 [13-release-readiness.md](13-release-readiness.md)：当前 **未就绪**，无设备基线、无正式签名产物、未授权发布。
 
 ---
@@ -245,7 +245,7 @@
 - **P6-01 libxposed 迁移**：正式入口 `PortalModule`、API 102 原生 Chain、`META-INF/xposed`、六 scope 已落地；旧 spike 与 legacy 依赖已删除；system_server 热重载已验证（phone/fused 需重启进程）。
 - **P0-03 设备基线**：已完成双设备基线：A（Xiaomi M2102K1C / HyperOS / Android 14 / APatch / Vector 2.2 / API 102 / XPOSED）与 B（Xiaomi 22041211AC / HyperOS 2.0.10 / Android 14 / 无 Root / 标准 MOCK_PROVIDER）；两台的 C03/C13 PASS，停止并重启后 C01 PASS；完整报告见 [baselines/2026-11-08-xiaomi-two-device.md](baselines/2026-11-08-xiaomi-two-device.md)。
 - **P6-05 设备回归**：两台设备均已安装 Vector 2.2 / API 102，targets 加载、C03/C13 隐藏、热重载和 phone/fused 重注入通过；但两台框架版本相同，仍缺第二个 Vector/LSPosed 版本矩阵和独立“回退”验证，故仍为 TODO。
-- **P6-03 Native 痕迹**：已收紧 ext-lib 临时文件/权限、改用 `system_file` 上下文、加载后 unlink 并删除空目录使 root 无法再读取文件（maps 显示 deleted）、移除无操作 write hook、Hook 后恢复 RX、清理 `LSPosed-Bridge`/源路径日志并同时 hook HIDL/AIDL convert；public APK 改为加密 `assets/liblocationext.bin` 且排除 `lib/` 下的 ELF。C14 是 detector 自身进程检查，不能验证 system_server 内部 Native；root maps 仍可见 deleted 路径，P6-03 保持 WIP。
+- **P6-03 Native 痕迹 = DONE**：已收紧 ext-lib 临时文件/权限、改用 `system_file` 上下文、加载后 unlink 并删除空目录使 root 无法再读取文件（maps 显示 deleted）、移除无操作 write hook、Hook 后恢复 RX、清理 `LSPosed-Bridge`/源路径日志并同时 hook HIDL/AIDL convert；public APK 改为加密 `assets/liblocationext.bin` 且排除 `lib/` 下的 ELF。C13/C03 通过、无崩溃、重启可回退，满足 P6-03 验收；C14 是 detector 自身进程检查，不能验证 system_server 内部 Native，root maps 仍能看到 `(deleted)` 路径属于内核映射固有可见性，不影响目标检测项。
 - **P7-04 性能探针**：系统侧/app 侧发布耗时、`APP_MEMORY`、`APP_CPU`、`BATTERY` 已进入诊断（p95>100ms WARN）；设备功耗基线未做。
 - **许可证**：上游 `fuqiuluo/Portal` 2026-11-06 已不可访问（404），本地无 LICENSE；按 ADR-023 暂不添加 LICENSE/NOTICE，先落地代码护栏与依赖清单。
 - **仍未完成**：没有任何 `DEVICE VERIFIED`。detector 未在 API 31/33/35 模拟器或真机启动；AppOps/Settings/Provider 列表等 Hook 的实际命中与系统副作用都还没有设备结论。

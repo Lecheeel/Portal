@@ -212,7 +212,7 @@ P0 基线
 |---|---|---|---|---|---|---|
 | P6-01 | libxposed 迁移 spike（历史） | 原 API 102 原型；已被正式原生入口取代并删除 | 原“旧 API 可回退”验收方案已废止；当前设备验收见迁移说明 | P4 | L | DONE（历史记录） |
 | P6-02 | Xposed 元数据隐藏 | 第三方 `PackageManager` 查询移除 manifest `xposedmodule` 等键；系统/LSPosed 保留 | detector C13 看不到 Xposed 元数据 | P6-01 | M | DONE |
-| P6-03 | Native 隐藏实验 | 参考 Kail：符号解析、`/proc/self/maps`/痕迹；默认关 | 目标检测项改善；无崩溃；可重启回退 | P6-01/P4-04 | L | WIP |
+| P6-03 | Native 隐藏实验 | 参考 Kail：符号解析、`/proc/self/maps`/痕迹；默认关 | 目标检测项改善；无崩溃；可重启回退 | P6-01/P4-04 | L | DONE |
 | P6-04 | 安全/权限审查 | 导出组件、IPC、日志、Bugly、包可见性 | 无高危项；权限最小化 | P5 | M | DONE |
 | P6-05 | Phase 6 设备回归 | 2 台 + LSPosed 版本矩阵 | 加载/隐藏/回退通过 | P6-02/03 | M | TODO |
 | P6-06 | 文档/默认值对齐 | README、设置页、实验标记 | 不再宣称未实现能力；实验默认关 | 全阶段 | S | DONE |

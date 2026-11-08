@@ -62,7 +62,9 @@ object NativeLibraryInstaller {
 
     /** Remove the named copy after System.load; the mapping remains valid but the file is gone. */
     fun removeInstalled(): Boolean = runCatching {
-        val process = ProcessBuilder("su", "-c", "rm -f '$DESTINATION'").redirectErrorStream(true).start()
+        val process = ProcessBuilder(
+            "su", "-c", "rm -f '$DESTINATION'; rmdir '/data/local/ext-lib' 2>/dev/null || true",
+        ).redirectErrorStream(true).start()
         process.waitFor(10, TimeUnit.SECONDS) && process.exitValue() == 0
     }.getOrDefault(false)
 }

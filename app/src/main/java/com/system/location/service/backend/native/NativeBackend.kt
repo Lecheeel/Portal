@@ -29,6 +29,8 @@ class NativeBackend(private val context: Context) : LocationBackend {
         if (loaded != "success") return BackendResult.Failure("NATIVE_LOAD", loaded ?: "系统进程拒绝加载", "检查 Root/SELinux 和 ABI，或改用 Xposed 后端")
         if (!MockServiceHelper.prepareNative(manager)) return BackendResult.Failure("NATIVE_SYMBOLS",
             "当前 ROM 缺少所需符号，或 Hook 安装失败", "改用 Xposed 后端；Native 不保证兼容当前系统")
+        // Keep the mapping, remove the named file: root can no longer read or re-open it.
+        NativeLibraryInstaller.removeInstalled()
         return BackendResult.Success
     }
     override suspend fun start(): BackendResult {

@@ -59,4 +59,10 @@ object NativeLibraryInstaller {
         } catch (error: Exception) { BackendResult.Failure("NATIVE_ROOT", error.message ?: "无法运行 su", "选择无 Root 模式或配置 Root") }
         finally { decoded?.delete() }
     }
+
+    /** Remove the named copy after System.load; the mapping remains valid but the file is gone. */
+    fun removeInstalled(): Boolean = runCatching {
+        val process = ProcessBuilder("su", "-c", "rm -f '$DESTINATION'").redirectErrorStream(true).start()
+        process.waitFor(10, TimeUnit.SECONDS) && process.exitValue() == 0
+    }.getOrDefault(false)
 }

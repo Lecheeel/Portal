@@ -19,6 +19,13 @@ class SettingsSwitchUiTest {
     @Test fun sharedSwitchAnimatesBetweenOffAndOn() {
         com.system.location.service.privacy.SdkPrivacy.acceptMaps()
         grantUiPermissions()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        fun shell(command: String): String = automation.executeShellCommand(command).use {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(it).bufferedReader().readText().trim()
+        }
+        val oldScale = shell("settings get global animator_duration_scale")
+        shell("settings put global animator_duration_scale 1")
+        try {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             val checked = androidx.compose.runtime.mutableStateOf(false)
             scenario.onActivity { activity ->
@@ -57,6 +64,10 @@ class SettingsSwitchUiTest {
                 org.junit.Assert.assertNotEquals("Animation must have an intermediate frame", moving, on)
                 node.assertIsOn()
             } finally { compose.mainClock.autoAdvance = true }
+        }
+        } finally {
+            if (oldScale == "null") shell("settings delete global animator_duration_scale")
+            else shell("settings put global animator_duration_scale $oldScale")
         }
     }
 

@@ -14,4 +14,5 @@
     <string name="crash_reporting_pending_restart">已保存开启选择，下次启动应用生效；本次运行不会重新启动采集，但之前已启动的上传任务可能继续</string>
     <string name="crash_reporting_withdraw_failed">关闭未完全完成，请重试。已优先停止新增采集和自动任务，但已启动的上传线程（含重试）可能继续；若保存失败，请再次确认关闭并重新启动应用</string>
     <string name="crash_reporting_enable_failed">崩溃上报未开启，请重试；若服务已停止，再次开启将在下次启动应用生效</string>
+    <string name="tencent_privacy_message">地图展示、地点搜索、地址查询和步行规划使用腾讯位置服务，相关位置、搜索内容及设备信息会按腾讯隐私政策处理。真实位置通过 Android 系统定位获取。\n\n请先阅读腾讯隐私政策并选择是否同意。拒绝将退出应用。Bugly 崩溃上报仍由设置单独控制，默认关闭。</string>
 </resources>

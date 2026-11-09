@@ -79,6 +79,7 @@
             android:exported="false"
             android:foregroundServiceType="location"
             tools:ignore="ForegroundServicePermission" />
+        <meta-data android:name="TencentMapSDK" android:value="${TENCENT_MAP_KEY}" />
         <meta-data
             android:name="com.amap.api.v2.apikey"
             android:value="${AMAP_ANDROID_KEY}" />

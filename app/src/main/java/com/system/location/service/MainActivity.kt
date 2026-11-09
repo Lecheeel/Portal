@@ -52,6 +52,8 @@ import com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener
 import com.amap.api.services.geocoder.RegeocodeAddress
 import com.amap.api.services.geocoder.RegeocodeResult
 import com.google.android.material.navigation.NavigationView
+import com.system.location.service.maps.*
+import com.system.location.service.privacy.TencentPrivacy
 import com.system.location.service.privacy.SdkPrivacy
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -125,7 +127,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // super restores NavHost and its MapViews synchronously.
         // Discard old UI state unless consent is confirmed and the map SDK is ready.
-        super.onCreate(if (SdkPrivacy.mapsAccepted && SdkPrivacy.mapsReady) savedInstanceState else null)
+        super.onCreate(if (selectedMapsReady()) savedInstanceState else null)
 
         // Edge-to-Edge full immersion layout
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -190,7 +192,6 @@ class MainActivity : AppCompatActivity() {
                     ViewCompat.requestApplyInsets(binding.appBarMain.root)
                 }
                 startupUpdateViewModel.check()
-                initializeGeocoder()
             }
         }
 
@@ -207,11 +208,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun awaitMapConsent(): Boolean {
-        if (SdkPrivacy.mapsAccepted && SdkPrivacy.mapsReady) return true
+        if (selectedMapsReady()) return true
         return suspendCancellableCoroutine { continuation ->
             val dialog = MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.map_privacy_title)
-                .setMessage(R.string.map_privacy_message)
+                .setMessage(if (mapProvider == MapProvider.TENCENT) R.string.tencent_privacy_message else R.string.map_privacy_message)
                 .setCancelable(false)
                 .setNegativeButton(R.string.map_privacy_decline) { _, _ ->
                     if (continuation.isActive) continuation.resume(false)
@@ -221,11 +222,11 @@ class MainActivity : AppCompatActivity() {
                 .create()
             dialog.setOnShowListener {
                 dialog.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).setOnClickListener {
-                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://lbs.amap.com/pages/privacy/"))) }
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(if (mapProvider == MapProvider.TENCENT) "https://lbs.qq.com/userAgreements/agreements/privacy" else "https://lbs.amap.com/pages/privacy/"))) }
                         .onFailure { Toast.makeText(this, R.string.map_privacy_no_browser, Toast.LENGTH_LONG).show() }
                 }
                 dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
-                    runCatching { SdkPrivacy.acceptMaps() }.onSuccess {
+                    runCatching { if (mapProvider == MapProvider.TENCENT) TencentPrivacy.accept(this) else SdkPrivacy.acceptMaps() }.onSuccess {
                         if (continuation.isActive) continuation.resume(true)
                         dialog.dismiss()
                     }.onFailure { Toast.makeText(this, it.message ?: getString(R.string.privacy_save_failed), Toast.LENGTH_LONG).show() }
@@ -236,24 +237,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun initializeGeocoder() {
-        aMapViewModel.mGeoCoder = GeocodeSearch(this)
-        aMapViewModel.mGeoCoder?.setOnGeocodeSearchListener(object : OnGeocodeSearchListener {
-            override fun onGeocodeSearched(result: GeocodeResult?, code: Int) {}
-
-            override fun onRegeocodeSearched(result: RegeocodeResult?, code: Int) {
-                if (code != 1000 || result == null) {
-                    Log.e("MainActivity", "Reverse GeoCode error: ")
-                    return
-                }
-                with(aMapViewModel) {
-                    val addr: RegeocodeAddress = result.regeocodeAddress
-                    markName = addr.formatAddress
-                }
-            }
-        })
-
-    }
+    private fun selectedMapsReady(): Boolean = if (mapProvider == MapProvider.TENCENT)
+        TencentPrivacy.ready(this) else SdkPrivacy.mapsAccepted && SdkPrivacy.mapsReady
 
     fun onUpdateChannelChanged() {
         startupUpdateViewModel.channelChanged()

@@ -17,6 +17,7 @@ import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.system.location.service.maps.*
 import com.system.location.service.R
 import com.system.location.service.databinding.FragmentSettingsBinding
 import com.system.location.service.ext.routingJson
@@ -75,6 +76,33 @@ class SettingsFragment : Fragment() {
         val root: View = binding.root
 
         val context = requireContext()
+        binding.mapProviderButton.text = "地图服务 · ${context.mapProvider.label}"
+        binding.mapProviderButton.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext()).setTitle("地图服务")
+                .setSingleChoiceItems(MapProvider.entries.map { it.label }.toTypedArray(), context.mapProvider.ordinal) { dialog, which ->
+                    val selected = MapProvider.entries[which]
+                    dialog.dismiss()
+                    if (selected != context.mapProvider) {
+                        val message = if (selected == MapProvider.TENCENT) getString(R.string.tencent_privacy_message)
+                            else getString(R.string.map_privacy_message)
+                        MaterialAlertDialogBuilder(requireContext()).setTitle("切换到${selected.label}")
+                            .setMessage(message)
+                            .setNeutralButton("查看政策") { _, _ ->
+                                runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(
+                                    if (selected == MapProvider.TENCENT) "https://lbs.qq.com/userAgreements/agreements/privacy" else "https://lbs.amap.com/pages/privacy/"))) }
+                            }
+                            .setNegativeButton("取消", null)
+                            .setPositiveButton("同意并切换") { _, _ ->
+                                runCatching {
+                                    if (selected == MapProvider.TENCENT) com.system.location.service.privacy.TencentPrivacy.accept(context)
+                                    else com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+                                    context.mapProvider = selected
+                                    requireActivity().recreate()
+                                }.onFailure { showToast(it.message ?: "切换失败") }
+                            }.show()
+                    }
+                }.setNegativeButton("取消", null).show()
+        }
         val privacy = com.system.location.service.privacy.SdkPrivacy
         binding.crashReportingSwitch.isChecked = privacy.crashReportingRequested
         binding.crashReportingSwitch.contentDescription = getString(

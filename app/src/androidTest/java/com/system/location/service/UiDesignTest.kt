@@ -51,6 +51,8 @@ class UiDesignTest {
                     assertArrayEquals("Map must start at the full-screen content origin", rootPosition, mapPosition)
                     assertEquals("Map must fill the content width", activity.binding.drawerLayout.width, map.width)
                     assertEquals("Map must extend behind the action panel", activity.binding.drawerLayout.height, map.height)
+                    assertEquals("The vendor map must retain its full viewport", map.height, map.getChildAt(0).height)
+                    assertEquals(map.width, map.getChildAt(0).width)
                     assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
                     geometry = listOf(mapPosition[0], mapPosition[1], map.width, map.height, search.top.toInt(), bottom.bottom.toInt())
                 }
@@ -142,6 +144,12 @@ class UiDesignTest {
             assertTrue("Search must avoid the status bar", search.top >= 48f)
             assertTrue("Search must avoid side insets", search.left >= 12f && search.right <= mapWidth - 16f)
             assertTrue("Start action must avoid navigation bar", start.bottom <= mapHeight - 32f)
+            for (description in listOf("切换地图图层", "选择模拟目标", "输入坐标", "定位到真实位置")) {
+                val button = compose.onNodeWithContentDescription(description).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                assertTrue("$description must avoid side insets", button.left >= 12f && button.right <= mapWidth - 16f)
+                assertTrue("$description must stay inside safe vertical bounds", button.top >= 48f && button.bottom <= mapHeight - 32f)
+                assertTrue("$description must not overlap the start action", button.bottom <= start.top)
+            }
             applyInsets()
             assertEquals(search, compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot)
             assertEquals(start, compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot)

@@ -345,13 +345,13 @@ private fun EnvironmentScreen(
                     value = apInput,
                     onValueChange = { apInput = it.filter(Char::isDigit).take(1) },
                     singleLine = true,
-                    label = { Text("1–8") },
+                    label = { Text("3–8") },
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     val count = apInput.toIntOrNull()
-                    if (count == null || count !in 1..8) {
+                    if (count == null || count !in 3..8) {
                         Toast.makeText(context, apRangeMessage, Toast.LENGTH_SHORT).show()
                     } else {
                         apCount = count

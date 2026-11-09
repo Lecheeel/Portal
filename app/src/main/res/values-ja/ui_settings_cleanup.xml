@@ -14,7 +14,7 @@
     <string name="settings_environment_title">環境とフィンガープリント</string>
     <string name="settings_environment_fingerprint">WiFi フィンガープリント</string>
     <string name="settings_environment_replay">環境の生成と再現</string>
-    <string name="settings_environment_ap_range">AP 数は 1〜8 で指定してください</string>
+    <string name="settings_environment_ap_range">AP 数は 3〜8 で指定してください</string>
     <string name="settings_wifi_imported">WiFi フィンガープリントを %1$d 件インポートしました</string>
     <string name="settings_wifi_import_failed">WiFi フィンガープリントのインポートに失敗しました：%1$s</string>
 </resources>

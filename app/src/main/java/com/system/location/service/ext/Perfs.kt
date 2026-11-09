@@ -1,6 +1,7 @@
 package com.system.location.service.ext
 
 import android.content.Context
+import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.data.repository.*
 import androidx.core.content.edit
 import com.amap.api.maps.AMap
@@ -234,9 +235,9 @@ var Context.gnssOrbital: Boolean
     }
 
 var Context.environmentApCount: Int
-    get() = sharedPrefs.getInt("environmentApCount", 4).coerceIn(1, 8)
+    get() = sharedPrefs.getInt("environmentApCount", 4).coerceIn(EnvironmentConfig.MIN_AP_PER_CELL, EnvironmentConfig.MAX_AP_PER_CELL)
     set(value) = sharedPrefs.edit {
-        putInt("environmentApCount", value.coerceIn(1, 8))
+        putInt("environmentApCount", value.coerceIn(EnvironmentConfig.MIN_AP_PER_CELL, EnvironmentConfig.MAX_AP_PER_CELL))
     }
 
 var Context.cellMode: String

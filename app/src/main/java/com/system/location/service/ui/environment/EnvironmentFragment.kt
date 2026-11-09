@@ -148,7 +148,7 @@ class EnvironmentFragment : Fragment() {
         binding.environmentApButton.setOnClickListener {
             showDialog(getString(R.string.environment_ap_title), context.environmentApCount.toString()) { value ->
                 val count = value.toIntOrNull()
-                if (count == null || count !in 1..8) {
+                if (count == null || count !in 3..8) {
                     showToast(getString(R.string.settings_environment_ap_range))
                     return@showDialog
                 }

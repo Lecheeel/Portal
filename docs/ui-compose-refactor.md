@@ -1,7 +1,14 @@
 # UI Compose 重构路线图
 
-> 状态：**IN PROGRESS**
+> 状态：**主体迁移完成，进入清理阶段**
 > 目标：把现有 XML View + Fragment 的 UI 逐步迁移为统一的声明式 Compose UI，同时保持地图、定位、Xposed 和 Native 能力不变。
+
+## 0. 里程碑
+
+- 所有导航目的地都已有 Compose 实现：运行中心、首页地图、模拟（位置/卫星）、资料库、路线编辑器、环境工具、设置。
+- 统一使用 `:designsystem` 的 `PortalTheme`、`PortalCard`、`PortalActionRow`、`PortalSwitchRow`。
+- 地图、雷达、手势层等 SDK View 通过 `AndroidView` 保留，这是有意边界。
+- 旧 XML/Fragment 仍作为回退保留；单 Activity/Navigation 3 收口与旧代码删除属于清理阶段。
 
 ## 1. 目标与边界
 

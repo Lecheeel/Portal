@@ -29,6 +29,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.amap.api.location.AMapLocationClient
 import com.amap.api.location.AMapLocationClientOption
+import com.system.location.service.maps.*
+import com.system.location.service.core.geo.Gcj02
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import com.amap.api.maps.AMap
 import com.amap.api.maps.LocationSource
 import com.amap.api.maps.CameraUpdateFactory
@@ -77,15 +81,19 @@ class HomeFragment : Fragment() {
     private val mockServiceViewModel by activityViewModels<MockServiceViewModel>()
 
     private lateinit var mLocationClient: AMapLocationClient
-    private var searchCoordinator: DebouncedSearch<Pair<List<Tip>, Int>>? = null
+    private var searchCoordinator: DebouncedSearch<Result<List<PlaceSuggestion>>>? = null
     private var hasCenteredInitialLocation = false
-    private var selectedMarker: com.amap.api.maps.model.Marker? = null
-    private var originalMarker: com.amap.api.maps.model.Marker? = null
-    private var routePreview: com.amap.api.maps.model.Polyline? = null
+    private var selectedMarker: MapOverlay? = null
+    private var originalMarker: MapOverlay? = null
+    private var routePreview: MapLine? = null
     private var isApplyingLocation = false
-    private var targetGeocoder: GeocodeSearch? = null
+    private var addressJob: Job? = null
+    private var addressGeneration = 0L
+    private var systemLocation: android.location.LocationManager? = null
+    private var systemListener: android.location.LocationListener? = null
     private var blueDotListener: LocationSource.OnLocationChangedListener? = null
     private var displayingSimulation = false
+    private var realLifecycle = RealPositionLifecycle(::realPositioning)
     private var realPositionFilter = PositionFilter()
 
     @SuppressLint("SetTextI18n")
@@ -96,6 +104,7 @@ class HomeFragment : Fragment() {
     ): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
         realPositionFilter = PositionFilter()
+        realLifecycle = RealPositionLifecycle(::realPositioning)
         binding.amapView.onCreate(savedInstanceState)
         val root: View = binding.root
         val search = binding.topSearchBarContainer
@@ -130,57 +139,40 @@ class HomeFragment : Fragment() {
         }
         ViewCompat.requestApplyInsets(root)
 
-        with(aMapViewModel) {
-            isExists = true
-            aMap = binding.amapView.map
-        }
-
+        aMapViewModel.isExists = true
         setupMap()
         setupLocationClient()
         setupSearchBar()
         setupQuickActions()
         setupBottomPanel()
-        aMapViewModel.markedLoc?.let { onTargetLocationUpdated(it, true) }
 
         return root
     }
 
     private fun setupMap() {
-        with(binding.amapView.map) {
-            setMapType(context?.mapType ?: AMap.MAP_TYPE_NORMAL)
-            uiSettings.isCompassEnabled = true
-            uiSettings.isTiltGesturesEnabled = true
-            uiSettings.isMyLocationButtonEnabled = false
-            uiSettings.isZoomControlsEnabled = false
-            uiSettings.isScaleControlsEnabled = true
-            setLocationSource(object : LocationSource {
-                override fun activate(listener: LocationSource.OnLocationChangedListener?) { blueDotListener = listener }
-                override fun deactivate() { blueDotListener = null }
-            })
-
-            // Cold start restore last known location immediately
-            val savedLat = requireContext().lastKnownLat
-            val savedLng = requireContext().lastKnownLng
-            if (savedLat != 0.0 && savedLng != 0.0) {
-                val lastGcj = (savedLat to savedLng).gcj02
-                moveCamera(CameraUpdateFactory.newLatLngZoom(lastGcj, 16f))
-                hasCenteredInitialLocation = true
-            } else {
-                moveCamera(CameraUpdateFactory.zoomTo(16f))
-            }
-
-            setMapConfig(aMapViewModel.perspectiveState, null)
-
-            setOnMapClickListener { loc ->
-                onTargetLocationUpdated(loc.wgs84, true)
-            }
-
-            // Camera navigation never changes the selected or simulated location.
-            renderOriginalPosition()
+        val lat = requireContext().lastKnownLat
+        val lng = requireContext().lastKnownLng
+        if (lat != 0.0 && lng != 0.0) {
+            binding.amapView.move((lat to lng).mapPoint, 16f)
+            hasCenteredInitialLocation = true
         }
+        binding.amapView.onClick { onTargetLocationUpdated(it.storedPoint, true) }
+        renderOriginalPosition()
     }
 
     private fun setupLocationClient() {
+        if (binding.amapView.provider == MapProvider.TENCENT) {
+            systemLocation = requireContext().getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+            systemListener = android.location.LocationListener { loc ->
+                if (_binding == null || !realLifecycle.acceptsFix() || displayingSimulation || mockServiceViewModel.runtimeState.value.isActive || loc.isMock) return@LocationListener
+                val wgs = realPositionFilter.accept(loc.latitude to loc.longitude, loc.time, loc.accuracy, loc.speed) ?: return@LocationListener
+                if (aMapViewModel.rememberOriginalLocation(wgs, loc.isMock, false)) renderOriginalPosition()
+                showCurrentPosition(wgs, loc.accuracy)
+                requireContext().lastKnownLat = wgs.first; requireContext().lastKnownLng = wgs.second
+                if (!hasCenteredInitialLocation) { hasCenteredInitialLocation = true; binding.amapView.move(wgs.mapPoint, 16.5f, true) }
+            }
+            return
+        }
         mLocationClient = AMapLocationClient(requireContext())
         val option = AMapLocationClientOption().apply {
             locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
@@ -193,7 +185,7 @@ class HomeFragment : Fragment() {
         }
         mLocationClient.setLocationOption(option)
         mLocationClient.setLocationListener { loc ->
-            if (_binding == null || displayingSimulation || mockServiceViewModel.runtimeState.value.isActive || loc == null || loc.errorCode != 0 || loc.isMock) return@setLocationListener
+            if (_binding == null || !realLifecycle.acceptsFix() || displayingSimulation || mockServiceViewModel.runtimeState.value.isActive || loc == null || loc.errorCode != 0 || loc.isMock) return@setLocationListener
 
             val wgs = realPositionFilter.accept(loc.wgs84, loc.time, loc.accuracy, loc.speed) ?: return@setLocationListener
             if (aMapViewModel.rememberOriginalLocation(wgs, loc.isMock, mockServiceViewModel.runtimeState.value.isActive)) {
@@ -210,8 +202,7 @@ class HomeFragment : Fragment() {
             // Fly smoothly to user's real location on first fix if not already positioned
             if (!hasCenteredInitialLocation) {
                 hasCenteredInitialLocation = true
-                val gcj = LatLng(loc.latitude, loc.longitude)
-                binding.amapView.map.animateCamera(CameraUpdateFactory.newLatLngZoom(gcj, 16.5f), 700, null)
+                binding.amapView.move(wgs.mapPoint, 16.5f, true)
             }
         }
         aMapViewModel.mLocationClient = mLocationClient
@@ -233,26 +224,35 @@ class HomeFragment : Fragment() {
                 setColor(Color.rgb(5, 120, 90)); cornerRadius = padding.toFloat()
             }
         }
-        originalMarker = binding.amapView.map.addMarker(MarkerOptions()
-            .position(original.gcj02).anchor(0.5f, 1f).zIndex(2f)
-            .icon(com.amap.api.maps.model.BitmapDescriptorFactory.fromView(label))
-            .title("本次打开应用时的原始位置"))
+        originalMarker = binding.amapView.marker(original.mapPoint, "本次打开应用时的原始位置", label)
     }
 
     private fun showCurrentPosition(wgs: Pair<Double, Double>, accuracy: Float) {
         aMapViewModel.currentLocation = wgs
-        val gcj = wgs.gcj02
-        blueDotListener?.onLocationChanged(Location("gps").apply {
-            latitude = gcj.latitude
-            longitude = gcj.longitude
-            this.accuracy = accuracy.coerceAtLeast(0.1f)
-            time = System.currentTimeMillis()
-            elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
-        })
+        binding.amapView.currentPosition(wgs.mapPoint)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun realPositioning(start: Boolean) {
+        if (::mLocationClient.isInitialized) {
+            if (start && !mLocationClient.isStarted) { realPositionFilter = PositionFilter(); mLocationClient.startLocation() }
+            else if (!start && mLocationClient.isStarted) mLocationClient.stopLocation()
+        }
+        val listener = systemListener ?: return
+        systemLocation?.removeUpdates(listener)
+        if (start) {
+            realPositionFilter = PositionFilter()
+            try {
+                for (provider in listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)) {
+                    if (systemLocation?.isProviderEnabled(provider) == true) systemLocation?.requestLocationUpdates(provider, 1000L, 0f, listener, Looper.getMainLooper())
+                }
+            } catch (error: SecurityException) { Log.w("HomeFragment", "Location permission unavailable") }
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        aMapViewModel.markedLoc?.let { onTargetLocationUpdated(it, true) }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 mockServiceViewModel.runtimeState.displayStates().collect { state ->
@@ -261,13 +261,8 @@ class HomeFragment : Fragment() {
                     updateMockButtonState()
                     displayingSimulation = running
                     renderOriginalPosition()
-                    if (running) {
-                        if (mLocationClient.isStarted) mLocationClient.stopLocation()
-                        position?.let { showCurrentPosition(it, requireContext().accuracy) }
-                    } else if (!mLocationClient.isStarted) {
-                        realPositionFilter = PositionFilter()
-                        mLocationClient.startLocation()
-                    }
+                    realLifecycle.simulation(running)
+                    if (running) position?.let { showCurrentPosition(it, requireContext().accuracy) }
                 }
             }
         }
@@ -276,7 +271,7 @@ class HomeFragment : Fragment() {
     private fun setupSearchBar() {
         val ui = binding
         val handler = Handler(Looper.getMainLooper())
-        val search = DebouncedSearch<Pair<List<Tip>, Int>>(
+        val search = DebouncedSearch<Result<List<PlaceSuggestion>>>(
             scheduler = object : CallbackScheduler {
                 override fun post(delayMillis: Long, callback: Runnable) { handler.postDelayed(callback, delayMillis) }
                 override fun remove(callback: Runnable) { handler.removeCallbacks(callback) }
@@ -284,20 +279,13 @@ class HomeFragment : Fragment() {
             query = { ui.etSearchQuery.text?.toString().orEmpty() },
             viewActive = { _binding === ui && isAdded && viewLifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED },
             request = { query, complete ->
-                try {
-                    // Never reuse the SDK listener: every completion belongs to one request.
-                    Inputtips(requireContext(), InputtipsQuery(query, MainActivity.mCityString.orEmpty())).apply {
-                        setInputtipsListener { tips, code ->
-                            handler.post { complete(tips.orEmpty() to code) }
-                        }
-                        requestInputtipsAsyn()
-                    }
-                } catch (error: Exception) {
-                    Log.w("HomeFragment", "Search failed", error)
-                    complete(emptyList<Tip>() to -1)
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try { complete(Result.success(MapServices(requireContext(), ui.amapView.provider).suggestions(query, MainActivity.mCityString.orEmpty()))) }
+                    catch (cancelled: CancellationException) { throw cancelled }
+                    catch (error: Exception) { complete(Result.failure(error)) }
                 }
             },
-            render = { (tips, code) -> renderInputTips(tips, code) },
+            render = { result -> renderInputTips(result) },
         )
         searchCoordinator = search
         // Menu button opens the drawer in MainActivity
@@ -343,34 +331,32 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun renderInputTips(tips: List<Tip>, code: Int) {
+    private fun renderInputTips(result: Result<List<PlaceSuggestion>>) {
         val ui = _binding ?: return
-        val candidates = tips.filter { it.point != null }
-        if (code != 1000 || candidates.isEmpty()) {
+        val candidates = result.getOrElse {
             ui.cardSearchResults.visibility = View.GONE
+            Toast.makeText(requireContext(), it.message ?: "地点搜索失败", Toast.LENGTH_LONG).show()
             return
         }
-        val data = candidates.toPoi(aMapViewModel.currentLocation).map { it.toMap() }
-        ui.lvSearchResults.adapter = SimpleAdapter(
-            requireContext(), data, R.layout.layout_search_poi_item,
+        if (candidates.isEmpty()) { ui.cardSearchResults.visibility = View.GONE; return }
+        val data = candidates.map { place ->
+            val point = place.point.storedPoint
+            mapOf(Poi.KEY_NAME to place.name, Poi.KEY_ADDRESS to place.address,
+                Poi.KEY_LONGITUDE_RAW to point.second.toString(), Poi.KEY_LATITUDE_RAW to point.first.toString(), Poi.KEY_TAG to "")
+        }
+        ui.lvSearchResults.adapter = SimpleAdapter(requireContext(), data, R.layout.layout_search_poi_item,
             arrayOf(Poi.KEY_NAME, Poi.KEY_ADDRESS, Poi.KEY_LONGITUDE_RAW, Poi.KEY_LATITUDE_RAW, Poi.KEY_TAG),
-            intArrayOf(R.id.poi_name, R.id.poi_address, R.id.poi_longitude, R.id.poi_latitude, R.id.poi_tag)
-        )
+            intArrayOf(R.id.poi_name, R.id.poi_address, R.id.poi_longitude, R.id.poi_latitude, R.id.poi_tag))
         ui.cardSearchResults.visibility = View.VISIBLE
     }
 
     private fun setupQuickActions() {
         // Toggle Normal / Satellite View
         binding.fabMapType.setOnClickListener {
-            val current = binding.amapView.map.mapType
-            val next = if (current == AMap.MAP_TYPE_NORMAL) AMap.MAP_TYPE_SATELLITE else AMap.MAP_TYPE_NORMAL
-            binding.amapView.map.setMapType(next)
-            requireContext().mapType = next
-            Toast.makeText(
-                requireContext(),
-                if (next == AMap.MAP_TYPE_SATELLITE) "已切换为卫星图" else "已切换为标准图",
-                Toast.LENGTH_SHORT
-            ).show()
+            val next = !requireContext().satelliteMap
+            binding.amapView.satellite(next)
+            requireContext().satelliteMap = next
+
         }
 
         // Toggle Route Preview
@@ -381,9 +367,7 @@ class HomeFragment : Fragment() {
                 val route = requireContext().selectRoute?.route
                 if (!route.isNullOrEmpty()) {
                     previewRoute(route)
-                    binding.amapView.map.animateCamera(
-                        CameraUpdateFactory.newLatLngZoom(route.first().gcj02, 16f)
-                    )
+                    binding.amapView.move(route.first().mapPoint, 16f, true)
                     binding.fabToggleRoute.imageTintList = android.content.res.ColorStateList.valueOf(
                         ContextCompat.getColor(requireContext(), R.color.primary)
                     )
@@ -410,9 +394,9 @@ class HomeFragment : Fragment() {
         binding.fabMyLocation.setOnClickListener {
             val cur = aMapViewModel.currentLocation
             if (cur != null) {
-                binding.amapView.map.animateCamera(CameraUpdateFactory.changeLatLng(cur.gcj02))
+                binding.amapView.move(cur.mapPoint, animate = true)
             } else {
-                binding.amapView.map.locateMe()
+                realPositioning(!displayingSimulation)
             }
         }
     }
@@ -505,62 +489,26 @@ class HomeFragment : Fragment() {
         aMapViewModel.markedLoc = wgsLoc
         updateMockButtonState()
         aMapViewModel.markName = null
-        val gcj = wgsLoc.gcj02
+        val gcj = wgsLoc.mapPoint
         binding.tvTargetCoords.text = formatCoordinates(wgsLoc)
         binding.tvTargetCoords.visibility = View.VISIBLE
         binding.tvTargetName.text = "已选位置"
         binding.tvTargetAddress.text = "正在获取地址…"
-
-        // Place marker on map
         selectedMarker?.remove()
-        val marker = MarkerOptions()
-            .position(gcj)
-            .icon(aMapViewModel.mMapIndicator)
-        selectedMarker = aMapViewModel.aMap.addMarker(marker.title("待确认位置"))
-
-        if (animate) {
-            hasCenteredInitialLocation = true
-            binding.amapView.map.animateCamera(CameraUpdateFactory.changeLatLng(gcj), 400, null)
-        }
-
-        // Reverse Geocode
-        try {
-            if (targetGeocoder == null) {
-                targetGeocoder = GeocodeSearch(requireContext())
-                targetGeocoder?.setOnGeocodeSearchListener(object : GeocodeSearch.OnGeocodeSearchListener {
-                    override fun onRegeocodeSearched(result: RegeocodeResult?, code: Int) {
-                        if (_binding == null) return
-                        if (result == null) {
-                            binding.tvTargetAddress.text = "地址暂不可用"
-                            return
-                        }
-                        val current = aMapViewModel.markedLoc?.gcj02 ?: return
-                        val queried = result.regeocodeQuery.point
-                        if (kotlin.math.abs(current.latitude - queried.latitude) > 0.000001 ||
-                            kotlin.math.abs(current.longitude - queried.longitude) > 0.000001) return
-                        if (code != 1000) {
-                            binding.tvTargetAddress.text = "地址暂不可用"
-                            return
-                        }
-                        val addr = result.regeocodeAddress.formatAddress
-                        aMapViewModel.markName = addr
-                        binding.tvTargetName.text = if (result.regeocodeAddress.pois.isNotEmpty()) {
-                            result.regeocodeAddress.pois.first().title
-                        } else {
-                            result.regeocodeAddress.district ?: "已选位置"
-                        }
-                        binding.tvTargetAddress.text = addr.ifBlank { "地址暂不可用" }
-                    }
-
-                    override fun onGeocodeSearched(result: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
-                })
-            }
-            targetGeocoder?.getFromLocationAsyn(
-                RegeocodeQuery(LatLonPoint(gcj.latitude, gcj.longitude), 200f, GeocodeSearch.AMAP)
-            )
-        } catch (e: Exception) {
-            binding.tvTargetAddress.text = "地址暂不可用"
-            Log.w("HomeFragment", "Reverse geocoding failed", e)
+        selectedMarker = binding.amapView.marker(gcj, "待确认位置", selected = true)
+        if (animate) { hasCenteredInitialLocation = true; binding.amapView.move(gcj, animate = true) }
+        addressJob?.cancel()
+        val generation = ++addressGeneration
+        val ui = binding
+        addressJob = viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val address = MapServices(requireContext(), ui.amapView.provider).address(gcj)
+                if (_binding !== ui || generation != addressGeneration) return@launch
+                aMapViewModel.markName = address.address
+                ui.tvTargetName.text = address.title.ifBlank { "已选位置" }
+                ui.tvTargetAddress.text = address.address.ifBlank { "地址暂不可用" }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { if (_binding === ui && generation == addressGeneration) ui.tvTargetAddress.text = error.message ?: "地址暂不可用" }
         }
     }
 
@@ -570,9 +518,7 @@ class HomeFragment : Fragment() {
 
     private fun previewRoute(points: List<Pair<Double, Double>>) {
         routePreview?.remove()
-        if (points.size >= 2) routePreview = aMapViewModel.aMap.addPolyline(
-            PolylineOptions().color(Color.argb(200, 59, 130, 246)).width(12f).addAll(points.map { it.gcj02 })
-        )
+        if (points.size >= 2) routePreview = binding.amapView.line(points.map { it.mapPoint }, Color.argb(200, 59, 130, 246), 12f)
     }
 
     @SuppressLint("SetTextI18n")
@@ -649,10 +595,14 @@ class HomeFragment : Fragment() {
             .show()
     }
 
+    override fun onStart() { super.onStart(); _binding?.amapView?.onStart() }
+    override fun onStop() { _binding?.amapView?.onStop(); super.onStop() }
     override fun onResume() {
         super.onResume()
         if (_binding != null) {
             binding.amapView.onResume()
+            displayingSimulation = mockServiceViewModel.runtimeState.value.isActive
+            realLifecycle.resume(displayingSimulation)
             updateMockButtonState()
         }
     }
@@ -660,6 +610,7 @@ class HomeFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         if (_binding != null) {
+            realLifecycle.pause()
             binding.amapView.onPause()
         }
     }
@@ -679,13 +630,14 @@ class HomeFragment : Fragment() {
         routePreview = null
         isApplyingLocation = false
         aMapViewModel.isExists = false
-        targetGeocoder?.setOnGeocodeSearchListener(null)
-        targetGeocoder = null
+        ++addressGeneration
+        addressJob?.cancel(); addressJob = null
+        realLifecycle.destroy()
+        systemListener = null; systemLocation = null
         if (::mLocationClient.isInitialized) {
             mLocationClient.stopLocation()
             mLocationClient.onDestroy()
         }
-        binding.amapView.map.isMyLocationEnabled = false
         binding.amapView.onDestroy()
         super.onDestroyView()
         _binding = null

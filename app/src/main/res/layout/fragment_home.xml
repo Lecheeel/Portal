@@ -8,7 +8,7 @@
     tools:context=".ui.home.HomeFragment">
 
     <!-- 1. Full Screen Immersive Map -->
-    <com.amap.api.maps.MapView
+    <com.system.location.service.maps.PortalMapView
         android:id="@+id/amapView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

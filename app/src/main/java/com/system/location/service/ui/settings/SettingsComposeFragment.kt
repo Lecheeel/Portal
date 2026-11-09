@@ -29,6 +29,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import com.system.location.service.ui.viewmodel.SettingsViewModel
+import com.system.location.service.ui.viewmodel.RestoreConfigState
+import com.system.location.service.core.runtime.RuntimePhase
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -82,6 +86,7 @@ import kotlinx.serialization.json.Json
 
 /** Settings presentation; preference writes continue through the existing configuration API. */
 class SettingsComposeFragment : Fragment() {
+    private val model by viewModels<SettingsViewModel>()
     private val revision = MutableStateFlow(0)
     private var updateRequest = 0L
     private var numberDialog: androidx.appcompat.app.AlertDialog? = null
@@ -106,9 +111,11 @@ class SettingsComposeFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             val revisionState = revision.collectAsStateWithLifecycle()
+            val restoreState by model.restore.collectAsStateWithLifecycle()
             PortalTheme {
                 SettingsScreen(
                     revision = revisionState.value,
+                    restoreState = restoreState,
                     onMapProvider = ::showMapProvider,
                     onEditAltitude = {
                         editNumber("设置海拔高度", context.altitude.toString()) { raw ->
@@ -155,7 +162,7 @@ class SettingsComposeFragment : Fragment() {
                     },
                     onAppRouting = ::showAppRouting,
                     onAppPoint = ::showAppPoint,
-                    onRestoreConfig = ::restoreConfig,
+                    onRestoreConfig = model::restoreLastConfig,
                     onBackgroundGuidance = { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) },
                     onCrashReporting = { enabled -> setCrashReporting(enabled) },
                     onUpdateChannel = ::showUpdateChannel,
@@ -322,13 +329,6 @@ class SettingsComposeFragment : Fragment() {
             .show()
     }
 
-    private fun restoreConfig() {
-        lifecycleScope.launch {
-            val restored = withContext(Dispatchers.IO) { ScenarioRuntime.restoreLastConfig() }
-            showToast(if (restored) getString(R.string.restore_last_config_success) else getString(R.string.restore_last_config_unavailable))
-        }
-    }
-
     private fun setCrashReporting(enabled: Boolean) {
         runCatching { SdkPrivacy.setCrashReporting(enabled) }
             .onSuccess {
@@ -413,6 +413,7 @@ private data class SettingsValues(
 @Composable
 private fun SettingsScreen(
     revision: Int,
+    restoreState: RestoreConfigState,
     onMapProvider: () -> Unit,
     onEditAltitude: () -> Unit,
     onEditAccuracy: () -> Unit,
@@ -610,7 +611,9 @@ private fun SettingsScreen(
                         PortalSectionTitle("分应用与配置")
                         PortalActionRow("分应用路由（实验）", "仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled)
                         PortalActionRow("分应用固定点（实验）", "仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled)
-                        PortalActionRow("恢复上次配置", onClick = onRestoreConfig)
+                        PortalActionRow("恢复并启动上次场景", "恢复上次保存的参数，并立即启动模拟。", onRestoreConfig,
+                            enabled = runtime.phase == RuntimePhase.IDLE && !restoreState.busy)
+                        restoreState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                     }
                 }
                 item(key = "privacy") {

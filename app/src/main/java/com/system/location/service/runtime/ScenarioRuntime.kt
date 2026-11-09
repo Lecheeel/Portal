@@ -22,6 +22,9 @@ import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.ext.experimentalOrbitMotion
 import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
+import com.system.location.service.ext.altitude
+import com.system.location.service.ext.accuracy
+import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.environmentReplayJson
 import com.system.location.service.ext.environmentSourceMode
 import com.system.location.service.ext.environmentApCount
@@ -134,13 +137,11 @@ object ScenarioRuntime {
     fun initialize() { initialized.start() }
 
     /** Restore and start the last successfully persisted config; never auto-starts on boot. */
-    suspend fun restoreLastConfig(): Boolean {
-        initialize()
-        initialized.await()
-        if (state.value.phase != RuntimePhase.IDLE) return false
+    suspend fun restoreLastConfig(): Boolean = command {
+        if (state.value.phase != RuntimePhase.IDLE) return@command false
         val saved = withContext(Dispatchers.IO) {
             runCatching { configStore.load() }.getOrNull()
-        } ?: return false
+        } ?: return@command false
         withContext(Dispatchers.IO) {
             context.routingJson = Json.encodeToString(RoutingConfig.serializer(), saved.routing)
             context.environmentApCount = saved.environment.apPerCell
@@ -149,66 +150,74 @@ object ScenarioRuntime {
             context.environmentReplayJson = replayJson
             context.environmentSourceMode = EnvironmentRestorePolicy.sourceMode(saved.environment.source, replayJson)
             context.physicalNoise = saved.noise.enabled
+            context.speed = saved.scenario.profile.speedMps
+            context.altitude = saved.scenario.profile.altitudeMeters
+            context.accuracy = saved.scenario.profile.accuracyMeters
+            context.reportDuration = saved.scenario.profile.intervalMs.toInt()
+            context.smoothRouteMotion = saved.scenario.profile.smoothMotion
         }
-        return start(saved.scenario).await()
-    }
+        startLocked(saved.scenario.frozen())
+    }.await()
 
     fun selectBackend(type: BackendType) = command {
         controller.selectBackend(type).also { if (it) preferences.edit().putString("backend", type.name).commit() }
     }
-    fun start(scenario: Scenario) : Deferred<Boolean> {
+    fun start(scenario: Scenario): Deferred<Boolean> {
         val frozen = scenario.frozen()
-        return command {
-            try {
-                if (service == null) {
-                    ready = CompletableDeferred()
-                    val request = serviceStarts.begin()
-                    withContext(Dispatchers.Main) {
-                        ContextCompat.startForegroundService(context, Intent(context, ScenarioService::class.java)
-                            .putExtra(ScenarioService.REQUEST, request))
-                    }
-                    withTimeout(10_000) { ready.await() }
+        return command { startLocked(frozen) }
+    }
+
+    /** Caller holds commands; restore and start must not interleave with another accepted command. */
+    private suspend fun startLocked(frozen: Scenario): Boolean {
+        return try {
+            if (service == null) {
+                ready = CompletableDeferred()
+                val request = serviceStarts.begin()
+                withContext(Dispatchers.Main) {
+                    ContextCompat.startForegroundService(context, Intent(context, ScenarioService::class.java)
+                        .putExtra(ScenarioService.REQUEST, request))
                 }
-                check(preferences.edit().putBoolean("interrupted", true).commit()) { "无法持久化运行标记" }
-                controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
-                val started = controller.start(frozen)
-                if (started) {
-                    withContext(Dispatchers.IO) {
-                        runCatching {
-                            val revision = (configStore.load()?.revision ?: 0L) + 1L
-                            val routing = context.routingJson.takeIf { it.isNotBlank() }
-                                ?.let { Json.decodeFromString(RoutingConfig.serializer(), it) }
-                                ?: RoutingConfig()
-                            val replay = context.environmentReplayJson.isNotBlank() ||
-                                context.environmentSourceMode == "REPLAY"
-                            val environment = EnvironmentConfig(
-                                source = if (replay) EnvironmentSourceType.REPLAY else EnvironmentSourceType.PROCEDURAL,
-                                apPerCell = context.environmentApCount.coerceIn(3, 8),
-                                cellMode = runCatching { CellMode.valueOf(context.cellMode) }
-                                    .getOrDefault(CellMode.AUTO),
-                            )
-                            configStore.save(ConfigEnvelope(
-                                revision = revision,
-                                scenario = frozen,
-                                routing = routing,
-                                environment = environment,
-                                noise = NoiseProfile(enabled = context.physicalNoise),
-                                updatedAtMillis = System.currentTimeMillis(),
-                                replayEnvironmentJson = context.environmentReplayJson.takeIf { it.isNotBlank() },
-                            ))
-                        }.onFailure { controller.note("CONFIG_STORE", "FAILED", it.message ?: "配置保存失败") }
-                    }
+                withTimeout(10_000) { ready.await() }
+            }
+            check(preferences.edit().putBoolean("interrupted", true).commit()) { "无法持久化运行标记" }
+            controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
+            val started = controller.start(frozen)
+            if (started) {
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val revision = (configStore.load()?.revision ?: 0L) + 1L
+                        val routing = context.routingJson.takeIf { it.isNotBlank() }
+                            ?.let { Json.decodeFromString(RoutingConfig.serializer(), it) }
+                            ?: RoutingConfig()
+                        val replay = context.environmentReplayJson.isNotBlank() ||
+                            context.environmentSourceMode == "REPLAY"
+                        val environment = EnvironmentConfig(
+                            source = if (replay) EnvironmentSourceType.REPLAY else EnvironmentSourceType.PROCEDURAL,
+                            apPerCell = context.environmentApCount.coerceIn(3, 8),
+                            cellMode = runCatching { CellMode.valueOf(context.cellMode) }
+                                .getOrDefault(CellMode.AUTO),
+                        )
+                        configStore.save(ConfigEnvelope(
+                            revision = revision,
+                            scenario = frozen,
+                            routing = routing,
+                            environment = environment,
+                            noise = NoiseProfile(enabled = context.physicalNoise),
+                            updatedAtMillis = System.currentTimeMillis(),
+                            replayEnvironmentJson = context.environmentReplayJson.takeIf { it.isNotBlank() },
+                        ))
+                    }.onFailure { controller.note("CONFIG_STORE", "FAILED", it.message ?: "配置保存失败") }
                 }
-                started.also {
-                    startupBurst = if (it && context.startupBurstEnabled && state.value.backend == BackendType.MOCK_PROVIDER)
-                        StartupBurst(state.value.scenarioId, state.value.startedAt) else null
-                    service?.reschedule()
-                }
-            } catch (cancelled: CancellationException) {
-                if (cancelled !is TimeoutCancellationException) throw cancelled
-                failStart(cancelled)
-            } catch (error: Exception) { failStart(error) }
-        }
+            }
+            started.also {
+                startupBurst = if (it && context.startupBurstEnabled && state.value.backend == BackendType.MOCK_PROVIDER)
+                    StartupBurst(state.value.scenarioId, state.value.startedAt) else null
+                service?.reschedule()
+            }
+        } catch (cancelled: CancellationException) {
+            if (cancelled !is TimeoutCancellationException) throw cancelled
+            failStart(cancelled)
+        } catch (error: Exception) { failStart(error) }
     }
 
     private suspend fun failStart(error: Exception): Boolean {

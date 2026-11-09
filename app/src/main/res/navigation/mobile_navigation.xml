@@ -9,7 +9,7 @@
 
     <fragment
         android:id="@+id/nav_home"
-        android:name="com.system.location.service.ui.home.HomeFragment"
+        android:name="com.system.location.service.ui.home.HomeComposeFragment"
         android:label="@string/menu_home"
         tools:layout="@layout/fragment_home" />
 
@@ -51,6 +51,7 @@
         android:label="@string/menu_setting"
         tools:layout="@layout/fragment_settings" />
 </navigation>
+
 
 
 

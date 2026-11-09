@@ -21,9 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
@@ -86,6 +84,7 @@ import kotlinx.serialization.json.Json
 class SettingsComposeFragment : Fragment() {
     private val revision = MutableStateFlow(0)
     private var updateRequest = 0L
+    private var numberDialog: androidx.appcompat.app.AlertDialog? = null
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> refresh() }
 
     override fun onStart() {
@@ -128,7 +127,7 @@ class SettingsComposeFragment : Fragment() {
                         }
                     },
                     onEditReportInterval = {
-                        editNumber("设置上报间隔", context.reportDuration.toString()) { raw ->
+                        editNumber("设置上报间隔", context.reportDuration.toString(), decimal = false) { raw ->
                             val value = raw.toIntOrNull() ?: error("上报间隔不合法")
                             require(value in 50..1_000) { "上报间隔需在 50–1000 ms 之间" }
                             context.reportDuration = value
@@ -144,7 +143,7 @@ class SettingsComposeFragment : Fragment() {
                         }
                     },
                     onEditSatelliteCount = {
-                        editNumber("设置最小模拟卫星数量", context.minSatelliteCount.toString()) { raw ->
+                        editNumber("设置最小模拟卫星数量", context.minSatelliteCount.toString(), decimal = false) { raw ->
                             val value = raw.toIntOrNull() ?: error("数量不合法")
                             require(value in 0..35) { "卫星数量需在 0–35 之间" }
                             context.minSatelliteCount = value
@@ -174,27 +173,37 @@ class SettingsComposeFragment : Fragment() {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
-    private fun editNumber(title: String, initial: String, onValue: (String) -> Unit) {
-        var input by mutableStateOf(initial)
-        var error by mutableStateOf<String?>(null)
-        val dialog = android.app.AlertDialog.Builder(requireContext())
+    override fun onDestroyView() {
+        numberDialog?.dismiss()
+        numberDialog = null
+        super.onDestroyView()
+    }
+
+    private fun editNumber(title: String, initial: String, decimal: Boolean = true, onValue: (String) -> Unit) {
+        numberDialog?.dismiss()
+        val input = android.widget.EditText(requireContext()).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                if (decimal) android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL else 0
+            setText(initial)
+            setSelectAllOnFocus(true)
+            isSingleLine = true
+        }
+        val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle(title)
-            .setView(android.widget.EditText(requireContext()).apply {
-                setText(initial)
-                setSelectAllOnFocus(true)
-                addTextChangedListener(object : android.text.TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                        input = s?.toString().orEmpty()
-                    }
-                    override fun afterTextChanged(s: android.text.Editable?) = Unit
-                })
-            })
-            .setPositiveButton("保存") { _, _ -> runCatching { onValue(input) }.onFailure { error = it.message } }
+            .setView(input)
+            .setPositiveButton("保存", null)
             .setNegativeButton("取消", null)
             .create()
-        dialog.setOnDismissListener { error?.let { showToast(it) } }
+        numberDialog = dialog
+        dialog.setOnShowListener {
+            dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                runCatching { onValue(input.text.toString().trim()) }
+                    .onSuccess { dialog.dismiss() }
+                    .onFailure { input.error = it.message ?: "输入不合法"; input.requestFocus() }
+            }
+        }
         dialog.show()
+        input.requestFocus()
     }
 
     private fun showMapProvider() {

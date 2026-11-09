@@ -30,7 +30,7 @@ class SimulationFragment : Fragment(R.layout.fragment_simulation) {
         selectedTab = position
         val tag = "simulation_tab_$position"
         val active = childFragmentManager.findFragmentByTag(tag)
-            ?: if (position == 0) MockFragment() else GnssMockFragment()
+            ?: if (position == 0) MockComposeFragment() else GnssMockFragment()
         childFragmentManager.beginTransaction().apply {
             childFragmentManager.fragments.filter { it !== active }.forEach {
                 hide(it)

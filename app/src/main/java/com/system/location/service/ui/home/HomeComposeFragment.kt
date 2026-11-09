@@ -72,6 +72,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
@@ -631,11 +633,15 @@ private fun HomeScreen(
         )
     }
 
+    var bottomPanelHeight by remember { mutableStateOf(0) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val mapBottomInset = with(density) { bottomPanelHeight.toDp() } + 24.dp +
+        WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
     Box(Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx -> createMap(ctx) },
             update = { it.visibility = if (location.mapVisible) View.VISIBLE else View.INVISIBLE },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().padding(bottom = mapBottomInset),
         )
         if (!location.mapVisible) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {}
@@ -701,7 +707,7 @@ private fun HomeScreen(
                 HomeMapButton(R.drawable.ic_home_coordinates, "输入坐标") { coordinateDialog = true }
                 HomeMapButton(R.drawable.ic_home_locate, "定位到真实位置", onLocate)
             }
-            PortalCard(contentPadding = PaddingValues(12.dp)) {
+            PortalCard(modifier = Modifier.onSizeChanged { bottomPanelHeight = it.height }, contentPadding = PaddingValues(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(

@@ -177,17 +177,14 @@ class UiDesignTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.openPage(scenario, R.id.nav_route_gallery)
             compose.scrollToText("搜索资料").performTextReplacement("不会匹配的记录")
-            compose.onNode(hasScrollToNodeAction()).performScrollToIndex(5)
-            compose.waitUntil(5_000) {
-                compose.onAllNodesWithText("没有匹配的资料").fetchSemanticsNodes().any { it.boundsInRoot.height > 0f }
-            }
             compose.scrollToText("没有匹配的资料").assertIsDisplayed()
             compose.scrollToText("搜索资料").performTextReplacement("")
             compose.scrollToText("位置").performClick()
             compose.waitUntil(5_000) { compose.onAllNodes(hasText("位置") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
             compose.scrollToText("位置").assertIsSelected()
+            val more = compose.scrollToText("更多")
             compose.waitUntil(5_000) { compose.onAllNodes(hasText("更多") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-            compose.scrollToText("更多").performClick()
+            more.assertIsEnabled().performClick()
             compose.onNodeWithText("导入 JSON").assertIsDisplayed()
             compose.onNodeWithText("导出 JSON").assertIsDisplayed()
             compose.onNodeWithText("导入 GPX").assertDoesNotExist()

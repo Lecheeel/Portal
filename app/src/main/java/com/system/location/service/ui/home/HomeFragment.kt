@@ -222,7 +222,9 @@ class HomeFragment : Fragment() {
             realPositionFilter = PositionFilter()
             try {
                 for (provider in listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)) {
-                    if (systemLocation?.isProviderEnabled(provider) == true) systemLocation?.requestLocationUpdates(provider, 1000L, 0f, listener, Looper.getMainLooper())
+                    // Register disabled providers too, so enabling Location can deliver fixes
+                    // without requiring the Fragment to pause and resume first.
+                    if (systemLocation?.allProviders?.contains(provider) == true) systemLocation?.requestLocationUpdates(provider, 1000L, 0f, listener, Looper.getMainLooper())
                 }
             } catch (error: SecurityException) { Log.w("HomeFragment", "Location permission unavailable") }
         }

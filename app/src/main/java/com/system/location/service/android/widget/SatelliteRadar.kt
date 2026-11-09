@@ -40,7 +40,7 @@ data class SatelliteData(
     var screenY: Float = 0f
 )
 
-class SatelliteRadarView(context: Context, attributeSet: AttributeSet): View(context, attributeSet), SensorEventListener {
+class SatelliteRadarView(context: Context, attributeSet: AttributeSet?): View(context, attributeSet), SensorEventListener {
     private var satellites = emptyList<SatelliteData>()
     private val radarPoint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val satellitePaint = Paint(Paint.ANTI_ALIAS_FLAG)

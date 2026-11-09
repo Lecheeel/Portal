@@ -6,7 +6,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import com.google.android.material.tabs.TabLayout
 import com.system.location.service.R
-import com.system.location.service.ui.gnss.GnssMockFragment
+import com.system.location.service.ui.gnss.GnssComposeFragment
 
 /** One navigation destination, with independent location and satellite controls. */
 class SimulationFragment : Fragment(R.layout.fragment_simulation) {
@@ -30,7 +30,7 @@ class SimulationFragment : Fragment(R.layout.fragment_simulation) {
         selectedTab = position
         val tag = "simulation_tab_$position"
         val active = childFragmentManager.findFragmentByTag(tag)
-            ?: if (position == 0) MockComposeFragment() else GnssMockFragment()
+            ?: if (position == 0) MockComposeFragment() else GnssComposeFragment()
         childFragmentManager.beginTransaction().apply {
             childFragmentManager.fragments.filter { it !== active }.forEach {
                 hide(it)
@@ -52,3 +52,5 @@ class SimulationFragment : Fragment(R.layout.fragment_simulation) {
         private const val SELECTED_TAB = "selectedSimulationTab"
     }
 }
+
+

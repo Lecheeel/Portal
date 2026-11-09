@@ -99,6 +99,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
     buildFeatures {
         viewBinding = true
         compose = true
@@ -196,6 +199,7 @@ dependencies {
     implementation(libs.geotools)
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
+    androidTestUtil("androidx.test:orchestrator:1.6.1")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

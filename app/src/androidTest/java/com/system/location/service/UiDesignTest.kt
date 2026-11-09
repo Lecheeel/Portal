@@ -1,37 +1,37 @@
 package com.system.location.service
 
-import android.Manifest
-import android.graphics.Bitmap
+import android.view.View
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import org.junit.Rule
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.navigation.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.*
 import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.*
+import androidx.test.espresso.matcher.ViewMatchers.withId
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.core.runtime.RuntimePhase
 import com.system.location.service.core.runtime.RuntimeState
 import com.system.location.service.core.runtime.SubmissionHealth
 import com.system.location.service.ui.displayStates
-import com.system.location.service.ui.mock.LibraryAdapter
-import com.system.location.service.ui.mock.LibraryRow
-import com.system.location.service.ui.viewmodel.LibraryItem
-import com.system.location.service.ui.viewmodel.LibraryKind
+import com.system.location.service.maps.PortalMapView
+import com.system.location.service.data.repository.LibraryRepositories
+import com.system.location.service.core.repository.SavedRoute
+import com.system.location.service.core.scenario.Route
+import com.system.location.service.core.geo.Wgs84
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
-import android.widget.TextView
 
 @RunWith(AndroidJUnit4::class)
 class UiDesignTest {
+    @get:Rule val compose = createEmptyComposeRule()
     @org.junit.Before fun acceptMapConsentForThisFixture() {
         com.system.location.service.privacy.SdkPrivacy.acceptMaps()
     }
@@ -39,20 +39,19 @@ class UiDesignTest {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             fun homeGeometry(): List<Int> {
-                onView(withId(R.id.topSearchBarContainer)).check(matches(isDisplayed()))
+                compose.onNode(hasSetTextAction()).assertIsDisplayed()
+                compose.onNodeWithText("开始模拟").assertIsDisplayed()
+                val search = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+                val bottom = compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot
                 var geometry = emptyList<Int>()
                 scenario.onActivity { activity ->
-                    val map = activity.findViewById<android.view.View>(R.id.amapView)
+                    val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isShown }.single()
                     val mapPosition = IntArray(2).also { map.getLocationOnScreen(it) }
                     val rootPosition = IntArray(2).also { activity.binding.drawerLayout.getLocationOnScreen(it) }
-                    val search = activity.findViewById<android.view.View>(R.id.topSearchBarContainer)
-                    val searchPosition = IntArray(2).also { search.getLocationOnScreen(it) }
-                    val bottom = activity.findViewById<android.view.View>(R.id.bottomControlCard)
-                    val bottomPosition = IntArray(2).also { bottom.getLocationOnScreen(it) }
                     assertEquals(rootPosition[1], mapPosition[1])
                     assertEquals(activity.binding.drawerLayout.height, map.height)
-                    assertEquals(android.view.View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
-                    geometry = listOf(mapPosition[1], map.height, searchPosition[1], bottomPosition[1] + bottom.height)
+                    assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
+                    geometry = listOf(mapPosition[1], map.height, search.top.toInt(), bottom.bottom.toInt())
                 }
                 return geometry
             }
@@ -91,64 +90,71 @@ class UiDesignTest {
                 scenario.onActivity { activity ->
                     activity.binding.navView.menu.performIdentifierAction(R.id.nav_mock, 0)
                 }
-                onView(withId(R.id.point_name)).perform(scrollTo()).check(matches(isDisplayed()))
+                compose.scrollToText("位置名称").assertIsDisplayed()
                 scenario.onActivity {
                     assertEquals(R.id.nav_mock, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
                 }
             }
             openMock()
             repeat(2) {
-                onView(withId(R.id.library)).perform(scrollTo(), click())
-                onView(withId(R.id.library_search)).check(matches(isDisplayed()))
+                compose.scrollToText("打开资料库").performClick()
+                compose.scrollToText("搜索资料").assertIsDisplayed()
                 if (it == 0) scenario.recreate()
                 openMock()
             }
-            onView(withId(R.id.library)).perform(scrollTo(), click())
+            compose.scrollToText("打开资料库").performClick()
             androidx.test.espresso.Espresso.pressBack()
-            onView(withId(R.id.point_name)).perform(scrollTo()).check(matches(isDisplayed()))
+            compose.scrollToText("位置名称").assertIsDisplayed()
         }
     }
 
     @Test fun edgeToEdgeKeepsMapFullSizeAndControlsInsideSafeInsets() {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            onView(withId(R.id.topSearchBarContainer)).check(matches(isDisplayed()))
+            compose.onNode(hasSetTextAction()).assertIsDisplayed()
+            val insets = androidx.core.view.WindowInsetsCompat.Builder()
+                .setInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars(), androidx.core.graphics.Insets.of(12, 48, 16, 32))
+                .build()
+            fun applyInsets() {
+                scenario.onActivity { androidx.core.view.ViewCompat.dispatchApplyWindowInsets(it.binding.appBarMain.root, insets) }
+                compose.waitForIdle()
+            }
+            applyInsets()
+            val search = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+            val start = compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot
+            var mapWidth = 0
+            var mapHeight = 0
             scenario.onActivity { activity ->
                 val container = activity.binding.appBarMain.root
-                val insets = androidx.core.view.WindowInsetsCompat.Builder()
-                    .setInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars(), androidx.core.graphics.Insets.of(12, 48, 16, 32))
-                    .build()
-                val search = activity.findViewById<android.view.View>(R.id.topSearchBarContainer)
-                androidx.core.view.ViewCompat.dispatchApplyWindowInsets(container, insets)
                 assertEquals(0, container.paddingTop)
                 assertEquals(0, container.paddingBottom)
-                assertTrue(search.paddingTop >= 48)
-                val appliedTop = search.paddingTop
-                androidx.core.view.ViewCompat.dispatchApplyWindowInsets(container, insets)
-                assertEquals(appliedTop, search.paddingTop)
-                val bottom = activity.findViewById<android.view.View>(R.id.bottomControlCard)
-                assertTrue((bottom.layoutParams as android.view.ViewGroup.MarginLayoutParams).bottomMargin >= 32)
-                val map = activity.findViewById<android.view.View>(R.id.amapView)
+                val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isShown }.single()
+                mapWidth = map.width
+                mapHeight = map.height
                 assertEquals(activity.binding.drawerLayout.height, map.height)
-                assertEquals(android.view.View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
-                activity.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_mock)
-                androidx.core.view.ViewCompat.dispatchApplyWindowInsets(container, insets)
+                assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
+            }
+            assertTrue("Search must avoid the status bar", search.top >= 48f)
+            assertTrue("Search must avoid side insets", search.left >= 12f && search.right <= mapWidth - 16f)
+            assertTrue("Start action must avoid navigation bar", start.bottom <= mapHeight - 32f)
+            applyInsets()
+            assertEquals(search, compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot)
+            assertEquals(start, compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot)
+            compose.openPage(scenario, R.id.nav_mock)
+            applyInsets()
+            scenario.onActivity { activity ->
+                val container = activity.binding.appBarMain.root
                 assertEquals(48, container.paddingTop)
                 assertEquals(32, container.paddingBottom)
                 assertEquals(12, container.paddingLeft)
                 assertEquals(16, container.paddingRight)
-                assertEquals(android.view.View.VISIBLE, activity.binding.appBarMain.toolbar.visibility)
+                assertEquals(View.VISIBLE, activity.binding.appBarMain.toolbar.visibility)
             }
         }
     }
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    private fun permissions() {
-        listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.POST_NOTIFICATIONS).forEach {
-            instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, it)
-        }
-    }
+    private fun permissions() = grantUiPermissions()
 
     @Test fun sampleRedrawsAreBoundedWithoutDelayingPauseErrorsOrBackendChanges() = runBlocking {
         val initial = RuntimeState(phase = RuntimePhase.RUNNING)
@@ -168,59 +174,55 @@ class UiDesignTest {
     @Test fun librarySearchCategoriesAndTransferActionsRemainAccessible() {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_gallery) }
-            onView(withId(R.id.library_search)).perform(replaceText("不会匹配的记录"), closeSoftKeyboard())
-            await {
-                var text = ""
-                scenario.onActivity { text = it.findViewById<TextView>(R.id.empty_title).text.toString() }
-                text == instrumentation.targetContext.getString(R.string.ui_library_no_match)
-            }
-            onView(withId(R.id.empty_title)).check(matches(withText(R.string.ui_library_no_match)))
-            onView(withId(R.id.library_search)).perform(replaceText(""), closeSoftKeyboard())
-            onView(withId(R.id.kind_locations)).perform(click())
-            await {
-                var enabled = false
-                scenario.onActivity { enabled = it.findViewById<android.view.View>(R.id.library_more).isEnabled }
-                enabled
-            }
-            onView(withId(R.id.library_more)).perform(click())
-            onView(withText("导入 JSON")).check(matches(isDisplayed()))
-            androidx.test.espresso.Espresso.pressBack()
+            compose.openPage(scenario, R.id.nav_route_gallery)
+            compose.scrollToText("搜索资料").performTextReplacement("不会匹配的记录")
+            compose.scrollToText("没有匹配的资料").assertIsDisplayed()
+            compose.scrollToText("搜索资料").performTextReplacement("")
+            compose.scrollToText("位置").performClick()
+            compose.waitUntil(5_000) { compose.onAllNodes(hasText("位置") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
+            compose.scrollToText("位置").assertIsSelected()
+            compose.waitUntil(5_000) { compose.onAllNodes(hasText("更多") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+            compose.scrollToText("更多").performClick()
+            compose.onNodeWithText("导入 JSON").assertIsDisplayed()
+            compose.onNodeWithText("导出 JSON").assertIsDisplayed()
+            compose.onNodeWithText("导入 GPX").assertDoesNotExist()
+            compose.onNodeWithText("取消").performClick()
             capture("library-empty")
         }
     }
 
-    @Test fun largeLibraryUsesRecycledRowsAndKeepsTheSelectedItemIdentity() {
+    @Test fun largeLibraryUsesLazyRowsAndKeepsTheSelectedItemIdentity() {
         permissions()
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            var clicked: String? = null
-            lateinit var recycler: RecyclerView
-            scenario.onActivity { activity ->
-                recycler = RecyclerView(activity).apply {
-                    layoutManager = LinearLayoutManager(activity)
-                    adapter = LibraryAdapter { clicked = it.id }.apply {
-                        submitList((0 until 1000).map { LibraryRow(LibraryKind.ROUTES, LibraryItem("r$it", "路线 $it", "单次 · 120 个点")) })
-                    }
-                    itemAnimator = null
+        LibraryRepositories.ensureMigrated()
+        val original = LibraryRepositories.routes.list()
+        try {
+            LibraryRepositories.routes.replaceAll((0 until 1000).map {
+                SavedRoute(Route("ui-$it", String.format(java.util.Locale.ROOT, "UI route %04d", it), listOf(Wgs84(1.0, 2.0), Wgs84(1.1, 2.1))))
+            })
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                compose.openPage(scenario, R.id.nav_route_gallery)
+                compose.scrollToText("UI route 0000").assertIsDisplayed()
+                fun assertLazyRows() {
+                    val rows = compose.onAllNodes(hasText("UI route ", substring = true) and hasClickAction()).fetchSemanticsNodes()
+                    assertTrue("Only visible/prefetched rows should be composed, got ${rows.size}", rows.size in 1..20)
                 }
-                activity.setContentView(recycler)
+                assertLazyRows()
+                compose.scrollToText("UI route 0000").performClick()
+                compose.onNode(hasText("UI route 0000") and hasAnyAncestor(isDialog())).assertIsDisplayed()
+                compose.onNodeWithText("取消").performClick()
+                compose.scrollToText("UI route 0999").performClick()
+                compose.onNode(hasText("UI route 0999") and hasAnyAncestor(isDialog())).assertIsDisplayed()
+                compose.onNodeWithText("重命名").performClick()
+                compose.onNodeWithText("名称").performTextReplacement("UI renamed last")
+                compose.onNodeWithText("保存").performClick()
+                compose.waitUntil(5_000) { LibraryRepositories.routes.get("ui-999")?.route?.name == "UI renamed last" }
+                assertEquals("UI route 0000", LibraryRepositories.routes.get("ui-0")?.route?.name)
+                assertEquals(1000, LibraryRepositories.routes.list().size)
+                compose.scrollToText("UI renamed last").assertIsDisplayed()
+                assertLazyRows()
+                capture("library-populated")
             }
-            instrumentation.waitForIdleSync()
-            scenario.onActivity {
-                assertEquals(1000, recycler.adapter!!.itemCount)
-                assertTrue(recycler.childCount in 1..20)
-                recycler.findViewHolderForAdapterPosition(0)!!.itemView.performClick()
-                assertEquals("r0", clicked)
-                recycler.scrollToPosition(999)
-            }
-            instrumentation.waitForIdleSync()
-            scenario.onActivity {
-                recycler.findViewHolderForAdapterPosition(999)!!.itemView.performClick()
-                assertEquals("r999", clicked)
-                assertTrue(recycler.childCount < 20)
-            }
-            capture("library-populated")
-        }
+        } finally { LibraryRepositories.routes.replaceAll(original) }
     }
 
     @Test fun primaryPagesRenderInLightAndDarkThemes() {
@@ -237,7 +239,7 @@ class UiDesignTest {
                 systemTheme(if (mode == AppCompatDelegate.MODE_NIGHT_YES) "yes" else "no")
                 instrumentation.runOnMainSync { AppCompatDelegate.setDefaultNightMode(mode) }
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                    onView(withId(R.id.btn_apply_location)).check(matches(isDisplayed()))
+                    compose.onNodeWithText("开始模拟").assertIsDisplayed()
                     capture("home-$suffix")
                     scenario.onActivity { activity ->
                         val controller = androidx.core.view.WindowInsetsControllerCompat(activity.window, activity.window.decorView)
@@ -245,13 +247,13 @@ class UiDesignTest {
                         assertEquals(mode == AppCompatDelegate.MODE_NIGHT_NO, controller.isAppearanceLightNavigationBars)
                     }
                     for ((destination, name, marker) in listOf(
-                        Triple(R.id.nav_mock, "point", R.id.point_name),
-                        Triple(R.id.nav_settings, "settings", R.id.altitude_value),
-                        Triple(R.id.nav_runtime, "runtime", R.id.phase_title),
-                        Triple(R.id.nav_route_gallery, "library", R.id.library_search),
-                        Triple(R.id.nav_gnss_mock, "satellites", R.id.satellite_rada_view))) {
+                        Triple(R.id.nav_mock, "point", "位置名称"),
+                        Triple(R.id.nav_settings, "settings", "定位海拔"),
+                        Triple(R.id.nav_runtime, "runtime", "打开开发者选项"),
+                        Triple(R.id.nav_route_gallery, "library", "搜索资料"),
+                        Triple(R.id.nav_gnss_mock, "satellites", "星图信息"))) {
                         scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(destination) }
-                        onView(withId(marker)).check(matches(isDisplayed()))
+                        compose.scrollToText(marker).assertIsDisplayed()
                         capture("$name-$suffix")
                     }
                 }
@@ -273,10 +275,10 @@ class UiDesignTest {
             fontScale(1.3f)
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_settings) }
-                onView(withId(R.id.accuracy_value)).perform(scrollTo()).check(matches(isDisplayed()))
+                compose.scrollToText("定位精度").assertIsDisplayed()
                 capture("settings-large-text")
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_gallery) }
-                onView(withId(R.id.library_more)).check(matches(isDisplayed()))
+                compose.scrollToText("更多").assertIsDisplayed()
                 capture("library-large-text")
                 scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
                 await {
@@ -284,11 +286,12 @@ class UiDesignTest {
                     scenario.onActivity { landscape = it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
                     landscape
                 }
-                onView(withId(R.id.library_search)).check(matches(isDisplayed()))
-                onView(withId(R.id.library_heading)).check(matches(withEffectiveVisibility(Visibility.GONE)))
-                onView(withId(R.id.empty_artwork)).check(matches(withEffectiveVisibility(Visibility.GONE)))
-                onView(withId(R.id.library_more)).perform(click())
-                onView(withText("导入 JSON")).check(matches(isDisplayed()))
+                compose.scrollToText("搜索资料").assertIsDisplayed()
+                // Compose uses scrolling rather than the removed XML heading/artwork layout.
+                // The search and transfer actions must remain reachable in landscape.
+                compose.scrollToText("新建路线").assertIsDisplayed()
+                compose.scrollToText("更多").performClick()
+                compose.onNodeWithText("导入 JSON").assertIsDisplayed()
                 androidx.test.espresso.Espresso.pressBack()
                 capture("library-landscape")
                 scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
@@ -297,7 +300,8 @@ class UiDesignTest {
                     scenario.onActivity { portrait = it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT }
                     portrait
                 }
-                onView(withId(R.id.library_heading)).check(matches(isDisplayed()))
+                compose.scrollToText("搜索资料").assertIsDisplayed()
+                compose.scrollToText("更多").assertIsDisplayed()
             }
         } finally { fontScale(oldScale) }
     }

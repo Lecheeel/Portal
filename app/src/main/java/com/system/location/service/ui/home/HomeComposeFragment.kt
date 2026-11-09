@@ -90,12 +90,16 @@ import com.system.location.service.designsystem.components.PortalCard
 import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.ext.lastKnownLat
 import com.system.location.service.ext.lastKnownLng
-import com.system.location.service.ext.selectRoute
+import androidx.navigation.fragment.findNavController
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.system.location.service.core.repository.SavedRoute
+import com.system.location.service.data.repository.LibraryRepositories
+import com.system.location.service.data.repository.toHistorical
 import com.system.location.service.maps.MapLine
 import com.system.location.service.maps.MapServices
 import com.system.location.service.maps.PlaceSuggestion
 import com.system.location.service.maps.PortalMapView
-import com.system.location.service.maps.mapPoint
+
 import com.system.location.service.maps.satelliteMap
 import com.system.location.service.ui.mock.RockerOverlay
 import com.system.location.service.ui.viewmodel.AMapViewModel
@@ -110,13 +114,19 @@ class HomeComposeFragment : Fragment() {
     private val mapModel by activityViewModels<AMapViewModel>()
     private val mockModel by activityViewModels<MockServiceViewModel>()
     private val targetState = kotlinx.coroutines.flow.MutableStateFlow(HomeTarget())
+    private val libraryState = kotlinx.coroutines.flow.MutableStateFlow(HomeLibraryState())
+    private var libraryLoad: Job? = null
+    private var libraryRequest = 0L
+    private var startInFlight = false
+    private var selectionRevision = 0L
+    private var restoredKind: String? = null
+    private var restoredId: String? = null
     private var map: PortalMapView? = null
     private var targetMarker: com.system.location.service.maps.MapOverlay? = null
     private var routeLine: MapLine? = null
     private var systemLocation: LocationManager? = null
     private var locationListener: android.location.LocationListener? = null
-    private var lastTarget: Pair<Double, Double>? = null
-    private var lastAddress: String? = null
+
     private var cameraPolicy = HomeCameraPolicy()
     private val locationState = kotlinx.coroutines.flow.MutableStateFlow(HomeLocationState())
     private var amapLocation: AMapLocationClient? = null
@@ -129,6 +139,16 @@ class HomeComposeFragment : Fragment() {
     }
     private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         if (hasLocationPermission()) locate() else showLocationIssue(HomeLocationIssue.PERMISSION)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        restoredKind = savedInstanceState?.getString("home.target.kind")
+        restoredId = savedInstanceState?.getString("home.target.id")
+        if (restoredKind == "point" && restoredId == null && savedInstanceState != null) {
+            val point = Wgs84(savedInstanceState.getDouble("home.target.lat"), savedInstanceState.getDouble("home.target.lon"))
+            targetState.value = HomeTarget(HomeSelection.Point(point, savedInstanceState.getString("home.target.name")))
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -157,6 +177,7 @@ class HomeComposeFragment : Fragment() {
                     mockModel = mockModel,
                     targetFlow = targetState,
                     locationFlow = locationState,
+                    libraryFlow = libraryState,
                     onLocate = ::locate,
                     onLocationRecovery = ::recoverLocation,
                     onBrowse = ::browseMap,
@@ -166,7 +187,10 @@ class HomeComposeFragment : Fragment() {
                     onSearch = ::search,
                     onSaveLocation = ::saveLocation,
                     onRocker = ::toggleRocker,
-                    onRoutePreview = ::toggleRoutePreview,
+                    onOpenTargets = ::refreshLibrary,
+                    onSelection = ::selectTarget,
+                    onStart = ::startSelected,
+                    onCreateRoute = { findNavController().navigate(R.id.nav_route_edit) },
                     onMapType = ::toggleMapType,
                 )
             }
@@ -179,17 +203,11 @@ class HomeComposeFragment : Fragment() {
         locationState.value = HomeLocationState()
         map = view
         view.onCreate(null)
-        mapModel.markedLoc?.let { point ->
-            lastTarget = point
-            lastAddress = mapModel.markName
-            targetState.value = HomeTarget(point, mapModel.markName)
-            cameraPolicy.userMovedCamera()
-            val gcj = CoordinateTransform.toGcj02(Wgs84(point.first, point.second))
-            targetMarker = view.marker(gcj, mapModel.markName ?: "待确认位置", selected = true)
-            view.move(gcj, 16.5f)
-            locationState.value = HomeLocationState(mapVisible = true)
+        if (targetState.value.selection == null && restoredKind == null) mapModel.markedLoc?.let { point ->
+            targetState.value = HomeTarget(HomeSelection.Point(Wgs84(point.first, point.second), mapModel.markName))
         }
-        if (mapModel.markedLoc == null) {
+        renderSelection(moveCamera = true)
+        if (targetState.value.selection == null && mapModel.markedLoc == null) {
             mockModel.runtimeState.value.takeIf { it.isActive }?.sample?.let { sample ->
                 cameraPolicy.userMovedCamera()
                 view.move(CoordinateTransform.toGcj02(sample.coordinate), 16.5f)
@@ -214,26 +232,131 @@ class HomeComposeFragment : Fragment() {
     }
 
     private fun setTarget(wgs: Pair<Double, Double>, name: String?) {
-        cameraPolicy.userMovedCamera()
-        locationState.value = locationState.value.copy(mapVisible = true)
-        lastTarget = wgs
-        lastAddress = name
-        mapModel.markedLoc = wgs
-        mapModel.markName = name
-        targetState.value = HomeTarget(wgs, name)
+        selectTarget(HomeSelection.Point(Wgs84(wgs.first, wgs.second), name))
+        val revision = selectionRevision
         val map = map ?: return
         val gcj = CoordinateTransform.toGcj02(Wgs84(wgs.first, wgs.second))
-        targetMarker?.remove()
-        targetMarker = map.marker(gcj, name ?: "待确认位置", selected = true)
-        map.move(gcj, animate = true)
         viewLifecycleOwner.lifecycleScope.launch {
             val address = withContext(Dispatchers.IO) {
-                runCatching { MapServices(requireContext(), map.provider).address(gcj) }.getOrNull()
+                runCatching { MapServices(map.context.applicationContext, map.provider).address(gcj) }.getOrNull()
             }
-            if (address != null && lastTarget == wgs) {
-                lastAddress = address.address
+            if (address != null && selectionRevision == revision) {
                 mapModel.markName = address.title.ifBlank { address.address }
-                targetState.value = HomeTarget(wgs, mapModel.markName)
+                targetState.value = targetState.value.copy(selection = HomeSelection.Point(Wgs84(wgs.first, wgs.second), mapModel.markName))
+            }
+        }
+    }
+
+    private fun selectTarget(selection: HomeSelection) {
+        selectionRevision++
+        restoredKind = null
+        restoredId = null
+        targetState.value = HomeTarget(selection, busy = startInFlight)
+        renderSelection(moveCamera = true)
+    }
+
+    private fun renderSelection(moveCamera: Boolean = false) {
+        val selected = targetState.value.selection
+        routeLine?.remove()
+        routeLine = null
+        targetMarker?.remove()
+        targetMarker = null
+        val point = when (selected) {
+            is HomeSelection.Point -> selected.coordinate
+            is HomeSelection.Route -> selected.saved.route.points.first()
+            null -> null
+        }
+        mapModel.markedLoc = (selected as? HomeSelection.Point)?.coordinate?.let { it.latitude to it.longitude }
+        mapModel.markName = (selected as? HomeSelection.Point)?.name
+
+        if (point == null) return
+        cameraPolicy.userMovedCamera()
+        locationState.value = locationState.value.copy(mapVisible = true)
+        val map = map ?: return
+        val gcj = CoordinateTransform.toGcj02(point)
+        targetMarker = map.marker(gcj, targetState.value.name ?: "待确认位置", selected = true)
+        if (selected is HomeSelection.Route) {
+            val geometry = selected.saved.route.points.map(CoordinateTransform::toGcj02)
+            routeLine = map.line(geometry, Color.argb(200, 59, 130, 246), 12f)
+            if (moveCamera) map.fit(geometry, (72 * resources.displayMetrics.density).toInt())
+        } else if (moveCamera) map.move(gcj, 16.5f, animate = true)
+    }
+
+    private fun refreshLibrary() {
+        val request = ++libraryRequest
+        libraryLoad?.cancel()
+        val revision = selectionRevision
+        libraryState.value = libraryState.value.copy(busy = true, error = null)
+        targetState.value = targetState.value.copy(busy = true)
+        libraryLoad = viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val loaded = withContext(Dispatchers.IO) {
+                    LibraryRepositories.ensureMigrated()
+                    HomeLibraryState(
+                        routes = LibraryRepositories.routes.list().sortedWith(compareByDescending<SavedRoute> { it.favorite }.thenBy { it.route.name }),
+                        locations = LibraryRepositories.locations.list().sortedBy { it.name },
+                    )
+                }
+                libraryState.value = loaded
+                if (selectionRevision == revision) {
+                    val old = targetState.value.selection
+                    val selected = when (restoredKind) {
+                        "route" -> loaded.routes.firstOrNull { it.route.id == restoredId }?.let(HomeSelection::Route)
+                        "point" -> if (restoredId != null) loaded.locations.firstOrNull { it.id == restoredId }
+                            ?.let { HomeSelection.Point(it.coordinate, it.name, it.id) } else old
+                        else -> old?.refreshed(loaded.routes, loaded.locations)
+                    }
+                    val missing = selected == null && (old != null || restoredId != null)
+                    restoredKind = null
+                    restoredId = null
+                    targetState.value = HomeTarget(selected, busy = startInFlight, message = if (missing) "已选目标已被删除，请重新选择" else null)
+                    renderSelection(moveCamera = old != selected)
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                libraryState.value = libraryState.value.copy(busy = false, error = "资料库加载失败，请重试")
+                if (selectionRevision == revision) targetState.value = targetState.value.copy(busy = startInFlight, message = "资料库加载失败，请重新选择或重试")
+            } finally {
+                if (libraryRequest == request && selectionRevision == revision) targetState.value = targetState.value.copy(busy = startInFlight)
+            }
+        }
+    }
+
+    private fun startSelected() {
+        val selected = targetState.value.selection ?: return
+        if (startInFlight || targetState.value.busy || mockModel.runtimeState.value.isActive) return
+        startInFlight = true
+        val revision = selectionRevision
+        targetState.value = targetState.value.copy(busy = true)
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val current = withContext(Dispatchers.IO) {
+                    LibraryRepositories.ensureMigrated()
+                    when (selected) {
+                        is HomeSelection.Route -> LibraryRepositories.routes.get(selected.saved.route.id)?.let(HomeSelection::Route)
+                        is HomeSelection.Point -> if (selected.savedId == null) selected else LibraryRepositories.locations.get(selected.savedId)
+                            ?.let { HomeSelection.Point(it.coordinate, it.name, it.id) }
+                    }
+                }
+                if (revision != selectionRevision) return@launch
+                targetState.value = HomeTarget(current, busy = true,
+                    message = if (current == null) "已选目标已被删除，请重新选择" else null)
+                renderSelection()
+                current?.let {
+                    val started = it.start(
+                        point = { point -> mockModel.startPoint(point.coordinate.latitude to point.coordinate.longitude, point.name ?: "目标位置") },
+                        route = { route -> mockModel.startRoute(route.toHistorical()) },
+                    )
+                    if (!started) Toast.makeText(requireContext(), mockModel.failureMessage(), Toast.LENGTH_LONG).show()
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (revision == selectionRevision) targetState.value = targetState.value.copy(message = "启动失败，请重试")
+            } finally {
+                startInFlight = false
+                targetState.value = targetState.value.copy(busy = libraryState.value.busy)
             }
         }
     }
@@ -280,23 +403,6 @@ class HomeComposeFragment : Fragment() {
         return next
     }
 
-    private fun toggleRoutePreview(): Boolean {
-        val map = map ?: return false
-        val route = requireContext().selectRoute?.route ?: return false
-        if (routeLine != null) {
-            routeLine?.remove()
-            routeLine = null
-            return false
-        }
-        if (route.size >= 2) {
-            cameraPolicy.userMovedCamera()
-            locationState.value = locationState.value.copy(mapVisible = true)
-            routeLine = map.line(route.map { it.mapPoint }, Color.argb(200, 59, 130, 246), 12f)
-            map.move(route.first().mapPoint, 16f, true)
-        }
-        return true
-    }
-
     override fun onStart() {
         super.onStart()
         map?.onStart()
@@ -306,6 +412,7 @@ class HomeComposeFragment : Fragment() {
             providerReceiverRegistered = true
         }
         startRealLocation()
+        refreshLibrary()
     }
 
     override fun onResume() {
@@ -332,9 +439,26 @@ class HomeComposeFragment : Fragment() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         map?.onSaveInstanceState(outState)
+        val selected = targetState.value.selection
+        outState.putString("home.target.kind", when (selected) {
+            is HomeSelection.Route -> "route"
+            is HomeSelection.Point -> "point"
+            null -> restoredKind
+        })
+        outState.putString("home.target.id", when (selected) {
+            is HomeSelection.Route -> selected.saved.route.id
+            is HomeSelection.Point -> selected.savedId
+            null -> restoredId
+        })
+        if (selected is HomeSelection.Point) {
+            outState.putDouble("home.target.lat", selected.coordinate.latitude)
+            outState.putDouble("home.target.lon", selected.coordinate.longitude)
+            outState.putString("home.target.name", selected.name)
+        }
     }
 
     override fun onDestroyView() {
+        libraryLoad?.cancel()
         stopRealLocation()
         map?.onDestroy()
         map = null
@@ -517,9 +641,17 @@ private data class HomeLocationState(
 )
 
 private data class HomeTarget(
-    val point: Pair<Double, Double>? = null,
-    val name: String? = null,
-)
+    val selection: HomeSelection? = null,
+    val busy: Boolean = false,
+    val message: String? = null,
+) {
+    val point get() = (selection as? HomeSelection.Point)?.coordinate?.let { it.latitude to it.longitude }
+    val name get() = when (selection) {
+        is HomeSelection.Point -> selection.name
+        is HomeSelection.Route -> selection.saved.route.name
+        null -> null
+    }
+}
 
 /** Consistent 48 dp touch targets with 24 dp vectors, independent of font scaling. */
 @Composable
@@ -534,6 +666,7 @@ private fun HomeScreen(
     mockModel: MockServiceViewModel,
     targetFlow: kotlinx.coroutines.flow.Flow<HomeTarget>,
     locationFlow: kotlinx.coroutines.flow.StateFlow<HomeLocationState>,
+    libraryFlow: kotlinx.coroutines.flow.StateFlow<HomeLibraryState>,
     onLocate: () -> Unit,
     onLocationRecovery: () -> Unit,
     onBrowse: () -> Unit,
@@ -543,13 +676,18 @@ private fun HomeScreen(
     onSearch: (String, (List<PlaceSuggestion>) -> Unit) -> Unit,
     onSaveLocation: (String, String, Double, Double) -> Unit,
     onRocker: () -> Unit,
-    onRoutePreview: () -> Boolean,
+    onOpenTargets: () -> Unit,
+    onSelection: (HomeSelection) -> Unit,
+    onStart: () -> Unit,
+    onCreateRoute: () -> Unit,
     onMapType: () -> Boolean,
 ) {
     val context = LocalContext.current
     val runtime by mockModel.runtimeState.collectAsStateWithLifecycle()
     val location by locationFlow.collectAsStateWithLifecycle()
     val target by targetFlow.collectAsStateWithLifecycle(initialValue = HomeTarget())
+    val library by libraryFlow.collectAsStateWithLifecycle()
+    var targetPicker by rememberSaveable { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var suggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
     var saveDialog by remember { mutableStateOf(false) }
@@ -559,6 +697,14 @@ private fun HomeScreen(
     var latInput by remember { mutableStateOf("") }
     var lonInput by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
+    if (targetPicker) HomeTargetPicker(
+        library = library,
+        onSelect = { onSelection(it); targetPicker = false },
+        onDismiss = { targetPicker = false },
+        onRetry = onOpenTargets,
+        onCreateRoute = { targetPicker = false; onCreateRoute() },
+    )
 
     if (suggestions.isNotEmpty()) {
         AlertDialog(
@@ -635,13 +781,17 @@ private fun HomeScreen(
 
     var bottomPanelHeight by remember { mutableStateOf(0) }
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val mapBottomInset = with(density) { bottomPanelHeight.toDp() } + 24.dp +
-        WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
+    val mapBottomInset = bottomPanelHeight + with(density) {
+        (24.dp + WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()).roundToPx()
+    }
     Box(Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx -> createMap(ctx) },
-            update = { it.visibility = if (location.mapVisible) View.VISIBLE else View.INVISIBLE },
-            modifier = Modifier.fillMaxSize().padding(bottom = mapBottomInset),
+            update = {
+                it.visibility = if (location.mapVisible) View.VISIBLE else View.INVISIBLE
+                (it as PortalMapView).setBottomObstruction(mapBottomInset)
+            },
+            modifier = Modifier.fillMaxSize(),
         )
         if (!location.mapVisible) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {}
@@ -699,10 +849,9 @@ private fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 HomeMapButton(R.drawable.ic_home_layers, "切换地图图层") { onMapType() }
-                HomeMapButton(R.drawable.ic_home_route, "切换路线预览") {
-                    if (!onRoutePreview() && context.selectRoute == null) {
-                        Toast.makeText(context, "未选择路线", Toast.LENGTH_SHORT).show()
-                    }
+                HomeMapButton(R.drawable.ic_home_route, "选择模拟目标") {
+                    targetPicker = true
+                    onOpenTargets()
                 }
                 HomeMapButton(R.drawable.ic_home_coordinates, "输入坐标") { coordinateDialog = true }
                 HomeMapButton(R.drawable.ic_home_locate, "定位到真实位置", onLocate)
@@ -717,7 +866,8 @@ private fun HomeScreen(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            target.point?.let { (lat, lon) -> String.format(Locale.ROOT, "%.6f, %.6f", lat, lon) }
+                            (target.selection as? HomeSelection.Route)?.saved?.let { "${it.route.points.size} 个点 · ${it.mode.homeLabel()}" }
+                                ?: target.point?.let { (lat, lon) -> String.format(Locale.ROOT, "%.6f, %.6f", lat, lon) }
                                 ?: "点击地图选择位置",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -731,14 +881,12 @@ private fun HomeScreen(
                             contentDescription = if (RockerOverlay.isEnabled) "关闭悬浮窗" else "打开悬浮窗")
                     }
                 }
+                target.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = {
-                            val point = target.point ?: return@Button
-                            scope.launch { mockModel.startPoint(point, target.name ?: "目标位置") }
-                        },
-                        enabled = target.point != null && !runtime.isActive,
+                        onClick = onStart,
+                        enabled = target.selection != null && !target.busy && !runtime.isActive,
                         modifier = Modifier.weight(1f),
                     ) { Text(if (runtime.isActive) "运行中" else "开始模拟") }
                     OutlinedButton(

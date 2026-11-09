@@ -8,6 +8,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,10 +19,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +41,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -144,32 +157,46 @@ private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
-            contentPadding = PaddingValues(20.dp, 24.dp, 20.dp, 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(PortalSpacing.xl, PortalSpacing.xl, PortalSpacing.xl, 40.dp),
+            verticalArrangement = Arrangement.spacedBy(PortalSpacing.lg),
         ) {
-            item {
-                PortalCard {
-                    PortalSectionTitle("星图信息")
-                    Spacer(Modifier.height(PortalSpacing.sm))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        AndroidView(
-                            factory = { SatelliteRadarView(it, null) },
-                            update = { it.setSatellites(satellites) },
-                            modifier = Modifier.weight(1f).height(180.dp),
-                        )
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            GnssMetric("可用卫星数量", "$inView 颗")
-                            GnssMetric("在用卫星数量", "$inUse 颗")
-                            GnssMetric("平均信号强度", "%.1f dB-Hz".format(averageCn0))
-                            Spacer(Modifier.height(4.dp))
-                            Text("导航系统", style = MaterialTheme.typography.labelLarge)
-                            Text("GPS: $gps   GNS: $glonass   BD: $beidou", style = MaterialTheme.typography.bodySmall)
-                        }
+            item(key = "sky") {
+                PortalCard(modifier = Modifier.animateContentSize()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(painterResource(R.drawable.baseline_satellite_alt_24), null, tint = MaterialTheme.colorScheme.primary)
+                        PortalSectionTitle("星图信息")
                     }
+                    AndroidView(
+                        factory = { SatelliteRadarView(it, null) },
+                        update = { it.setSatellites(satellites) },
+                        modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 280.dp).fillMaxWidth().aspectRatio(1f),
+                    )
+                    AnimatedVisibility(visible = satellites.isEmpty()) {
+                        Text(
+                            "暂无卫星数据",
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        GnssMetric("可用卫星", "$inView 颗", Modifier.weight(1f))
+                        GnssMetric("在用卫星", "$inUse 颗", Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(PortalSpacing.md))
+                    GnssMetric("平均信号强度", "%.1f dB-Hz".format(averageCn0), Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(PortalSpacing.lg))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(PortalSpacing.md))
+                    Text("导航系统", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(PortalSpacing.xs))
+                    Text("GPS: $gps   GNS: $glonass   BD: $beidou", style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            item {
-                PortalCard {
+            item(key = "control") {
+                PortalCard(modifier = Modifier.animateContentSize()) {
                     PortalSectionTitle("GNSS 控制")
                     Spacer(Modifier.height(PortalSpacing.sm))
                     Button(
@@ -187,18 +214,27 @@ private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
                             }
                         },
                         enabled = hookReady,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(if (mockRunning) "停止模拟" else "开始模拟") }
-                    if (!hookReady) {
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        AnimatedContent(targetState = mockRunning, label = "gnssControl") { running ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(painterResource(if (running) R.drawable.baseline_stop_24 else R.drawable.rounded_play_arrow_24), null, Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (running) "停止模拟" else "开始模拟")
+                            }
+                        }
+                    }
+                    AnimatedVisibility(visible = !hookReady) {
                         Text(
                             "需要先运行 Xposed/Native 场景。",
+                            modifier = Modifier.padding(top = PortalSpacing.sm),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
-            item {
+            item(key = "settings") {
                 PortalCard {
                     PortalSectionTitle("功能设置")
                     PortalSwitchRow(
@@ -239,7 +275,7 @@ private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
                     )
                 }
             }
-            item {
+            item(key = "requirements") {
                 Text(
                     "卫星数据和 GNSS/NMEA 行为由系统模块与当前 Xposed/Native 场景共同决定。",
                     style = MaterialTheme.typography.bodySmall,
@@ -251,9 +287,11 @@ private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
 }
 
 @Composable
-private fun GnssMetric(label: String, value: String) {
-    Column {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium)
+private fun GnssMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleLarge)
+        }
     }
 }

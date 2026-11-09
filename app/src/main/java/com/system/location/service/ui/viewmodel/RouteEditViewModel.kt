@@ -50,7 +50,7 @@ class RouteEditViewModel(application: Application) : AndroidViewModel(applicatio
             val request = draft.beginPlan() ?: return@trySend
             planning = viewModelScope.launch(Dispatchers.IO) {
                 try {
-                    val segments = withTimeout(30_000) { AMapRoutePlanner(getApplication()).plan(request) }
+                    val segments = withTimeout(30_000) { com.system.location.service.maps.MapServices(getApplication()).walk(request) }
                     draft.complete(request, segments)
                 } catch (timeout: TimeoutCancellationException) { draft.fail(request, "路线规划超时，请重试") }
                 catch (cancelled: CancellationException) { throw cancelled }

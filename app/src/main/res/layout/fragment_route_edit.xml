@@ -15,7 +15,7 @@
     </RadioGroup>
     <TextView android:id="@+id/gesture_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="16dp" android:paddingVertical="8dp" android:textColor="@color/text_secondary" android:textSize="13sp" />
     <com.system.location.service.ui.mock.RouteGestureLayout android:id="@+id/gesture_layer" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-        <com.amap.api.maps.MapView android:id="@+id/amap_view" android:layout_width="match_parent" android:layout_height="match_parent" />
+        <com.system.location.service.maps.PortalMapView android:id="@+id/amap_view" android:layout_width="match_parent" android:layout_height="match_parent" />
     </com.system.location.service.ui.mock.RouteGestureLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:background="@drawable/bg_bottom_sheet">
         <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_primary" android:textSize="14sp" android:maxLines="3" />

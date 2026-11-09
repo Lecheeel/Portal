@@ -11,11 +11,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.amap.api.maps.AMap
-import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.model.*
-import com.amap.api.services.help.Inputtips
-import com.amap.api.services.help.InputtipsQuery
+import com.system.location.service.maps.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.system.location.service.R
 import com.system.location.service.core.geo.*
@@ -36,8 +32,8 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
     private var renderedGeometry: Triple<Gcj02?, Gcj02?, String?>? = null
     private var rendering = false
     private var searchGeneration = 0L
-    private var strokeCoordinator: StrokePreviewCoordinator<LatLng, Gcj02>? = null
-    private var strokePreview: Polyline? = null
+    private var strokeCoordinator: StrokePreviewCoordinator<Gcj02, Gcj02>? = null
+    private var strokePreview: MapLine? = null
     private var lastScreenPoint: Point? = null
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val ui = FragmentRouteEditBinding.bind(view)
@@ -45,19 +41,8 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
         cameraRestored = false
         renderedGeometry = null
         ui.amapView.onCreate(savedInstanceState)
-        ui.amapView.map.apply {
-            uiSettings.isZoomControlsEnabled = true
-            uiSettings.isCompassEnabled = true
-            uiSettings.isScaleControlsEnabled = true
-            setOnMapClickListener { model.pick(Gcj02(it.latitude, it.longitude)) }
-            setOnCameraChangeListener(object : AMap.OnCameraChangeListener {
-                override fun onCameraChange(camera: CameraPosition?) = Unit
-                override fun onCameraChangeFinish(camera: CameraPosition?) {
-                    if (cameraRestored && camera != null) model.camera(MapCamera(
-                        Gcj02(camera.target.latitude, camera.target.longitude), camera.zoom, camera.bearing, camera.tilt))
-                }
-            })
-        }
+        ui.amapView.onClick { model.pick(it) }
+        ui.amapView.onCamera { if (cameraRestored) model.camera(it) }
         ui.endpoint.setOnCheckedChangeListener { _, checked ->
             if (!rendering) model.select(if (checked == R.id.select_start) Endpoint.START else Endpoint.END)
         }
@@ -80,12 +65,11 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
                 override fun post(delayMillis: Long, callback: Runnable) { ui.gestureLayer.postOnAnimation(callback) }
                 override fun remove(callback: Runnable) { ui.gestureLayer.removeCallbacks(callback) }
             },
-            convert = { point -> Gcj02(point.latitude, point.longitude) },
+            convert = { point -> point },
             render = { points ->
                 if (binding === ui) {
-                    if (strokePreview == null) strokePreview = ui.amapView.map.addPolyline(
-                        PolylineOptions().addAll(points).width(10f).color(Color.rgb(16, 185, 129)))
-                    else strokePreview?.points = points
+                    if (strokePreview == null) strokePreview = ui.amapView.line(points, Color.rgb(16, 185, 129))
+                    else strokePreview?.points(points)
                 }
             },
             clearPreview = { strokePreview?.remove(); strokePreview = null },
@@ -114,8 +98,7 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
         if (!cameraRestored && draft.message != "正在恢复草稿") {
             val camera = draft.camera ?: MapCamera(CoordinateTransform.toGcj02(Wgs84(requireContext().lastKnownLat,
                 requireContext().lastKnownLng)), 15f, 0f, 0f)
-            ui.amapView.map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition(
-                LatLng(camera.target.latitude, camera.target.longitude), camera.zoom, camera.tilt, camera.bearing)))
+            ui.amapView.camera(camera)
             cameraRestored = true
         }
         rendering = true
@@ -142,12 +125,12 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
         val geometry = Triple(draft.start, draft.end, draft.route?.id)
         if (geometry == renderedGeometry) return
         renderedGeometry = geometry
-        ui.amapView.map.clear()
-        draft.start?.let { ui.amapView.map.addMarker(MarkerOptions().position(LatLng(it.latitude, it.longitude)).title("起点")) }
-        draft.end?.let { ui.amapView.map.addMarker(MarkerOptions().position(LatLng(it.latitude, it.longitude)).title("终点")) }
+        ui.amapView.clear()
+        draft.start?.let { ui.amapView.marker(it, "起点") }
+        draft.end?.let { ui.amapView.marker(it, "终点") }
         draft.route?.let { route ->
-            val points = route.points.map { CoordinateTransform.toGcj02(it).let { p -> LatLng(p.latitude, p.longitude) } }
-            ui.amapView.map.addPolyline(PolylineOptions().addAll(points).width(10f).color(Color.rgb(30, 110, 230)))
+            val points = route.points.map { CoordinateTransform.toGcj02(it) }
+            ui.amapView.line(points, Color.rgb(30, 110, 230))
             // Keep the user's camera during restores/rotation; full route can be inspected by zooming.
         }
     }
@@ -167,7 +150,7 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
         val threshold = 6 * resources.displayMetrics.density
         if (last == null || kotlin.math.hypot((screen.x - last.x).toDouble(), (screen.y - last.y).toDouble()) >= threshold || event.actionMasked == MotionEvent.ACTION_UP) {
             // Keep the projection's LatLng; preview frames reuse it without remapping the stroke.
-            stroke.add(ui.amapView.map.projection.fromScreenLocation(screen))
+            stroke.add(ui.amapView.project(screen))
             lastScreenPoint = screen
         }
         if (event.actionMasked == MotionEvent.ACTION_UP) {
@@ -184,24 +167,25 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
     private fun search(query: String) {
         if (query.isBlank()) return
         val generation = ++searchGeneration
-        try {
-            Inputtips(requireContext(), InputtipsQuery(query, "")).apply {
-                setInputtipsListener { tips, code ->
-                    if (generation != searchGeneration || binding == null || !isAdded) return@setInputtipsListener
-                    val candidates = tips.orEmpty().filter { it.point != null }
-                    if (code != 1000 || candidates.isEmpty()) {
-                        Toast.makeText(requireContext(), "未找到地点（$code），请重试或直接点击地图", Toast.LENGTH_LONG).show()
-                    } else MaterialAlertDialogBuilder(requireContext()).setTitle("选择地点")
-                        .setItems(candidates.map { "${it.name} ${it.address.orEmpty()}" }.toTypedArray()) { _, which ->
-                            if (generation != searchGeneration || binding == null) return@setItems
-                            val point = candidates[which].point
-                            if (model.state.value.mode != DrawingMode.FREEHAND) model.pick(Gcj02(point.latitude, point.longitude))
-                            binding?.amapView?.map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(point.latitude, point.longitude), 16f))
-                        }.show()
-                }
-                requestInputtipsAsyn()
+        val ui = binding ?: return
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val candidates = MapServices(requireContext(), ui.amapView.provider).suggestions(query)
+                if (generation != searchGeneration || binding !== ui || !isAdded) return@launch
+                if (candidates.isEmpty()) Toast.makeText(requireContext(), "未找到地点，请直接点击地图", Toast.LENGTH_LONG).show()
+                else MaterialAlertDialogBuilder(requireContext()).setTitle("选择地点")
+                    .setItems(candidates.map { "${it.name} ${it.address}" }.toTypedArray()) { _, which ->
+                        if (generation != searchGeneration || binding !== ui) return@setItems
+                        val point = candidates[which].point
+                        ++searchGeneration
+                        if (model.state.value.mode != DrawingMode.FREEHAND) model.pick(point)
+                        ui.amapView.move(point, 16f, true)
+                    }.show()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                if (generation == searchGeneration && binding === ui) Toast.makeText(requireContext(), error.message ?: "地点搜索失败", Toast.LENGTH_LONG).show()
             }
-        } catch (error: Exception) { Toast.makeText(requireContext(), "地点搜索失败：${error.message}", Toast.LENGTH_LONG).show() }
+        }
     }
     private fun confirmSnapshot() {
         val snapshot = model.state.value.route?.frozen() ?: return
@@ -226,6 +210,8 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
         }
         dialog.show()
     }
+    override fun onStart() { super.onStart(); binding?.amapView?.onStart() }
+    override fun onStop() { binding?.amapView?.onStop(); super.onStop() }
     override fun onResume() { super.onResume(); binding?.amapView?.onResume() }
     override fun onPause() { binding?.amapView?.onPause(); super.onPause() }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); binding?.amapView?.onSaveInstanceState(outState) }
@@ -234,7 +220,7 @@ class RouteEditFragment : Fragment(R.layout.fragment_route_edit) {
         binding?.gestureLayer?.onStrokeTouch = null
         discardStroke()
         strokeCoordinator = null
-        binding?.amapView?.apply { map.setOnMapClickListener(null); map.setOnCameraChangeListener(null); onDestroy() }
+        binding?.amapView?.onDestroy()
         binding = null
         super.onDestroyView()
     }

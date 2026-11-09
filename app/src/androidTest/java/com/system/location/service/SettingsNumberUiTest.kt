@@ -33,6 +33,7 @@ class SettingsNumberUiTest {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 compose.openPage(scenario, R.id.nav_settings)
                 compose.scrollToText("定位海拔").performClick()
+                compose.waitForIdle()
                 val editor = onView(isAssignableFrom(EditText::class.java)).inRoot(isDialog())
                 editor.perform(replaceText("10001"))
                 onView(withText("保存")).inRoot(isDialog()).perform(saveClick())

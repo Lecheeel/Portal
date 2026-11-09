@@ -1,6 +1,7 @@
 package com.system.location.service.ui.settings
 
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -65,6 +66,7 @@ import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.routingJson
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.smoothRouteMotion
+import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.startupBurstEnabled
 import com.system.location.service.maps.mapProvider
@@ -84,6 +86,18 @@ import kotlinx.serialization.json.Json
 class SettingsComposeFragment : Fragment() {
     private val revision = MutableStateFlow(0)
     private var updateRequest = 0L
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> refresh() }
+
+    override fun onStart() {
+        super.onStart()
+        requireContext().sharedPrefs.registerOnSharedPreferenceChangeListener(preferenceListener)
+        refresh()
+    }
+
+    override fun onStop() {
+        requireContext().sharedPrefs.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+        super.onStop()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -362,6 +376,13 @@ class SettingsComposeFragment : Fragment() {
 }
 
 private data class SettingsValues(
+    val altitude: Double,
+    val accuracy: Float,
+    val reportDuration: Int,
+    val speed: Double,
+    val minSatelliteCount: Int,
+    val mapProviderLabel: String,
+    val updateChannelLabel: String,
     val smoothRouteMotion: Boolean,
     val physicalNoise: Boolean,
     val gmsMockEnabled: Boolean,
@@ -402,8 +423,15 @@ private fun SettingsScreen(
     val context = LocalContext.current
     // Lazy item lambdas are memoized. Capture immutable values that change with the
     // revision, rather than reading non-observable preferences inside skipped items.
-    val values = remember(revision) {
+    val values = remember(context, revision) {
         SettingsValues(
+            altitude = context.altitude,
+            accuracy = context.accuracy,
+            reportDuration = context.reportDuration,
+            speed = context.speed,
+            minSatelliteCount = context.minSatelliteCount,
+            mapProviderLabel = context.mapProvider.label,
+            updateChannelLabel = if (UpdateChecker.currentChannel() == UpdateChannel.BETA) "Beta" else "正式版",
             smoothRouteMotion = context.smoothRouteMotion,
             physicalNoise = context.physicalNoise,
             gmsMockEnabled = context.gmsMockEnabled,
@@ -448,16 +476,16 @@ private fun SettingsScreen(
                 item(key = "maps") {
                     PortalCard {
                         PortalSectionTitle("地图服务")
-                        PortalActionRow("地图提供方", context.mapProvider.label, onMapProvider)
+                        PortalActionRow("地图提供方", values.mapProviderLabel, onMapProvider)
                     }
                 }
                 item(key = "location") {
                     PortalCard {
                         PortalSectionTitle("定位参数")
-                        PortalActionRow("定位海拔", "%.2f 米".format(context.altitude), onEditAltitude)
-                        PortalActionRow("定位精度", "%.2f 米".format(context.accuracy), onEditAccuracy)
-                        PortalActionRow("位置上报间隔", "${context.reportDuration} ms", onEditReportInterval)
-                        PortalActionRow("摇杆速度", "%.2f 米/秒".format(context.speed), onEditSpeed)
+                        PortalActionRow("定位海拔", "%.2f 米".format(values.altitude), onEditAltitude)
+                        PortalActionRow("定位精度", "%.2f 米".format(values.accuracy), onEditAccuracy)
+                        PortalActionRow("位置上报间隔", "${values.reportDuration} ms", onEditReportInterval)
+                        PortalActionRow("摇杆速度", "%.2f 米/秒".format(values.speed), onEditSpeed)
                     }
                 }
                 item(key = "motion") {
@@ -547,7 +575,7 @@ private fun SettingsScreen(
                         )
                         PortalActionRow(
                             title = "最少卫星数",
-                            subtitle = "${context.minSatelliteCount} 颗（仅北斗）",
+                            subtitle = "${values.minSatelliteCount} 颗（仅北斗）",
                             onClick = onEditSatelliteCount,
                             enabled = hooksEnabled,
                         )
@@ -589,7 +617,7 @@ private fun SettingsScreen(
                     PortalCard {
                         PortalSectionTitle("版本更新", "当前版本 ${UpdateChecker.parseLocalVersion().versionName}")
                         PortalActionRow("检查更新", onClick = onCheckUpdate)
-                        PortalActionRow("更新通道", if (UpdateChecker.currentChannel() == UpdateChannel.BETA) "Beta" else "正式版", onUpdateChannel)
+                        PortalActionRow("更新通道", values.updateChannelLabel, onUpdateChannel)
                     }
                 }
             }

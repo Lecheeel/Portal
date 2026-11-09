@@ -82,6 +82,7 @@
 - [ ] 统一删除过期 XML、Fragment 和 ViewBinding。
 - [ ] 设计系统组件有独立预览。
 - [ ] Compose 测试、截图测试、构建门禁。
+- [ ] R8/资源压缩与 APK 体积基线（Compose 首次接入会显著增加未压缩包体积）。
 - [ ] 更新 README、截图和发布说明。
 
 ## 4. 页面迁移矩阵
@@ -134,3 +135,4 @@
 - 地图 SDK 是 View 体系，必须保留 `AndroidView` 互操作，不能为了纯 Compose 重写 SDK。
 - 现有运行中心逻辑与 Fragment 生命周期耦合，迁移时要避免状态重复收集。
 - Material3 Expressive 仍可能依赖 alpha/rc 版本，优先稳定版，表现层能力按可用性渐进启用。
+- Compose 接入后 Debug APK 明显增大；发布前必须补 R8、资源压缩和体积基线，不能把 Debug 体积当交付结论。

@@ -34,7 +34,9 @@ internal fun grantUiPermissions() {
     val instrumentation = InstrumentationRegistry.getInstrumentation()
     listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.POST_NOTIFICATIONS).forEach {
-        instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, it)
+        if (androidx.core.content.ContextCompat.checkSelfPermission(instrumentation.targetContext, it) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, it)
+        }
     }
 }
 

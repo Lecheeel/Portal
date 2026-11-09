@@ -184,7 +184,8 @@ dependencies {
 
     implementation(libs.amap.map3d.location.search)
     implementation("com.tencent.map:tencent-map-vector-sdk:6.15.1.261013.3d797fb0.242708926")
-    implementation("com.tencent.openmap:foundation:0.9.1.6875646")
+    // Lite omits the embedded legacy Bugly implementation; Portal controls reporting separately.
+    implementation("com.tencent.openmap:foundation:0.9.1.6875646-lite")
     implementation(libs.geotools)
     implementation("com.google.android.gms:play-services-location:21.3.0")
 

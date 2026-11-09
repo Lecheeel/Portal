@@ -3,6 +3,8 @@ package com.system.location.service.ui.home
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.os.SystemClock
 import android.provider.Settings
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +25,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,7 +54,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -51,8 +61,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +68,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -77,10 +84,8 @@ import com.system.location.service.R
 import com.system.location.service.core.geo.CoordinateTransform
 import com.system.location.service.core.geo.Gcj02
 import com.system.location.service.core.geo.Wgs84
-import com.system.location.service.core.runtime.RuntimePhase
 import com.system.location.service.designsystem.components.PortalCard
 import com.system.location.service.designsystem.theme.PortalTheme
-import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.lastKnownLat
 import com.system.location.service.ext.lastKnownLng
 import com.system.location.service.ext.selectRoute
@@ -90,7 +95,6 @@ import com.system.location.service.maps.PlaceSuggestion
 import com.system.location.service.maps.PortalMapView
 import com.system.location.service.maps.mapPoint
 import com.system.location.service.maps.satelliteMap
-import com.system.location.service.ui.mock.HistoricalLocation
 import com.system.location.service.ui.mock.RockerOverlay
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
@@ -115,6 +119,12 @@ class HomeComposeFragment : Fragment() {
     private val locationState = kotlinx.coroutines.flow.MutableStateFlow(HomeLocationState())
     private var amapLocation: AMapLocationClient? = null
     private var locationTimeout: Job? = null
+    private var providerReceiverRegistered = false
+    private val providerReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == LocationManager.PROVIDERS_CHANGED_ACTION) startRealLocation()
+        }
+    }
     private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         if (hasLocationPermission()) locate() else showLocationIssue(HomeLocationIssue.PERMISSION)
     }
@@ -142,7 +152,6 @@ class HomeComposeFragment : Fragment() {
         setContent {
             PortalTheme {
                 HomeScreen(
-                    mapModel = mapModel,
                     mockModel = mockModel,
                     targetFlow = targetState,
                     locationFlow = locationState,
@@ -289,6 +298,11 @@ class HomeComposeFragment : Fragment() {
     override fun onStart() {
         super.onStart()
         map?.onStart()
+        if (!providerReceiverRegistered) {
+            ContextCompat.registerReceiver(requireContext(), providerReceiver,
+                IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION), ContextCompat.RECEIVER_EXPORTED)
+            providerReceiverRegistered = true
+        }
         startRealLocation()
     }
 
@@ -304,6 +318,10 @@ class HomeComposeFragment : Fragment() {
     }
 
     override fun onStop() {
+        if (providerReceiverRegistered) {
+            requireContext().unregisterReceiver(providerReceiver)
+            providerReceiverRegistered = false
+        }
         stopRealLocation()
         map?.onStop()
         super.onStop()
@@ -366,7 +384,7 @@ class HomeComposeFragment : Fragment() {
     }
 
     private fun locate() {
-        if (!hasLocationPermission()) { showLocationIssue(HomeLocationIssue.PERMISSION); return }
+        if (!hasLocationPermission()) { stopRealLocation(); showLocationIssue(HomeLocationIssue.PERMISSION); return }
         if (mockModel.runtimeState.value.isActive) {
             mapModel.originalLocation?.let { (lat, lon) ->
                 moveCamera(HomeCameraPolicy.Move(HomeCameraPolicy.Position(lat, lon)))
@@ -410,7 +428,7 @@ class HomeComposeFragment : Fragment() {
     private fun startRealLocation() {
         val map = map ?: return
         if (mockModel.runtimeState.value.isActive) { showLocationIssue(HomeLocationIssue.SIMULATION); return }
-        if (!hasLocationPermission()) { showLocationIssue(HomeLocationIssue.PERMISSION); return }
+        if (!hasLocationPermission()) { stopRealLocation(); showLocationIssue(HomeLocationIssue.PERMISSION); return }
         val manager = requireContext().getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         if (manager == null) { showLocationIssue(HomeLocationIssue.UNAVAILABLE); return }
         if (!manager.isLocationEnabled) { stopRealLocation(); showLocationIssue(HomeLocationIssue.DISABLED); return }
@@ -501,9 +519,16 @@ private data class HomeTarget(
     val name: String? = null,
 )
 
+/** Consistent 48 dp touch targets with 24 dp vectors, independent of font scaling. */
+@Composable
+private fun HomeMapButton(icon: Int, description: String, onClick: () -> Unit) {
+    FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
+        Icon(painterResource(icon), contentDescription = description, modifier = Modifier.size(24.dp))
+    }
+}
+
 @Composable
 private fun HomeScreen(
-    mapModel: AMapViewModel,
     mockModel: MockServiceViewModel,
     targetFlow: kotlinx.coroutines.flow.Flow<HomeTarget>,
     locationFlow: kotlinx.coroutines.flow.StateFlow<HomeLocationState>,
@@ -607,7 +632,11 @@ private fun HomeScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        AndroidView(factory = { ctx -> createMap(ctx) }, modifier = Modifier.fillMaxSize())
+        AndroidView(
+            factory = { ctx -> createMap(ctx) },
+            update = { it.visibility = if (location.mapVisible) View.VISIBLE else View.INVISIBLE },
+            modifier = Modifier.fillMaxSize(),
+        )
         if (!location.mapVisible) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {}
         }
@@ -620,15 +649,21 @@ private fun HomeScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
                 Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onMenu) { Text("☰") }
+                    IconButton(onClick = onMenu) {
+                        Icon(painterResource(R.drawable.ic_home_menu), contentDescription = "打开菜单")
+                    }
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
                         placeholder = { Text("搜索") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { onSearch(query) { suggestions = it } }),
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { onSearch(query) { suggestions = it } }) { Text("搜索") }
+                    IconButton(onClick = { onSearch(query) { suggestions = it } }, enabled = query.isNotBlank()) {
+                        Icon(painterResource(R.drawable.ic_home_search), contentDescription = "搜索地点")
+                    }
                 }
             }
             if (location.loading || location.issue != null || !location.mapVisible) {
@@ -657,22 +692,39 @@ private fun HomeScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilledTonalButton(onClick = { onMapType() }) { Text("图层") }
-                FilledTonalButton(onClick = { if (!onRoutePreview()) Toast.makeText(context, "未选择路线", Toast.LENGTH_SHORT).show() }) { Text("路线") }
-                FilledTonalButton(onClick = { coordinateDialog = true }) { Text("坐标") }
-                FilledTonalButton(onClick = onLocate) { Text("定位") }
+                HomeMapButton(R.drawable.ic_home_layers, "切换地图图层") { onMapType() }
+                HomeMapButton(R.drawable.ic_home_route, "切换路线预览") {
+                    if (!onRoutePreview() && context.selectRoute == null) {
+                        Toast.makeText(context, "未选择路线", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                HomeMapButton(R.drawable.ic_home_coordinates, "输入坐标") { coordinateDialog = true }
+                HomeMapButton(R.drawable.ic_home_locate, "定位到真实位置", onLocate)
             }
-            PortalCard {
-                Text(
-                    target.name ?: "目标位置",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    target.point?.let { (lat, lon) -> String.format(Locale.ROOT, "%.6f, %.6f", lat, lon) }
-                        ?: "点击地图选择位置",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            PortalCard(contentPadding = PaddingValues(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            target.name ?: "目标位置",
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            target.point?.let { (lat, lon) -> String.format(Locale.ROOT, "%.6f, %.6f", lat, lon) }
+                                ?: "点击地图选择位置",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = { saveDialog = true }, enabled = target.point != null) {
+                        Icon(painterResource(R.drawable.ic_home_save), contentDescription = "保存位置")
+                    }
+                    IconButton(onClick = onRocker) {
+                        Icon(painterResource(R.drawable.ic_home_rocker),
+                            contentDescription = if (RockerOverlay.isEnabled) "关闭悬浮窗" else "打开悬浮窗")
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
@@ -688,15 +740,6 @@ private fun HomeScreen(
                         enabled = runtime.isActive,
                         modifier = Modifier.weight(1f),
                     ) { Text("停止模拟") }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { saveDialog = true }, enabled = target.point != null, modifier = Modifier.weight(1f)) {
-                        Text("保存位置")
-                    }
-                    OutlinedButton(onClick = onRocker, modifier = Modifier.weight(1f)) {
-                        Text(if (RockerOverlay.isEnabled) "关闭悬浮窗" else "悬浮窗")
-                    }
                 }
             }
         }

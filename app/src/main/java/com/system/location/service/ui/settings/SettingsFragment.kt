@@ -21,10 +21,9 @@ import com.system.location.service.maps.*
 import com.system.location.service.R
 import com.system.location.service.databinding.FragmentSettingsBinding
 import com.system.location.service.ext.routingJson
-import com.system.location.service.core.routing.AppRoute
+import com.system.location.service.core.routing.withPointAssignments
 import com.system.location.service.core.routing.withDeniedPackages
 import com.system.location.service.core.routing.RoutingConfig
-import com.system.location.service.core.routing.RoutingMode
 import com.system.location.service.core.repository.SavedLocation
 import com.system.location.service.data.repository.LibraryRepositories
 import kotlinx.serialization.json.Json
@@ -198,10 +197,7 @@ class SettingsFragment : Fragment() {
                 .map { it.packageName }
                 .toSet()
             showAppPicker(getString(R.string.per_app_point), initial) { selected ->
-                val selectedLower = selected.map { it.lowercase() }.toSet()
-                val routes = existing.routes.filterNot { it.packageName.lowercase() in selectedLower } +
-                    selected.map { AppRoute(it, point = location.coordinate) }
-                val config = existing.copy(mode = RoutingMode.PER_APP, routes = routes)
+                val config = existing.withPointAssignments(location.coordinate, selected)
                 context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
                 lifecycleScope.launch {
                     val applied = withContext(Dispatchers.IO) {

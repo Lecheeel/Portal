@@ -38,10 +38,9 @@ import com.system.location.service.MainActivity
 import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
 import com.system.location.service.core.repository.SavedLocation
-import com.system.location.service.core.routing.AppRoute
+import com.system.location.service.core.routing.withPointAssignments
 import com.system.location.service.core.routing.withDeniedPackages
 import com.system.location.service.core.routing.RoutingConfig
-import com.system.location.service.core.routing.RoutingMode
 import com.system.location.service.data.repository.LibraryRepositories
 import com.system.location.service.designsystem.components.PortalActionRow
 import com.system.location.service.designsystem.components.PortalCard
@@ -281,12 +280,9 @@ class SettingsComposeFragment : Fragment() {
         }.getOrNull() ?: RoutingConfig()
         val initial = existing.routes.filter { it.point == location.coordinate }.map { it.packageName }.toSet()
         showAppPicker(getString(R.string.per_app_point), initial) { selected ->
-            val selectedLower = selected.map { it.lowercase() }.toSet()
-            val routes = existing.routes.filterNot { it.packageName.lowercase() in selectedLower } +
-                selected.map { AppRoute(it, point = location.coordinate) }
             context.routingJson = Json.encodeToString(
                 RoutingConfig.serializer(),
-                existing.copy(mode = RoutingMode.PER_APP, routes = routes),
+                existing.withPointAssignments(location.coordinate, selected),
             )
             refresh()
             applyConfigNowWithToast()

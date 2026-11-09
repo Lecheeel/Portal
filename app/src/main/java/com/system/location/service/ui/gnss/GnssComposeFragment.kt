@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,6 +99,7 @@ private fun GnssScreen(model: GnssViewModel) {
     var satellites by remember { mutableStateOf<List<SatelliteData>>(emptyList()) }
     val control by model.state.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val lifecycleState by lifecycle.currentStateFlow.collectAsState()
     val hookReady = runtime.backend != BackendType.MOCK_PROVIDER && runtime.isActive
 
     LaunchedEffect(locationManager, lifecycle, model) {
@@ -168,7 +170,9 @@ private fun GnssScreen(model: GnssViewModel) {
                     }
                     AndroidView(
                         factory = { SatelliteRadarView(it, null) },
-                        update = { it.setSatellites(satellites) },
+                        update = { it.setSatellites(satellites); it.setActive(lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) },
+                        onReset = null,
+                        onRelease = { it.setActive(false) },
                         modifier = Modifier.align(Alignment.CenterHorizontally).widthIn(max = 280.dp).fillMaxWidth().aspectRatio(1f),
                     )
                     AnimatedVisibility(visible = satellites.isEmpty()) {

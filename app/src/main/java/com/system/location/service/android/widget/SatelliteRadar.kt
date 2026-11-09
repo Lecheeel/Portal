@@ -52,6 +52,8 @@ class SatelliteRadarView(context: Context, attributeSet: AttributeSet?): View(co
     private var radius: Float = 0f
 
     // 磁场传感器
+    private var active = true
+    private var sensorsRegistered = false
     private var sensorManager: SensorManager? = null
     private var rotationSensor: Sensor? = null
     private var magneticSensor: Sensor? = null
@@ -101,7 +103,14 @@ class SatelliteRadarView(context: Context, attributeSet: AttributeSet?): View(co
         unregisterSensors()
     }
 
+    fun setActive(active: Boolean) {
+        this.active = active
+        if (active) registerSensors() else unregisterSensors()
+    }
+
     private fun registerSensors() {
+        if (!active || sensorsRegistered || !isAttachedToWindow) return
+        sensorsRegistered = true
         if (rotationSensor != null) {
             sensorManager?.registerListener(this, rotationSensor, SensorManager.SENSOR_DELAY_UI)
         } else {
@@ -115,6 +124,7 @@ class SatelliteRadarView(context: Context, attributeSet: AttributeSet?): View(co
     }
 
     private fun unregisterSensors() {
+        sensorsRegistered = false
         sensorManager?.unregisterListener(this)
     }
 
@@ -192,23 +202,25 @@ class SatelliteRadarView(context: Context, attributeSet: AttributeSet?): View(co
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         if (event == null) return super.onTouchEvent(event)
-
-        val touchX = event.x
-        val touchY = event.y
-
-        setUseDeviceOrientation(!useDeviceOrientation)
-
-        for (satellite in satellites) {
-            if (distance(touchX, touchY, satellite.screenX, satellite.screenY) < 20) {
-                Log.d("SatelliteRadarView", "Touched satellite $satellite")
-                return true
+        return when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> true
+            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_CANCEL -> true
+            MotionEvent.ACTION_UP -> {
+                performClick()
+                satellites.firstOrNull { distance(event.x, event.y, it.screenX, it.screenY) < 20 }
+                    ?.let { Log.d("SatelliteRadarView", "Touched satellite $it") }
+                true
             }
+            else -> super.onTouchEvent(event)
         }
+    }
 
-        return false
+    override fun performClick(): Boolean {
+        super.performClick()
+        setUseDeviceOrientation(!useDeviceOrientation)
+        return true
     }
 
     private fun distance(x: Float, y: Float, x1: Float, y1: Float): Double {

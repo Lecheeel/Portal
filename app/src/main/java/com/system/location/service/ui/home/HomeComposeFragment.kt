@@ -61,6 +61,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.system.location.service.ui.CallbackScheduler
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -364,13 +369,13 @@ class HomeComposeFragment : Fragment() {
     private fun search(query: String, result: (List<PlaceSuggestion>) -> Unit) {
         if (query.isBlank()) return
         val map = map ?: return
+        val appContext = requireContext().applicationContext
         viewLifecycleOwner.lifecycleScope.launch {
-            val suggestions = withContext(Dispatchers.IO) {
-                runCatching { MapServices(requireContext(), map.provider).suggestions(query) }.getOrNull()
-            }
-            if (suggestions.isNullOrEmpty()) {
-                Toast.makeText(requireContext(), "未找到地点", Toast.LENGTH_SHORT).show()
-            } else result(suggestions)
+            val suggestions = try {
+                withContext(Dispatchers.IO) { MapServices(appContext, map.provider).suggestions(query) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { emptyList() }
+            result(suggestions)
         }
     }
 
@@ -688,7 +693,8 @@ private fun HomeScreen(
     val target by targetFlow.collectAsStateWithLifecycle(initialValue = HomeTarget())
     val library by libraryFlow.collectAsStateWithLifecycle()
     var targetPicker by rememberSaveable { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
+    val queryState = remember { mutableStateOf("") }
+    var query by queryState
     var suggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
     var saveDialog by remember { mutableStateOf(false) }
     var coordinateDialog by remember { mutableStateOf(false) }
@@ -697,6 +703,33 @@ private fun HomeScreen(
     var latInput by remember { mutableStateOf("") }
     var lonInput by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val requestSearch by rememberUpdatedState(onSearch)
+    val search = remember(lifecycle, context) {
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        DebouncedSearch<List<PlaceSuggestion>>(
+            scheduler = object : CallbackScheduler {
+                override fun post(delayMillis: Long, callback: Runnable) { handler.postDelayed(callback, delayMillis) }
+                override fun remove(callback: Runnable) { handler.removeCallbacks(callback) }
+            },
+            query = { queryState.value },
+            viewActive = { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
+            request = { text, reply -> requestSearch(text, reply) },
+            render = { result ->
+                suggestions = result
+                if (result.isEmpty()) Toast.makeText(context, "未找到地点，请修改搜索词后重试", Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
+    DisposableEffect(search, lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) search.select { suggestions = emptyList() }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer); search.destroy() }
+    }
+    fun dismissSearch() { search.select { suggestions = emptyList() } }
 
     if (targetPicker) HomeTargetPicker(
         library = library,
@@ -708,21 +741,20 @@ private fun HomeScreen(
 
     if (suggestions.isNotEmpty()) {
         AlertDialog(
-            onDismissRequest = { suggestions = emptyList() },
+            onDismissRequest = ::dismissSearch,
             title = { Text("选择地点") },
             text = {
                 LazyColumn(Modifier.height(300.dp)) {
                     items(suggestions) { suggestion ->
                         TextButton(onClick = {
-                            suggestions = emptyList()
-                            query = suggestion.name
+                            search.select { suggestions = emptyList(); query = suggestion.name }
                             val wgs = CoordinateTransform.toWgs84(suggestion.point)
                             onTarget(wgs.latitude to wgs.longitude, suggestion.name)
                         }) { Text("${suggestion.name}\n${suggestion.address}") }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { suggestions = emptyList() }) { Text("取消") } },
+            confirmButton = { TextButton(onClick = ::dismissSearch) { Text("取消") } },
         )
     }
 
@@ -810,14 +842,14 @@ private fun HomeScreen(
                     }
                     OutlinedTextField(
                         value = query,
-                        onValueChange = { query = it },
+                        onValueChange = { text -> search.select { query = text; suggestions = emptyList() } },
                         placeholder = { Text("搜索") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { onSearch(query) { suggestions = it } }),
+                        keyboardActions = KeyboardActions(onSearch = { search.submit() }),
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = { onSearch(query) { suggestions = it } }, enabled = query.isNotBlank()) {
+                    IconButton(onClick = { search.submit() }, enabled = query.isNotBlank()) {
                         Icon(painterResource(R.drawable.ic_home_search), contentDescription = "搜索地点")
                     }
                 }

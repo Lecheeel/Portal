@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -360,6 +361,25 @@ class SettingsComposeFragment : Fragment() {
     }
 }
 
+private data class SettingsValues(
+    val smoothRouteMotion: Boolean,
+    val physicalNoise: Boolean,
+    val gmsMockEnabled: Boolean,
+    val platformFusedEnabled: Boolean,
+    val startupBurstEnabled: Boolean,
+    val experimentalClearMockFlag: Boolean,
+    val gnssOrbital: Boolean,
+    val simReady: Boolean,
+    val debug: Boolean,
+    val disableGetCurrentLocation: Boolean,
+    val disableRegisterLocationListener: Boolean,
+    val disableFusedProvider: Boolean,
+    val needDowngradeToCdma: Boolean,
+    val disableWifiScan: Boolean,
+    val loopBroadcastlocation: Boolean,
+    val crashReporting: Boolean,
+)
+
 @Composable
 private fun SettingsScreen(
     revision: Int,
@@ -380,8 +400,28 @@ private fun SettingsScreen(
     refresh: () -> Unit,
 ) {
     val context = LocalContext.current
-    // Read the host revision so preference writes trigger recomposition.
-    @Suppress("UNUSED_VARIABLE") val currentRevision = revision
+    // Lazy item lambdas are memoized. Capture immutable values that change with the
+    // revision, rather than reading non-observable preferences inside skipped items.
+    val values = remember(revision) {
+        SettingsValues(
+            smoothRouteMotion = context.smoothRouteMotion,
+            physicalNoise = context.physicalNoise,
+            gmsMockEnabled = context.gmsMockEnabled,
+            platformFusedEnabled = context.platformFusedEnabled,
+            startupBurstEnabled = context.startupBurstEnabled,
+            experimentalClearMockFlag = context.experimentalClearMockFlag,
+            gnssOrbital = context.gnssOrbital,
+            simReady = context.simReady,
+            debug = context.debug,
+            disableGetCurrentLocation = context.disableGetCurrentLocation,
+            disableRegisterLocationListener = context.disableRegisterLocationListener,
+            disableFusedProvider = context.disableFusedProvider,
+            needDowngradeToCdma = context.needDowngradeToCdma,
+            disableWifiScan = context.disableWifiScan,
+            loopBroadcastlocation = context.loopBroadcastlocation,
+            crashReporting = SdkPrivacy.crashReportingRequested,
+        )
+    }
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val hooksEnabled = runtime.backend != BackendType.MOCK_PROVIDER
     fun hookAction(block: (Boolean) -> Unit): ((Boolean) -> Unit)? = if (hooksEnabled) block else null
@@ -426,13 +466,13 @@ private fun SettingsScreen(
                         PortalSwitchRow(
                             title = "路线平滑运动",
                             subtitle = "弯道减速、平滑加减速，下次启动生效。",
-                            checked = context.smoothRouteMotion,
+                            checked = values.smoothRouteMotion,
                             onCheckedChange = { context.smoothRouteMotion = it; refresh() },
                         )
                         PortalSwitchRow(
                             title = "物理漂移噪声",
                             subtitle = "为位置、海拔和精度添加有界微漂移。",
-                            checked = context.physicalNoise,
+                            checked = values.physicalNoise,
                             onCheckedChange = { context.physicalNoise = it; onConfigChanged(); refresh() },
                         )
                     }
@@ -443,25 +483,25 @@ private fun SettingsScreen(
                         PortalSwitchRow(
                             title = "Google 融合定位（实验）",
                             subtitle = "需 Google Play 服务；失败时继续使用 GPS/Network。",
-                            checked = context.gmsMockEnabled,
+                            checked = values.gmsMockEnabled,
                             onCheckedChange = { context.gmsMockEnabled = it; onConfigChanged(); refresh() },
                         )
                         PortalSwitchRow(
                             title = "系统 Fused 通道（实验）",
                             subtitle = "额外注册系统 fused 模拟 Provider。",
-                            checked = context.platformFusedEnabled,
+                            checked = values.platformFusedEnabled,
                             onCheckedChange = { context.platformFusedEnabled = it; onConfigChanged(); refresh() },
                         )
                         PortalSwitchRow(
                             title = "启动突发",
                             subtitle = "启动时快速补齐定位。",
-                            checked = context.startupBurstEnabled,
+                            checked = values.startupBurstEnabled,
                             onCheckedChange = { context.startupBurstEnabled = it; refresh() },
                         )
                         PortalSwitchRow(
                             title = "清除模拟标记（实验）",
                             subtitle = "仅标准 Mock 模式；系统可能重新标记。",
-                            checked = context.experimentalClearMockFlag,
+                            checked = values.experimentalClearMockFlag,
                             onCheckedChange = { context.experimentalClearMockFlag = it; refresh() },
                         )
                     }
@@ -471,38 +511,38 @@ private fun SettingsScreen(
                         PortalSectionTitle("系统 Hook", "仅 Xposed/Native 后端有效")
                         PortalSwitchRow(
                             title = "轨道 GNSS 模型（实验）",
-                            checked = context.gnssOrbital,
+                            checked = values.gnssOrbital,
                             onCheckedChange = hookAction { context.gnssOrbital = it; onConfigChanged(); refresh() },
                         )
                         PortalSwitchRow(
                             title = "SIM 就绪",
                             subtitle = "关闭时模拟无 SIM / 仅 Wi-Fi。",
-                            checked = context.simReady,
+                            checked = values.simReady,
                             onCheckedChange = hookAction { context.simReady = it; onConfigChanged(); refresh() },
                         )
                         PortalSwitchRow(
                             title = "调试模式",
-                            checked = context.debug,
+                            checked = values.debug,
                             onCheckedChange = hookAction { context.debug = it; refresh() },
                         )
                         PortalSwitchRow(
                             title = "允许获取当前位置",
-                            checked = !context.disableGetCurrentLocation,
+                            checked = !values.disableGetCurrentLocation,
                             onCheckedChange = hookAction { context.disableGetCurrentLocation = !it; refresh() },
                         )
                         PortalSwitchRow(
                             title = "允许注册位置监听器",
-                            checked = !context.disableRegisterLocationListener,
+                            checked = !values.disableRegisterLocationListener,
                             onCheckedChange = hookAction { context.disableRegisterLocationListener = !it; refresh() },
                         )
                         PortalSwitchRow(
                             title = "禁用融合定位",
-                            checked = context.disableFusedProvider,
+                            checked = values.disableFusedProvider,
                             onCheckedChange = hookAction { context.disableFusedProvider = it; refresh() },
                         )
                         PortalSwitchRow(
                             title = "网络降级为 CDMA",
-                            checked = context.needDowngradeToCdma,
+                            checked = values.needDowngradeToCdma,
                             onCheckedChange = hookAction { context.needDowngradeToCdma = it; refresh() },
                         )
                         PortalActionRow(
@@ -514,13 +554,13 @@ private fun SettingsScreen(
                         PortalSwitchRow(
                             title = "禁用 Wi-Fi 扫描",
                             subtitle = "尝试减少位置拉回（实验）。",
-                            checked = context.disableWifiScan,
+                            checked = values.disableWifiScan,
                             onCheckedChange = hookAction { context.disableWifiScan = it; refresh() },
                         )
                         PortalSwitchRow(
                             title = "反定位拉回",
                             subtitle = "按上报间隔持续发送固定位置。",
-                            checked = context.loopBroadcastlocation,
+                            checked = values.loopBroadcastlocation,
                             onCheckedChange = hookAction { context.loopBroadcastlocation = it; refresh() },
                         )
                     }
@@ -539,7 +579,7 @@ private fun SettingsScreen(
                         PortalSwitchRow(
                             title = "发送崩溃报告",
                             subtitle = "默认关闭；通过 Bugly 发送崩溃堆栈。关闭后重新开启需重启，不撤回已发送或待上传的报告。",
-                            checked = SdkPrivacy.crashReportingRequested,
+                            checked = values.crashReporting,
                             onCheckedChange = onCrashReporting,
                         )
                         PortalActionRow("后台运行", "权限与电池优化检查", onBackgroundGuidance)

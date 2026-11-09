@@ -1,6 +1,7 @@
 package com.system.location.service
 
 import androidx.compose.ui.test.*
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -14,6 +15,50 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SettingsSwitchUiTest {
     @get:Rule val compose = createEmptyComposeRule()
+
+    @Test fun sharedSwitchAnimatesBetweenOffAndOn() {
+        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        grantUiPermissions()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val checked = androidx.compose.runtime.mutableStateOf(false)
+            scenario.onActivity { activity ->
+                activity.setContentView(androidx.compose.ui.platform.ComposeView(activity).apply {
+                    setContent {
+                        com.system.location.service.designsystem.theme.PortalTheme {
+                            com.system.location.service.designsystem.components.PortalSwitchRow(
+                                title = "动画测试", checked = checked.value,
+                                onCheckedChange = { checked.value = it },
+                            )
+                        }
+                    }
+                })
+            }
+            compose.waitForIdle()
+            compose.mainClock.autoAdvance = false
+            try {
+                val node = compose.onNode(hasText("动画测试") and isToggleable())
+                fun pixels(): Int {
+                    val image = node.captureToImage().toPixelMap()
+                    var hash = 1
+                    // Only the trailing switch, using a primitive accumulator (no boxed pixel list).
+                    val left = (image.width - 240).coerceAtLeast(0)
+                    for (y in 0 until image.height) for (x in left until image.width) {
+                        hash = 31 * hash + image[x, y].hashCode()
+                    }
+                    return hash
+                }
+                val off = pixels()
+                node.performClick()
+                compose.mainClock.advanceTimeBy(32)
+                val moving = pixels()
+                compose.mainClock.advanceTimeBy(500)
+                val on = pixels()
+                org.junit.Assert.assertNotEquals("Thumb must move after a tap", off, on)
+                org.junit.Assert.assertNotEquals("Animation must have an intermediate frame", moving, on)
+                node.assertIsOn()
+            } finally { compose.mainClock.autoAdvance = true }
+        }
+    }
 
     @Test fun preferenceSwitchesUpdateImmediatelyAndCanToggleBackWithoutLeavingPage() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

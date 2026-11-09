@@ -194,6 +194,11 @@ class UiDesignTest {
         try {
             phase("open library") { compose.openPage(scenario, R.id.nav_route_gallery) }
             phase("search unmatched record") { compose.scrollToText("搜索资料").performTextReplacement("不会匹配的记录") }
+            // Finish text entry before scrolling another lazy item into view: while the IME is
+            // open, focused-field bring-into-view can compete with the list's test scroll.
+            phase("dismiss search keyboard") {
+                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            }
             phase("assert empty search") { compose.scrollToText("没有匹配的资料").assertIsDisplayed() }
             phase("clear search") { compose.scrollToText("搜索资料").performTextReplacement("") }
             phase("select locations") { compose.scrollToText("位置").performClick() }

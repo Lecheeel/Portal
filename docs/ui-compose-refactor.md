@@ -67,7 +67,7 @@
 
 - [x] 迁移「位置」Tab 到 Compose（坐标表单、开始/保存、资料库、运行状态、暂停/停止）。
 - [x] 迁移「卫星」Tab 到 Compose（雷达 AndroidView、卫星统计、GNSS 控制、功能开关）。
-- [ ] 统一「位置 / 卫星」Tab 壳并移除旧 TabLayout。
+- [x] 统一「位置 / 卫星」Tab 壳并移除旧 TabLayout（已接入 Compose TabRow + FragmentContainerView）。
 - [x] 保持现有 GNSS/NMEA 状态数据源。
 - [ ] 补充 Compose 状态测试。
 
@@ -94,7 +94,7 @@
 | 运行中心 | Fragment + XML | Compose 首屏已接入 | Runtime state、诊断、Native 风险 | 进行中 |
 | 设置 | Fragment + XML | Compose 首版已接入 | Settings/Perfs、Hook 状态 | 已完成首版 |
 | 环境工具 | Fragment + XML | Compose 已接入 | SAF、环境存储、指纹导入 | 已完成首版 |
-| 模拟（位置/卫星） | Fragment + XML 壳 | 两个 Tab 均已 Compose，壳待迁移 | Location/Route/GNSS 状态 | 进行中 |
+| 模拟（位置/卫星） | Fragment + XML | Compose TabRow + 两个 Compose Tab | Location/Route/GNSS 状态 | 已完成首版 |
 | 资料库/路线 | Fragment + XML + Adapter | Compose | 路线存储、GPX/JSON | 后续 |
 | 首页地图 | Fragment + XML + MapView | Compose 壳 + AndroidView | 高德/腾讯地图 | 最后 |
 | 悬浮摇杆 | View overlay | Compose/AndroidView 混合 | WindowManager | 后续 |
@@ -134,6 +134,7 @@
 - 2026-11-09：设置页迁移为 `SettingsComposeFragment`；定位参数、运动、通道、Hook、分应用、隐私和更新入口均接入 Compose。数值/应用选择/更新弹窗暂由 Fragment host 承载；应用选择搜索仍未迁完。
 - 2026-11-09：模拟页「位置」Tab 迁移为 `MockComposeFragment`，接入现有 `PointViewModel`、`ScenarioRuntime` 和资料库；旧 `MockFragment` 暂留回退。
 - 2026-11-09：模拟页「卫星」Tab 迁移为 `GnssComposeFragment`；雷达 `SatelliteRadarView` 通过 AndroidView 保留，卫星统计、GNSS 控制和功能开关进入 Compose；旧 `GnssMockFragment` 暂留回退。
+- 2026-11-09：模拟页外壳迁移为 `SimulationComposeFragment`，使用 Compose TabRow + FragmentContainerView；旧 `SimulationFragment` 暂留回退。
 - 当前构建注意：本机首次解析 Compose 依赖需要联网；解析完成后离线构建可用。`:designsystem` 需要显式 `buildToolsVersion = "37.0.0"`。
 
 ## 8. 风险

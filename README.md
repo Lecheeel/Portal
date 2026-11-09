@@ -24,9 +24,7 @@ Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮
 
 加速度计	TYPE_ACCELEROMETER	/ 陀螺仪	TYPE_GYROSCOPE	
 
-磁力计/地磁	TYPE_MAGNETIC_FIELD	
-
-气压计	TYPE_PRESSURE	
+磁力计/地磁	TYPE_MAGNETIC_FIELD	 / 气压计	TYPE_PRESSURE	
 
 步数计数器	TYPE_STEP_COUNTER	/ 单步检测器	TYPE_STEP_DETECTOR
 
@@ -44,8 +42,6 @@ GPS/Network/Fused 定位结果
 
 信号强度 CN0、基带 CN0、载波频率、参与定位状态
 
-GPS/北斗/GLONASS/Galileo/QZSS 多星座模型
-
 实验性 Kepler 轨道天空模型
 
 
@@ -53,23 +49,19 @@ GPS/北斗/GLONASS/Galileo/QZSS 多星座模型
 
 GGA/RMC/GSA/GSV/GST/ZDA
 
-
 位置、海拔、速度、航向、UTC 时间、卫星数量、DOP、卫星状态与 NMEA 主动投递
 
 **NMEA 需要单独开启，并非选择 Native 后全部自动开启**
 
-### ⚠ 目前bug，还有注意事项！！
-
+### ⚠ ⚠ 注意事项和bug ⚠ ⚠ 
 
 传感器目前主要改写设备已有事件，不会凭空增加硬件，也不保证没有硬件事件时仍能持续输出
 
-原始 GNSS 测量、导航电文、天线信息，目前没有完整模拟输出！！ **BUG**
+原始 GNSS 测量、导航电文、天线信息，目前没有完整模拟输出 **BUG**
 
-这里修改的是系统软件处理与回调数据，不会刷写 GNSS 芯片固件，也不会改变真实卫星信号！！
+这里修改的是系统软件处理与回调数据，不会刷写 GNSS 芯片固件，也不会改变真实卫星信号！
 
-停止模拟 **不是** 卸载 Native Hook！！
-
-** 已经加载的 Native Hook，需要重启相关进程或设备才能卸载！！ **
+停止模拟 **不是** 卸载 Native Hook！！ ** 已经加载的 Native Hook，需要重启相关进程或设备才能卸载！！ **
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

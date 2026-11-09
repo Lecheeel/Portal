@@ -15,17 +15,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
-private val PortalPurple = Color(0xFF5B4BDB)
-private val PortalPurpleDark = Color(0xFFB9B0FF)
-private val PortalLavender = Color(0xFFE9E3FF)
+private val PortalPurple = Color(0xFF4F46E5)
+private val PortalPurpleDark = Color(0xFF818CF8)
+private val PortalLavender = Color(0xFFE0E7FF)
 private val PortalSurface = Color(0xFFFFFFFF)
-private val PortalSurfaceDark = Color(0xFF141218)
-private val PortalBackground = Color(0xFFF8F7FC)
-private val PortalBackgroundDark = Color(0xFF0D0B12)
-private val PortalInk = Color(0xFF1C1B1F)
-private val PortalInkMuted = Color(0xFF5E5A66)
-private val PortalOutline = Color(0xFFD9D5E3)
-private val PortalError = Color(0xFFBA1A1A)
+private val PortalSurfaceDark = Color(0xFF1E293B)
+private val PortalBackground = Color(0xFFF8FAFC)
+private val PortalBackgroundDark = Color(0xFF0F172A)
+private val PortalInk = Color(0xFF0F172A)
+private val PortalInkMuted = Color(0xFF64748B)
+private val PortalOutline = Color(0xFFE2E8F0)
+private val PortalError = Color(0xFFEF4444)
 
 private val PortalTypography = Typography(
     headlineLarge = TextStyle(
@@ -93,11 +93,11 @@ private val LightColors = lightColorScheme(
     primary = PortalPurple,
     onPrimary = Color.White,
     primaryContainer = PortalLavender,
-    onPrimaryContainer = Color(0xFF16005E),
-    secondary = Color(0xFF625B71),
+    onPrimaryContainer = Color(0xFF1E1B4B),
+    secondary = Color(0xFF6366F1),
     surface = PortalSurface,
     onSurface = PortalInk,
-    surfaceVariant = Color(0xFFF1EEF7),
+    surfaceVariant = Color(0xFFF1F5F9),
     onSurfaceVariant = PortalInkMuted,
     outline = PortalOutline,
     background = PortalBackground,
@@ -107,18 +107,18 @@ private val LightColors = lightColorScheme(
 
 private val DarkColors = darkColorScheme(
     primary = PortalPurpleDark,
-    onPrimary = Color(0xFF2A1B77),
-    primaryContainer = Color(0xFF41349D),
-    onPrimaryContainer = Color(0xFFE8DEFF),
-    secondary = Color(0xFFCBC2DB),
+    onPrimary = Color(0xFF1E1B4B),
+    primaryContainer = Color(0xFF3730A3),
+    onPrimaryContainer = Color(0xFFE0E7FF),
+    secondary = Color(0xFFA5B4FC),
     surface = PortalSurfaceDark,
-    onSurface = Color(0xFFE6E1E9),
-    surfaceVariant = Color(0xFF49454F),
-    onSurfaceVariant = Color(0xFFCAC4D0),
-    outline = Color(0xFF938F99),
+    onSurface = Color(0xFFF1F5F9),
+    surfaceVariant = Color(0xFF334155),
+    onSurfaceVariant = Color(0xFFCBD5E1),
+    outline = Color(0xFF334155),
     background = PortalBackgroundDark,
-    onBackground = Color(0xFFE6E1E9),
-    error = Color(0xFFFFB4AB),
+    onBackground = Color(0xFFF1F5F9),
+    error = Color(0xFFFCA5A5),
 )
 
 @Composable

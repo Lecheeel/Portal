@@ -38,6 +38,10 @@ android {
         manifestPlaceholders["AMAP_ANDROID_KEY"] =
             System.getenv("AMAP_ANDROID_KEY") ?: ""
 
+        val tencentKey = System.getenv("TENCENT_MAP_KEY") ?: ""
+        require(tencentKey.matches(Regex("[A-Za-z0-9-]*"))) { "Invalid TENCENT_MAP_KEY" }
+        manifestPlaceholders["TENCENT_MAP_KEY"] = tencentKey
+        buildConfigField("String", "TENCENT_MAP_KEY", "\"$tencentKey\"")
         manifestPlaceholders["APP_CHANNEL"] = "local"
 
     }
@@ -179,6 +183,8 @@ dependencies {
     implementation(libs.bugly)
 
     implementation(libs.amap.map3d.location.search)
+    implementation("com.tencent.map:tencent-map-vector-sdk:6.15.1.261013.3d797fb0.242708926")
+    implementation("com.tencent.openmap:foundation:0.9.1.6875646")
     implementation(libs.geotools)
     implementation("com.google.android.gms:play-services-location:21.3.0")
 

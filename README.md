@@ -1,6 +1,6 @@
 # LocationService
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Lecheeel/Portal) / [下载 APK](https://github.com/Lecheeel/Portal/releases) / [更新日志](https://github.com/Lecheeel/Portal/releases)
+[![Ask DeepWiki](./docs/badge.svg)](https://deepwiki.com/Lecheeel/Portal) / [下载 APK](https://github.com/Lecheeel/Portal/releases) / [更新日志](https://github.com/Lecheeel/Portal/releases)
 
 Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮摇杆，并提供 GNSS/NMEA、WiFi/基站环境和传感器扩展。
 

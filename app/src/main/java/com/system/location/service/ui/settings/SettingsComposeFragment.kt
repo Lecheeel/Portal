@@ -1,7 +1,6 @@
 package com.system.location.service.ui.settings
 
 import android.content.Intent
-import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -68,13 +67,12 @@ import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.routingJson
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.smoothRouteMotion
-import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.startupBurstEnabled
 import com.system.location.service.maps.mapProvider
 import com.system.location.service.privacy.SdkPrivacy
 import com.system.location.service.runtime.ScenarioRuntime
-import com.system.location.service.ui.displayLabel
+import com.system.location.service.ui.preferenceRevision
 import com.system.location.service.update.UpdateChannel
 import com.system.location.service.update.UpdateChecker
 import com.system.location.service.update.UpdateDialogFragment
@@ -90,19 +88,6 @@ class SettingsComposeFragment : Fragment() {
     private val revision = MutableStateFlow(0)
     private var updateRequest = 0L
     private var numberDialog: androidx.appcompat.app.AlertDialog? = null
-    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> refresh() }
-
-    override fun onStart() {
-        super.onStart()
-        requireContext().sharedPrefs.registerOnSharedPreferenceChangeListener(preferenceListener)
-        refresh()
-    }
-
-    override fun onStop() {
-        requireContext().sharedPrefs.unregisterOnSharedPreferenceChangeListener(preferenceListener)
-        super.onStop()
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -434,7 +419,8 @@ private fun SettingsScreen(
     val context = LocalContext.current
     // Lazy item lambdas are memoized. Capture immutable values that change with the
     // revision, rather than reading non-observable preferences inside skipped items.
-    val values = remember(context, revision) {
+    val preferencesRevision = preferenceRevision()
+    val values = remember(context, revision, preferencesRevision) {
         SettingsValues(
             altitude = context.altitude,
             accuracy = context.accuracy,

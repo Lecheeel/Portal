@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.system.location.service.ui.displayLabel
 import com.system.location.service.core.backend.BackendType
 import com.system.location.service.runtime.ScenarioRuntime
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -44,21 +45,24 @@ class SimulationNavigationTest {
     @Test fun cancellingNativeSelectionKeepsActualBackendAcrossRecreation() {
         val original = ScenarioRuntime.state.value.backend
         assertFalse("Run on an idle fixture", ScenarioRuntime.state.value.isActive)
-        assertNotEquals("Run on an idle non-Native fixture", BackendType.NATIVE, original)
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            compose.openPage(scenario, R.id.nav_runtime)
-            compose.scrollToText(BackendType.NATIVE.displayLabel()).performClick()
-            compose.scrollToText("应用模式").performClick()
-            compose.onNodeWithText("实验性模式风险须知").assertIsDisplayed()
-            assertEquals(original, ScenarioRuntime.state.value.backend)
-            scenario.recreate()
-            compose.onNodeWithText("实验性模式风险须知").assertIsDisplayed()
-            assertEquals(original, ScenarioRuntime.state.value.backend)
-            compose.onNodeWithText("取消").performClick()
-            compose.onNodeWithText("实验性模式风险须知").assertDoesNotExist()
-            assertEquals(original, ScenarioRuntime.state.value.backend)
-            compose.scrollToText(original.displayLabel()).assertIsSelected()
-            compose.onNodeWithText(BackendType.NATIVE.displayLabel()).assertIsNotSelected()
-        }
+        val baseline = BackendType.MOCK_PROVIDER
+        assertTrue(runBlocking { ScenarioRuntime.selectBackend(baseline).await() })
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                compose.openPage(scenario, R.id.nav_runtime)
+                compose.scrollToText(BackendType.NATIVE.displayLabel()).performClick()
+                compose.scrollToText("应用模式").performClick()
+                compose.onNodeWithText("实验性模式风险须知").assertIsDisplayed()
+                assertEquals(baseline, ScenarioRuntime.state.value.backend)
+                scenario.recreate()
+                compose.onNodeWithText("实验性模式风险须知").assertIsDisplayed()
+                assertEquals(baseline, ScenarioRuntime.state.value.backend)
+                compose.onNodeWithText("取消").performClick()
+                compose.onNodeWithText("实验性模式风险须知").assertDoesNotExist()
+                assertEquals(baseline, ScenarioRuntime.state.value.backend)
+                compose.scrollToText(baseline.displayLabel()).assertIsSelected()
+                compose.onNodeWithText(BackendType.NATIVE.displayLabel()).assertIsNotSelected()
+            }
+        } finally { assertTrue(runBlocking { ScenarioRuntime.selectBackend(original).await() }) }
     }
 }

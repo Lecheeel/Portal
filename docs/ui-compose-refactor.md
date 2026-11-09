@@ -65,8 +65,9 @@
 
 ### Phase 3 · 模拟页
 
-- [ ] 迁移「位置 / 卫星」双 Tab。
-- [ ] 统一输入框、保存位置、开始/暂停/停止、状态卡片。
+- [x] 迁移「位置」Tab 到 Compose（坐标表单、开始/保存、资料库、运行状态、暂停/停止）。
+- [ ] 迁移「卫星」Tab 到 Compose。
+- [ ] 统一「位置 / 卫星」Tab 壳并移除旧 TabLayout。
 - [ ] 保持现有 GNSS/NMEA 状态数据源。
 - [ ] 补充 Compose 状态测试。
 
@@ -93,7 +94,7 @@
 | 运行中心 | Fragment + XML | Compose 首屏已接入 | Runtime state、诊断、Native 风险 | 进行中 |
 | 设置 | Fragment + XML | Compose 首版已接入 | Settings/Perfs、Hook 状态 | 已完成首版 |
 | 环境工具 | Fragment + XML | Compose 已接入 | SAF、环境存储、指纹导入 | 已完成首版 |
-| 模拟（位置/卫星） | Fragment + XML | Compose | Location/Route/GNSS 状态 | 待开始 |
+| 模拟（位置/卫星） | Fragment + XML | 位置 Tab Compose；卫星待迁移 | Location/Route/GNSS 状态 | 进行中 |
 | 资料库/路线 | Fragment + XML + Adapter | Compose | 路线存储、GPX/JSON | 后续 |
 | 首页地图 | Fragment + XML + MapView | Compose 壳 + AndroidView | 高德/腾讯地图 | 最后 |
 | 悬浮摇杆 | View overlay | Compose/AndroidView 混合 | WindowManager | 后续 |
@@ -131,6 +132,7 @@
 - 2026-11-09：新增 `PortalActionRow`/`PortalSwitchRow`；环境工具迁移为 `EnvironmentComposeFragment`，覆盖采集、列表、导入、指纹开关、AP/基站/来源配置，A 设备实际打开验证。
 - 2026-11-09：新增 `designsystem` Compose UI 测试骨架与本地签名注入；测试 APK 编译通过。`connectedDebugAndroidTest` 在本机被 DSH 的 JNA 临时目录 ACL 阻断，需在 CI/无沙箱环境跑。
 - 2026-11-09：设置页迁移为 `SettingsComposeFragment`；定位参数、运动、通道、Hook、分应用、隐私和更新入口均接入 Compose。数值/应用选择/更新弹窗暂由 Fragment host 承载；应用选择搜索仍未迁完。
+- 2026-11-09：模拟页「位置」Tab 迁移为 `MockComposeFragment`，接入现有 `PointViewModel`、`ScenarioRuntime` 和资料库；旧 `MockFragment` 暂留回退，卫星 Tab 仍为旧实现。
 - 当前构建注意：本机首次解析 Compose 依赖需要联网；解析完成后离线构建可用。`:designsystem` 需要显式 `buildToolsVersion = "37.0.0"`。
 
 ## 8. 风险

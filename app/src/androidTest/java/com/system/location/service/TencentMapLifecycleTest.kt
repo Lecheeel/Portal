@@ -40,10 +40,7 @@ class TencentMapLifecycleTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val original = context.mapProvider
-        listOf(android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION,
-            android.Manifest.permission.POST_NOTIFICATIONS).forEach {
-            instrumentation.uiAutomation.grantRuntimePermission(context.packageName, it)
-        }
+        grantUiPermissions()
         try {
             instrumentation.runOnMainSync { TencentPrivacy.accept(context); context.mapProvider = MapProvider.TENCENT }
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->

@@ -149,13 +149,27 @@ class LibXposedDeviceTest {
         assumeTrue("Background location permission required", hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
         assumeTrue("GPS must already be enabled", manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
 
-        // Establish provider availability before enabling simulation. A real provider with no fix
-        // cannot establish whether the independent current-location rewrite path works.
         val baselineMillis = InstrumentationRegistry.getArguments()
             .getString("gpsBaselineMillis")?.toLongOrNull()?.coerceIn(2_000L, 120_000L) ?: 30_000L
-        assumeTrue("GPS supplied no baseline single fix", awaitBaselineFix(baselineMillis) != null)
+        val baselineStartedNanos = SystemClock.elapsedRealtimeNanos()
+        val fixes = LinkedBlockingQueue<Location>()
+        val warmListener = LocationListener { location ->
+            if (location.elapsedRealtimeNanos >= baselineStartedNanos) fixes.offer(Location(location))
+        }
+        var registrationAttempted = false
         var publicationAttempted = false
         try {
+            // Instrumentation restarts the app, ending its UI location requests. Keep a real GPS
+            // stream alive so the independent current consumer can use a fresh provider fix.
+            registrationAttempted = true
+            manager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, 1_000L, 0f, { task -> task.run() }, warmListener,
+            )
+            assumeTrue("GPS supplied no fresh continuous baseline fix",
+                fixes.poll(baselineMillis, TimeUnit.MILLISECONDS) != null)
+            // The continuous callback above is the real-provider baseline. The independent
+            // current-location request below is the behavior under test and must fail loudly if
+            // it does not deliver after simulation starts.
             val outgoing = sample(31.230416, 121.473701)
             publicationAttempted = true
             assertTrue("Sample command failed", MockServiceHelper.publishSample(manager, outgoing))
@@ -164,25 +178,17 @@ class LibXposedDeviceTest {
             assertActive(outgoing)
             assertSample(outgoing, received, "GPS current callback")
         } finally {
-            if (publicationAttempted) {
-                assertTrue("Stop command failed", MockServiceHelper.tryCloseMock(manager))
-                val stopped = requireStatus()
-                assertTrue("Stop response has no start state", stopped.containsKey("is_start"))
-                assertFalse("Simulation remained active after cleanup", stopped.getBoolean("is_start"))
+            try {
+                if (registrationAttempted) manager.removeUpdates(warmListener)
+            } finally {
+                if (publicationAttempted) {
+                    assertTrue("Stop command failed", MockServiceHelper.tryCloseMock(manager))
+                    val stopped = requireStatus()
+                    assertTrue("Stop response has no start state", stopped.containsKey("is_start"))
+                    assertFalse("Simulation remained active after cleanup", stopped.getBoolean("is_start"))
+                }
             }
         }
-    }
-
-    private fun awaitBaselineFix(maxWaitMillis: Long): Location? {
-        val deadline = SystemClock.elapsedRealtime() + maxWaitMillis
-        do {
-            val remaining = deadline - SystemClock.elapsedRealtime()
-            if (remaining <= 0L) break
-            // Android may cap each current-location request at 30 seconds. Repeat only the
-            // inactive baseline request within the explicit overall bound.
-            boundedCurrentFix(minOf(30_000L, remaining))?.let { return it }
-        } while (SystemClock.elapsedRealtime() < deadline)
-        return null
     }
 
     private fun boundedCurrentFix(durationMillis: Long = 2_000L): Location? {
@@ -192,14 +198,20 @@ class LibXposedDeviceTest {
         return try {
             manager.getCurrentLocation(
                 LocationManager.GPS_PROVIDER,
-                LocationRequest.Builder(0L).setDurationMillis(durationMillis).build(),
+                LocationRequest.Builder(1_000L)
+                    .setQuality(LocationRequest.QUALITY_HIGH_ACCURACY)
+                    .setDurationMillis(durationMillis)
+                    .build(),
                 cancellation,
                 { task -> task.run() },
             ) { location ->
                 received.set(location?.let { Location(it) })
                 delivered.countDown()
             }
-            if (delivered.await(durationMillis + 1_000L, TimeUnit.MILLISECONDS)) received.get() else null
+            val callbackArrived = delivered.await(durationMillis + 1_000L, TimeUnit.MILLISECONDS)
+            android.util.Log.i("PortalDeviceTest",
+                "GPS current request: callback=$callbackArrived nonNull=${received.get() != null}")
+            if (callbackArrived) received.get() else null
         } finally {
             cancellation.cancel()
         }

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tencent_privacy_message">地図表示、場所の検索、住所検索、徒歩ルートの検索には Tencent 位置情報サービスを使用します。位置情報、検索内容、端末情報は Tencent のプライバシーポリシーに従って処理されます。現在地は Android のシステム位置情報サービスから取得します。\n\nTencent のプライバシーポリシーを確認し、同意するか選択してください。同意しない場合、アプリを終了します。Bugly のクラッシュレポートは設定で個別に管理され、初期状態では無効です。</string>
+</resources>

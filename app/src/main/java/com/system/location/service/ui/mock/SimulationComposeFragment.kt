@@ -8,10 +8,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -86,7 +92,9 @@ class SimulationComposeFragment : Fragment() {
     private fun showTab(position: Int) {
         if (!tabsReady) return
         val fragment = childFragmentManager.findFragmentByTag(if (position == 0) TAG_LOCATION else TAG_SATELLITE) ?: return
+        if (childFragmentManager.primaryNavigationFragment === fragment) return
         childFragmentManager.beginTransaction().apply {
+            setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
             childFragmentManager.fragments.forEach { other ->
                 if (other !== fragment) {
                     hide(other)
@@ -121,15 +129,28 @@ private fun SimulationScreen(
     var selected by rememberSaveable { mutableIntStateOf(initialTab.coerceIn(0, 1)) }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize()) {
-            TabRow(selectedTabIndex = selected) {
+            PrimaryTabRow(
+                selectedTabIndex = selected,
+                containerColor = MaterialTheme.colorScheme.background,
+                divider = {},
+            ) {
                 listOf("位置", "卫星").forEachIndexed { index, title ->
                     Tab(
                         selected = selected == index,
                         onClick = {
-                            selected = index
-                            onTabSelected(index)
+                            if (selected != index) {
+                                selected = index
+                                onTabSelected(index)
+                            }
                         },
-                        text = { Text(title) },
+                        text = { Text(title, style = MaterialTheme.typography.titleSmall) },
+                        icon = {
+                            Icon(
+                                painterResource(if (index == 0) R.drawable.baseline_my_location_24 else R.drawable.baseline_satellite_alt_24),
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        },
                     )
                 }
             }

@@ -4,22 +4,29 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,7 +35,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -48,12 +56,7 @@ import com.system.location.service.ui.displayLabel
 import com.system.location.service.ui.viewmodel.PointViewModel
 import java.util.Locale
 
-/**
- * Compose replacement for the location tab of the simulation screen.
- *
- * The SimulationFragment tab host is intentionally kept for this step; the old fragment remains
- * available until the satellite tab and tab shell are migrated.
- */
+/** Location form and runtime controls for the simulation screen. */
 class MockComposeFragment : Fragment() {
     private val model by viewModels<PointViewModel>()
 
@@ -107,19 +110,23 @@ private fun MockScreen(
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
-            contentPadding = PaddingValues(20.dp, 24.dp, 20.dp, 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize().imePadding(),
+            contentPadding = PaddingValues(PortalSpacing.xl, PortalSpacing.xl, PortalSpacing.xl, 40.dp),
+            verticalArrangement = Arrangement.spacedBy(PortalSpacing.lg),
         ) {
-            item {
-                Text("坐标定位", style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "直接使用 GPS 坐标，无需地图服务。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            item(key = "heading") {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer) {
+                        Icon(
+                            painterResource(R.drawable.baseline_my_location_24), null,
+                            Modifier.size(48.dp).padding(12.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                    Text("坐标定位", style = MaterialTheme.typography.headlineMedium)
+                }
             }
-            item {
+            item(key = "coordinates") {
                 PortalCard {
                     PortalSectionTitle("WGS84 坐标")
                     Spacer(Modifier.height(PortalSpacing.sm))
@@ -127,6 +134,7 @@ private fun MockScreen(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text("位置名称") },
+                        leadingIcon = { Icon(painterResource(R.drawable.baseline_location_on_24), null) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -149,23 +157,29 @@ private fun MockScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(PortalSpacing.md))
-                    Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = onStart, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Icon(painterResource(R.drawable.rounded_play_arrow_24), null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text("开始模拟")
                     }
                     Spacer(Modifier.height(PortalSpacing.sm))
-                    OutlinedButton(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = onSave, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Icon(painterResource(R.drawable.baseline_save_24), null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text("保存至位置库")
                     }
                 }
             }
-            item {
-                OutlinedButton(onClick = onOpenLibrary, modifier = Modifier.fillMaxWidth()) {
+            item(key = "library") {
+                OutlinedButton(onClick = onOpenLibrary, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Icon(painterResource(R.drawable.ic_layers_modern), null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text("打开资料库")
                 }
             }
-            if (runtime.isActive || runtime.error != null) {
-                item {
-                    PortalCard {
+            item(key = "runtime") {
+                AnimatedVisibility(visible = runtime.isActive || runtime.error != null) {
+                    PortalCard(modifier = Modifier.animateContentSize()) {
                         PortalSectionTitle(
                             "${runtime.backend.displayLabel()} · ${runtime.phase.displayLabel()}",
                             runtime.scenarioName.orEmpty(),
@@ -201,27 +215,25 @@ private fun MockScreen(
                                 onClick = { ScenarioRuntime.stop() },
                                 enabled = runtime.isActive || runtime.error != null,
                                 modifier = Modifier.weight(1f),
-                            ) { Text("停止") }
+                            ) {
+                                Icon(painterResource(R.drawable.baseline_stop_24), null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("停止")
+                            }
                         }
                     }
                 }
             }
-            message?.let { text ->
-                item {
+            item(key = "message") {
+                AnimatedVisibility(visible = message != null) {
                     Text(
-                        text,
+                        message.orEmpty(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            item {
-                Text(
-                    "坐标越界、名称留空或场景启动失败时，会在下方显示原因。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+
         }
     }
 }

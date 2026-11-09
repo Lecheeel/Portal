@@ -155,6 +155,7 @@ private fun RuntimeScreen(
     val state by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val events by ScenarioRuntime.diagnostics.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var environment by remember { mutableStateOf<RuntimeEnvironment?>(null) }
     var environmentCheckFailed by remember { mutableStateOf(false) }
@@ -310,7 +311,7 @@ private fun RuntimeScreen(
                         state.error?.let {
                             add(listOf(it.reason, it.suggestion).filter(String::isNotBlank).joinToString("\n"))
                         }
-                        env?.issues(state.backend)?.forEach { add(context.getString(it)) }
+                        env?.issues(state.backend)?.forEach { add(resources.getString(it)) }
                     }.distinct()
                     if (issues.isNotEmpty()) {
                         Spacer(Modifier.height(PortalSpacing.sm))

@@ -1,12 +1,14 @@
 package com.system.location.service.ui.mock
 
-import android.content.Intent
+
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,10 +17,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -30,10 +43,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
@@ -135,10 +156,10 @@ private fun LibraryScreen(
     onImportGpx: () -> Unit,
     onExportGpx: (String?) -> Unit,
 ) {
-    val context = LocalContext.current
+
     val state by model.state.collectAsStateWithLifecycle()
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var selectedItem by remember { mutableStateOf<LibraryItem?>(null) }
     var renameTarget by remember { mutableStateOf<LibraryItem?>(null) }
     var renameValue by remember { mutableStateOf("") }
@@ -194,7 +215,7 @@ private fun LibraryScreen(
         }
         AlertDialog(
             onDismissRequest = { selectedItem = null },
-            title = { Text(item.title) },
+            title = { Text(item.title.removePrefix("★ ")) },
             text = {
                 Column {
                     actions.forEach { action ->
@@ -278,92 +299,111 @@ private fun LibraryScreen(
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
-            contentPadding = PaddingValues(20.dp, 24.dp, 20.dp, 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().imePadding(),
+            contentPadding = PaddingValues(PortalSpacing.xl, PortalSpacing.xl, PortalSpacing.xl, 40.dp),
+            verticalArrangement = Arrangement.spacedBy(PortalSpacing.md),
         ) {
-            item {
-                Text(
-                    "管理路线、场景和保存的位置。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item(key = "categories") {
+                PrimaryTabRow(
+                    selectedTabIndex = state.kind.ordinal,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    divider = {},
+                ) {
                     LibraryKind.entries.forEach { kind ->
-                        FilterChip(
+                        Tab(
                             selected = state.kind == kind,
-                            onClick = { model.kind(kind) },
+                            onClick = { if (state.kind != kind) model.kind(kind) },
                             enabled = !state.busy,
-                            label = {
-                                Text(when (kind) {
-                                    LibraryKind.ROUTES -> "路线"
-                                    LibraryKind.SCENARIOS -> "场景"
-                                    LibraryKind.LOCATIONS -> "位置"
-                                })
-                            },
+                            text = { Text(kind.libraryLabel(), style = MaterialTheme.typography.titleSmall) },
+                            icon = { Icon(painterResource(kind.libraryIcon()), null, Modifier.size(22.dp)) },
                         )
                     }
                 }
             }
-            item {
+            item(key = "search") {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
                     label = { Text("搜索资料") },
+                    leadingIcon = { Icon(painterResource(R.drawable.baseline_search_24), null) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(painterResource(R.drawable.baseline_close_24), "清除搜索")
+                            }
+                        }
+                    },
+                    shape = MaterialTheme.shapes.medium,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            item {
+            item(key = "actions") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = onAddRoute,
                         enabled = !state.busy && state.kind == LibraryKind.ROUTES,
-                        modifier = Modifier.weight(1f),
-                    ) { Text("新建路线") }
-                    OutlinedButton(onClick = { moreOpen = true }, enabled = !state.busy) {
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    ) {
+                        Icon(painterResource(R.drawable.baseline_route_24), null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("新建路线")
+                    }
+                    OutlinedButton(onClick = { moreOpen = true }, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(painterResource(R.drawable.ic_more_horizontal), null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text("更多")
                     }
                 }
             }
-            if (state.busy) {
-                item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            item(key = "progress") {
+                AnimatedVisibility(visible = state.busy) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                }
             }
-            item {
+            item(key = "summary") {
                 Text(
-                    state.message ?: if (filtered.isEmpty()) "暂无资料" else "共 ${filtered.size} 条",
+                    state.message ?: "共 ${filtered.size} 条",
+                    modifier = Modifier.animateContentSize(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (filtered.isEmpty()) {
-                item {
+            item(key = "empty") {
+                AnimatedVisibility(visible = filtered.isEmpty() && !state.busy) {
                     PortalCard {
-                        Text("这里还没有内容。", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "可以新建路线、保存位置，或从 JSON/GPX 导入。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            } else {
-                filtered.forEach { item ->
-                    item(key = "${state.kind}-${item.id}") {
-                        PortalCard {
-                            PortalActionRow(
-                                title = item.title,
-                                subtitle = item.detail,
-                                onClick = { selectedItem = item },
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
+                                Icon(
+                                    painterResource(if (query.isNotBlank()) R.drawable.baseline_search_24 else state.kind.libraryIcon()),
+                                    null,
+                                    Modifier.size(72.dp).padding(20.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                            Text(
+                                if (query.isNotBlank()) "没有匹配的资料" else "暂无${state.kind.libraryLabel()}",
+                                style = MaterialTheme.typography.titleMedium,
                             )
                         }
                     }
                 }
             }
-            if (runtime.isActive || runtime.error != null) {
-                item {
-                    PortalCard {
+            items(filtered, key = { "${state.kind}-${it.id}" }) { item ->
+                LibraryEntryCard(
+                    item = item,
+                    kind = state.kind,
+                    onClick = { selectedItem = item },
+                    modifier = Modifier.animateItem(),
+                )
+            }
+            item(key = "runtime") {
+                AnimatedVisibility(visible = runtime.isActive || runtime.error != null) {
+                    PortalCard(modifier = Modifier.animateContentSize()) {
                         PortalSectionTitle(
                             "${runtime.backend.displayLabel()} · ${runtime.phase.displayLabel()}",
                             runtime.scenarioName.orEmpty(),
@@ -385,11 +425,96 @@ private fun LibraryScreen(
                                 onClick = { ScenarioRuntime.stop() },
                                 enabled = runtime.isActive || runtime.error != null,
                                 modifier = Modifier.weight(1f),
-                            ) { Text("停止") }
+                            ) {
+                                Icon(painterResource(R.drawable.baseline_stop_24), null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("停止")
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+private fun LibraryKind.libraryLabel(): String = when (this) {
+    LibraryKind.ROUTES -> "路线"
+    LibraryKind.SCENARIOS -> "场景"
+    LibraryKind.LOCATIONS -> "位置"
+}
+
+private fun LibraryKind.libraryIcon(): Int = when (this) {
+    LibraryKind.ROUTES -> R.drawable.baseline_route_24
+    LibraryKind.SCENARIOS -> R.drawable.ic_menu_slideshow
+    LibraryKind.LOCATIONS -> R.drawable.baseline_location_on_24
+}
+
+private val FavoriteIcon: ImageVector by lazy {
+    ImageVector.Builder("Favorite", 24.dp, 24.dp, 24f, 24f).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(12f, 2f)
+            lineTo(15.09f, 8.26f)
+            lineTo(22f, 9.27f)
+            lineTo(17f, 14.14f)
+            lineTo(18.18f, 21.02f)
+            lineTo(12f, 17.77f)
+            lineTo(5.82f, 21.02f)
+            lineTo(7f, 14.14f)
+            lineTo(2f, 9.27f)
+            lineTo(8.91f, 8.26f)
+            close()
+        }
+    }.build()
+}
+
+@Composable
+private fun LibraryEntryCard(
+    item: LibraryItem,
+    kind: LibraryKind,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(PortalSpacing.lg),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(PortalSpacing.md),
+        ) {
+            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
+                Icon(
+                    painterResource(kind.libraryIcon()), null,
+                    Modifier.size(44.dp).padding(11.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    item.title.removePrefix("★ "),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    item.detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (item.title.startsWith("★ ")) {
+                Icon(FavoriteIcon, "已收藏", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+            Icon(
+                painterResource(R.drawable.ic_more_horizontal), "资料操作",
+                Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

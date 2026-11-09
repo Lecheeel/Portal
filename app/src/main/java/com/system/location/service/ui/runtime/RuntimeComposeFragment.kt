@@ -1,6 +1,9 @@
 package com.system.location.service.ui.runtime
 
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.provider.Settings
 import android.view.LayoutInflater
@@ -20,6 +23,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -42,13 +47,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.Navigation
 import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
+import com.system.location.service.core.backend.Availability
+import com.system.location.service.core.backend.Capability
+import com.system.location.service.core.runtime.DiagnosticEvent
 import com.system.location.service.core.runtime.RuntimePhase
 import com.system.location.service.core.runtime.RuntimeState
 import com.system.location.service.designsystem.components.PortalCard
@@ -56,6 +70,7 @@ import com.system.location.service.designsystem.components.PortalSectionTitle
 import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.designsystem.theme.PortalSpacing
 import com.system.location.service.runtime.ScenarioRuntime
+import com.system.location.service.data.repository.LibraryRepositories
 import com.system.location.service.ui.displayLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -140,13 +155,28 @@ private fun RuntimeScreen(
     val state by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val events by ScenarioRuntime.diagnostics.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var environment by remember { mutableStateOf<RuntimeEnvironment?>(null) }
+    var environmentCheckFailed by remember { mutableStateOf(false) }
+    var refreshGeneration by remember { mutableStateOf(0) }
     var nativeRiskVisible by rememberSaveable { mutableStateOf(false) }
     var nativeConfirmed by rememberSaveable { mutableStateOf(false) }
     var selectedBackend by rememberSaveable { mutableStateOf(state.backend) }
     var observedBackend by rememberSaveable { mutableStateOf(state.backend) }
     var logsExpanded by rememberSaveable { mutableStateOf(false) }
+    var detailsExpanded by rememberSaveable { mutableStateOf(false) }
+    var developerExpanded by rememberSaveable { mutableStateOf(false) }
+    var capabilitiesExpanded by rememberSaveable { mutableStateOf(false) }
+    var clearedAt by rememberSaveable { mutableStateOf(0L) }
+    var logFilter by rememberSaveable { mutableStateOf(0) }
+    var logLimit by rememberSaveable { mutableStateOf(20) }
+    var rebuilding by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val visibleEvents = remember(events, clearedAt, logFilter, state.backend) {
+        visibleRuntimeEvents(events, clearedAt, logFilter, state.backend)
+    }
+    val formatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
+    val migrationIssues = remember { LibraryRepositories.migrationIssues() }
 
     fun dismissNativeRisk() {
         nativeRiskVisible = false
@@ -171,11 +201,15 @@ private fun RuntimeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        environment = withContext(Dispatchers.IO) {
-            runCatching { RuntimeEnvironment.inspect(context.applicationContext) }.getOrNull()
+    LaunchedEffect(lifecycleOwner, refreshGeneration) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { RuntimeEnvironment.inspect(context.applicationContext) }
+            }
+            environment = result.getOrNull()
+            environmentCheckFailed = result.isFailure
+            ScenarioRuntime.refreshDiagnostics()
         }
-        ScenarioRuntime.refreshDiagnostics()
     }
 
     LaunchedEffect(state.backend, state.isActive) {
@@ -242,17 +276,45 @@ private fun RuntimeScreen(
 
             item {
                 PortalCard {
+                    RuntimeSectionToggle("运行详情", detailsExpanded, { detailsExpanded = !detailsExpanded })
+                    if (detailsExpanded) {
+                        SelectionContainer {
+                            Text(
+                                runtimeDetails(state),
+                                modifier = Modifier.testTag("runtime-state-details"),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                PortalCard {
                     PortalSectionTitle("设备与授权")
                     Spacer(Modifier.height(PortalSpacing.md))
                     val env = environment
                     if (env == null) {
-                        Text("正在检查设备状态…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            if (environmentCheckFailed) "设备状态检查失败，请刷新重试" else "正在检查设备状态…",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     } else {
                         EnvironmentRow("Root 环境", if (env.rootPresent) "检测到 su" else "未检测到 su", env.rootPresent)
                         EnvironmentRow("Xposed 模块", if (env.moduleConnected) "已连接系统模块" else "未连接", env.moduleConnected)
                         EnvironmentRow("模拟位置应用", if (env.mockAllowed) "已设置" else "未设置", env.mockAllowed)
                         EnvironmentRow("精确位置权限", if (env.preciseLocation) "已允许" else "未允许", env.preciseLocation)
                         EnvironmentRow("系统定位", if (env.locationEnabled) "已开启" else "已关闭", env.locationEnabled)
+                    }
+                    val issues = buildList {
+                        state.error?.let {
+                            add(listOf(it.reason, it.suggestion).filter(String::isNotBlank).joinToString("\n"))
+                        }
+                        env?.issues(state.backend)?.forEach { add(context.getString(it)) }
+                    }.distinct()
+                    if (issues.isNotEmpty()) {
+                        Spacer(Modifier.height(PortalSpacing.sm))
+                        Text(issues.joinToString("\n"), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -306,53 +368,119 @@ private fun RuntimeScreen(
 
             item {
                 PortalCard {
-                    PortalSectionTitle("开发者工具")
-                    Spacer(Modifier.height(PortalSpacing.md))
-                    OutlinedButton(onClick = onOpenEnvironment, modifier = Modifier.fillMaxWidth()) {
-                        Text("环境工具")
+                    RuntimeSectionToggle("开发者工具", developerExpanded, { developerExpanded = !developerExpanded })
+                    if (developerExpanded) {
+                        OutlinedButton(onClick = onOpenEnvironment, modifier = Modifier.fillMaxWidth()) {
+                            Text("环境工具")
+                        }
+                        RuntimeSectionToggle("能力与诊断", capabilitiesExpanded, { capabilitiesExpanded = !capabilitiesExpanded })
+                        if (capabilitiesExpanded) {
+                            OutlinedButton(
+                                onClick = {
+                                    rebuilding = true
+                                    scope.launch {
+                                        try {
+                                            val rebuilt = ScenarioRuntime.rebuildMockProviders().await()
+                                            Toast.makeText(
+                                                context,
+                                                if (rebuilt) "通道已重建，场景进度已保留" else "重建失败，请查看运行日志并检查授权",
+                                                Toast.LENGTH_LONG,
+                                            ).show()
+                                        } finally {
+                                            rebuilding = false
+                                        }
+                                    }
+                                },
+                                enabled = !rebuilding && state.isActive && state.backend == BackendType.MOCK_PROVIDER,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("重建标准定位通道") }
+                            OutlinedButton(onClick = onOpenProbe, modifier = Modifier.fillMaxWidth()) {
+                                Text("独立进程接收诊断")
+                            }
+                            OutlinedButton(
+                                onClick = { refreshGeneration++ },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("刷新后端与 Hook 诊断") }
+                            SelectionContainer {
+                                Text(
+                                    state.capabilities.entries.joinToString("\n\n") { (capability, status) ->
+                                        "${capabilityLabel(capability)}：${when (status.availability) {
+                                            Availability.AVAILABLE -> "可用"
+                                            Availability.REQUIRES_ACTION -> "需要设置"
+                                            Availability.UNAVAILABLE -> "不可用"
+                                            Availability.EXPERIMENTAL -> "实验性"
+                                        }}\n${status.reason}"
+                                    }.ifBlank { "暂无能力诊断，请刷新后查看" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
                     }
-                    Spacer(Modifier.height(PortalSpacing.sm))
-                    OutlinedButton(onClick = onOpenProbe, modifier = Modifier.fillMaxWidth()) {
-                        Text("独立进程接收诊断")
-                    }
-                    Spacer(Modifier.height(PortalSpacing.sm))
-                    OutlinedButton(
-                        onClick = { ScenarioRuntime.refreshDiagnostics() },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("刷新后端与 Hook 诊断") }
                 }
             }
 
             item {
                 PortalCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        PortalSectionTitle("运行日志", "最近 ${events.size} 条")
-                        TextButton(onClick = { logsExpanded = !logsExpanded }) {
-                            Text(if (logsExpanded) "收起" else "展开")
-                        }
-                    }
-                    if (logsExpanded) {
-                        Spacer(Modifier.height(PortalSpacing.sm))
-                        val formatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
-                        events.takeLast(8).reversed().forEach { event ->
-                            HorizontalDivider()
-                            Text(
-                                "${formatter.format(Date(event.timestamp))} · ${event.backend.displayLabel()} · ${event.result}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                "${event.stage} · ${event.reason}",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                        Spacer(Modifier.height(PortalSpacing.sm))
+                    RuntimeSectionToggle("运行日志", logsExpanded, { logsExpanded = !logsExpanded })
+                    Text("${visibleEvents.size} 条", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (logsExpanded) {
+                item {
+                    PortalCard {
                         OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
                             Text("导出完整诊断日志")
                         }
+                        Text("日志筛选", style = MaterialTheme.typography.titleSmall)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf("全部日志", "异常与待处理", "当前后端").forEachIndexed { index, label ->
+                                FilterChip(
+                                    selected = logFilter == index,
+                                    onClick = { logFilter = index; logLimit = 20 },
+                                    label = { Text(label) },
+                                )
+                            }
+                        }
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = {
+                                val text = buildString {
+                                    if (migrationIssues.isNotEmpty()) appendLine("资料迁移提示：${migrationIssues.joinToString("; ")}")
+                                    append(visibleEvents.take(logLimit).joinToString("\n\n") { formatEvent(it, formatter) }
+                                        .ifBlank { "暂无符合条件的日志" })
+                                }
+                                (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                                    .setPrimaryClip(ClipData.newPlainText("运行日志", text))
+                                Toast.makeText(context, "已复制当前显示的日志", Toast.LENGTH_SHORT).show()
+                            }) { Text("复制日志") }
+                            TextButton(onClick = {
+                                // Clear only this view; retain engine history and the full diagnostic report.
+                                clearedAt = System.currentTimeMillis()
+                                logLimit = 20
+                            }) { Text("清空日志") }
+                        }
+                        Text("清空仅影响当前视图，完整诊断日志仍保留。", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                if (migrationIssues.isNotEmpty()) {
+                    item { Text("资料迁移提示：${migrationIssues.joinToString("; ")}", style = MaterialTheme.typography.bodySmall) }
+                }
+                if (visibleEvents.isEmpty()) {
+                    item { Text("暂无符合条件的日志", style = MaterialTheme.typography.bodyMedium) }
+                }
+                items(visibleEvents.take(logLimit)) { event ->
+                    SelectionContainer {
+                        Column {
+                            HorizontalDivider()
+                            Text(formatEvent(event, formatter), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                if (visibleEvents.size > logLimit) {
+                    item {
+                        TextButton(onClick = { logLimit += 20 }, modifier = Modifier.fillMaxWidth()) { Text("显示更多") }
                     }
                 }
             }
@@ -366,6 +494,63 @@ private fun RuntimeScreen(
             }
         }
     }
+}
+
+@Composable
+private fun RuntimeSectionToggle(title: String, expanded: Boolean, onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().semantics {
+            stateDescription = if (expanded) "已展开" else "已收起"
+        },
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(if (expanded) "收起" else "展开")
+        }
+    }
+}
+
+private fun runtimeDetails(state: RuntimeState): String = buildString {
+    val health = state.submissionHealth
+    appendLine("提交 ${health.count} 次 · 最近间隔 ${health.lastGapMs.toLong()}ms · 最大间隔 ${health.maxGapMs.toLong()}ms")
+    appendLine("最近耗时 ${health.lastLatencyMs.toLong()}ms · 最大耗时 ${health.maxLatencyMs.toLong()}ms · 延迟 ${health.delayedCount} 次")
+    appendLine("提交成功不代表目标 App 已采用定位")
+    appendLine("当前后端：${state.backend.displayLabel()}\n状态：${state.phase.displayLabel()}")
+    appendLine("场景：${state.scenarioName ?: "未选择"}\n路线：${state.routeId ?: "—"}")
+    state.sample?.let {
+        appendLine(String.format(Locale.ROOT, "WGS84：%.6f, %.6f", it.latitude, it.longitude))
+        appendLine(String.format(Locale.ROOT, "速度：%.2f km/h　进度：%.1f%%", it.speed * 3.6, state.progress * 100))
+    }
+    state.error?.let { appendLine("${it.stage}\n${it.reason}\n${it.suggestion}") }
+}
+
+internal fun visibleRuntimeEvents(
+    events: List<DiagnosticEvent>,
+    clearedAt: Long,
+    filter: Int,
+    backend: BackendType,
+): List<DiagnosticEvent> = events.filter { event ->
+    event.timestamp > clearedAt && when (filter) {
+        1 -> event.result in setOf("FAILED", "ERROR", "REQUIRES_ACTION", "UNAVAILABLE")
+        2 -> event.backend == backend
+        else -> true
+    }
+}.asReversed()
+
+private fun formatEvent(event: DiagnosticEvent, formatter: SimpleDateFormat): String =
+    "${formatter.format(Date(event.timestamp))} · ${event.backend.displayLabel()} · ${event.result}\n${event.stage} · ${event.reason}" +
+        if (event.suggestion.isBlank()) "" else "\n建议：${event.suggestion}"
+
+private fun capabilityLabel(capability: Capability): String = when (capability) {
+    Capability.STANDARD_MOCK -> "标准模拟位置"
+    Capability.XPOSED -> "系统 Hook"
+    Capability.NATIVE -> "实验性 Native"
+    Capability.GMS_FUSED -> "Google 融合定位"
+    Capability.BACKGROUND_PLAYBACK -> "后台播放"
+    Capability.PER_APP_SCENARIO -> "按应用分配场景"
+    Capability.GNSS_INJECTION -> "GNSS 注入"
+    Capability.SENSOR_SIMULATION -> "传感器模拟"
 }
 
 @Composable

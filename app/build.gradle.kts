@@ -4,6 +4,7 @@ import com.android.build.api.artifact.SingleArtifact
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.serialization)
+    alias(libs.plugins.jetbrains.kotlin.compose)
 }
 
 val releaseVersionName = providers.gradleProperty("APP_VERSION_NAME").orElse("2.1.0-beta.1")
@@ -100,6 +101,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        compose = true
         buildConfig = true
     }
     packaging {
@@ -166,7 +168,12 @@ fun configureAppSigningConfigsForRelease(project: Project) {
 dependencies {
     implementation(project(":core"))
     implementation(project(":xposed"))
+    implementation(project(":designsystem"))
     implementation(libs.libxposed.service)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

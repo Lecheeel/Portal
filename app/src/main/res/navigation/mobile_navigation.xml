@@ -30,7 +30,7 @@
 
     <fragment
         android:id="@+id/nav_route_gallery"
-        android:name="com.system.location.service.ui.mock.RouteMockFragment"
+        android:name="com.system.location.service.ui.mock.RouteGalleryComposeFragment"
         android:label="@string/menu_route_mock"
         tools:layout="@layout/fragment_route_mock" />
 
@@ -51,5 +51,6 @@
         android:label="@string/menu_setting"
         tools:layout="@layout/fragment_settings" />
 </navigation>
+
 
 

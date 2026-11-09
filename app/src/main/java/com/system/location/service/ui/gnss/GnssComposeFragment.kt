@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -34,7 +33,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,8 +47,17 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.system.location.service.ui.viewmodel.GnssViewModel
+import com.system.location.service.ui.viewmodel.GnssSetting
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
 import com.system.location.service.R
 import com.system.location.service.android.widget.SatelliteData
 import com.system.location.service.android.widget.SatelliteRadarView
@@ -60,21 +67,15 @@ import com.system.location.service.designsystem.components.PortalSectionTitle
 import com.system.location.service.designsystem.components.PortalSwitchRow
 import com.system.location.service.designsystem.theme.PortalSpacing
 import com.system.location.service.designsystem.theme.PortalTheme
-import com.system.location.service.ext.enableAGPS
-import com.system.location.service.ext.enableGetFromLocation
-import com.system.location.service.ext.enableNMEA
-import com.system.location.service.ext.enableRequestGeofence
 import com.system.location.service.runtime.ScenarioRuntime
-import com.system.location.service.service.MockServiceHelper
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Compose replacement for the satellite tab. The Radar View remains a custom Android View and is
  * hosted through AndroidView; all surrounding content and controls are Compose.
  */
 class GnssComposeFragment : Fragment() {
+    private val model by viewModels<GnssViewModel>()
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -83,74 +84,67 @@ class GnssComposeFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             PortalTheme {
-                GnssScreen(
-                    onOpenMock = { enabled, onResult ->
-                        lifecycleScope.launch {
-                            val result = withContext(Dispatchers.IO) {
-                                if (enabled) MockServiceHelper.startGnssMock(requireContext().getSystemService(LocationManager::class.java))
-                                else MockServiceHelper.stopGnssMock(requireContext().getSystemService(LocationManager::class.java))
-                            }
-                            onResult(result)
-                        }
-                    },
-                )
+                GnssScreen(model)
             }
         }
     }
 }
 
 @Composable
-private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
+private fun GnssScreen(model: GnssViewModel) {
     val context = LocalContext.current
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val locationManager = remember(context) { context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager }
     var satellites by remember { mutableStateOf<List<SatelliteData>>(emptyList()) }
-    var mockRunning by remember { mutableStateOf(false) }
-    var geofence by remember { mutableStateOf(context.enableRequestGeofence) }
-    var fromLocation by remember { mutableStateOf(context.enableGetFromLocation) }
-    var agps by remember { mutableStateOf(context.enableAGPS) }
-    var nmea by remember { mutableStateOf(context.enableNMEA) }
-
+    val control by model.state.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val hookReady = runtime.backend != BackendType.MOCK_PROVIDER && runtime.isActive
 
-    LaunchedEffect(locationManager) {
-        val manager = locationManager ?: return@LaunchedEffect
-        mockRunning = withContext(Dispatchers.IO) {
-            runCatching { MockServiceHelper.isGnssMockStart(manager) }.getOrDefault(false)
+    LaunchedEffect(locationManager, lifecycle, model) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            coroutineScope {
+                launch {
+                    ScenarioRuntime.state.map { it.backend to it.phase }.distinctUntilChanged().collect { model.refresh() }
+                }
+                val manager = locationManager ?: return@coroutineScope
+                var listening = true
+                val callback = object : GnssStatus.Callback() {
+                    override fun onStopped() { if (listening) satellites = emptyList() }
+
+                    override fun onSatelliteStatusChanged(status: GnssStatus) {
+                        if (!listening) return
+                        val list = buildList {
+                            for (index in 0 until status.satelliteCount) {
+                                add(
+                                    SatelliteData(
+                                        prn = status.getSvid(index),
+                                        snr = status.getCn0DbHz(index),
+                                        elevation = status.getElevationDegrees(index),
+                                        azimuth = status.getAzimuthDegrees(index),
+                                        hasAlmanac = false,
+                                        hasEphemeris = false,
+                                        usedInFix = status.usedInFix(index),
+                                    ),
+                                )
+                            }
+                        }
+                        satellites = list
+                    }
+                }
+                if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    try { manager.registerGnssStatusCallback(context.mainExecutor, callback) }
+                    catch (_: SecurityException) { satellites = emptyList() }
+                } else satellites = emptyList()
+                try { awaitCancellation() }
+                finally {
+                    listening = false
+                    runCatching { manager.unregisterGnssStatusCallback(callback) }
+                    satellites = emptyList()
+                }
+            }
         }
     }
 
-    DisposableEffect(locationManager) {
-        if (locationManager == null) return@DisposableEffect onDispose {}
-        val callback = object : GnssStatus.Callback() {
-            override fun onSatelliteStatusChanged(status: GnssStatus) {
-                val list = buildList {
-                    for (index in 0 until status.satelliteCount) {
-                        add(
-                            SatelliteData(
-                                prn = status.getSvid(index),
-                                snr = status.getCn0DbHz(index),
-                                elevation = status.getElevationDegrees(index),
-                                azimuth = status.getAzimuthDegrees(index),
-                                hasAlmanac = false,
-                                hasEphemeris = false,
-                                usedInFix = status.usedInFix(index),
-                            ),
-                        )
-                    }
-                }
-                satellites = list
-            }
-        }
-        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            try {
-                locationManager.registerGnssStatusCallback(context.mainExecutor, callback)
-            } catch (_: SecurityException) {
-                // Permission can be revoked between the check and registration.
-            }
-        }
-        onDispose { runCatching { locationManager.unregisterGnssStatusCallback(callback) } }
-    }
 
     val inView = satellites.size
     val inUse = satellites.count { it.usedInFix }
@@ -204,29 +198,20 @@ private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
                     PortalSectionTitle("GNSS 控制")
                     Spacer(Modifier.height(PortalSpacing.sm))
                     Button(
-                        onClick = {
-                            if (!mockRunning) {
-                                onOpenMock(true) { ok ->
-                                    mockRunning = ok
-                                    if (!ok) Toast.makeText(context, "模拟 GNSS 服务启动失败", Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                onOpenMock(false) { ok ->
-                                    if (ok) mockRunning = false
-                                    else Toast.makeText(context, "模拟 GNSS 服务停止失败", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        },
-                        enabled = hookReady,
+                        onClick = model::toggle,
+                        enabled = hookReady && !control.busy,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) {
-                        AnimatedContent(targetState = mockRunning, label = "gnssControl") { running ->
+                        AnimatedContent(targetState = control.running, label = "gnssControl") { running ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(painterResource(if (running) R.drawable.baseline_stop_24 else R.drawable.rounded_play_arrow_24), null, Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(if (running) "停止模拟" else "开始模拟")
                             }
                         }
+                    }
+                    control.message?.let { message ->
+                        Text(message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                     }
                     AnimatedVisibility(visible = !hookReady) {
                         Text(
@@ -243,39 +228,31 @@ private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
                     PortalSectionTitle("功能设置")
                     PortalSwitchRow(
                         title = "允许地理围栏请求",
-                        checked = geofence,
-                        onCheckedChange = {
-                            geofence = it
-                            context.enableRequestGeofence = it
-                            Toast.makeText(context, "重启 GNSS 模拟生效", Toast.LENGTH_SHORT).show()
-                        },
+                        checked = control.geofence,
+                        onCheckedChange = if (control.busy) null else ({ enabled: Boolean ->
+                            model.setPreference(GnssSetting.GEOFENCE, enabled)
+                        }),
                     )
                     PortalSwitchRow(
                         title = "允许位置获取",
-                        checked = fromLocation,
-                        onCheckedChange = {
-                            fromLocation = it
-                            context.enableGetFromLocation = it
-                            Toast.makeText(context, "重启 GNSS 模拟生效", Toast.LENGTH_SHORT).show()
-                        },
+                        checked = control.fromLocation,
+                        onCheckedChange = if (control.busy) null else ({ enabled: Boolean ->
+                            model.setPreference(GnssSetting.FROM_LOCATION, enabled)
+                        }),
                     )
                     PortalSwitchRow(
                         title = "启用 AGPS 模块",
-                        checked = agps,
-                        onCheckedChange = {
-                            agps = it
-                            context.enableAGPS = it
-                            Toast.makeText(context, "重启 GNSS 模拟生效", Toast.LENGTH_SHORT).show()
-                        },
+                        checked = control.agps,
+                        onCheckedChange = if (control.busy) null else ({ enabled: Boolean ->
+                            model.setPreference(GnssSetting.AGPS, enabled)
+                        }),
                     )
                     PortalSwitchRow(
                         title = "启用 NMEA 模块",
-                        checked = nmea,
-                        onCheckedChange = {
-                            nmea = it
-                            context.enableNMEA = it
-                            Toast.makeText(context, "重启 GNSS 模拟生效", Toast.LENGTH_SHORT).show()
-                        },
+                        checked = control.nmea,
+                        onCheckedChange = if (control.busy) null else ({ enabled: Boolean ->
+                            model.setPreference(GnssSetting.NMEA, enabled)
+                        }),
                     )
                 }
             }

@@ -64,6 +64,29 @@ object ScenarioRuntime {
             }
         }
     }
+    suspend fun gnssMockRunning(): Boolean {
+        initialized.await()
+        return commands.withLock {
+            if (!state.value.isActive || state.value.backend == BackendType.MOCK_PROVIDER) return@withLock false
+            withContext(Dispatchers.IO) {
+                runCatching { MockServiceHelper.isGnssMockStart(context.getSystemService(LocationManager::class.java)) }
+                    .getOrDefault(false)
+            }
+        }
+    }
+
+    fun setGnssMock(enabled: Boolean) = command {
+        if (!state.value.isActive || state.value.backend == BackendType.MOCK_PROVIDER) return@command false
+        withContext(Dispatchers.IO) {
+            val manager = context.getSystemService(LocationManager::class.java) ?: return@withContext false
+            if (enabled) {
+                if (!MockServiceHelper.putConfig(manager, context)) return@withContext false
+                if (!MockServiceHelper.startGnssMock(manager)) return@withContext false
+            } else if (!MockServiceHelper.stopGnssMock(manager)) return@withContext false
+            MockServiceHelper.isGnssMockStart(manager) == enabled
+        }
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val commands = Mutex()
     private val preferences get() = context.getSharedPreferences("scenario_runtime", Context.MODE_PRIVATE)

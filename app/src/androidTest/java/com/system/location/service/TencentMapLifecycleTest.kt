@@ -46,25 +46,25 @@ class TencentMapLifecycleTest {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 compose.waitForIdle()
                 scenario.onActivity {
-                    val map = it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isShown }.single()
+                    val map = it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isAttachedToWindow }.single()
                     assertEquals(MapProvider.TENCENT, map.provider)
                     assertEquals(1, map.childCount)
                 }
                 scenario.recreate()
                 compose.waitForIdle()
                 scenario.onActivity {
-                    assertEquals(MapProvider.TENCENT, it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isShown }.single().provider)
+                    assertEquals(MapProvider.TENCENT, it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isAttachedToWindow }.single().provider)
                     androidx.navigation.Navigation.findNavController(it, R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_edit)
                 }
                 compose.waitForIdle()
                 scenario.onActivity {
-                    val map = it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isShown }.single()
+                    val map = it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isAttachedToWindow }.single()
                     assertEquals(MapProvider.TENCENT, map.provider)
                     assertEquals(1, map.childCount)
                 }
                 scenario.recreate()
                 compose.waitForIdle()
-                scenario.onActivity { assertEquals(MapProvider.TENCENT, it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isShown }.single().provider) }
+                scenario.onActivity { assertEquals(MapProvider.TENCENT, it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isAttachedToWindow }.single().provider) }
             }
         } finally { context.mapProvider = original }
     }

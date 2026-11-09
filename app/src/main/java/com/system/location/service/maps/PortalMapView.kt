@@ -25,6 +25,8 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
     private var tencent: com.tencent.tencentmap.mapsdk.maps.MapView? = null
     private var current: MapOverlay? = null
     private var destroyed = false
+    private var bottomObstruction = 0
+    private var cameraRequest = 0L
     fun onCreate(state: Bundle?) {
         check(!destroyed && childCount == 0)
         if (provider == MapProvider.AMAP) {
@@ -48,6 +50,60 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
         }
         satellite(context.satelliteMap)
     }
+
+    /** Keep vendor attribution in the map, above measured floating controls. Values are pixels. */
+    fun setBottomObstruction(pixels: Int) {
+        val next = pixels.coerceAtLeast(0)
+        if (bottomObstruction == next) return
+        bottomObstruction = next
+        positionMapControls()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        positionMapControls()
+    }
+
+    private fun positionMapControls() {
+        if (height == 0) return
+        val edge = (16 * resources.displayMetrics.density).toInt()
+        val bottom = bottomObstruction + edge
+        // AMap uses absolute screen coordinates for the scale, bottom margins for its logo.
+        amap?.map?.uiSettings?.apply {
+            setLogoPosition(com.amap.api.maps.AMapOptions.LOGO_POSITION_BOTTOM_LEFT)
+            setLogoLeftMargin(edge)
+            setLogoBottomMargin(bottom)
+            setScaleControlsPosition(Point(edge, (height - bottom - 32 * resources.displayMetrics.density).toInt().coerceAtLeast(0)))
+        }
+        // Tencent's bottom-left logo margins are [bottom, left]; scale supports explicit margins.
+        tencent?.map?.uiSettings?.apply {
+            setLogoPosition(com.tencent.tencentmap.mapsdk.maps.TencentMapOptions.LOGO_POSITION_BOTTOM_LEFT, intArrayOf(bottom, edge))
+            setScaleViewPositionWithMargin(com.tencent.tencentmap.mapsdk.maps.TencentMapOptions.SCALEVIEW_POSITION_BOTTOM_LEFT,
+                -1, bottom + (32 * resources.displayMetrics.density).toInt(), edge, -1)
+        }
+    }
+
+    fun fit(points: List<Gcj02>, padding: Int) {
+        if (points.isEmpty()) return
+        val request = ++cameraRequest
+        // SDK bounds updates require a measured map; skip callbacks after destruction.
+        post {
+            if (destroyed || request != cameraRequest || width == 0 || height == 0) return@post
+            val inset = padding.coerceAtMost((minOf(width, height) / 3).coerceAtLeast(0))
+            val bottom = (bottomObstruction + inset).coerceAtMost((height * 0.65f).toInt())
+            val top = (112 * resources.displayMetrics.density).toInt().coerceAtMost(height / 3)
+            amap?.map?.let { map ->
+                val bounds = com.amap.api.maps.model.LatLngBounds.builder()
+                points.forEach { bounds.include(APoint(it.latitude, it.longitude)) }
+                map.moveCamera(ACamera.newLatLngBoundsRect(bounds.build(), inset, inset, top, bottom))
+            }
+            tencent?.map?.let { map ->
+                val bounds = com.tencent.tencentmap.mapsdk.maps.model.LatLngBounds.builder()
+                points.forEach { bounds.include(TPoint(it.latitude, it.longitude)) }
+                map.moveCamera(TCamera.newLatLngBoundsRect(bounds.build(), inset, inset, top, bottom))
+            }
+        }
+    }
     fun satellite(enabled: Boolean) {
         val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         amap?.map?.mapType = if (enabled) 2 else if (dark) 3 else 1
@@ -55,6 +111,7 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
             else if (dark) com.tencent.tencentmap.mapsdk.maps.TencentMap.MAP_TYPE_DARK else com.tencent.tencentmap.mapsdk.maps.TencentMap.MAP_TYPE_NORMAL
     }
     fun move(point: Gcj02, zoom: Float? = null, animate: Boolean = false) {
+        cameraRequest++
         amap?.map?.let { map ->
             val update = if (zoom == null) ACamera.changeLatLng(APoint(point.latitude, point.longitude))
                 else ACamera.newLatLngZoom(APoint(point.latitude, point.longitude), zoom)

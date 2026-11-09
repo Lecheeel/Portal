@@ -49,7 +49,7 @@ class UiDesignTest {
                     val mapPosition = IntArray(2).also { map.getLocationOnScreen(it) }
                     val rootPosition = IntArray(2).also { activity.binding.drawerLayout.getLocationOnScreen(it) }
                     assertEquals(rootPosition[1], mapPosition[1])
-                    assertEquals(activity.binding.drawerLayout.height, map.height)
+                    assertTrue("Map viewport must leave room for action panel", map.height in 1 until activity.binding.drawerLayout.height)
                     assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
                     geometry = listOf(mapPosition[1], map.height, search.top.toInt(), bottom.bottom.toInt())
                 }
@@ -177,6 +177,7 @@ class UiDesignTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.openPage(scenario, R.id.nav_route_gallery)
             compose.scrollToText("搜索资料").performTextReplacement("不会匹配的记录")
+            compose.onNode(hasScrollToNodeAction()).performScrollToIndex(5)
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithText("没有匹配的资料").fetchSemanticsNodes().any { it.boundsInRoot.height > 0f }
             }

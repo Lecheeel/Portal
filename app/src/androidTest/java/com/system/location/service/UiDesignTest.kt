@@ -45,7 +45,7 @@ class UiDesignTest {
                 val bottom = compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot
                 var geometry = emptyList<Int>()
                 scenario.onActivity { activity ->
-                    val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isShown }.single()
+                    val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isAttachedToWindow }.single()
                     val mapPosition = IntArray(2).also { map.getLocationOnScreen(it) }
                     val rootPosition = IntArray(2).also { activity.binding.drawerLayout.getLocationOnScreen(it) }
                     assertEquals(rootPosition[1], mapPosition[1])
@@ -128,10 +128,11 @@ class UiDesignTest {
                 val container = activity.binding.appBarMain.root
                 assertEquals(0, container.paddingTop)
                 assertEquals(0, container.paddingBottom)
-                val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isShown }.single()
+                val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isAttachedToWindow }.single()
                 mapWidth = map.width
-                mapHeight = map.height
-                assertEquals(activity.binding.drawerLayout.height, map.height)
+                mapHeight = activity.binding.drawerLayout.height
+                assertTrue("Map must reserve space above the action panel", map.height in 1 until mapHeight)
+                assertTrue("Map attribution must remain above start controls", map.height <= start.top)
                 assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
             }
             assertTrue("Search must avoid the status bar", search.top >= 48f)
@@ -176,6 +177,9 @@ class UiDesignTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.openPage(scenario, R.id.nav_route_gallery)
             compose.scrollToText("搜索资料").performTextReplacement("不会匹配的记录")
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("没有匹配的资料").fetchSemanticsNodes().any { it.boundsInRoot.height > 0f }
+            }
             compose.scrollToText("没有匹配的资料").assertIsDisplayed()
             compose.scrollToText("搜索资料").performTextReplacement("")
             compose.scrollToText("位置").performClick()

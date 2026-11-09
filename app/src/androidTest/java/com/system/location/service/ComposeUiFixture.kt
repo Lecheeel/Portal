@@ -42,6 +42,9 @@ internal fun ComposeTestRule.openPage(scenario: ActivityScenario<MainActivity>, 
 
 /** Search the LazyColumn, including items that have not been composed yet. */
 internal fun ComposeTestRule.scrollTo(matcher: SemanticsMatcher): SemanticsNodeInteraction {
+    waitUntil(5_000) {
+        runCatching { onAllNodes(hasScrollToNodeAction()).fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+    }
     onNode(hasScrollToNodeAction()).performScrollToNode(matcher)
     return onNode(matcher)
 }

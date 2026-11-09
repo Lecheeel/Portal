@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
@@ -140,11 +141,18 @@ private fun RuntimeScreen(
     val events by ScenarioRuntime.diagnostics.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var environment by remember { mutableStateOf<RuntimeEnvironment?>(null) }
-    var nativeRiskVisible by remember { mutableStateOf(false) }
-    var nativeConfirmed by remember { mutableStateOf(false) }
-    var selectedBackend by remember { mutableStateOf(state.backend) }
-    var logsExpanded by remember { mutableStateOf(false) }
+    var nativeRiskVisible by rememberSaveable { mutableStateOf(false) }
+    var nativeConfirmed by rememberSaveable { mutableStateOf(false) }
+    var selectedBackend by rememberSaveable { mutableStateOf(state.backend) }
+    var observedBackend by rememberSaveable { mutableStateOf(state.backend) }
+    var logsExpanded by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    fun dismissNativeRisk() {
+        nativeRiskVisible = false
+        nativeConfirmed = false
+        selectedBackend = ScenarioRuntime.state.value.backend
+    }
 
     fun requestApply(target: BackendType) {
         if (target == BackendType.NATIVE) {
@@ -154,10 +162,10 @@ private fun RuntimeScreen(
         scope.launch {
             val selected = ScenarioRuntime.selectBackend(target).await()
             if (selected) {
-                selectedBackend = target
+                selectedBackend = ScenarioRuntime.state.value.backend
                 Toast.makeText(context, "已切换模式", Toast.LENGTH_LONG).show()
             } else {
-                selectedBackend = state.backend
+                selectedBackend = ScenarioRuntime.state.value.backend
                 Toast.makeText(context, "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
             }
         }
@@ -170,13 +178,19 @@ private fun RuntimeScreen(
         ScenarioRuntime.refreshDiagnostics()
     }
 
-    LaunchedEffect(state.backend) {
-        if (!state.isActive) selectedBackend = state.backend
+    LaunchedEffect(state.backend, state.isActive) {
+        // Keep a pending choice on recreation, but follow real backend changes and active sessions.
+        if (observedBackend != state.backend || state.isActive) {
+            selectedBackend = state.backend
+            nativeRiskVisible = false
+            nativeConfirmed = false
+        }
+        observedBackend = state.backend
     }
 
     if (nativeRiskVisible) {
         AlertDialog(
-            onDismissRequest = { nativeRiskVisible = false },
+            onDismissRequest = ::dismissNativeRisk,
             title = { Text("实验性模式风险须知") },
             text = {
                 Text(
@@ -193,7 +207,7 @@ private fun RuntimeScreen(
                 }) { Text("已知悉并选择") }
             },
             dismissButton = {
-                TextButton(onClick = { nativeRiskVisible = false }) { Text("取消") }
+                TextButton(onClick = ::dismissNativeRisk) { Text("取消") }
             },
         )
     }
@@ -255,7 +269,10 @@ private fun RuntimeScreen(
                             FilterChip(
                                 selected = selectedBackend == backend,
                                 enabled = !state.isActive,
-                                onClick = { selectedBackend = backend },
+                                onClick = {
+                                    selectedBackend = backend
+                                    if (backend != BackendType.NATIVE) nativeConfirmed = false
+                                },
                                 label = { Text(backend.displayLabel()) },
                             )
                         }

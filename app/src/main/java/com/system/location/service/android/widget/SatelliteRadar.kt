@@ -37,7 +37,8 @@ data class SatelliteData(
     val hasEphemeris: Boolean,
     val usedInFix: Boolean,
     var screenX: Float = 0f,
-    var screenY: Float = 0f
+    var screenY: Float = 0f,
+    val constellationType: Int = GnssStatus.CONSTELLATION_UNKNOWN,
 )
 
 class SatelliteRadarView(context: Context, attributeSet: AttributeSet?): View(context, attributeSet), SensorEventListener {

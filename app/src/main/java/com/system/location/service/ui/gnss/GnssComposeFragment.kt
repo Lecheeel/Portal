@@ -118,11 +118,12 @@ private fun GnssScreen(model: GnssViewModel) {
                                 add(
                                     SatelliteData(
                                         prn = status.getSvid(index),
+                                        constellationType = status.getConstellationType(index),
                                         snr = status.getCn0DbHz(index),
                                         elevation = status.getElevationDegrees(index),
                                         azimuth = status.getAzimuthDegrees(index),
-                                        hasAlmanac = false,
-                                        hasEphemeris = false,
+                                        hasAlmanac = status.hasAlmanacData(index),
+                                        hasEphemeris = status.hasEphemerisData(index),
                                         usedInFix = status.usedInFix(index),
                                     ),
                                 )
@@ -149,9 +150,9 @@ private fun GnssScreen(model: GnssViewModel) {
     val inView = satellites.size
     val inUse = satellites.count { it.usedInFix }
     val averageCn0 = satellites.filter { it.usedInFix }.map { it.snr }.average().takeIf { it.isFinite() }
-    val gps = satellites.count { it.prn in 1..32 }
-    val glonass = satellites.count { it.prn in 65..96 }
-    val beidou = satellites.count { it.prn in 201..237 }
+    val gps = satellites.count { it.constellationType == GnssStatus.CONSTELLATION_GPS }
+    val glonass = satellites.count { it.constellationType == GnssStatus.CONSTELLATION_GLONASS }
+    val beidou = satellites.count { it.constellationType == GnssStatus.CONSTELLATION_BEIDOU }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
@@ -190,7 +191,7 @@ private fun GnssScreen(model: GnssViewModel) {
                     Spacer(Modifier.height(PortalSpacing.md))
                     Text("导航系统", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(PortalSpacing.xs))
-                    Text("GPS: $gps   GNS: $glonass   BD: $beidou", style = MaterialTheme.typography.bodyMedium)
+                    Text("GPS: $gps   GLONASS: $glonass   北斗: $beidou", style = MaterialTheme.typography.bodyMedium)
                 }
             }
             item(key = "control") {

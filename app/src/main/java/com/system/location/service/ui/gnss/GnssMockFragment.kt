@@ -242,11 +242,12 @@ class GnssMockFragment : Fragment() {
 
                     satellites.add(SatelliteData(
                         prn = svid,
+                        constellationType = status.getConstellationType(i),
                         snr = carrierToNoise,
                         elevation = elevation,
                         azimuth = azimuth,
-                        hasAlmanac = false,
-                        hasEphemeris = false,
+                        hasAlmanac = status.hasAlmanacData(i),
+                        hasEphemeris = status.hasEphemerisData(i),
                         usedInFix = usedInFix
                     ))
 
@@ -256,10 +257,10 @@ class GnssMockFragment : Fragment() {
                         signalStrength.add(carrierToNoise)
                     }
 
-                    when (svid) {
-                        in 1..32 -> gpsCount += 1
-                        in 65..96 -> glonassCount += 1
-                        in 201..237 -> beidouCount += 1
+                    when (status.getConstellationType(i)) {
+                        GnssStatus.CONSTELLATION_GPS -> gpsCount += 1
+                        GnssStatus.CONSTELLATION_GLONASS -> glonassCount += 1
+                        GnssStatus.CONSTELLATION_BEIDOU -> beidouCount += 1
                     }
                 }
 

@@ -157,6 +157,7 @@ private fun RuntimeScreen(
                 selectedBackend = target
                 Toast.makeText(context, "已切换模式", Toast.LENGTH_LONG).show()
             } else {
+                selectedBackend = state.backend
                 Toast.makeText(context, "请先停止场景并完成资源清理", Toast.LENGTH_LONG).show()
             }
         }
@@ -322,7 +323,7 @@ private fun RuntimeScreen(
                         events.takeLast(8).reversed().forEach { event ->
                             HorizontalDivider()
                             Text(
-                                "${formatter.format(Date(event.timestamp))} · ${backendLabel(event.backend)} · ${event.result}",
+                                "${formatter.format(Date(event.timestamp))} · ${event.backend.displayLabel()} · ${event.result}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -371,7 +372,7 @@ private fun RuntimeStatusCard(
         )
         Spacer(Modifier.height(PortalSpacing.xs))
         Text(
-            "${backendLabel(state.backend)} · ${state.scenarioName ?: "未选择场景"}",
+            "${state.backend.displayLabel()} · ${state.scenarioName ?: "未选择场景"}",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -421,8 +422,3 @@ private fun EnvironmentRow(title: String, value: String, ok: Boolean) {
     }
 }
 
-private fun backendLabel(type: BackendType) = when (type) {
-    BackendType.MOCK_PROVIDER -> "标准模拟位置"
-    BackendType.XPOSED -> "Xposed"
-    BackendType.NATIVE -> "Native + Xposed"
-}

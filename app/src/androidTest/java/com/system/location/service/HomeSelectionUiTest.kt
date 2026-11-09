@@ -128,8 +128,7 @@ class HomeSelectionUiTest {
     }
 
     private fun openPicker() {
-        compose.onNode(hasContentDescription("选择模拟目标") or hasContentDescription("选择地点或路线"))
-            .assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("选择模拟目标").assertIsDisplayed().performClick()
     }
 
     private fun selectSavedTarget(tab: String, name: String) {

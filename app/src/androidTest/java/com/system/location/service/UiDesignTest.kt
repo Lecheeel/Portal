@@ -177,23 +177,37 @@ class UiDesignTest {
     }
 
     @Test fun librarySearchCategoriesAndTransferActionsRemainAccessible() {
-        permissions()
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            compose.openPage(scenario, R.id.nav_route_gallery)
-            compose.scrollToText("搜索资料").performTextReplacement("不会匹配的记录")
-            compose.scrollToText("没有匹配的资料").assertIsDisplayed()
-            compose.scrollToText("搜索资料").performTextReplacement("")
-            compose.scrollToText("位置").performClick()
-            compose.waitUntil(5_000) { compose.onAllNodes(hasText("位置") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
-            compose.scrollToText("位置").assertIsSelected()
-            val more = compose.scrollToText("更多")
-            compose.waitUntil(5_000) { compose.onAllNodes(hasText("更多") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-            more.assertIsEnabled().performClick()
-            compose.onNodeWithText("导入 JSON").assertIsDisplayed()
-            compose.onNodeWithText("导出 JSON").assertIsDisplayed()
-            compose.onNodeWithText("导入 GPX").assertDoesNotExist()
-            compose.onNodeWithText("取消").performClick()
-            capture("library-empty")
+        fun <T> phase(name: String, action: () -> T): T {
+            android.util.Log.i("PortalUiTest", "librarySearch BEGIN $name")
+            return action().also { android.util.Log.i("PortalUiTest", "librarySearch END $name") }
+        }
+        phase("permissions") { permissions() }
+        val scenario = phase("launch") { ActivityScenario.launch(MainActivity::class.java) }
+        try {
+            phase("open library") { compose.openPage(scenario, R.id.nav_route_gallery) }
+            phase("search unmatched record") { compose.scrollToText("搜索资料").performTextReplacement("不会匹配的记录") }
+            phase("assert empty search") { compose.scrollToText("没有匹配的资料").assertIsDisplayed() }
+            phase("clear search") { compose.scrollToText("搜索资料").performTextReplacement("") }
+            phase("select locations") { compose.scrollToText("位置").performClick() }
+            phase("await selected category") {
+                compose.waitUntil(5_000) { compose.onAllNodes(hasText("位置") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
+            }
+            phase("assert selected category") { compose.scrollToText("位置").assertIsSelected() }
+            val more = phase("reveal transfer actions") { compose.scrollToText("更多") }
+            phase("await transfer readiness") {
+                compose.waitUntil(5_000) { compose.onAllNodes(hasText("更多") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+            }
+            phase("open transfer dialog") { more.assertIsEnabled().performClick() }
+            phase("assert location transfer formats") {
+                compose.onNodeWithText("导入 JSON").assertIsDisplayed()
+                compose.onNodeWithText("导出 JSON").assertIsDisplayed()
+                compose.onNodeWithText("导入 GPX").assertDoesNotExist()
+            }
+            phase("dismiss transfer dialog") { compose.onNodeWithText("取消").performClick() }
+            phase("capture") { capture("library-empty") }
+        } finally {
+            phase("close activity") { scenario.close() }
+            assertEquals(androidx.lifecycle.Lifecycle.State.DESTROYED, scenario.state)
         }
     }
 
@@ -258,7 +272,8 @@ class UiDesignTest {
                 // Portal follows device theme; exercise SystemUI and app together.
                 systemTheme(if (mode == AppCompatDelegate.MODE_NIGHT_YES) "yes" else "no")
                 instrumentation.runOnMainSync { AppCompatDelegate.setDefaultNightMode(mode) }
-                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                val scenario = ActivityScenario.launch(MainActivity::class.java)
+                try {
                     compose.onNodeWithText("开始模拟").assertIsDisplayed()
                     capture("home-$suffix")
                     scenario.onActivity { activity ->
@@ -276,11 +291,16 @@ class UiDesignTest {
                         compose.scrollToText(marker).assertIsDisplayed()
                         capture("$name-$suffix")
                     }
+                } finally {
+                    scenario.close()
+                    assertEquals("Theme changes must not outlive their Activity", androidx.lifecycle.Lifecycle.State.DESTROYED, scenario.state)
+                    instrumentation.waitForIdleSync()
                 }
             }
         } finally {
             systemTheme(when (oldSystemMode) { 2 -> "yes"; 0 -> "auto"; else -> "no" })
             instrumentation.runOnMainSync { AppCompatDelegate.setDefaultNightMode(oldMode) }
+            instrumentation.waitForIdleSync()
         }
     }
 

@@ -48,10 +48,11 @@ class UiDesignTest {
                     val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isAttachedToWindow }.single()
                     val mapPosition = IntArray(2).also { map.getLocationOnScreen(it) }
                     val rootPosition = IntArray(2).also { activity.binding.drawerLayout.getLocationOnScreen(it) }
-                    assertEquals(rootPosition[1], mapPosition[1])
-                    assertTrue("Map viewport must leave room for action panel", map.height in 1 until activity.binding.drawerLayout.height)
+                    assertArrayEquals("Map must start at the full-screen content origin", rootPosition, mapPosition)
+                    assertEquals("Map must fill the content width", activity.binding.drawerLayout.width, map.width)
+                    assertEquals("Map must extend behind the action panel", activity.binding.drawerLayout.height, map.height)
                     assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
-                    geometry = listOf(mapPosition[1], map.height, search.top.toInt(), bottom.bottom.toInt())
+                    geometry = listOf(mapPosition[0], mapPosition[1], map.width, map.height, search.top.toInt(), bottom.bottom.toInt())
                 }
                 return geometry
             }
@@ -131,8 +132,11 @@ class UiDesignTest {
                 val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isAttachedToWindow }.single()
                 mapWidth = map.width
                 mapHeight = activity.binding.drawerLayout.height
-                assertTrue("Map must reserve space above the action panel", map.height in 1 until mapHeight)
-                assertTrue("Map attribution must remain above start controls", map.height <= start.top)
+                val mapPosition = IntArray(2).also { map.getLocationOnScreen(it) }
+                val rootPosition = IntArray(2).also { activity.binding.drawerLayout.getLocationOnScreen(it) }
+                assertArrayEquals("Insets must not move the full-screen map", rootPosition, mapPosition)
+                assertEquals("Insets must not shrink the map width", activity.binding.drawerLayout.width, map.width)
+                assertEquals("Map must remain full-height behind the controls", mapHeight, map.height)
                 assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
             }
             assertTrue("Search must avoid the status bar", search.top >= 48f)

@@ -1,10 +1,10 @@
 # LocationService
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Lecheeel/Portal) · [下载 APK](https://github.com/Lecheeel/Portal/releases) · [更新日志](https://github.com/Lecheeel/Portal/releases)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Lecheeel/Portal) / [下载 APK](https://github.com/Lecheeel/Portal/releases) / [更新日志](https://github.com/Lecheeel/Portal/releases)
 
-Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮摇杆，并提供 GNSS/NMEA、WiFi／基站环境和传感器扩展。
+Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮摇杆，并提供 GNSS/NMEA、WiFi/基站环境和传感器扩展。
 
-基于 [Portal](https://github.com/fuqiuluo/Portal) [@fuqiuluo](https://github.com/fuqiuluo)，支持无 Root／Xposed／Native + Xposed 模式。
+基于 [Portal](https://github.com/fuqiuluo/Portal) [@fuqiuluo](https://github.com/fuqiuluo)，支持无 Root/Xposed/Native + Xposed 模式。
 
 ### 运行模式
 
@@ -22,57 +22,39 @@ Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮
 
 **接入传感器事件**
 
-加速度计	TYPE_ACCELEROMETER	
+加速度计	TYPE_ACCELEROMETER	/ 陀螺仪	TYPE_GYROSCOPE	
 
-陀螺仪	TYPE_GYROSCOPE	
-
-磁力计／地磁	TYPE_MAGNETIC_FIELD	
+磁力计/地磁	TYPE_MAGNETIC_FIELD	
 
 气压计	TYPE_PRESSURE	
 
-步数计数器	TYPE_STEP_COUNTER	
-
-单步检测器	TYPE_STEP_DETECTOR
+步数计数器	TYPE_STEP_COUNTER	/ 单步检测器	TYPE_STEP_DETECTOR
 
 
 **修改定位数据**
 
-经纬度、海拔高度
+经纬度、海拔高度、速度、运动航向、定位精度及相关字段
 
-速度、运动航向
-
-定位精度及相关字段
-
-GPS／Network／Fused 定位结果
+GPS/Network/Fused 定位结果
 
 
 **修改 GNSS 卫星数据** 
 
-卫星数量、编号与所属星座
+卫星数量、编号与所属星座、卫星方位角、仰角
 
-卫星方位角、仰角
+信号强度 CN0、基带 CN0、载波频率、参与定位状态
 
-信号强度 CN0、基带 CN0
-
-载波频率、参与定位状态
-
-星历／历书可用标志
-
-GPS／北斗／GLONASS／Galileo／QZSS 多星座模型
+GPS/北斗/GLONASS/Galileo/QZSS 多星座模型
 
 实验性 Kepler 轨道天空模型
 
 
 **接入 NMEA 数据**
 
-GGA／RMC／GSA／GSV／GST／ZDA
+GGA/RMC/GSA/GSV/GST/ZDA
 
 
-位置、海拔、速度、航向
-
-UTC 时间、卫星数量、DOP
-
-卫星状态与 NMEA 主动投递
+位置、海拔、速度、航向、UTC 时间、卫星数量、DOP、卫星状态与 NMEA 主动投递
 
 **NMEA 需要单独开启，并非选择 Native 后全部自动开启**
 
@@ -89,31 +71,30 @@ UTC 时间、卫星数量、DOP
 
 ** 已经加载的 Native Hook，需要重启相关进程或设备才能卸载！！ **
 
-### 请确认了解风险和恢复方式后，再启用此模式！！
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ## ✨ 功能亮点
 
 ### 定位与路线
 
-- 无 Root／Xposed／Native + Xposed（Root require）
-- GPS／Network／Fused 差异化定位画像
-- 系统 Fused／Google 融合定位通道（实验性）
+- 无 Root/Xposed/Native + Xposed（Root require）
+- GPS/Network/Fused 差异化定位画像
+- 系统 Fused/Google 融合定位通道（实验性）
 - 提交前反射清除模拟标记（实验性）
 - 单点定位、悬浮摇杆、路线规划与手绘
 - 平滑加减速、循环与往返播放、可选物理微漂移
-- 位置与场景管理、JSON／GPX 导入导出
+- 位置与场景管理、JSON/GPX 导入导出
 
 ### GNSS 与 NMEA
 
-- GPS／北斗／GLONASS／Galileo／QZSS
-- 同源 GnssStatus／NMEA 生成与主动投递
-- GGA／RMC／GSA／GSV／GST／ZDA
+- GPS/北斗/GLONASS/Galileo/QZSS
+- 同源 GnssStatus/NMEA 生成与主动投递
+- GGA/RMC/GSA/GSV/GST/ZDA
 - Kepler 轨道天空模型（实验性）
 
 ### 环境与分应用
 
-- WiFi／基站环境采集、程序化生成与回放（实验性）
+- WiFi/基站环境采集、程序化生成与回放（实验性）
 - 网格化 AP、固定种子、RSSI 路径损耗模型
 - 自建 WiFi 指纹库导入与回放（实验性）
 - 分应用排除与固定点（实验性）
@@ -121,10 +102,10 @@ UTC 时间、卫星数量、DOP
 
 ### 系统与传感器
 
-- libxposed API 102 原生 Hooker／Chain
+- libxposed API 102 原生 Hooker/Chain
 - Native 传感器扩展（实验性）
 - SensorFrame 统一驱动、双帧插值、速度关联步频
-- HIDL／AIDL 传感器事件适配（实验性）
+- HIDL/AIDL 传感器事件适配（实验性）
 
 ## 🚀 快速开始
 

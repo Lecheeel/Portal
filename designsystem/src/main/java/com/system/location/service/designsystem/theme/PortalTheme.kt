@@ -1,6 +1,7 @@
 package com.system.location.service.designsystem.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -13,7 +14,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 private val PortalPurple = Color(0xFF4F46E5)
 private val PortalPurpleDark = Color(0xFF818CF8)
@@ -25,7 +25,6 @@ private val PortalBackgroundDark = Color(0xFF0F172A)
 private val PortalInk = Color(0xFF0F172A)
 private val PortalInkMuted = Color(0xFF64748B)
 private val PortalOutline = Color(0xFFE2E8F0)
-private val PortalError = Color(0xFFEF4444)
 
 private val PortalTypography = Typography(
     headlineLarge = TextStyle(
@@ -99,10 +98,19 @@ private val LightColors = lightColorScheme(
     onSurface = PortalInk,
     surfaceVariant = Color(0xFFF1F5F9),
     onSurfaceVariant = PortalInkMuted,
-    outline = PortalOutline,
+    outline = Color(0xFF7B8495),
+    outlineVariant = PortalOutline,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF1F5F9),
+    surfaceContainer = Color(0xFFEDF1F7),
+    surfaceContainerHigh = Color(0xFFE7ECF4),
+    surfaceContainerHighest = Color(0xFFE2E8F0),
     background = PortalBackground,
     onBackground = PortalInk,
-    error = PortalError,
+    error = Color(0xFFBA1A1A),
+    onError = Color.White,
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
 )
 
 private val DarkColors = darkColorScheme(
@@ -115,10 +123,19 @@ private val DarkColors = darkColorScheme(
     onSurface = Color(0xFFF1F5F9),
     surfaceVariant = Color(0xFF334155),
     onSurfaceVariant = Color(0xFFCBD5E1),
-    outline = Color(0xFF334155),
+    outline = Color(0xFF8995A9),
+    outlineVariant = Color(0xFF334155),
+    surfaceContainerLowest = Color(0xFF0B1220),
+    surfaceContainerLow = Color(0xFF172235),
+    surfaceContainer = PortalSurfaceDark,
+    surfaceContainerHigh = Color(0xFF28364C),
+    surfaceContainerHighest = Color(0xFF334155),
     background = PortalBackgroundDark,
     onBackground = Color(0xFFF1F5F9),
     error = Color(0xFFFCA5A5),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
 )
 
 @Composable

@@ -7,12 +7,12 @@ name: Verify and Build APKs
         description: Version name (for example 1.8.0-beta.1)
         required: true
         type: string
-        default: 2.1.0
+        default: 2.1.1
       version_code:
         description: Globally increasing Android version code
         required: true
         type: string
-        default: '1790000082'
+        default: '1790000083'
       release_channel:
         description: stable or beta/canary/rc pre-release metadata
         required: true
@@ -32,8 +32,8 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      APP_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '2.1.0' }}
-      APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000082' }}
+      APP_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '2.1.1' }}
+      APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000083' }}
       RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'stable' }}
     steps:
       - uses: actions/checkout@v4

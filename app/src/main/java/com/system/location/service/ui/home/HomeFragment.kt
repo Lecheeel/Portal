@@ -4,7 +4,6 @@ import com.system.location.service.ui.setTextIfChanged
 
 import android.annotation.SuppressLint
 import android.graphics.Color
-import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -33,36 +32,18 @@ import com.system.location.service.maps.*
 import com.system.location.service.core.geo.Gcj02
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
-import com.amap.api.maps.AMap
-import com.amap.api.maps.LocationSource
-import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.model.LatLng
-import com.amap.api.maps.model.MarkerOptions
-import com.amap.api.maps.model.PolylineOptions
-import com.amap.api.services.core.LatLonPoint
-import com.amap.api.services.geocoder.GeocodeSearch
-import com.amap.api.services.geocoder.RegeocodeQuery
-import com.amap.api.services.geocoder.RegeocodeResult
-import com.amap.api.services.help.Inputtips
-import com.amap.api.services.help.InputtipsQuery
-import com.amap.api.services.help.Tip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 import com.system.location.service.MainActivity
 import com.system.location.service.R
-import com.system.location.service.amap.locateMe
-import com.system.location.service.amap.setMapConfig
-import com.system.location.service.amap.toPoi
 import com.system.location.service.ui.mock.RockerOverlay
 import com.system.location.service.android.window.OverlayUtils
 import com.system.location.service.bdmap.Poi
 import com.system.location.service.databinding.FragmentHomeBinding
 import com.system.location.service.ext.accuracy
-import com.system.location.service.ext.gcj02
 import com.system.location.service.ext.lastKnownLat
 import com.system.location.service.ext.lastKnownLng
-import com.system.location.service.ext.mapType
 import com.system.location.service.ext.selectLocation
 import com.system.location.service.ext.selectRoute
 import com.system.location.service.ext.wgs84
@@ -91,7 +72,6 @@ class HomeFragment : Fragment() {
     private var addressGeneration = 0L
     private var systemLocation: android.location.LocationManager? = null
     private var systemListener: android.location.LocationListener? = null
-    private var blueDotListener: LocationSource.OnLocationChangedListener? = null
     private var displayingSimulation = false
     private var realLifecycle = RealPositionLifecycle(::realPositioning)
     private var realPositionFilter = PositionFilter()
@@ -205,8 +185,6 @@ class HomeFragment : Fragment() {
                 binding.amapView.move(wgs.mapPoint, 16.5f, true)
             }
         }
-        aMapViewModel.mLocationClient = mLocationClient
-        mLocationClient.enableBackgroundLocation(1, aMapViewModel.mNotification)
         // The resumed-state collector checks simulation before starting real positioning.
     }
 
@@ -396,7 +374,7 @@ class HomeFragment : Fragment() {
             if (cur != null) {
                 binding.amapView.move(cur.mapPoint, animate = true)
             } else {
-                realPositioning(!displayingSimulation)
+                Toast.makeText(requireContext(), "正在等待真实定位", Toast.LENGTH_SHORT).show()
             }
         }
     }

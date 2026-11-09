@@ -45,12 +45,6 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
-import com.amap.api.maps.model.LatLng
-import com.amap.api.services.geocoder.GeocodeResult
-import com.amap.api.services.geocoder.GeocodeSearch
-import com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener
-import com.amap.api.services.geocoder.RegeocodeAddress
-import com.amap.api.services.geocoder.RegeocodeResult
 import com.google.android.material.navigation.NavigationView
 import com.system.location.service.maps.*
 import com.system.location.service.privacy.TencentPrivacy

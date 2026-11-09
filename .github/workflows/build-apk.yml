@@ -95,6 +95,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.SIGN_ALIAS }}
           KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
           AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
+          TENCENT_MAP_KEY: ${{ secrets.TENCENT_MAP_KEY }}
       - name: Verify signed APKs and upgrade certificate
         run: python3 scripts/verify_release_apks.py --version "$APP_VERSION_NAME" --version-code "$APP_VERSION_CODE" --channel "$RELEASE_CHANNEL"
       - name: Verify modern Xposed APK packaging

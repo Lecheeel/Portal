@@ -36,6 +36,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Build test APKs
+        env:
+          AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
+          TENCENT_MAP_KEY: ${{ secrets.TENCENT_MAP_KEY }}
         run: |
           chmod +x ./gradlew
           ./gradlew :app:assembleX64Debug :app:assembleX64DebugAndroidTest --build-cache --stacktrace

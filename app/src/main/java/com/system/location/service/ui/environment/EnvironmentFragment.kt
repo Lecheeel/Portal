@@ -342,6 +342,7 @@ class EnvironmentFragment : Fragment() {
                                 createEnvironmentDocument.launch("$name.json")
                             } else {
                                 requireContext().environmentReplayJson = EnvironmentProfileCodec.encode(profile)
+                                requireContext().environmentSourceMode = "REPLAY"
                                 lifecycleScope.launch {
                                     val applied = withContext(Dispatchers.IO) {
                                         com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()

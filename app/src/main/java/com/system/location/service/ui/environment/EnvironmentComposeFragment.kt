@@ -29,8 +29,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.system.location.service.ui.preferenceRevision
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -255,8 +255,13 @@ class EnvironmentComposeFragment : Fragment() {
         lifecycleScope.launch {
             val profile = withContext(Dispatchers.IO) {
                 runCatching { EnvironmentStore(appContext).load(name) }.getOrNull()
-            } ?: return@launch
-            requireContext().environmentReplayJson = EnvironmentProfileCodec.encode(profile)
+            }
+            if (profile == null) {
+                showToast(getString(R.string.environment_export_failed, "无法读取环境"))
+                return@launch
+            }
+            appContext.environmentReplayJson = EnvironmentProfileCodec.encode(profile)
+            appContext.environmentSourceMode = "REPLAY"
             val applied = withContext(Dispatchers.IO) {
                 com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
             }
@@ -317,10 +322,11 @@ private fun EnvironmentScreen(
     onRename: (String, String) -> Unit,
 ) {
     val context = LocalContext.current
-    var apCount by remember { mutableIntStateOf(context.environmentApCount) }
-    var cellMode by remember { mutableStateOf(context.cellMode) }
-    var sourceMode by remember { mutableStateOf(context.environmentSourceMode) }
-    var fingerprintEnabled by remember { mutableStateOf(context.wifiFingerprintEnabled) }
+    val revision = preferenceRevision()
+    val apCount = remember(revision) { context.environmentApCount }
+    val cellMode = remember(revision) { context.cellMode }
+    val sourceMode = remember(revision) { context.environmentSourceMode }
+    val fingerprintEnabled = remember(revision) { context.wifiFingerprintEnabled }
     var apDialog by remember { mutableStateOf(false) }
     var apInput by remember { mutableStateOf(apCount.toString()) }
     var cellDialog by remember { mutableStateOf(false) }
@@ -354,7 +360,6 @@ private fun EnvironmentScreen(
                     if (count == null || count !in 3..8) {
                         Toast.makeText(context, apRangeMessage, Toast.LENGTH_SHORT).show()
                     } else {
-                        apCount = count
                         context.environmentApCount = count
                         apDialog = false
                         apply()
@@ -371,7 +376,6 @@ private fun EnvironmentScreen(
         options = listOf("AUTO", "FULL_REPLAY", "NO_SIM_WIFI_ONLY", "LEGACY_CDMA"),
         selected = cellMode,
         onSelect = {
-            cellMode = it
             context.cellMode = it
             cellDialog = false
             apply()
@@ -384,7 +388,6 @@ private fun EnvironmentScreen(
         options = listOf("AUTO", "PROCEDURAL", "REPLAY"),
         selected = sourceMode,
         onSelect = {
-            sourceMode = it
             context.environmentSourceMode = it
             sourceDialog = false
             apply()
@@ -513,7 +516,6 @@ private fun EnvironmentScreen(
                         title = stringResource(R.string.wifi_fingerprint_enable),
                         checked = fingerprintEnabled,
                         onCheckedChange = {
-                            fingerprintEnabled = it
                             context.wifiFingerprintEnabled = it
                             onApplyConfig()
                         },

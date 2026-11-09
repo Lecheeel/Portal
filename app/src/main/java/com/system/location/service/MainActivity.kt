@@ -11,6 +11,7 @@ import android.Manifest.permission.INTERNET
 import android.Manifest.permission.READ_PHONE_STATE
 import android.Manifest.permission.VIBRATE
 import android.annotation.SuppressLint
+import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
@@ -155,10 +156,22 @@ class MainActivity : AppCompatActivity() {
                 // Drawer items name an exact screen. Restoring a saved top-level stack
                 // could instead restore the library opened from the mock screen.
                 navView.setNavigationItemSelectedListener { item ->
-                    navController.navigate(item.itemId, null, navOptions {
-                        launchSingleTop = true
-                        popUpTo(navController.graph.findStartDestination().id)
-                    })
+                    if (navController.currentDestination?.id != item.itemId) {
+                        navController.navigate(item.itemId, null, navOptions {
+                            launchSingleTop = true
+                            popUpTo(navController.graph.findStartDestination().id)
+                            // Property animators follow system duration scale, including Back.
+                            // Opacity only; no page translation or animated layout changes.
+                            if (ValueAnimator.areAnimatorsEnabled()) {
+                                anim {
+                                    enter = R.animator.portal_fade_in
+                                    exit = R.animator.portal_fade_out
+                                    popEnter = R.animator.portal_fade_in
+                                    popExit = R.animator.portal_fade_out
+                                }
+                            }
+                        })
+                    }
                     drawerLayout.closeDrawer(GravityCompat.START)
                     true
                 }

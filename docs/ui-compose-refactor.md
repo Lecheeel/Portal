@@ -73,8 +73,8 @@
 
 ### Phase 4 · 地图壳与导航收口
 
-- [ ] 首页地图控制层 Compose 化：搜索、FAB、底部目标卡片、摇杆入口。
-- [ ] 地图本身继续使用 `AndroidView`。
+- [x] 首页地图控制层 Compose 化：搜索、快捷操作、底部目标卡片、悬浮窗入口。
+- [x] 地图本身继续使用 `AndroidView`。
 - [ ] 单个 `ComponentActivity` + Compose Navigation。
 - [ ] 逐页替换 `NavHostFragment`。
 - [ ] 删除只被 Compose 替代的 Fragment / layout / binding。
@@ -96,7 +96,7 @@
 | 环境工具 | Fragment + XML | Compose 已接入 | SAF、环境存储、指纹导入 | 已完成首版 |
 | 模拟（位置/卫星） | Fragment + XML | Compose TabRow + 两个 Compose Tab | Location/Route/GNSS 状态 | 已完成首版 |
 | 资料库/路线 | Fragment + XML + Adapter | 资料库 Compose；路线编辑器 Compose 首版 | 路线存储、GPX/JSON | 已完成首版 |
-| 首页地图 | Fragment + XML + MapView | Compose 壳 + AndroidView | 高德/腾讯地图 | 待开始 |
+| 首页地图 | Fragment + XML + MapView | Compose 壳 + AndroidView 首版 | 高德/腾讯地图 | 已完成首版 |
 | 悬浮摇杆 | View overlay | Compose/AndroidView 混合 | WindowManager | 后续 |
 
 ## 5. 设计系统约束
@@ -137,6 +137,7 @@
 - 2026-11-09：模拟页外壳迁移为 `SimulationComposeFragment`，使用 Compose TabRow + FragmentContainerView；旧 `SimulationFragment` 暂留回退。
 - 2026-11-09：资料库列表迁移为 `RouteGalleryComposeFragment`，覆盖路线/场景/位置切换、搜索、列表、动作菜单、JSON/GPX 导入导出和运行状态；旧 `RouteMockFragment` 暂留回退。
 - 2026-11-09：路线编辑器迁移为 `RouteEditComposeFragment`；模式切换、搜索、起终点、地图/手势层、规划/撤销/清空、保存和路线渲染进入 Compose 壳；旧 `RouteEditFragment` 暂留回退。
+- 2026-11-09：首页地图迁移为 `HomeComposeFragment`；地图仍为 `AndroidView`，搜索、快捷操作、目标卡片、开始/停止、保存位置和悬浮窗入口进入 Compose；旧 `HomeFragment` 暂留回退。
 - 当前构建注意：本机首次解析 Compose 依赖需要联网；解析完成后离线构建可用。`:designsystem` 需要显式 `buildToolsVersion = "37.0.0"`。
 
 ## 8. 风险

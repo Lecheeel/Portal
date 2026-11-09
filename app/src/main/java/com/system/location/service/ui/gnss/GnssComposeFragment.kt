@@ -142,15 +142,19 @@ private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
                 satellites = list
             }
         }
-        runCatching {
-            locationManager.registerGnssStatusCallback(context.mainExecutor, callback)
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            try {
+                locationManager.registerGnssStatusCallback(context.mainExecutor, callback)
+            } catch (_: SecurityException) {
+                // Permission can be revoked between the check and registration.
+            }
         }
         onDispose { runCatching { locationManager.unregisterGnssStatusCallback(callback) } }
     }
 
     val inView = satellites.size
     val inUse = satellites.count { it.usedInFix }
-    val averageCn0 = satellites.filter { it.usedInFix }.map { it.snr }.average().takeIf { !it.isNaN() } ?: 0.0
+    val averageCn0 = satellites.filter { it.usedInFix }.map { it.snr }.average().takeIf { it.isFinite() }
     val gps = satellites.count { it.prn in 1..32 }
     val glonass = satellites.count { it.prn in 65..96 }
     val beidou = satellites.count { it.prn in 201..237 }
@@ -186,7 +190,7 @@ private fun GnssScreen(onOpenMock: (Boolean, (Boolean) -> Unit) -> Unit) {
                         GnssMetric("在用卫星", "$inUse 颗", Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(PortalSpacing.md))
-                    GnssMetric("平均信号强度", "%.1f dB-Hz".format(averageCn0), Modifier.fillMaxWidth())
+                    GnssMetric("平均信号强度", averageCn0?.let { "%.1f dB-Hz".format(it) } ?: "— dB-Hz", Modifier.fillMaxWidth())
                     Spacer(Modifier.height(PortalSpacing.lg))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(Modifier.height(PortalSpacing.md))

@@ -8,6 +8,22 @@ import urllib.request
 import subprocess
 import os
 import zipfile
+import time
+
+
+def open_release_url(request):
+    """Retry transient GitHub/CDN failures without relaxing release identity checks."""
+    for attempt in range(3):
+        try:
+            return urllib.request.urlopen(request, timeout=20)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504) or attempt == 2:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        time.sleep(1 + attempt)
+    raise RuntimeError("Release request retry exhausted")
 
 RELEASE_CERT_SHA256 = "fa4547514e795b2daca48bd05e9a5f9348e62531d791d746e0ffe93bb90247a3"
 VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:-(?:beta|canary|rc)\.\d+)?\Z")
@@ -78,7 +94,7 @@ def fetch_published_codes(repository="Lecheeel/Portal"):
                 f"https://api.github.com/repos/{repository}/releases?per_page=100&page={page}",
                 headers={"Accept": "application/vnd.github+json", "User-Agent": "Portal-release-policy"},
             )
-            with urllib.request.urlopen(request, timeout=20) as response:
+            with open_release_url(request) as response:
                 batch = json.load(response)
             if not isinstance(batch, list):
                 raise ReleasePolicyError("GitHub releases response is not a list")
@@ -90,6 +106,8 @@ def fetch_published_codes(repository="Lecheeel/Portal"):
         raise ReleasePolicyError(f"could not read published releases: {exc}") from exc
     # Fetch metadata assets individually; never infer a code from release tags.
     for release in releases:
+        if release.get("draft"):
+            continue
         for asset in release.get("assets", []):
             if asset.get("name") == "verification.json":
                 download_url = asset.get("browser_download_url")
@@ -97,7 +115,7 @@ def fetch_published_codes(repository="Lecheeel/Portal"):
                     raise ReleasePolicyError(f"verification.json URL missing for {release.get('tag_name')}")
                 req = urllib.request.Request(download_url, headers={"User-Agent": "Portal-release-policy"})
                 try:
-                    with urllib.request.urlopen(req, timeout=20) as response:
+                    with open_release_url(req) as response:
                         asset["content"] = response.read().decode("utf-8")
                 except (urllib.error.URLError, TimeoutError, UnicodeDecodeError) as exc:
                     raise ReleasePolicyError(f"could not read verification.json for {release.get('tag_name')}: {exc}") from exc

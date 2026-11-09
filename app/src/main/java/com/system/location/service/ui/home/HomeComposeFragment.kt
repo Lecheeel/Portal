@@ -2,6 +2,18 @@ package com.system.location.service.ui.home
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.os.SystemClock
+import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.amap.api.location.AMapLocationClient
+import com.amap.api.location.AMapLocationClientOption
+import com.system.location.service.maps.MapProvider
+import com.system.location.service.ext.wgs84
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
@@ -21,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -98,6 +111,27 @@ class HomeComposeFragment : Fragment() {
     private var locationListener: android.location.LocationListener? = null
     private var lastTarget: Pair<Double, Double>? = null
     private var lastAddress: String? = null
+    private var cameraPolicy = HomeCameraPolicy()
+    private val locationState = kotlinx.coroutines.flow.MutableStateFlow(HomeLocationState())
+    private var amapLocation: AMapLocationClient? = null
+    private var locationTimeout: Job? = null
+    private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        if (hasLocationPermission()) locate() else showLocationIssue(HomeLocationIssue.PERMISSION)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                mockModel.runtimeState.collect { runtime ->
+                    if (runtime.isActive) {
+                        stopRealLocation()
+                        if (locationState.value.loading) showLocationIssue(HomeLocationIssue.SIMULATION)
+                    } else startRealLocation()
+                }
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -111,6 +145,10 @@ class HomeComposeFragment : Fragment() {
                     mapModel = mapModel,
                     mockModel = mockModel,
                     targetFlow = targetState,
+                    locationFlow = locationState,
+                    onLocate = ::locate,
+                    onLocationRecovery = ::recoverLocation,
+                    onBrowse = ::browseMap,
                     createMap = ::createMap,
                     onMenu = ::openDrawer,
                     onTarget = ::setTarget,
@@ -126,14 +164,36 @@ class HomeComposeFragment : Fragment() {
 
     private fun createMap(context: Context): View {
         val view = PortalMapView(context)
+        cameraPolicy = HomeCameraPolicy()
+        locationState.value = HomeLocationState()
         map = view
         view.onCreate(null)
+        mapModel.markedLoc?.let { point ->
+            lastTarget = point
+            lastAddress = mapModel.markName
+            targetState.value = HomeTarget(point, mapModel.markName)
+            cameraPolicy.userMovedCamera()
+            val gcj = CoordinateTransform.toGcj02(Wgs84(point.first, point.second))
+            targetMarker = view.marker(gcj, mapModel.markName ?: "待确认位置", selected = true)
+            view.move(gcj, 16.5f)
+            locationState.value = HomeLocationState(mapVisible = true)
+        }
+        if (mapModel.markedLoc == null) {
+            mockModel.runtimeState.value.takeIf { it.isActive }?.sample?.let { sample ->
+                cameraPolicy.userMovedCamera()
+                view.move(CoordinateTransform.toGcj02(sample.coordinate), 16.5f)
+                locationState.value = HomeLocationState(mapVisible = true, loading = false, issue = HomeLocationIssue.SIMULATION)
+            }
+        }
         view.onClick { point ->
             val wgs = CoordinateTransform.toWgs84(point)
             setTarget(wgs.latitude to wgs.longitude, null)
         }
         view.onStart()
         view.onResume()
+        view.post {
+            if (map === view && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) startRealLocation()
+        }
         return view
     }
 
@@ -143,6 +203,8 @@ class HomeComposeFragment : Fragment() {
     }
 
     private fun setTarget(wgs: Pair<Double, Double>, name: String?) {
+        cameraPolicy.userMovedCamera()
+        locationState.value = locationState.value.copy(mapVisible = true)
         lastTarget = wgs
         lastAddress = name
         mapModel.markedLoc = wgs
@@ -216,6 +278,8 @@ class HomeComposeFragment : Fragment() {
             return false
         }
         if (route.size >= 2) {
+            cameraPolicy.userMovedCamera()
+            locationState.value = locationState.value.copy(mapVisible = true)
             routeLine = map.line(route.map { it.mapPoint }, Color.argb(200, 59, 130, 246), 12f)
             map.move(route.first().mapPoint, 16f, true)
         }
@@ -231,6 +295,7 @@ class HomeComposeFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         map?.onResume()
+        startRealLocation()
     }
 
     override fun onPause() {
@@ -258,33 +323,178 @@ class HomeComposeFragment : Fragment() {
         super.onDestroyView()
     }
 
-    private fun startRealLocation() {
-        if (locationListener != null) return
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return
-        val manager = requireContext().getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
-        systemLocation = manager
-        val listener = android.location.LocationListener { loc ->
-            if (loc.isMock || mockModel.runtimeState.value.isActive || loc.latitude == 0.0 && loc.longitude == 0.0) return@LocationListener
-            mapModel.currentLocation = loc.latitude to loc.longitude
-            map?.currentPosition(CoordinateTransform.toGcj02(com.system.location.service.core.geo.Wgs84(loc.latitude, loc.longitude)))
-            requireContext().lastKnownLat = loc.latitude
-            requireContext().lastKnownLng = loc.longitude
-        }
-        locationListener = listener
-        runCatching {
-            for (provider in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
-                if (manager.allProviders.contains(provider)) manager.requestLocationUpdates(provider, 1000L, 0f, listener)
+    private fun hasLocationPermission() = listOf(
+        Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION,
+    ).any { ContextCompat.checkSelfPermission(requireContext(), it) == PackageManager.PERMISSION_GRANTED }
+
+    private fun showLocationIssue(issue: HomeLocationIssue) {
+        locationTimeout?.cancel()
+        locationState.value = locationState.value.copy(loading = false, issue = issue)
+    }
+
+    private fun recoverLocation() {
+        when (locationState.value.issue) {
+            HomeLocationIssue.PERMISSION -> {
+                val requested = requireContext().getSharedPreferences("home_location", Context.MODE_PRIVATE)
+                val deniedPermanently = requested.getBoolean("requested", false) &&
+                    !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) &&
+                    !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)
+                if (deniedPermanently) {
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.parse("package:${requireContext().packageName}")))
+                } else {
+                    requested.edit().putBoolean("requested", true).apply()
+                    locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                }
             }
+            HomeLocationIssue.DISABLED -> startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+            else -> locate()
+        }
+    }
+
+    private fun browseMap() {
+        cameraPolicy.userMovedCamera()
+        // An explicit browse action uses a world overview, never an implied Beijing fix.
+        map?.move(Gcj02(20.0, 0.0), 2f)
+        locationState.value = locationState.value.copy(mapVisible = true)
+    }
+
+    private fun moveCamera(move: HomeCameraPolicy.Move) {
+        map?.move(CoordinateTransform.toGcj02(Wgs84(move.position.latitude, move.position.longitude)), move.zoom,
+            animate = locationState.value.mapVisible)
+        locationState.value = locationState.value.copy(mapVisible = true)
+    }
+
+    private fun locate() {
+        if (!hasLocationPermission()) { showLocationIssue(HomeLocationIssue.PERMISSION); return }
+        if (mockModel.runtimeState.value.isActive) {
+            mapModel.originalLocation?.let { (lat, lon) ->
+                moveCamera(HomeCameraPolicy.Move(HomeCameraPolicy.Position(lat, lon)))
+            }
+            showLocationIssue(HomeLocationIssue.SIMULATION)
+            return
+        }
+        cameraPolicy.locate(SystemClock.elapsedRealtime())?.let {
+            moveCamera(it)
+            locationState.value = locationState.value.copy(loading = false, issue = null)
+            return
+        }
+        stopRealLocation()
+        startRealLocation()
+    }
+
+    private fun acceptRealLocation(loc: Location, point: Pair<Double, Double>) {
+        if (map == null || !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        val active = mockModel.runtimeState.value.isActive
+        val age = if (loc.elapsedRealtimeNanos > 0L) {
+            (SystemClock.elapsedRealtimeNanos() - loc.elapsedRealtimeNanos) / 1_000_000
+        } else {
+            // Some fused network fixes omit elapsed time; still require a recent timestamp.
+            System.currentTimeMillis() - loc.time
+        }
+        if (loc.isMock || active || age !in 0..HomeCameraPolicy.MAX_FIX_AGE_MILLIS ||
+            point.first !in -90.0..90.0 || point.second !in -180.0..180.0 ||
+            point.first == 0.0 && point.second == 0.0) return
+        val move = cameraPolicy.accept(point.first, point.second, age, SystemClock.elapsedRealtime(), loc.isMock, active)
+        mapModel.currentLocation = point
+        mapModel.rememberOriginalLocation(point, loc.isMock, active)
+        map?.currentPosition(CoordinateTransform.toGcj02(Wgs84(point.first, point.second)))
+        requireContext().lastKnownLat = point.first
+        requireContext().lastKnownLng = point.second
+        move?.let(::moveCamera)
+        locationTimeout?.cancel()
+        locationState.value = locationState.value.copy(loading = false, issue = null)
+    }
+
+    @Suppress("MissingPermission")
+    private fun startRealLocation() {
+        val map = map ?: return
+        if (mockModel.runtimeState.value.isActive) { showLocationIssue(HomeLocationIssue.SIMULATION); return }
+        if (!hasLocationPermission()) { showLocationIssue(HomeLocationIssue.PERMISSION); return }
+        val manager = requireContext().getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        if (manager == null) { showLocationIssue(HomeLocationIssue.UNAVAILABLE); return }
+        if (!manager.isLocationEnabled) { stopRealLocation(); showLocationIssue(HomeLocationIssue.DISABLED); return }
+        if (amapLocation != null || locationListener != null) return
+        locationState.value = locationState.value.copy(loading = true, issue = null)
+        locationTimeout?.cancel()
+        locationTimeout = viewLifecycleOwner.lifecycleScope.launch {
+            delay(20_000)
+            showLocationIssue(HomeLocationIssue.TIMEOUT)
+        }
+        systemLocation = manager
+        // Consent is completed by MainActivity before this view is created. Only the selected
+        // provider's client is initialized; Tencent never initializes AMap for positioning.
+        if (map.provider == MapProvider.AMAP) {
+            runCatching {
+                AMapLocationClient(requireContext()).also { client ->
+                    amapLocation = client
+                    client.setLocationOption(AMapLocationClientOption().apply {
+                        locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
+                        isOnceLocation = false
+                        isNeedAddress = false
+                        isLocationCacheEnable = false
+                        interval = 1_000
+                    })
+                    client.setLocationListener { loc ->
+                        if (amapLocation !== client || loc == null) return@setLocationListener
+                        if (loc.errorCode == 0) acceptRealLocation(loc, loc.wgs84)
+                    }
+                    client.startLocation()
+                }
+            }.onFailure { stopRealLocation(); showLocationIssue(HomeLocationIssue.UNAVAILABLE) }
+        } else {
+            val listener = object : android.location.LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    if (locationListener === this) acceptRealLocation(location, location.latitude to location.longitude)
+                }
+                override fun onProviderDisabled(provider: String) {
+                    if (!manager.isLocationEnabled) showLocationIssue(HomeLocationIssue.DISABLED)
+                }
+                override fun onProviderEnabled(provider: String) {
+                    if (!locationState.value.loading && locationState.value.issue != null) locate()
+                }
+            }
+            locationListener = listener
+            val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+                .filter { it in manager.allProviders }
+            val registered = providers.count { provider ->
+                runCatching {
+                    manager.requestLocationUpdates(provider, 1_000L, 0f, listener, android.os.Looper.getMainLooper())
+                }.isSuccess
+            }
+            if (registered == 0) { stopRealLocation(); showLocationIssue(HomeLocationIssue.UNAVAILABLE) }
+            // A recent system fix can avoid an unnecessary wait. Old and mock fixes are rejected.
+            providers.mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }
+                .sortedByDescending { it.elapsedRealtimeNanos }
+                .firstOrNull { !it.isMock }?.let { acceptRealLocation(it, it.latitude to it.longitude) }
         }
     }
 
     private fun stopRealLocation() {
-        val manager = systemLocation ?: return
-        locationListener?.let { runCatching { manager.removeUpdates(it) } }
+        locationTimeout?.cancel()
+        locationTimeout = null
+        val client = amapLocation
+        amapLocation = null
+        client?.let { runCatching { it.stopLocation(); it.onDestroy() } }
+        locationListener?.let { listener -> runCatching { systemLocation?.removeUpdates(listener) } }
         locationListener = null
         systemLocation = null
     }
 }
+
+private enum class HomeLocationIssue(val message: String, val action: String) {
+    PERMISSION("允许访问位置后，可将地图定位到你附近。也可直接搜索或选择坐标。", "授权位置"),
+    DISABLED("系统定位已关闭，可开启定位或直接选择目标位置。", "开启定位"),
+    TIMEOUT("暂时未获取到真实位置，请检查定位和网络，或移至开阔处重试。", "重新定位"),
+    UNAVAILABLE("定位暂不可用，可重试或直接选择目标位置。", "重试"),
+    SIMULATION("模拟期间不采集真实位置；已有真实位置可用于回到原处。", "返回真实位置"),
+}
+
+private data class HomeLocationState(
+    val mapVisible: Boolean = false,
+    val loading: Boolean = true,
+    val issue: HomeLocationIssue? = null,
+)
 
 private data class HomeTarget(
     val point: Pair<Double, Double>? = null,
@@ -296,6 +506,10 @@ private fun HomeScreen(
     mapModel: AMapViewModel,
     mockModel: MockServiceViewModel,
     targetFlow: kotlinx.coroutines.flow.Flow<HomeTarget>,
+    locationFlow: kotlinx.coroutines.flow.StateFlow<HomeLocationState>,
+    onLocate: () -> Unit,
+    onLocationRecovery: () -> Unit,
+    onBrowse: () -> Unit,
     createMap: (Context) -> View,
     onMenu: () -> Unit,
     onTarget: (Pair<Double, Double>, String?) -> Unit,
@@ -307,6 +521,7 @@ private fun HomeScreen(
 ) {
     val context = LocalContext.current
     val runtime by mockModel.runtimeState.collectAsStateWithLifecycle()
+    val location by locationFlow.collectAsStateWithLifecycle()
     val target by targetFlow.collectAsStateWithLifecycle(initialValue = HomeTarget())
     var query by remember { mutableStateOf("") }
     var suggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
@@ -393,6 +608,9 @@ private fun HomeScreen(
 
     Box(Modifier.fillMaxSize()) {
         AndroidView(factory = { ctx -> createMap(ctx) }, modifier = Modifier.fillMaxSize())
+        if (!location.mapVisible) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {}
+        }
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp),
             verticalArrangement = Arrangement.SpaceBetween,
@@ -413,6 +631,27 @@ private fun HomeScreen(
                     TextButton(onClick = { onSearch(query) { suggestions = it } }) { Text("搜索") }
                 }
             }
+            if (location.loading || location.issue != null || !location.mapVisible) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (location.loading) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                                Text("正在获取真实位置", style = MaterialTheme.typography.titleSmall)
+                            }
+                            Text("仅用于显示当前位置，不会修改模拟目标。", style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            Text(location.issue?.message ?: "可搜索地点或直接浏览地图", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            location.issue?.let { issue ->
+                                TextButton(onClick = onLocationRecovery) { Text(issue.action) }
+                            }
+                            if (!location.mapVisible) TextButton(onClick = onBrowse) { Text("先浏览地图") }
+                        }
+                    }
+                }
+            }
             Column(
                 Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.End,
@@ -421,11 +660,7 @@ private fun HomeScreen(
                 FilledTonalButton(onClick = { onMapType() }) { Text("图层") }
                 FilledTonalButton(onClick = { if (!onRoutePreview()) Toast.makeText(context, "未选择路线", Toast.LENGTH_SHORT).show() }) { Text("路线") }
                 FilledTonalButton(onClick = { coordinateDialog = true }) { Text("坐标") }
-                FilledTonalButton(onClick = {
-                    mapModel.currentLocation?.let { (lat, lon) ->
-                        onTarget(lat to lon, null)
-                    } ?: Toast.makeText(context, "正在等待真实定位", Toast.LENGTH_SHORT).show()
-                }) { Text("定位") }
+                FilledTonalButton(onClick = onLocate) { Text("定位") }
             }
             PortalCard {
                 Text(

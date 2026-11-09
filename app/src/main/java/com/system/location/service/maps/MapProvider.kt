@@ -13,7 +13,14 @@ enum class MapProvider(val label: String) {
 var Context.mapProvider: MapProvider
     get() = MapProvider.restore(sharedPrefs.getString("map_provider", null))
     set(value) {
-        check(sharedPrefs.edit().putString("map_provider", value.name).commit()) { "地图设置保存失败" }
+        val previous = sharedPrefs.getString("map_provider", null)
+        if (!sharedPrefs.edit().putString("map_provider", value.name).commit()) {
+            // A failed disk commit still updates SharedPreferences' in-memory value.
+            val rollback = sharedPrefs.edit()
+            if (previous == null) rollback.remove("map_provider") else rollback.putString("map_provider", previous)
+            rollback.commit()
+            error("地图设置保存失败")
+        }
     }
 
 /** Logical styles deliberately do not persist SDK integer constants across providers. */

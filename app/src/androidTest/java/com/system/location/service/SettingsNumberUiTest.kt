@@ -1,11 +1,13 @@
 package com.system.location.service
 
 import android.widget.EditText
+import android.view.View
+import androidx.test.espresso.UiController
+import androidx.test.espresso.ViewAction
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.replaceText
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.RootMatchers.isDialog
@@ -33,11 +35,11 @@ class SettingsNumberUiTest {
                 compose.scrollToText("定位海拔").performClick()
                 val editor = onView(isAssignableFrom(EditText::class.java)).inRoot(isDialog())
                 editor.perform(replaceText("10001"))
-                onView(withText("保存")).inRoot(isDialog()).perform(click())
+                onView(withText("保存")).inRoot(isDialog()).perform(saveClick())
                 editor.check(matches(isDisplayed()))
                 assertEquals(original, context.altitude, 0.001)
                 editor.perform(replaceText("1234.5"))
-                onView(withText("保存")).inRoot(isDialog()).perform(click())
+                onView(withText("保存")).inRoot(isDialog()).perform(saveClick())
                 compose.onNodeWithText("%.2f 米".format(1234.5)).assertIsDisplayed()
                 assertEquals(1234.5, context.altitude, 0.001)
                 scenario.recreate()
@@ -48,5 +50,15 @@ class SettingsNumberUiTest {
                 compose.onNodeWithText("%.2f 米".format(4321.0)).assertIsDisplayed()
             }
         } finally { context.altitude = original }
+    }
+
+    // Exercise the button callback even on devices that disallow injected touch events.
+    private fun saveClick() = object : ViewAction {
+        override fun getConstraints() = isAssignableFrom(android.widget.Button::class.java)
+        override fun getDescription() = "click the save button through its view callback"
+        override fun perform(controller: UiController, view: View) {
+            check(view.isEnabled && view.performClick())
+            controller.loopMainThreadUntilIdle()
+        }
     }
 }

@@ -4,6 +4,11 @@ import android.Manifest
 import android.content.Context
 import android.os.ParcelFileDescriptor
 import android.provider.Settings
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performClick
+import org.junit.Rule
 import androidx.navigation.findNavController
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
@@ -28,6 +33,7 @@ import org.hamcrest.Matchers.containsString
 /** Integration test for overlay ownership and the user's persisted visibility choice. */
 @RunWith(AndroidJUnit4::class)
 class RockerOverlayTest {
+    @get:Rule val compose = createEmptyComposeRule()
     @org.junit.Before fun acceptMapConsentForThisFixture() {
         com.system.location.service.privacy.SdkPrivacy.acceptMaps()
     }
@@ -54,7 +60,7 @@ class RockerOverlayTest {
         preferences.edit().remove("enabled").commit()
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                onView(withId(R.id.btn_apply_location)).check(matches(isDisplayed()))
+                compose.onNodeWithText("开始模拟").assertIsDisplayed()
                 scenario.onActivity {
                     assertTrue(RockerOverlay.isEnabled)
                     assertTrue("Grant overlay permission on the test device", RockerOverlay.isVisible)
@@ -85,14 +91,14 @@ class RockerOverlayTest {
                 runBlocking { ScenarioRuntime.stop().await() }
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_home) }
-                onView(withId(R.id.btnQuickRocker)).perform(click())
+                compose.onNodeWithText("关闭悬浮窗").performClick()
                 scenario.onActivity {
                     assertFalse(RockerOverlay.isEnabled)
                     assertFalse(RockerOverlay.isVisible)
                 }
                 scenario.recreate()
                 scenario.onActivity { assertFalse(RockerOverlay.isVisible) }
-                onView(withId(R.id.btnQuickRocker)).perform(click())
+                compose.onNodeWithText("悬浮窗").performClick()
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
             }
         } finally {

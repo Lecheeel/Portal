@@ -1,5 +1,7 @@
 package com.system.location.service
 
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import org.junit.Rule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -11,6 +13,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class TencentMapLifecycleTest {
+    @get:Rule val compose = createEmptyComposeRule()
     @Test fun unconsentedViewDoesNotConstructVendorMap() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
@@ -44,25 +47,27 @@ class TencentMapLifecycleTest {
         try {
             instrumentation.runOnMainSync { TencentPrivacy.accept(context); context.mapProvider = MapProvider.TENCENT }
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                compose.waitForIdle()
                 scenario.onActivity {
-                    val map = it.findViewById<PortalMapView>(R.id.amapView)
+                    val map = it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isShown }.single()
                     assertEquals(MapProvider.TENCENT, map.provider)
                     assertEquals(1, map.childCount)
                 }
                 scenario.recreate()
+                compose.waitForIdle()
                 scenario.onActivity {
-                    assertEquals(MapProvider.TENCENT, it.findViewById<PortalMapView>(R.id.amapView).provider)
+                    assertEquals(MapProvider.TENCENT, it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isShown }.single().provider)
                     androidx.navigation.Navigation.findNavController(it, R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_edit)
                 }
-                instrumentation.waitForIdleSync()
+                compose.waitForIdle()
                 scenario.onActivity {
-                    val map = it.findViewById<PortalMapView>(R.id.amap_view)
+                    val map = it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isShown }.single()
                     assertEquals(MapProvider.TENCENT, map.provider)
                     assertEquals(1, map.childCount)
                 }
                 scenario.recreate()
-                instrumentation.waitForIdleSync()
-                scenario.onActivity { assertEquals(MapProvider.TENCENT, it.findViewById<PortalMapView>(R.id.amap_view).provider) }
+                compose.waitForIdle()
+                scenario.onActivity { assertEquals(MapProvider.TENCENT, it.window.decorView.descendantsOfType<PortalMapView>().filter { view -> view.isShown }.single().provider) }
             }
         } finally { context.mapProvider = original }
     }

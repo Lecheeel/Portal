@@ -42,7 +42,7 @@
 - [x] 新建 `:designsystem` 模块。
 - [x] 建立 `PortalTheme`：颜色、字体、形状、间距。
 - [x] 建立基础组件：Card、SectionTitle；Button/Pill/Sheet 持续补充。
-- [ ] 增加 Compose UI 测试依赖与截图测试。
+- [x] 增加 Compose UI 测试依赖与测试骨架（`PortalComponentsTest` 已编译；本机 UTP 被 JNA 临时目录限制）。
 - [x] 构建最小 Compose 页面做冒烟验证。
 
 ### Phase 1 · 运行中心（第一个正式页面）
@@ -129,6 +129,7 @@
 
 - 2026-11-09：创建路线图；验证 Compose 构建环境；创建 `:designsystem`；完成运行中心 Compose 首屏并接入 `nav_runtime`。本地 `:app:assembleArm64Debug` 与 Compose 编译通过，A 设备实际打开运行中心验证。
 - 2026-11-09：新增 `PortalActionRow`/`PortalSwitchRow`；环境工具迁移为 `EnvironmentComposeFragment`，覆盖采集、列表、导入、指纹开关、AP/基站/来源配置，A 设备实际打开验证。
+- 2026-11-09：新增 `designsystem` Compose UI 测试骨架与本地签名注入；测试 APK 编译通过。`connectedDebugAndroidTest` 在本机被 DSH 的 JNA 临时目录 ACL 阻断，需在 CI/无沙箱环境跑。
 - 当前构建注意：本机首次解析 Compose 依赖需要联网；解析完成后离线构建可用。`:designsystem` 需要显式 `buildToolsVersion = "37.0.0"`。
 
 ## 8. 风险

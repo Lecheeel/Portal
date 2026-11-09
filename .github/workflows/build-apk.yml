@@ -12,7 +12,7 @@ name: Verify and Build APKs
         description: Globally increasing Android version code
         required: true
         type: string
-        default: '1790000066'
+        default: '1790000080'
       release_channel:
         description: stable or beta/canary/rc pre-release metadata
         required: true
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       APP_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '2.1.0-beta.1' }}
-      APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000066' }}
+      APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000080' }}
       RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'beta' }}
     steps:
       - uses: actions/checkout@v4

@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -335,9 +336,10 @@ private fun EnvironmentScreen(
     }
 
     if (apDialog) {
+        val apRangeMessage = stringResource(R.string.settings_environment_ap_range)
         AlertDialog(
             onDismissRequest = { apDialog = false },
-            title = { Text(context.getString(R.string.environment_ap_title)) },
+            title = { Text(stringResource(R.string.environment_ap_title)) },
             text = {
                 OutlinedTextField(
                     value = apInput,
@@ -350,7 +352,7 @@ private fun EnvironmentScreen(
                 TextButton(onClick = {
                     val count = apInput.toIntOrNull()
                     if (count == null || count !in 1..8) {
-                        Toast.makeText(context, context.getString(R.string.settings_environment_ap_range), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, apRangeMessage, Toast.LENGTH_SHORT).show()
                     } else {
                         apCount = count
                         context.environmentApCount = count
@@ -365,7 +367,7 @@ private fun EnvironmentScreen(
 
     ChoiceDialog(
         visible = cellDialog,
-        title = context.getString(R.string.cell_mode_title),
+        title = stringResource(R.string.cell_mode_title),
         options = listOf("AUTO", "FULL_REPLAY", "NO_SIM_WIFI_ONLY", "LEGACY_CDMA"),
         selected = cellMode,
         onSelect = {
@@ -378,7 +380,7 @@ private fun EnvironmentScreen(
     )
     ChoiceDialog(
         visible = sourceDialog,
-        title = context.getString(R.string.environment_source_title),
+        title = stringResource(R.string.environment_source_title),
         options = listOf("AUTO", "PROCEDURAL", "REPLAY"),
         selected = sourceMode,
         onSelect = {
@@ -393,19 +395,19 @@ private fun EnvironmentScreen(
     if (listDialog) {
         AlertDialog(
             onDismissRequest = { listDialog = false },
-            title = { Text(context.getString(R.string.environment_list_title)) },
+            title = { Text(stringResource(R.string.environment_list_title)) },
             text = {
                 Column {
                     OutlinedTextField(
                         value = search,
                         onValueChange = { search = it },
                         singleLine = true,
-                        label = { Text(context.getString(R.string.environment_search_hint)) },
+                        label = { Text(stringResource(R.string.environment_search_hint)) },
                     )
                     Spacer(Modifier.height(PortalSpacing.sm))
                     val filtered = names.filter { it.contains(search, ignoreCase = true) }
                     if (filtered.isEmpty()) {
-                        Text(context.getString(R.string.environment_list_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.environment_list_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         LazyColumn(Modifier.height(300.dp)) {
                             filtered.forEach { name ->
@@ -434,14 +436,14 @@ private fun EnvironmentScreen(
             title = { Text(action) },
             text = {
                 Column {
-                    PortalActionRow(context.getString(R.string.environment_export), onClick = { actionTarget = null; onExport(action) })
-                    PortalActionRow(context.getString(R.string.environment_replay), onClick = { actionTarget = null; onReplay(action) })
-                    PortalActionRow(context.getString(R.string.environment_rename), onClick = {
+                    PortalActionRow(stringResource(R.string.environment_export), onClick = { actionTarget = null; onExport(action) })
+                    PortalActionRow(stringResource(R.string.environment_replay), onClick = { actionTarget = null; onReplay(action) })
+                    PortalActionRow(stringResource(R.string.environment_rename), onClick = {
                         actionTarget = null
                         renameTarget = action
                         renameInput = action
                     })
-                    PortalActionRow(context.getString(R.string.environment_delete), onClick = {
+                    PortalActionRow(stringResource(R.string.environment_delete), onClick = {
                         actionTarget = null
                         onDelete(action)
                     })
@@ -455,7 +457,7 @@ private fun EnvironmentScreen(
     if (renaming != null) {
         AlertDialog(
             onDismissRequest = { renameTarget = null },
-            title = { Text(context.getString(R.string.environment_rename)) },
+            title = { Text(stringResource(R.string.environment_rename)) },
             text = {
                 OutlinedTextField(
                     value = renameInput,
@@ -481,34 +483,34 @@ private fun EnvironmentScreen(
         ) {
             item {
                 Text(
-                    context.getString(R.string.environment_capture_desc),
+                    stringResource(R.string.environment_capture_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             item {
                 PortalCard {
-                    PortalSectionTitle(context.getString(R.string.environment_capture_title))
+                    PortalSectionTitle(stringResource(R.string.environment_capture_title))
                     Spacer(Modifier.height(PortalSpacing.sm))
                     Button(onClick = onCapture, modifier = Modifier.fillMaxWidth()) {
-                        Text(context.getString(R.string.environment_capture_action))
+                        Text(stringResource(R.string.environment_capture_action))
                     }
                     Spacer(Modifier.height(PortalSpacing.sm))
                     OutlinedButton(
                         onClick = { listDialog = true },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text(context.getString(R.string.environment_list_action)) }
+                    ) { Text(stringResource(R.string.environment_list_action)) }
                     Spacer(Modifier.height(PortalSpacing.sm))
                     OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
-                        Text(context.getString(R.string.environment_import_action))
+                        Text(stringResource(R.string.environment_import_action))
                     }
                 }
             }
             item {
                 PortalCard {
-                    PortalSectionTitle(context.getString(R.string.settings_environment_fingerprint))
+                    PortalSectionTitle(stringResource(R.string.settings_environment_fingerprint))
                     PortalSwitchRow(
-                        title = context.getString(R.string.wifi_fingerprint_enable),
+                        title = stringResource(R.string.wifi_fingerprint_enable),
                         checked = fingerprintEnabled,
                         onCheckedChange = {
                             fingerprintEnabled = it
@@ -517,26 +519,26 @@ private fun EnvironmentScreen(
                         },
                     )
                     OutlinedButton(onClick = onImportFingerprint, modifier = Modifier.fillMaxWidth()) {
-                        Text(context.getString(R.string.wifi_fingerprint_import))
+                        Text(stringResource(R.string.wifi_fingerprint_import))
                     }
                 }
             }
             item {
                 PortalCard {
-                    PortalSectionTitle(context.getString(R.string.settings_environment_replay))
+                    PortalSectionTitle(stringResource(R.string.settings_environment_replay))
                     PortalActionRow(
-                        title = context.getString(R.string.environment_ap_value, apCount),
+                        title = stringResource(R.string.environment_ap_value, apCount),
                         onClick = {
                             apInput = apCount.toString()
                             apDialog = true
                         },
                     )
                     PortalActionRow(
-                        title = context.getString(R.string.cell_mode_value, cellMode),
+                        title = stringResource(R.string.cell_mode_value, cellMode),
                         onClick = { cellDialog = true },
                     )
                     PortalActionRow(
-                        title = context.getString(R.string.environment_source_value, sourceMode),
+                        title = stringResource(R.string.environment_source_value, sourceMode),
                         onClick = { sourceDialog = true },
                     )
                 }

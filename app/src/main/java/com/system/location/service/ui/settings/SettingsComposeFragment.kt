@@ -598,7 +598,7 @@ private fun SettingsScreen(
                         PortalActionRow("分应用路由（实验）", "仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled)
                         PortalActionRow("分应用固定点（实验）", "仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled)
                         PortalActionRow("恢复并启动上次场景", "恢复上次保存的参数，并立即启动模拟。", onRestoreConfig,
-                            enabled = runtime.phase == RuntimePhase.IDLE && !restoreState.busy)
+                            enabled = runtime.phase in setOf(RuntimePhase.IDLE, RuntimePhase.STOPPED) && !restoreState.busy)
                         restoreState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                     }
                 }

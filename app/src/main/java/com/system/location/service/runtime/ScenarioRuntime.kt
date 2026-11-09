@@ -138,7 +138,7 @@ object ScenarioRuntime {
 
     /** Restore and start the last successfully persisted config; never auto-starts on boot. */
     suspend fun restoreLastConfig(): Boolean = command {
-        if (state.value.phase != RuntimePhase.IDLE) return@command false
+        if (state.value.phase !in setOf(RuntimePhase.IDLE, RuntimePhase.STOPPED)) return@command false
         val saved = withContext(Dispatchers.IO) {
             runCatching { configStore.load() }.getOrNull()
         } ?: return@command false

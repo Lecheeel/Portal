@@ -97,6 +97,8 @@ jobs:
           AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
           TENCENT_MAP_KEY: ${{ secrets.TENCENT_MAP_KEY }}
       - name: Verify signed APKs and upgrade certificate
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python3 scripts/verify_release_apks.py --version "$APP_VERSION_NAME" --version-code "$APP_VERSION_CODE" --channel "$RELEASE_CHANNEL"
       - name: Verify modern Xposed APK packaging
         run: python3 scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution

@@ -117,8 +117,21 @@ def fetch_published_codes(repository="Lecheeel/Portal"):
                 try:
                     with open_release_url(req) as response:
                         asset["content"] = response.read().decode("utf-8")
-                except (urllib.error.URLError, TimeoutError, UnicodeDecodeError) as exc:
-                    raise ReleasePolicyError(f"could not read verification.json for {release.get('tag_name')}: {exc}") from exc
+                except (urllib.error.URLError, TimeoutError) as exc:
+                    # GitHub release CDN can fail independently of the authenticated API.
+                    asset_url = asset.get("url", "")
+                    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+                    if not token or not asset_url.startswith(f"https://api.github.com/repos/{repository}/releases/assets/"):
+                        raise ReleasePolicyError(f"could not read verification.json for {release.get('tag_name')}: {exc}") from exc
+                    try:
+                        # gh handles GitHub's signed asset redirect without forwarding API credentials.
+                        response = subprocess.run(["gh", "api", asset_url, "--header", "Accept: application/octet-stream"],
+                            check=True, capture_output=True, timeout=60)
+                        asset["content"] = response.stdout.decode("utf-8")
+                    except (subprocess.SubprocessError, OSError, UnicodeDecodeError) as api_exc:
+                        raise ReleasePolicyError(f"could not read verification.json for {release.get('tag_name')} through GitHub API") from api_exc
+                except UnicodeDecodeError as exc:
+                    raise ReleasePolicyError(f"could not decode verification.json for {release.get('tag_name')}: {exc}") from exc
     return parse_release_codes(releases)
 
 

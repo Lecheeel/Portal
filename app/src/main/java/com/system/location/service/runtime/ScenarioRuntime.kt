@@ -51,11 +51,18 @@ import kotlinx.serialization.json.Json
 object ScenarioRuntime {
     private val context get() = LocationServiceApp.appContext
 
-    /** Push current preferences to a running system service without restarting the scenario. */
-    fun applyConfigNow(): Boolean {
-        val manager = context.getSystemService(LocationManager::class.java) ?: return false
-        if (!MockServiceHelper.isServiceInit()) return false
-        return runCatching { MockServiceHelper.putConfig(manager, context) }.getOrDefault(false)
+    /** Serialize system configuration with runtime commands; a Mock Provider session has no Hook config. */
+    suspend fun applyConfigNow(): Boolean {
+        initialized.await()
+        return commands.withLock {
+            val current = state.value
+            if (!current.isActive || current.backend == BackendType.MOCK_PROVIDER) return@withLock false
+            val manager = context.getSystemService(LocationManager::class.java) ?: return@withLock false
+            withContext(Dispatchers.IO) {
+                if (!MockServiceHelper.isServiceInit()) MockServiceHelper.tryInitService(manager)
+                runCatching { MockServiceHelper.putConfig(manager, context) }.getOrDefault(false)
+            }
+        }
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val commands = Mutex()

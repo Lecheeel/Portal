@@ -97,7 +97,11 @@ class SettingsSwitchUiTest {
                         if (before) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off))
                 }
                 checkSwitch("路线平滑运动") { context.smoothRouteMotion }
-                checkSwitch("物理漂移噪声") { context.physicalNoise }
+                if (com.system.location.service.runtime.ScenarioRuntime.state.value.backend ==
+                    com.system.location.service.core.backend.BackendType.MOCK_PROVIDER) {
+                    compose.scrollToText("物理漂移噪声")
+                    compose.onNode(hasText("物理漂移噪声") and isToggleable()).assertIsNotEnabled()
+                } else checkSwitch("物理漂移噪声") { context.physicalNoise }
                 checkSwitch("启动突发") { context.startupBurstEnabled }
                 scenario.recreate()
                 compose.scrollToText("路线平滑运动")

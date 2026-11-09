@@ -138,8 +138,10 @@ class SettingsComposeFragment : Fragment() {
                         editNumber("设置速度", context.speed.toString()) { raw ->
                             val value = raw.toDoubleOrNull() ?: error("速度不合法")
                             require(value in 0.0..1_000.0) { "速度需在 0–1000 米/秒之间" }
-                            context.speed = value
-                            refresh()
+                            lifecycleScope.launch {
+                                val accepted = ScenarioRuntime.setSpeed(value).await()
+                                showToast(if (accepted) "速度已更新" else "速度更新失败，请重试")
+                            }
                         }
                     },
                     onEditSatelliteCount = {
@@ -148,6 +150,7 @@ class SettingsComposeFragment : Fragment() {
                             require(value in 0..35) { "卫星数量需在 0–35 之间" }
                             context.minSatelliteCount = value
                             refresh()
+                            applyConfigNowWithToast()
                         }
                     },
                     onAppRouting = ::showAppRouting,
@@ -158,6 +161,7 @@ class SettingsComposeFragment : Fragment() {
                     onUpdateChannel = ::showUpdateChannel,
                     onCheckUpdate = ::checkForUpdate,
                     onConfigChanged = ::applyConfigNowWithToast,
+                    onRestartRequired = { showToast("已保存，停止后重新启动场景生效") },
                     refresh = ::refresh,
                 )
             }
@@ -423,6 +427,7 @@ private fun SettingsScreen(
     onUpdateChannel: () -> Unit,
     onCheckUpdate: () -> Unit,
     onConfigChanged: () -> Unit,
+    onRestartRequired: () -> Unit,
     refresh: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -457,7 +462,9 @@ private fun SettingsScreen(
     }
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val hooksEnabled = runtime.backend != BackendType.MOCK_PROVIDER
-    fun hookAction(block: (Boolean) -> Unit): ((Boolean) -> Unit)? = if (hooksEnabled) block else null
+    fun hookAction(block: (Boolean) -> Unit): ((Boolean) -> Unit)? = if (hooksEnabled) {
+        { checked -> block(checked); refresh(); onConfigChanged() }
+    } else null
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -486,7 +493,7 @@ private fun SettingsScreen(
                 }
                 item(key = "location") {
                     PortalCard {
-                        PortalSectionTitle("定位参数")
+                        PortalSectionTitle("定位参数", "速度即时更新；海拔、精度和上报间隔下次启动场景生效。")
                         PortalActionRow("定位海拔", "%.2f 米".format(values.altitude), onEditAltitude)
                         PortalActionRow("定位精度", "%.2f 米".format(values.accuracy), onEditAccuracy)
                         PortalActionRow("位置上报间隔", "${values.reportDuration} ms", onEditReportInterval)
@@ -504,9 +511,9 @@ private fun SettingsScreen(
                         )
                         PortalSwitchRow(
                             title = "物理漂移噪声",
-                            subtitle = "为位置、海拔和精度添加有界微漂移。",
+                            subtitle = "仅 Xposed/Native：为位置、海拔和精度添加有界微漂移。",
                             checked = values.physicalNoise,
-                            onCheckedChange = { context.physicalNoise = it; onConfigChanged(); refresh() },
+                            onCheckedChange = hookAction { context.physicalNoise = it },
                         )
                     }
                 }
@@ -515,15 +522,15 @@ private fun SettingsScreen(
                         PortalSectionTitle("定位通道与实验")
                         PortalSwitchRow(
                             title = "Google 融合定位（实验）",
-                            subtitle = "需 Google Play 服务；失败时继续使用 GPS/Network。",
+                            subtitle = "需 Google Play 服务；下次启动场景生效，失败时继续使用 GPS/Network。",
                             checked = values.gmsMockEnabled,
-                            onCheckedChange = { context.gmsMockEnabled = it; onConfigChanged(); refresh() },
+                            onCheckedChange = { context.gmsMockEnabled = it; onRestartRequired(); refresh() },
                         )
                         PortalSwitchRow(
                             title = "系统 Fused 通道（实验）",
-                            subtitle = "额外注册系统 fused 模拟 Provider。",
+                            subtitle = "额外注册系统 fused 模拟 Provider，下次启动场景生效。",
                             checked = values.platformFusedEnabled,
-                            onCheckedChange = { context.platformFusedEnabled = it; onConfigChanged(); refresh() },
+                            onCheckedChange = { context.platformFusedEnabled = it; onRestartRequired(); refresh() },
                         )
                         PortalSwitchRow(
                             title = "启动突发",
@@ -545,38 +552,38 @@ private fun SettingsScreen(
                         PortalSwitchRow(
                             title = "轨道 GNSS 模型（实验）",
                             checked = values.gnssOrbital,
-                            onCheckedChange = hookAction { context.gnssOrbital = it; onConfigChanged(); refresh() },
+                            onCheckedChange = hookAction { context.gnssOrbital = it },
                         )
                         PortalSwitchRow(
                             title = "SIM 就绪",
                             subtitle = "关闭时模拟无 SIM / 仅 Wi-Fi。",
                             checked = values.simReady,
-                            onCheckedChange = hookAction { context.simReady = it; onConfigChanged(); refresh() },
+                            onCheckedChange = hookAction { context.simReady = it },
                         )
                         PortalSwitchRow(
                             title = "调试模式",
                             checked = values.debug,
-                            onCheckedChange = hookAction { context.debug = it; refresh() },
+                            onCheckedChange = hookAction { context.debug = it },
                         )
                         PortalSwitchRow(
                             title = "允许获取当前位置",
                             checked = !values.disableGetCurrentLocation,
-                            onCheckedChange = hookAction { context.disableGetCurrentLocation = !it; refresh() },
+                            onCheckedChange = hookAction { context.disableGetCurrentLocation = !it },
                         )
                         PortalSwitchRow(
                             title = "允许注册位置监听器",
                             checked = !values.disableRegisterLocationListener,
-                            onCheckedChange = hookAction { context.disableRegisterLocationListener = !it; refresh() },
+                            onCheckedChange = hookAction { context.disableRegisterLocationListener = !it },
                         )
                         PortalSwitchRow(
                             title = "禁用融合定位",
                             checked = values.disableFusedProvider,
-                            onCheckedChange = hookAction { context.disableFusedProvider = it; refresh() },
+                            onCheckedChange = hookAction { context.disableFusedProvider = it },
                         )
                         PortalSwitchRow(
                             title = "网络降级为 CDMA",
                             checked = values.needDowngradeToCdma,
-                            onCheckedChange = hookAction { context.needDowngradeToCdma = it; refresh() },
+                            onCheckedChange = hookAction { context.needDowngradeToCdma = it },
                         )
                         PortalActionRow(
                             title = "最少卫星数",
@@ -588,21 +595,21 @@ private fun SettingsScreen(
                             title = "禁用 Wi-Fi 扫描",
                             subtitle = "尝试减少位置拉回（实验）。",
                             checked = values.disableWifiScan,
-                            onCheckedChange = hookAction { context.disableWifiScan = it; refresh() },
+                            onCheckedChange = hookAction { context.disableWifiScan = it },
                         )
                         PortalSwitchRow(
                             title = "反定位拉回",
                             subtitle = "按上报间隔持续发送固定位置。",
                             checked = values.loopBroadcastlocation,
-                            onCheckedChange = hookAction { context.loopBroadcastlocation = it; refresh() },
+                            onCheckedChange = hookAction { context.loopBroadcastlocation = it },
                         )
                     }
                 }
                 item(key = "apps") {
                     PortalCard {
                         PortalSectionTitle("分应用与配置")
-                        PortalActionRow("分应用路由（实验）", "选择不接收模拟定位的应用。", onAppRouting)
-                        PortalActionRow("分应用固定点（实验）", "为选定应用指定已保存位置。", onAppPoint)
+                        PortalActionRow("分应用路由（实验）", "仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled)
+                        PortalActionRow("分应用固定点（实验）", "仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled)
                         PortalActionRow("恢复上次配置", onClick = onRestoreConfig)
                     }
                 }

@@ -289,7 +289,7 @@ object DebugHttpServer {
         obj["sim_ready"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()?.let { app.simReady = it }
         obj["gnss_orbital"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()?.let { app.gnssOrbital = it }
         obj["environment_source"]?.jsonPrimitive?.content?.let { app.environmentSourceMode = it }
-        val applied = ScenarioRuntime.applyConfigNow()
+        val applied = runBlocking { ScenarioRuntime.applyConfigNow() }
         return 200 to buildJsonObject {
             put("ok", true)
             put("applied", applied)

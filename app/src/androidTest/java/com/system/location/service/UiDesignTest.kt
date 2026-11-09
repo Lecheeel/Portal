@@ -68,7 +68,7 @@ class UiDesignTest {
                             activity.binding.navView.menu.performIdentifierAction(R.id.nav_home, 0)
                         }
                     } else {
-                        androidx.test.espresso.Espresso.pressBack()
+                        scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
                     }
                     assertEquals("Home geometry changed after destination $destination (drawer=$useDrawer)", initial, homeGeometry())
                 }
@@ -77,7 +77,7 @@ class UiDesignTest {
             onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
             scenario.recreate()
             onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
-            androidx.test.espresso.Espresso.pressBack()
+            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
             assertEquals(initial, homeGeometry())
             capture("home-after-navigation")
         }
@@ -103,7 +103,7 @@ class UiDesignTest {
                 openMock()
             }
             compose.scrollToText("打开资料库").performClick()
-            androidx.test.espresso.Espresso.pressBack()
+            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
             compose.scrollToText("位置名称").assertIsDisplayed()
         }
     }
@@ -218,6 +218,10 @@ class UiDesignTest {
                 compose.waitUntil(5_000) { LibraryRepositories.routes.get("ui-999")?.route?.name == "UI renamed last" }
                 assertEquals("UI route 0000", LibraryRepositories.routes.get("ui-0")?.route?.name)
                 assertEquals(1000, LibraryRepositories.routes.list().size)
+                // Renaming changes the sorted position; restart traversal from the top
+                // after the published UI list reflects the completed repository operation.
+                compose.waitForIdle()
+                compose.onNode(hasScrollToNodeAction()).performScrollToIndex(0)
                 compose.scrollToText("UI renamed last").assertIsDisplayed()
                 assertLazyRows()
                 capture("library-populated")
@@ -292,7 +296,7 @@ class UiDesignTest {
                 compose.scrollToText("新建路线").assertIsDisplayed()
                 compose.scrollToText("更多").performClick()
                 compose.onNodeWithText("导入 JSON").assertIsDisplayed()
-                androidx.test.espresso.Espresso.pressBack()
+                compose.onNodeWithText("取消").performClick()
                 capture("library-landscape")
                 scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
                 await {

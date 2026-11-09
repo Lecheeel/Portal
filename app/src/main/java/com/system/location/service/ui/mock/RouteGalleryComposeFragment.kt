@@ -369,8 +369,8 @@ private fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            item(key = "empty") {
-                AnimatedVisibility(visible = filtered.isEmpty() && !state.busy) {
+            if (filtered.isEmpty() && !state.busy) {
+                item(key = "empty") {
                     PortalCard {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),

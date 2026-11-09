@@ -39,6 +39,7 @@ import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
 import com.system.location.service.core.repository.SavedLocation
 import com.system.location.service.core.routing.AppRoute
+import com.system.location.service.core.routing.withDeniedPackages
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.routing.RoutingMode
 import com.system.location.service.data.repository.LibraryRepositories
@@ -243,8 +244,7 @@ class SettingsComposeFragment : Fragment() {
             Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
         }.getOrNull()
         showAppPicker("分应用排除", existing?.deniedPackages ?: emptySet()) { denied ->
-            val config = if (denied.isEmpty()) RoutingConfig(mode = RoutingMode.GLOBAL)
-            else RoutingConfig(mode = RoutingMode.PER_APP, deniedPackages = denied)
+            val config = (existing ?: RoutingConfig()).withDeniedPackages(denied)
             context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
             refresh()
             applyConfigNowWithToast()

@@ -22,6 +22,7 @@ import com.system.location.service.R
 import com.system.location.service.databinding.FragmentSettingsBinding
 import com.system.location.service.ext.routingJson
 import com.system.location.service.core.routing.AppRoute
+import com.system.location.service.core.routing.withDeniedPackages
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.routing.RoutingMode
 import com.system.location.service.core.repository.SavedLocation
@@ -236,11 +237,7 @@ class SettingsFragment : Fragment() {
                 Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
             }.getOrNull()
             showAppPicker(getString(R.string.per_app_routing_title), existing?.deniedPackages ?: emptySet()) { denied ->
-                val config = if (denied.isEmpty()) {
-                    RoutingConfig(mode = RoutingMode.GLOBAL)
-                } else {
-                    RoutingConfig(mode = RoutingMode.PER_APP, deniedPackages = denied)
-                }
+                val config = (existing ?: RoutingConfig()).withDeniedPackages(denied)
                 context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
                 lifecycleScope.launch {
                     val applied = withContext(Dispatchers.IO) {

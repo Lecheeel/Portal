@@ -13,7 +13,7 @@ import com.system.location.service.core.backend.*
 import com.system.location.service.core.config.ConfigEnvelope
 import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentConfig
-import com.system.location.service.core.environment.EnvironmentSourceType
+import com.system.location.service.core.environment.EnvironmentSourceMode
 import com.system.location.service.core.environment.EnvironmentRestorePolicy
 import com.system.location.service.core.playback.NoiseProfile
 import com.system.location.service.core.routing.RoutingConfig
@@ -189,10 +189,10 @@ object ScenarioRuntime {
                         val routing = context.routingJson.takeIf { it.isNotBlank() }
                             ?.let { Json.decodeFromString(RoutingConfig.serializer(), it) }
                             ?: RoutingConfig()
-                        val replay = context.environmentReplayJson.isNotBlank() ||
-                            context.environmentSourceMode == "REPLAY"
+                        val sourceMode = runCatching { EnvironmentSourceMode.valueOf(context.environmentSourceMode) }
+                            .getOrDefault(EnvironmentSourceMode.AUTO)
                         val environment = EnvironmentConfig(
-                            source = if (replay) EnvironmentSourceType.REPLAY else EnvironmentSourceType.PROCEDURAL,
+                            source = EnvironmentRestorePolicy.savedSource(sourceMode, context.environmentReplayJson),
                             apPerCell = context.environmentApCount.coerceIn(3, 8),
                             cellMode = runCatching { CellMode.valueOf(context.cellMode) }
                                 .getOrDefault(CellMode.AUTO),

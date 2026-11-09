@@ -19,6 +19,25 @@ internal fun ComposeTestRule.openPage(scenario: ActivityScenario<MainActivity>, 
     waitForIdle()
     scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(destination) }
     waitForIdle()
+    if (destination == R.id.nav_route_gallery) {
+        waitUntil(10_000) {
+            var ready = false
+            scenario.onActivity { activity ->
+                val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)
+                val page = host?.childFragmentManager?.primaryNavigationFragment
+                if (page != null) {
+                    val model = androidx.lifecycle.ViewModelProvider(page)[com.system.location.service.ui.viewmodel.LibraryViewModel::class.java]
+                    ready = !model.state.value.busy && model.state.value.items.size == when (model.state.value.kind) {
+                        com.system.location.service.ui.viewmodel.LibraryKind.ROUTES -> com.system.location.service.data.repository.LibraryRepositories.routes.list().size
+                        com.system.location.service.ui.viewmodel.LibraryKind.SCENARIOS -> com.system.location.service.data.repository.LibraryRepositories.scenarios.list().size
+                        com.system.location.service.ui.viewmodel.LibraryKind.LOCATIONS -> com.system.location.service.data.repository.LibraryRepositories.locations.list().size
+                    }
+                }
+            }
+            ready
+        }
+        waitForIdle()
+    }
 }
 
 /** Search the LazyColumn, including items that have not been composed yet. */

@@ -218,6 +218,16 @@ class UiDesignTest {
                 compose.waitUntil(5_000) { LibraryRepositories.routes.get("ui-999")?.route?.name == "UI renamed last" }
                 assertEquals("UI route 0000", LibraryRepositories.routes.get("ui-0")?.route?.name)
                 assertEquals(1000, LibraryRepositories.routes.list().size)
+                compose.waitUntil(10_000) {
+                    var renamed = false
+                    scenario.onActivity { activity ->
+                        val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                        val page = host.childFragmentManager.primaryNavigationFragment!!
+                        val model = androidx.lifecycle.ViewModelProvider(page)[com.system.location.service.ui.viewmodel.LibraryViewModel::class.java]
+                        renamed = !model.state.value.busy && model.state.value.items.any { it.id == "ui-999" && it.title == "UI renamed last" }
+                    }
+                    renamed
+                }
                 // Renaming changes the sorted position; restart traversal from the top
                 // after the published UI list reflects the completed repository operation.
                 compose.waitForIdle()

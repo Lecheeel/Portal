@@ -57,11 +57,11 @@
 
 ### Phase 2 · 设置与环境工具
 
-- [ ] 迁移设置页到 Compose。
+- [x] 迁移设置页到 Compose（首版；数值/应用选择/更新弹窗暂由 Fragment host 承载）。
 - [x] 迁移环境采集、WiFi 指纹、回放配置到 Compose。
 - [x] 统一表单控件、折叠区、开关、说明文字和危险操作确认（环境页已覆盖）。
 - [x] 保留现有 SharedPreferences / 配置文件读写。
-- [ ] 设置页与现有 Hook/分应用高级项完整对齐。
+- [ ] 设置页与现有 Hook/分应用高级项完整对齐（应用选择搜索等仍待补）。
 
 ### Phase 3 · 模拟页
 
@@ -91,7 +91,7 @@
 | 页面 | 现状 | 目标 | 依赖 | 状态 |
 |---|---|---|---|---|
 | 运行中心 | Fragment + XML | Compose 首屏已接入 | Runtime state、诊断、Native 风险 | 进行中 |
-| 设置 | Fragment + XML | Compose | Settings/Perfs、Hook 状态 | 待开始 |
+| 设置 | Fragment + XML | Compose 首版已接入 | Settings/Perfs、Hook 状态 | 已完成首版 |
 | 环境工具 | Fragment + XML | Compose 已接入 | SAF、环境存储、指纹导入 | 已完成首版 |
 | 模拟（位置/卫星） | Fragment + XML | Compose | Location/Route/GNSS 状态 | 待开始 |
 | 资料库/路线 | Fragment + XML + Adapter | Compose | 路线存储、GPX/JSON | 后续 |
@@ -130,6 +130,7 @@
 - 2026-11-09：创建路线图；验证 Compose 构建环境；创建 `:designsystem`；完成运行中心 Compose 首屏并接入 `nav_runtime`。本地 `:app:assembleArm64Debug` 与 Compose 编译通过，A 设备实际打开运行中心验证。
 - 2026-11-09：新增 `PortalActionRow`/`PortalSwitchRow`；环境工具迁移为 `EnvironmentComposeFragment`，覆盖采集、列表、导入、指纹开关、AP/基站/来源配置，A 设备实际打开验证。
 - 2026-11-09：新增 `designsystem` Compose UI 测试骨架与本地签名注入；测试 APK 编译通过。`connectedDebugAndroidTest` 在本机被 DSH 的 JNA 临时目录 ACL 阻断，需在 CI/无沙箱环境跑。
+- 2026-11-09：设置页迁移为 `SettingsComposeFragment`；定位参数、运动、通道、Hook、分应用、隐私和更新入口均接入 Compose。数值/应用选择/更新弹窗暂由 Fragment host 承载；应用选择搜索仍未迁完。
 - 当前构建注意：本机首次解析 Compose 依赖需要联网；解析完成后离线构建可用。`:designsystem` 需要显式 `buildToolsVersion = "37.0.0"`。
 
 ## 8. 风险

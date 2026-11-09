@@ -6,6 +6,7 @@ import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
@@ -91,14 +92,14 @@ class RockerOverlayTest {
                 runBlocking { ScenarioRuntime.stop().await() }
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_home) }
-                compose.onNodeWithText("关闭悬浮窗").performClick()
+                compose.onNodeWithContentDescription("关闭悬浮窗").performClick()
                 scenario.onActivity {
                     assertFalse(RockerOverlay.isEnabled)
                     assertFalse(RockerOverlay.isVisible)
                 }
                 scenario.recreate()
                 scenario.onActivity { assertFalse(RockerOverlay.isVisible) }
-                compose.onNodeWithText("悬浮窗").performClick()
+                compose.onNodeWithContentDescription("打开悬浮窗").performClick()
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
             }
         } finally {

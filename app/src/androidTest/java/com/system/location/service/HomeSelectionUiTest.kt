@@ -100,6 +100,33 @@ class HomeSelectionUiTest {
         }
     }
 
+    @Test fun deletingTheSelectedRecordClearsItsTargetAfterRecreation() = withSavedTargets { location, route ->
+        withMockRuntime {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                selectSavedTarget("路线", route.route.name)
+                assertSelectionWithoutStart(route.route.name)
+                LibraryRepositories.routes.delete(route.route.id)
+                scenario.recreate()
+                assertDeletedTargetCleared(route.route.name)
+                selectSavedTarget("地点", location.name)
+                assertSelectionWithoutStart(location.name)
+                LibraryRepositories.locations.delete(location.id)
+                scenario.recreate()
+                assertDeletedTargetCleared(location.name)
+            }
+        }
+    }
+
+    private fun assertDeletedTargetCleared(name: String) {
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasText("已选目标已被删除，请重新选择")).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(name).assertDoesNotExist()
+        compose.onNodeWithText("开始模拟").assertIsNotEnabled()
+        compose.onNodeWithText("停止模拟").assertIsNotEnabled()
+        assertFalse("A deleted target must not start a fallback point or route", ScenarioRuntime.state.value.isActive)
+    }
+
     private fun openPicker() {
         compose.onNode(hasContentDescription("选择模拟目标") or hasContentDescription("选择地点或路线"))
             .assertIsDisplayed().performClick()
@@ -113,6 +140,10 @@ class HomeSelectionUiTest {
     }
 
     private fun assertSelectionWithoutStart(name: String) {
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasText(name)).fetchSemanticsNodes().isNotEmpty() &&
+                compose.onAllNodes(hasText("开始模拟") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText(name).assertIsDisplayed()
         compose.onNodeWithText("开始模拟").assertIsEnabled()
         compose.onNodeWithText("停止模拟").assertIsNotEnabled()

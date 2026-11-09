@@ -1,47 +1,33 @@
 package com.system.location.service
 
-import android.Manifest
-import android.graphics.Bitmap
-import android.view.View
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.findNavController
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.*
-import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.model.LatLng
-import com.system.location.service.core.planning.DrawingMode
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.viewmodel.AMapViewModel
-import org.hamcrest.Matchers.not
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class MapUiTest {
-    @org.junit.Before fun acceptMapConsentForThisFixture() {
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
-    }
+    @get:Rule val compose = createEmptyComposeRule()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    @Before fun permissions() {
-        listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.POST_NOTIFICATIONS).forEach {
-            instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, it)
-        }
+    @Before fun fixture() {
+        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        grantUiPermissions()
     }
 
     @Test fun homeHidesCrosshairAndRequiresExplicitLocationConfirmation() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            // The old center cursor id is intentionally removed from the layout.
             assertEquals(0, instrumentation.targetContext.resources.getIdentifier("ivCrosshair", "id", instrumentation.targetContext.packageName))
-            onView(withId(R.id.btn_apply_location)).check(matches(not(isEnabled())))
+            compose.onNodeWithText("开始模拟").assertIsNotEnabled()
             scenario.onActivity { activity ->
                 val model = ViewModelProvider(activity)[AMapViewModel::class.java]
                 assertNull(model.markedLoc)
@@ -50,54 +36,56 @@ class MapUiTest {
             }
             scenario.recreate()
             scenario.onActivity { activity -> assertNotNull(ViewModelProvider(activity)[AMapViewModel::class.java].originalLocation) }
-            onView(withId(R.id.btn_apply_location)).check(matches(not(isEnabled())))
-            capture("home")
+            compose.onNodeWithText("开始模拟").assertIsNotEnabled()
+            captureUi("home")
         }
     }
 
     @Test fun runtimeShowsModeAndKeepsDeveloperToolsCollapsed() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            onView(withId(R.id.btn_apply_location)).check(matches(isDisplayed()))
-            scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
-            onView(withId(R.id.state_details)).check(matches(withEffectiveVisibility(Visibility.GONE)))
-            onView(withId(R.id.backend_details)).check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
-            onView(withId(R.id.developer_details)).check(matches(withEffectiveVisibility(Visibility.GONE)))
-            onView(withId(R.id.log_details)).check(matches(withEffectiveVisibility(Visibility.GONE)))
-            capture("runtime-overview")
-            onView(withId(R.id.toggle_developer)).perform(scrollTo(), click())
-            onView(withId(R.id.toggle_logs)).perform(scrollTo(), click())
-            onView(withId(R.id.log_filter)).check(matches(isDisplayed()))
-            onView(withId(R.id.clear_logs)).perform(scrollTo(), click())
-            onView(withId(R.id.diagnostics)).check(matches(withText("暂无符合条件的日志")))
+            compose.openPage(scenario, R.id.nav_runtime)
+            compose.scrollToText("应用模式").assertIsDisplayed()
+            // Scroll to each section first; an uncomposed lazy item cannot prove collapse.
+            compose.scrollToText("运行详情").assertIsDisplayed()
+            compose.onNodeWithTag("runtime-state-details").assertDoesNotExist()
+            compose.scrollToText("运行详情").performClick()
+            compose.scrollTo(hasTestTag("runtime-state-details")).assertIsDisplayed()
+            compose.scrollToText("运行详情").performClick()
+            compose.onNodeWithTag("runtime-state-details").assertDoesNotExist()
+            compose.scrollToText("开发者工具").assertIsDisplayed()
+            compose.onNodeWithText("环境工具").assertDoesNotExist()
+            compose.scrollToText("运行日志").assertIsDisplayed()
+            compose.onNodeWithText("导出完整诊断日志").assertDoesNotExist()
+            captureUi("runtime-overview")
+            compose.scrollToText("开发者工具").performClick()
+            compose.scrollToText("环境工具").assertIsDisplayed()
+            compose.scrollToText("运行日志").performClick()
+            compose.scrollToText("日志筛选").assertIsDisplayed()
+            compose.scrollToText("清空日志").performClick()
+            compose.scrollToText("暂无符合条件的日志").assertIsDisplayed()
             scenario.recreate()
-            onView(withId(R.id.log_details)).check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
-            onView(withId(R.id.toggle_logs)).perform(scrollTo())
-            capture("runtime-logs")
+            compose.scrollToText("导出完整诊断日志").assertIsDisplayed()
+            captureUi("runtime-logs")
         }
     }
 
     @Test fun manualModesRenderAndFreehandCanBeUndone() {
-        File(instrumentation.targetContext.filesDir, "route_draft.json").delete()
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_edit) }
-            onView(withId(R.id.mode_freehand)).perform(click())
-            onView(withId(R.id.gesture_hint)).check(matches(withText(org.hamcrest.Matchers.containsString("单指画线"))))
-            onView(withId(R.id.confirm)).check(matches(not(isEnabled())))
-            onView(withId(R.id.undo)).check(matches(not(isEnabled())))
-            onView(withId(R.id.mode_points)).perform(click())
-            onView(withId(R.id.gesture_hint)).check(matches(withText(org.hamcrest.Matchers.containsString("依次点击地图加点"))))
-            capture("route-points")
+        val draft = File(instrumentation.targetContext.filesDir, "route_draft.json")
+        val original = draft.takeIf { it.exists() }?.readBytes()
+        try {
+            draft.delete()
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                compose.openPage(scenario, R.id.nav_route_edit)
+                compose.onNodeWithText("画线").performClick().assertIsSelected()
+                compose.onNodeWithText("单指画线", substring = true).assertIsDisplayed()
+                compose.onNodeWithText("保存路线").assertIsNotEnabled()
+                compose.onNodeWithText("撤销").assertIsNotEnabled()
+                compose.onNodeWithText("加点").performClick().assertIsSelected()
+                compose.onNodeWithText("依次点击地图加点", substring = true).assertIsDisplayed()
+                captureUi("route-points")
+            }
+        } finally {
+            if (original == null) draft.delete() else draft.writeBytes(original)
         }
-    }
-
-    private fun await(predicate: () -> Boolean) {
-        val deadline = android.os.SystemClock.uptimeMillis() + 10_000
-        while (!predicate()) {
-            check(android.os.SystemClock.uptimeMillis() < deadline) { "UI state did not settle" }
-            Thread.sleep(100)
-        }
-    }
-    private fun capture(name: String) {
-        captureUi(name)
     }
 }

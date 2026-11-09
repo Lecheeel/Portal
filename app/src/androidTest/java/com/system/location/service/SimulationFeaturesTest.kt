@@ -1,12 +1,14 @@
 package com.system.location.service
 
-import android.Manifest
-import androidx.navigation.findNavController
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import org.junit.Rule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.*
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
+import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.core.gpx.GpxCodec
@@ -21,6 +23,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SimulationFeaturesTest {
+    @get:Rule val compose = createEmptyComposeRule()
     @org.junit.Before fun acceptMapConsentForThisFixture() {
         com.system.location.service.privacy.SdkPrivacy.acceptMaps()
     }
@@ -33,26 +36,26 @@ class SimulationFeaturesTest {
     @Test fun settingsExposeMotionChannelsAndBackgroundGuidanceAndRuntimeExport() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.POST_NOTIFICATIONS).forEach { instrumentation.uiAutomation.grantRuntimePermission(context.packageName, it) }
+        grantUiPermissions()
         val old = context.gmsMockEnabled
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_settings) }
-                onView(withId(R.id.gms_mock_switch)).perform(scrollTo(), click())
+                compose.openPage(scenario, R.id.nav_settings)
+                compose.scrollToText("Google 融合定位（实验）").assertIsDisplayed()
+                compose.onNode(hasText("Google 融合定位（实验）") and isToggleable()).performClick()
                 assertEquals(!old, context.gmsMockEnabled)
-                onView(withId(R.id.platform_fused_switch)).perform(scrollTo()).check(matches(isDisplayed()))
-                onView(withId(R.id.startup_burst_switch)).perform(scrollTo()).check(matches(isDisplayed()))
+                compose.scrollToText("系统 Fused 通道（实验）").assertIsDisplayed()
+                compose.scrollToText("启动突发").assertIsDisplayed()
                 captureUi("settings-channels")
-                onView(withId(R.id.smooth_route_switch)).perform(scrollTo()).check(matches(isDisplayed()))
-                onView(withId(R.id.gnss_orbital_switch)).perform(scrollTo()).check(matches(isDisplayed()))
-                onView(withId(R.id.background_guidance)).perform(scrollTo(), click())
-                onView(withText(R.string.background_guidance)).check(matches(isDisplayed()))
+                compose.scrollToText("路线平滑运动").assertIsDisplayed()
+                compose.scrollToText("轨道 GNSS 模型（实验）").assertIsDisplayed()
+                compose.scrollToText("后台运行").performClick()
+                onView(withText(R.string.background_guidance)).inRoot(isDialog()).check(matches(isDisplayed()))
                 captureUi("background-guidance")
-                onView(withText(android.R.string.cancel)).perform(click())
-                scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
-                onView(withId(R.id.toggle_developer)).perform(scrollTo(), click())
-                onView(withId(R.id.toggle_logs)).perform(scrollTo(), click())
-                onView(withId(R.id.export_logs)).perform(scrollTo()).check(matches(isDisplayed()))
+                onView(withText(android.R.string.cancel)).inRoot(isDialog()).perform(click())
+                compose.openPage(scenario, R.id.nav_runtime)
+                compose.scrollToText("运行日志").performClick()
+                compose.scrollToText("导出完整诊断日志").assertIsDisplayed()
                 val report = runBlocking { ScenarioRuntime.diagnosticReport() }
                 assertTrue(report.contains(BuildConfig.VERSION_NAME))
                 assertTrue(report.contains("Android"))

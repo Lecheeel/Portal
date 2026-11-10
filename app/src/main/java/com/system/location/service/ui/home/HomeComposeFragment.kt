@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.os.SystemClock
 import android.provider.Settings
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.amap.api.location.AMapLocationClient
@@ -26,6 +27,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
@@ -719,6 +727,7 @@ private fun HomeScreen(
     val target by targetFlow.collectAsStateWithLifecycle(initialValue = HomeTarget())
     val library by libraryFlow.collectAsStateWithLifecycle()
     var targetPicker by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = targetPicker) { targetPicker = false }
     val queryState = remember { mutableStateOf("") }
     var query by queryState
     var suggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
@@ -756,14 +765,6 @@ private fun HomeScreen(
         onDispose { lifecycle.removeObserver(observer); search.destroy() }
     }
     fun dismissSearch() { search.select { suggestions = emptyList() } }
-
-    if (targetPicker) HomeTargetPicker(
-        library = library,
-        onSelect = { onSelection(it); targetPicker = false },
-        onDismiss = { targetPicker = false },
-        onRetry = onOpenTargets,
-        onCreateRoute = { targetPicker = false; onCreateRoute() },
-    )
 
     if (suggestions.isNotEmpty()) {
         AlertDialog(
@@ -856,9 +857,9 @@ private fun HomeScreen(
         }
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = if (targetPicker) Arrangement.Bottom else Arrangement.SpaceBetween,
         ) {
-            Card(
+            if (!targetPicker) Card(
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
@@ -880,7 +881,7 @@ private fun HomeScreen(
                     }
                 }
             }
-            if (!runtime.isActive && (location.loading || location.issue != null || !location.mapVisible)) {
+            if (!targetPicker && !runtime.isActive && (location.loading || location.issue != null || !location.mapVisible)) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (location.loading) {
@@ -901,34 +902,54 @@ private fun HomeScreen(
                     }
                 }
             }
-            Column(
+            if (!targetPicker) Column(
                 Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 HomeMapButton(R.drawable.ic_home_layers, "切换地图图层") { onMapType() }
-                HomeMapButton(R.drawable.ic_home_route, "选择模拟目标") {
-                    targetPicker = true
-                    onOpenTargets()
-                }
                 HomeMapButton(R.drawable.ic_home_coordinates, "输入坐标") { coordinateDialog = true }
                 if (!runtime.isActive) HomeMapButton(R.drawable.ic_home_locate, "定位到真实位置", onLocate)
             }
-            PortalCard(modifier = Modifier.onSizeChanged { bottomPanelHeight = it.height }, contentPadding = PaddingValues(12.dp)) {
+            PortalCard(
+                modifier = Modifier
+                    .then(if (targetPicker) Modifier.weight(1f, fill = false).padding(top = 12.dp) else Modifier)
+                    .onSizeChanged { bottomPanelHeight = it.height },
+                contentPadding = PaddingValues(12.dp),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            target.name ?: "目标位置",
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            (target.selection as? HomeSelection.Route)?.saved?.let { "${it.route.points.size} 个点 · ${it.mode.homeLabel()}" }
-                                ?: target.point?.let { (lat, lon) -> String.format(Locale.ROOT, "%.6f, %.6f", lat, lon) }
-                                ?: "点击地图选择位置",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Row(
+                        Modifier.weight(1f).heightIn(min = 48.dp)
+                            .semantics {
+                                contentDescription = "选择模拟目标"
+                                stateDescription = if (targetPicker) "已展开" else "已收起"
+                            }
+                            .clickable(role = Role.Button) {
+                                targetPicker = !targetPicker
+                                if (targetPicker) onOpenTargets()
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                target.name ?: "模拟目标",
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                (target.selection as? HomeSelection.Route)?.saved?.let { "${it.route.points.size} 个点 · ${it.mode.homeLabel()}" }
+                                    ?: target.point?.let { (lat, lon) -> String.format(Locale.ROOT, "%.6f, %.6f", lat, lon) }
+                                    ?: "地点 / 路线 · 点击展开",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Icon(
+                            painterResource(R.drawable.baseline_keyboard_arrow_up_24),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp).rotate(if (targetPicker) 180f else 0f),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     if (runtime.isActive && location.canReturnToOriginal) {
@@ -944,6 +965,14 @@ private fun HomeScreen(
                             contentDescription = if (RockerOverlay.isVisible) "关闭悬浮窗" else "打开悬浮窗")
                     }
                 }
+                if (targetPicker) HomeTargetPicker(
+                    library = library,
+                    onSelect = { onSelection(it); targetPicker = false },
+                    onDismiss = { targetPicker = false },
+                    onRetry = onOpenTargets,
+                    onCreateRoute = { targetPicker = false; onCreateRoute() },
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 target.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

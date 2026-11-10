@@ -117,11 +117,11 @@ class HomeSelectionUiTest {
                 selectSavedTarget("路线", route.route.name)
                 assertSelectionWithoutStart(route.route.name)
                 openPicker()
-                compose.onNode(hasText("路线") and hasAnyAncestor(isDialog())).performClick().assertIsSelected()
+                compose.onNode(hasText("路线") and hasAnyAncestor(hasTestTag("home-target-picker"))).performClick().assertIsSelected()
                 scenario.recreate()
-                compose.onNode(hasText("路线") and hasAnyAncestor(isDialog())).assertIsSelected()
-                compose.scrollTo(hasText(route.route.name) and hasAnyAncestor(isDialog())).assertIsDisplayed()
-                compose.onNodeWithText("关闭").performClick()
+                compose.onNode(hasText("路线") and hasAnyAncestor(hasTestTag("home-target-picker"))).assertIsSelected()
+                compose.scrollTo(hasText(route.route.name) and hasAnyAncestor(hasTestTag("home-target-picker"))).assertIsDisplayed()
+                compose.onNodeWithText("收起").performClick()
                 assertSelectionWithoutStart(route.route.name)
                 selectSavedTarget("地点", location.name)
                 assertSelectionWithoutStart(location.name)
@@ -162,9 +162,9 @@ class HomeSelectionUiTest {
 
     private fun selectSavedTarget(tab: String, name: String) {
         openPicker()
-        compose.onNode(hasText(tab) and hasAnyAncestor(isDialog())).performClick()
-        compose.scrollTo(hasText(name) and hasAnyAncestor(isDialog())).performClick()
-        compose.onNode(hasText(name) and hasAnyAncestor(isDialog())).assertDoesNotExist()
+        compose.onNode(hasText(tab) and hasAnyAncestor(hasTestTag("home-target-picker"))).performClick()
+        compose.scrollTo(hasText(name) and hasAnyAncestor(hasTestTag("home-target-picker"))).performClick()
+        compose.onNode(hasText(name) and hasAnyAncestor(hasTestTag("home-target-picker"))).assertDoesNotExist()
     }
 
     private fun assertSelectionWithoutStart(name: String) {

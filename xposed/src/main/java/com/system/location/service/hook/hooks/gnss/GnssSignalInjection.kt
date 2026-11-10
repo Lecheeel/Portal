@@ -21,6 +21,9 @@ object GnssSignalInjection {
 
     fun ensureStarted() = worker.start()
 
+    /** New provider samples wake the producer; exact frame keys still limit each epoch to once. */
+    fun onSamplePublished() = worker.requestTick()
+
     /** Pause delivery without losing subscriptions; a failed reload can resume this generation. */
     fun pause(): Boolean = worker.stop()
 

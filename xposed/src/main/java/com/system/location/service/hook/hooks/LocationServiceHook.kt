@@ -699,7 +699,14 @@ internal object LocationServiceHook : BaseLocationHook() {
     }
 
     @Synchronized
-    fun callOnLocationChanged() = LocationListenerDelivery.deliver(locationListeners)
+    fun callOnLocationChanged() {
+        try { LocationListenerDelivery.deliver(locationListeners) }
+        finally {
+            // A free-running 1 Hz poll can repeatedly observe the same leased sample around a
+            // second boundary and then skip an epoch. Drive GNSS from accepted publications.
+            com.system.location.service.hook.hooks.gnss.GnssSignalInjection.onSamplePublished()
+        }
+    }
 
     private fun hookLocationManagerServiceV2(classLoader: ClassLoader) {
         kotlin

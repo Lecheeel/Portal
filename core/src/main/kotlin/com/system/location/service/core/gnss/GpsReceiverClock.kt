@@ -36,7 +36,7 @@ object GpsReceiverClock {
             seconds = 0.0
         }
         val uncertainty = if (batch.timeUncertaintyNanos != null && batch.biasUncertaintyNanos != null)
-            (batch.timeUncertaintyNanos + batch.biasUncertaintyNanos) / 1e9 else null
+            batch.timeUncertaintyNanos / 1e9 + batch.biasUncertaintyNanos / 1e9 else null
         return GpsClockResult(GpsClockEpoch(GpsTime(week, seconds), batch.elapsedRealtimeNanos,
             batch.hardwareClockDiscontinuityCount, uncertainty,
             batch.elapsedRealtimeUncertaintyNanos?.div(1e9)))

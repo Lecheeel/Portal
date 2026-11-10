@@ -41,4 +41,12 @@ class GpsReceiverClockTest {
         assertEquals(1_000L, epoch.elapsedRealtimeNanos)
         assertNull(GpsReceiverClock.decode(batch.copy(biasUncertaintyNanos = null)).epoch!!.timeUncertaintySeconds)
     }
+
+    @Test fun finiteUncertaintyTermsAreScaledBeforeAdditionToAvoidIntermediateOverflow() {
+        val batch = clock(100_000_000_000, -1_399_507_100_000_000_000, null).copy(
+            timeUncertaintyNanos = Double.MAX_VALUE, biasUncertaintyNanos = Double.MAX_VALUE)
+        val uncertainty = GpsReceiverClock.decode(batch).epoch!!.timeUncertaintySeconds!!
+        assertTrue(uncertainty.isFinite())
+        assertEquals(Double.MAX_VALUE / 1e9 * 2, uncertainty, 0.0)
+    }
 }

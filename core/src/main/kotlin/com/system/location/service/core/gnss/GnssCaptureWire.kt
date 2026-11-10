@@ -15,9 +15,13 @@ object GnssCaptureWire {
         // Peers may re-encode an already compact snapshot without losing its evidence.
         val evidence = if (capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
             GpsBroadcastEvidence.fromCapture(capture) else capture.gpsBroadcastEvidence
+        // Legacy projected-only captures already reproduce their fit from the retained frames.
+        // Preserve explicit empty fits from raw signals too: empty is not permission to refit L5.
+        val calibration = if (capture.gpsSignalCalibration != null || capture.frames.any { it.signalObservations.isNotEmpty() })
+            GpsEmpiricalSignalModel(capture).calibration else null
         val compact = capture.copy(measurements = emptyList(), navigation = emptyList(),
             gpsBroadcastEvidence = evidence,
-            gpsSignalCalibration = GpsEmpiricalSignalModel(capture).calibration,
+            gpsSignalCalibration = calibration,
             frames = capture.frames.map { it.copy(signalObservations = emptyList()) })
         val data = GnssCaptureCodec.encode(compact).toByteArray(Charsets.UTF_8)
         require(data.size <= GnssCaptureCodec.MAX_BYTES) { "GNSS compact capture too large" }

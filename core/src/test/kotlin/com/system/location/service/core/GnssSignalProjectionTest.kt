@@ -34,4 +34,16 @@ class GnssSignalProjectionTest {
             assertThrows(IllegalArgumentException::class.java) { GnssSignalObservation(l1.copy(carrierHz = bad)) }
         }
     }
+
+    @Test fun unusableBandDoesNotHideUsableSignalFromTheSameSpacecraft() {
+        for (unusable in listOf(l5.copy(cn0DbHz = 0f), l5.copy(elevationDeg = -1f),
+            l5.copy(azimuthDeg = 360f))) {
+            val records = listOf(GnssSignalObservation(unusable), GnssSignalObservation(l1))
+            assertEquals(listOf(l1), GnssSignalProjection.spacecraft(records))
+            assertEquals(listOf(l1), GnssSignalProjection.spacecraft(records.reversed()))
+        }
+        // If no signal is usable, retain one row for diagnosis; quality checks reject it.
+        val zero = l1.copy(cn0DbHz = 0f)
+        assertEquals(listOf(zero), GnssSignalProjection.spacecraft(listOf(GnssSignalObservation(zero))))
+    }
 }

@@ -20,7 +20,7 @@ data class GnssSignalObservation(
 
 /**
  * Spacecraft statistics and geometry count an identity once, independent of callback array order.
- * Prefer a used signal, then the lowest reported frequency. Keep all fields from that same record;
+ * Prefer a usable signal, then a used signal and the lowest reported frequency. Keep all fields from that same record;
  * neither CN0 nor geometry is averaged across bands. Original records remain in the capture.
  */
 object GnssSignalProjection {
@@ -28,6 +28,7 @@ object GnssSignalProjection {
         .map { it.satellite }
         .groupBy { it.constellation to it.svid }
         .values.map { candidates -> candidates.minWith(compareBy<GnssSatellite>(
+            { !GnssCaptureValidator.isUsableSatellite(it) },
             { !it.usedInFix }, { it.carrierHz ?: Float.POSITIVE_INFINITY },
             { -it.cn0DbHz }, { it.elevationDeg }, { it.azimuthDeg },
             { !it.hasEphemeris }, { !it.hasAlmanac },

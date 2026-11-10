@@ -27,11 +27,31 @@ class RuntimeSnapshotTest {
     }
 
     @Test fun publishSampleUpdatesAtomically() {
-        val store = RuntimeSnapshotStore()
-        val updated = store.publishSample(sample, ProviderKind.GPS, configRevision = 3)
+        val store = RuntimeSnapshotStore(RuntimeSnapshot(configRevision = 3))
+        val updated = store.publishSample(sample, ProviderKind.GPS)
         assertEquals(3L, updated.configRevision)
         assertEquals(sample, store.current().sample)
         assertEquals(ProviderKind.GPS, store.current().provider)
+    }
+
+    @Test fun concurrentSamplesNeverRollbackConfiguration() {
+        val store = RuntimeSnapshotStore()
+        val start = java.util.concurrent.CountDownLatch(1)
+        val samples = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            val publishing = samples.submit {
+                start.await()
+                repeat(10_000) { store.publishSample(sample, ProviderKind.GPS) }
+            }
+            start.countDown()
+            repeat(10_000) { version ->
+                store.update { it.copy(configRevision = it.configRevision + 1) }
+                assertEquals(version + 1L, store.current().configRevision)
+            }
+            publishing.get(10, java.util.concurrent.TimeUnit.SECONDS)
+            assertEquals(10_000L, store.current().configRevision)
+            assertEquals(sample, store.current().sample)
+        } finally { samples.shutdownNow() }
     }
 
     @Test fun updatePreservesOtherFields() {

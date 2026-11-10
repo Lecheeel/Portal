@@ -70,9 +70,10 @@ class RuntimeSnapshotStore(initial: RuntimeSnapshot = RuntimeSnapshot.EMPTY) {
     fun publishSample(
         sample: LocationSample,
         provider: ProviderKind? = null,
-        configRevision: Long = current().configRevision,
     ): RuntimeSnapshot = update {
-        it.copy(sample = sample, provider = provider, configRevision = configRevision)
+        // Samples do not own configuration versions. In particular, a CAS retry must retain the
+        // configuration published by a concurrent writer, rather than restoring an earlier version.
+        it.copy(sample = sample, provider = provider)
     }
 
     fun clearSample(): RuntimeSnapshot = update { it.copy(sample = null, provider = null) }

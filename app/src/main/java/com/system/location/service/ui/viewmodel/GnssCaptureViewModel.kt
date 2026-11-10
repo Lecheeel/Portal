@@ -1,6 +1,8 @@
 package com.system.location.service.ui.viewmodel
 
 import android.app.Application
+import android.os.SystemClock
+import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.system.location.service.core.gnss.GnssObservationProfile
@@ -47,9 +49,15 @@ class GnssCaptureViewModel(application: Application) : AndroidViewModel(applicat
     /** A cold flow runs only while the visible screen collects it; eligibility is reevaluated. */
     fun preview(minimumSatellites: Int): Flow<GnssCapturePreview> = flow {
         reload()
+        // This process cannot survive a reboot; a visible preview session uses one boot identity.
+        val bootCount = withContext(Dispatchers.IO) {
+            runCatching { Settings.Global.getInt(getApplication<Application>().contentResolver,
+                Settings.Global.BOOT_COUNT).takeIf { it >= 0 } }.getOrNull()
+        }
         while (currentCoroutineContext().isActive) {
             val source = previewer
-            emit(withContext(Dispatchers.Default) { source.current(System.currentTimeMillis(), minimumSatellites) })
+            emit(withContext(Dispatchers.Default) { source.current(System.currentTimeMillis(), minimumSatellites,
+                SystemClock.elapsedRealtimeNanos(), bootCount) })
             delay(1000)
         }
     }

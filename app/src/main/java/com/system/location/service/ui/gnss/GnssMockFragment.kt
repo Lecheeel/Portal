@@ -30,7 +30,7 @@ import com.system.location.service.android.root.ShellUtils
 import com.system.location.service.android.widget.SatelliteData
 import com.system.location.service.android.window.OverlayUtils
 import com.system.location.service.ext.altitude
-import com.system.location.service.ext.enableAGPS
+import com.system.location.service.ext.allowPhysicalRawGnss
 import com.system.location.service.ext.enableGetFromLocation
 import com.system.location.service.ext.enableNMEA
 import com.system.location.service.ext.enableRequestGeofence
@@ -103,9 +103,9 @@ class GnssMockFragment : Fragment() {
             Toast.makeText(requireContext(), "重启GNSS模拟生效", Toast.LENGTH_SHORT).show()
         }
 
-        binding.switchEnableAgps.isChecked = requireContext().enableAGPS
+        binding.switchEnableAgps.isChecked = requireContext().allowPhysicalRawGnss
         binding.switchEnableAgps.setOnCheckedChangeListener { _, isChecked ->
-            requireContext().enableAGPS = isChecked
+            requireContext().allowPhysicalRawGnss = isChecked
             Toast.makeText(requireContext(), "重启GNSS模拟生效", Toast.LENGTH_SHORT).show()
         }
 

@@ -253,17 +253,19 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                         }),
                     )
                     PortalSwitchRow(
-                        title = "允许位置获取",
+                        title = "允许地理编码查询",
+                        subtitle = "按坐标或地名查询地址，不控制 Location 定位请求",
                         checked = control.fromLocation,
                         onCheckedChange = if (control.busy) null else ({ enabled: Boolean ->
                             model.setPreference(GnssSetting.FROM_LOCATION, enabled)
                         }),
                     )
                     PortalSwitchRow(
-                        title = "启用 AGPS 模块",
-                        checked = control.agps,
+                        title = "允许真实原始 GNSS 数据",
+                        subtitle = "透传接收机测量、导航电文和天线信息；与模拟位置可能不一致，不影响围栏和地理编码",
+                        checked = control.physicalRawGnss,
                         onCheckedChange = if (control.busy) null else ({ enabled: Boolean ->
-                            model.setPreference(GnssSetting.AGPS, enabled)
+                            model.setPreference(GnssSetting.RAW_GNSS, enabled)
                         }),
                     )
                     PortalSwitchRow(

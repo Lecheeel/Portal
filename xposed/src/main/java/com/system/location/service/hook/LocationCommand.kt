@@ -72,7 +72,7 @@ object LocationCommand {
         rely.putBoolean("disable_get_current_location", FakeLoc.disableGetCurrentLocation)
         rely.putBoolean("disable_register_location_listener", FakeLoc.disableRegisterLocationListener)
         rely.putBoolean("disable_fused_location", FakeLoc.disableFusedLocation)
-        rely.putBoolean("enable_agps", FakeLoc.enableAGPS)
+        rely.putBoolean("enable_agps", FakeLoc.allowPhysicalRawGnss)
         rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
         rely.putBoolean("hide_mock", FakeLoc.hideMock)
         rely.putBoolean("hook_wifi", FakeLoc.hookWifi)

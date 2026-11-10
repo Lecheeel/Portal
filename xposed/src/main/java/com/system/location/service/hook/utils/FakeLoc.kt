@@ -71,10 +71,8 @@ object FakeLoc {
     var disableRequestGeofence = false
     var disableGetFromLocation = false
 
-    /**
-     * 是否允许AGPS模块（当前没什么鸟用）
-     */
-    var enableAGPS = false
+    /** Legacy enable_agps key now controls only real raw GNSS data access. */
+    var allowPhysicalRawGnss = false
 
     /**
      * 是否允许NMEA模块

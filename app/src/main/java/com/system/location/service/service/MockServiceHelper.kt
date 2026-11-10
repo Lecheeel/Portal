@@ -12,7 +12,7 @@ import com.system.location.service.ext.debug
 import com.system.location.service.ext.disableFusedProvider
 import com.system.location.service.ext.disableGetCurrentLocation
 import com.system.location.service.ext.disableRegisterLocationListener
-import com.system.location.service.ext.enableAGPS
+import com.system.location.service.ext.allowPhysicalRawGnss
 import com.system.location.service.ext.enableGetFromLocation
 import com.system.location.service.ext.enableNMEA
 import com.system.location.service.ext.enableRequestGeofence
@@ -322,7 +322,7 @@ object MockServiceHelper {
         FakeLoc.disableFusedLocation = context.disableFusedProvider
         FakeLoc.needDowngradeToCdma = context.needDowngradeToCdma
         FakeLoc.minSatellites = context.minSatelliteCount
-        FakeLoc.enableAGPS = context.enableAGPS
+        FakeLoc.allowPhysicalRawGnss = context.allowPhysicalRawGnss
         FakeLoc.enableNMEA = context.enableNMEA
         FakeLoc.sensorCadenceScale = context.sensorCadenceScale
         FakeLoc.sensorVariation = context.sensorVariation
@@ -351,7 +351,7 @@ object MockServiceHelper {
             null
         }
         rely.putString("gnss_capture", capturePayload)
-        rely.putBoolean("enable_agps", FakeLoc.enableAGPS)
+        rely.putBoolean("enable_agps", FakeLoc.allowPhysicalRawGnss)
         rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
         rely.putDouble("sensor_cadence_scale", FakeLoc.sensorCadenceScale)
         rely.putDouble("sensor_variation", FakeLoc.sensorVariation)

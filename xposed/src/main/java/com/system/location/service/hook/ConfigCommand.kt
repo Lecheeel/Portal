@@ -33,7 +33,7 @@ object ConfigCommand {
         FakeLoc.disableFusedLocation = rely.getBoolean("disable_fused_location", FakeLoc.disableFusedLocation)
         FakeLoc.needDowngradeToCdma = rely.getBoolean("need_downgrade_to_2g", FakeLoc.needDowngradeToCdma)
         FakeLoc.minSatellites = rely.getInt("min_satellites", FakeLoc.minSatellites)
-        FakeLoc.enableAGPS = rely.getBoolean("enable_agps", FakeLoc.enableAGPS)
+        FakeLoc.allowPhysicalRawGnss = rely.getBoolean("enable_agps", FakeLoc.allowPhysicalRawGnss)
         FakeLoc.enableNMEA = rely.getBoolean("enable_nmea", FakeLoc.enableNMEA)
         FakeLoc.disableRequestGeofence = rely.getBoolean("disable_request_geofence", FakeLoc.disableRequestGeofence)
         FakeLoc.disableGetFromLocation = rely.getBoolean("disable_get_from_location", FakeLoc.disableGetFromLocation)

@@ -7,7 +7,7 @@ import java.lang.reflect.Method
 /** Raw observations are either real receiver data or explicitly unsupported, never fabricated. */
 internal fun rawGnssRegistrationHook(
     enabled: () -> Boolean = { FakeLoc.enable && FakeLoc.enableMockGnss },
-    allowPhysical: () -> Boolean = { FakeLoc.enableAGPS },
+    allowPhysical: () -> Boolean = { FakeLoc.allowPhysicalRawGnss },
     hasFrame: () -> Boolean = { GnssReceiverRuntime.currentFrame() != null },
 ): XposedInterface.Hooker = XposedInterface.Hooker { chain ->
     val method = chain.executable as? Method ?: return@Hooker chain.proceed()

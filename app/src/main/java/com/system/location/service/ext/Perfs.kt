@@ -294,11 +294,11 @@ var Context.enableGetFromLocation: Boolean
         FakeLoc.disableGetFromLocation = !value
     }
 
-var Context.enableAGPS: Boolean
-    get() = sharedPrefs.getBoolean("enableAGPS", FakeLoc.enableAGPS)
+var Context.allowPhysicalRawGnss: Boolean
+    get() = sharedPrefs.getBoolean("enableAGPS", FakeLoc.allowPhysicalRawGnss)
     set(value) = sharedPrefs.edit {
         putBoolean("enableAGPS", value)
-        FakeLoc.enableAGPS = value
+        FakeLoc.allowPhysicalRawGnss = value
     }
 
 var Context.enableNMEA: Boolean

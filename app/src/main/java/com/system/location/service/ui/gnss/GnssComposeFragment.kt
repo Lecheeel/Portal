@@ -139,7 +139,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                                 )
                             }
                         }
-                        satellites = list
+                        satellites = displaySpacecraft(list)
                     }
                 }
                 if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {

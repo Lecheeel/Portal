@@ -8,7 +8,6 @@ import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.hookAllMethods
-import com.system.location.service.hook.utils.onceHookAllMethod
 import io.github.libxposed.api.XposedInterface
 
 object GnssHook : BaseLocationHook() {
@@ -116,48 +115,4 @@ object GnssHook : BaseLocationHook() {
         }
     }
 
-    private fun hookGnssHALAnyVersion(cIGnssStub: Class<*>?) {
-        if (cIGnssStub != null) {
-            cIGnssStub.hookAllMethods(
-                "onTransact",
-                XposedInterface.Hooker intercept39@{ chain ->
-                    val args = chain.args.toTypedArray()
-
-                    val clazz =
-                        chain.thisObject?.javaClass ?: return@intercept39 chain.proceed(args)
-                    clazz.onceHookAllMethod(
-                        "injectBestLocation",
-                        XposedInterface.Hooker intercept40@{ chain ->
-                            val args = chain.args.toTypedArray()
-
-                            if (FakeLoc.enableDebugLog) {
-                                Logger.debug("injectLocation: ${chain.executable}")
-                            }
-                            if (FakeLoc.enable) return@intercept40 null
-
-                            chain.proceed(args)
-                        },
-                    )
-
-                    clazz.onceHookAllMethod(
-                        "injectLocation",
-                        XposedInterface.Hooker intercept41@{ chain ->
-                            val args = chain.args.toTypedArray()
-
-                            if (FakeLoc.enableDebugLog) {
-                                Logger.debug("injectLocation: ${chain.executable}")
-                            }
-                            if (FakeLoc.enable) return@intercept41 null
-
-                            chain.proceed(args)
-                        },
-                    )
-
-                    chain.proceed(args)
-                },
-            )
-        } else {
-            Logger.error("IGnss\$Stub not found")
-        }
-    }
 }

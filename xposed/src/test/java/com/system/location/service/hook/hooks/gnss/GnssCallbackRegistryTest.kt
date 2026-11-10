@@ -10,6 +10,52 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssCallbackRegistryTest {
+    @Test fun successfulFrameIsNotRepeatedAndCursorSurvivesRetirement() {
+        val transport = Transport()
+        val old = GnssCallbackRegistry()
+        val listener = transport.listener()
+        old.register(listener, "app", 10001)
+        var calls = 0
+        repeat(3) { old.deliverOnce(listener, "epoch-a exact output") { calls++; true } }
+        assertEquals(1, calls)
+        val saved = old.subscriptions().single()
+        old.clear()
+        val successor = GnssCallbackRegistry()
+        assertTrue(successor.restore(saved))
+        successor.deliverOnce(listener, "epoch-a exact output") { calls++; true }
+        assertEquals(1, calls)
+        successor.deliverOnce(listener, "epoch-a changed output") { calls++; true }
+        successor.deliverOnce(listener, "epoch-b exact output") { calls++; true }
+        assertEquals(3, calls)
+        successor.unregister(listener)
+        successor.register(listener, "app", 10001)
+        successor.deliverOnce(listener, "epoch-b exact output") { calls++; true }
+        assertEquals(4, calls)
+        successor.clear()
+    }
+
+    @Test fun partialOrFailedDeliveryDoesNotCommitAndOldInFlightCannotAffectReregistration() {
+        val transport = Transport()
+        val registry = GnssCallbackRegistry()
+        val listener = transport.listener()
+        registry.register(listener, "app", 10001)
+        registry.deliverOnce(listener, "frame") { false }
+        assertNull(registry.subscriptions().single().lastDeliveryKey)
+        assertThrows(IllegalStateException::class.java) {
+            registry.deliverOnce(listener, "frame") { error("Binder failed") }
+        }
+        assertNull(registry.subscriptions().single().lastDeliveryKey)
+        registry.deliverOnce(listener, "frame") {
+            registry.unregister(listener)
+            registry.register(listener, "app", 10001)
+            true
+        }
+        assertNull(registry.subscriptions().single().lastDeliveryKey)
+        registry.deliverOnce(listener, "frame") { true }
+        assertEquals("frame", registry.subscriptions().single().lastDeliveryKey)
+        registry.clear()
+    }
+
     @Test fun deathDuringLinkCannotReportASuccessfulRegistrationOrRestore() {
         for (restoring in listOf(false, true)) {
             val transport = Transport().apply { dieDuringLink = true }

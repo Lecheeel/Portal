@@ -15,7 +15,7 @@ internal class GnssCallbackRegistry(
     private val callerDecision: (String?, Int, RoutingConfig?) -> RoutingDecision = ::gnssCallerDecision,
 ) {
     private data class Entry(val listener: IInterface, val packageName: String?, val uid: Int,
-        val death: IBinder.DeathRecipient, val token: Any)
+        val death: IBinder.DeathRecipient, val token: Any, var lastDeliveryKey: String? = null)
     private val entries = LinkedHashMap<IBinder, Entry>()
 
     @Synchronized
@@ -41,7 +41,7 @@ internal class GnssCallbackRegistry(
 
     @Synchronized
     fun subscriptions(): List<CallbackSubscription> = entries.values.map {
-        CallbackSubscription(it.listener, it.uid, it.packageName)
+        CallbackSubscription(it.listener, it.uid, it.packageName, lastDeliveryKey = it.lastDeliveryKey)
     }
 
     @Synchronized
@@ -50,7 +50,8 @@ internal class GnssCallbackRegistry(
         if (!binder.isBinderAlive || entries.containsKey(binder)) return false
         val token = Any()
         val death = IBinder.DeathRecipient { unregisterBinder(binder, token) }
-        val entry = Entry(subscription.listener, subscription.packageName, subscription.uid, death, token)
+        val entry = Entry(subscription.listener, subscription.packageName, subscription.uid, death, token,
+            subscription.lastDeliveryKey)
         entries[binder] = entry
         return try {
             binder.linkToDeath(death, 0)
@@ -77,6 +78,14 @@ internal class GnssCallbackRegistry(
 
     @Synchronized
     fun clear() { entries.keys.toList().forEach { unregisterBinder(it) } }
+
+    /** The single delivery worker commits only complete successful frames; no lock spans Binder. */
+    fun deliverOnce(listener: IInterface, key: String, action: () -> Boolean) {
+        val binder = listener.asBinder()
+        val entry = synchronized(this) { entries[binder]?.takeUnless { it.lastDeliveryKey == key } } ?: return
+        if (!action()) return
+        synchronized(this) { if (entries[binder] === entry) entry.lastDeliveryKey = key }
+    }
 
     fun routeFor(listener: Any?, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? {
         val entry = entry(listener) ?: return null

@@ -24,12 +24,14 @@ class GalileoBroadcastEvidenceTest {
             0.0, -1e-9, 1e-10, 0.0, 0.0, 10.0, 20.0, 0.0, 0.0, 1e-4, 0.0, 0.0)
         val decoded = DecodedGalileoInav(eph, time, GalileoSignalStatus(0, 0),
             GalileoSignalStatus(0, 0), 10, 0.0, 0.0)
+        val fnav = DecodedGalileoFnav(eph.copy(clockReference = GalileoClockReference.FNAV_E1_E5A), time,
+            GalileoSignalStatus(0, 0), 10, 0.0)
         val capture = GnssCapture(deviceModel = "receiver", osVersion = "os", startedAtMillis = 0,
             endedAtMillis = 60_000, bootCount = 7,
             frames = (0..60).map { index -> GnssObservationFrame(index * 1000L,
                 satellites = listOf(GnssSatellite(Constellation.GALILEO, 1, 30f, 90f, 35f, true, true, true))) },
             galileoBroadcastEvidence = GalileoBroadcastEvidence(clock, offset, GalileoReceiverFrame.GTRF,
-                inav = listOf(decoded)))
+                inav = listOf(decoded), fnav = listOf(fnav)))
         val result = GnssCaptureWire.decode(GnssCaptureWire.encode(capture))
         assertEquals(capture.galileoBroadcastEvidence, result.galileoBroadcastEvidence)
         assertEquals(7, ReceiverBroadcastSkyModel(result).broadcastBootCount)

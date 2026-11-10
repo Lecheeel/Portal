@@ -21,8 +21,8 @@ data class GalileoBroadcastEvidence(
 ) {
     init {
         require(inav.isNotEmpty() || fnav.isNotEmpty()) { "Galileo evidence is empty" }
-        val identities = (inav.map { it.ephemeris.svid } + fnav.map { it.ephemeris.svid })
-        require(identities.distinct().size == identities.size) { "duplicate Galileo evidence identity" }
+        require(inav.map { it.ephemeris.svid }.distinct().size == inav.size) { "duplicate Galileo I/NAV identity" }
+        require(fnav.map { it.ephemeris.svid }.distinct().size == fnav.size) { "duplicate Galileo F/NAV identity" }
         require((inav.map { it.ephemeris.svid } + fnav.map { it.ephemeris.svid }).all { it in 1..36 }) {
             "invalid Galileo evidence SVID"
         }

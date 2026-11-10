@@ -78,6 +78,7 @@ class PortalModule : XposedModule() {
                 putParcelableArrayList("gnss", ArrayList(GnssListenerRouting.subscriptions().map { it.toBundle() }))
                 putParcelableArrayList("nmea", ArrayList(NmeaListenerRouting.subscriptions().map { it.toBundle() }))
                 putParcelableArrayList("raw", ArrayList(RawGnssCallbacks.subscriptions().map { it.toBundle() }))
+                putParcelableArrayList("peers", ArrayList(ProxyCommand.subscriptions().map { it.toBundle() }))
                 putString("process", "system_server")
                 putString("package", "android")
                 putInt("uid", 1000)
@@ -109,6 +110,7 @@ class PortalModule : XposedModule() {
         }
         lifecycle.systemServerStarting(loader)
         restoreCallbacks(saved)
+        restorePeers(saved)
         if (FakeLoc.runtimeSnapshots.current().configuration.enabled) LocationTicker.start()
         if (FakeLoc.runtimeSnapshots.current().configuration.gnssEnabled) com.system.location.service.hook.hooks.gnss.GnssSignalInjection.ensureStarted()
         HookRuntime.executionGate.resume()
@@ -122,6 +124,19 @@ class PortalModule : XposedModule() {
         rows("gnss").forEach { if (GnssListenerRouting.restore(it)) LocationServiceHook.installGnssStatusCallback(it.listener) }
         rows("nmea").forEach { if (NmeaListenerRouting.restore(it)) installNmeaCallback(it.listener) }
         rows("raw").forEach { if (RawGnssCallbacks.restore(it)) RawGnssCallbacks.installRestored(it.listener) }
+    }
+
+    private fun restorePeers(saved: Bundle?) {
+        saved?.getParcelableArrayList<Bundle>("peers").orEmpty().forEach { row ->
+            @Suppress("DEPRECATION")
+            val binder = row.getBinder("binder") ?: return@forEach
+            val subscription = RuntimePeerRegistry.Subscription(
+                row.getInt("uid"), row.getString("name") ?: return@forEach,
+                row.getString("session") ?: return@forEach, binder,
+            )
+            ProxyCommand.restore(subscription)
+        }
+        ProxyCommand.publishCurrent()
     }
 }
 

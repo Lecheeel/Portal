@@ -46,4 +46,7 @@ object ProxyCommand {
         statePeers.offer(RuntimePeerRegistry.Publication(stateSequence, FakeLoc.captureTransfer()))
     }
 
+    internal fun subscriptions(): List<RuntimePeerRegistry.Subscription> = statePeers.subscriptions()
+    internal fun restore(subscription: RuntimePeerRegistry.Subscription): Boolean = statePeers.restore(subscription)
+
 }

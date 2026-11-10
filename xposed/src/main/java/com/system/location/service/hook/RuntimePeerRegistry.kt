@@ -11,6 +11,11 @@ internal class RuntimePeerRegistry(
     private val onFailure: (Throwable) -> Unit,
 ) {
     internal data class Publication(val sequence: Long, val transfer: RuntimeTransfer)
+    internal data class Subscription(val uid: Int, val name: String, val session: String, val binder: IBinder) {
+        fun toBundle() = android.os.Bundle().apply {
+            putInt("uid", uid); putString("name", name); putString("session", session); putBinder("binder", binder)
+        }
+    }
     private data class Key(val uid: Int, val name: String)
     private class Entry(val binder: IBinder, val session: String, val death: IBinder.DeathRecipient,
         val worker: LatestStateWorker<Publication>)
@@ -58,5 +63,12 @@ internal class RuntimePeerRegistry(
     }
 
     @Synchronized fun size(): Int = entries.size
+    @Synchronized fun subscriptions(): List<Subscription> = entries.map { (key, entry) ->
+        Subscription(key.uid, key.name, entry.session, entry.binder)
+    }
+
+    fun restore(subscription: Subscription): Boolean =
+        register(subscription.uid, subscription.name, subscription.session, subscription.binder)
+
     @Synchronized fun clear() { entries.toMap().forEach { (key, entry) -> remove(key, entry) } }
 }

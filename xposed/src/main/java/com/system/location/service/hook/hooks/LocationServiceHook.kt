@@ -27,7 +27,7 @@ import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.hookMethod
 import com.system.location.service.hook.utils.onceHookAllMethod
-import com.system.location.service.hook.utils.toLocation
+import com.system.location.service.hook.utils.ProviderView
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
 import java.util.concurrent.LinkedBlockingQueue
@@ -650,6 +650,7 @@ internal object LocationServiceHook : BaseLocationHook() {
 
                         if (args.isEmpty()) return@intercept34 chain.proceed(args)
                         if (!FakeLoc.enable) return@intercept34 chain.proceed(args)
+                        val context = ProviderView.capture()
 
                         when (args[0]) {
                             is Location -> {
@@ -658,17 +659,18 @@ internal object LocationServiceHook : BaseLocationHook() {
                                         ?: run {
                                             return@intercept34 null
                                         }
-                                args[0] = injectLocation(location)
+                                args[0] = injectLocation(location, context = context)
                             }
 
                             is List<*> -> {
                                 val locations = args[0] as List<*>
-                                args[0] = locations.map { injectLocation(it as Location) }
+                                if (locations.any { it !is Location }) return@intercept34 chain.proceed(args)
+                                args[0] = locations.map { injectLocation(it as Location, context = context) }
                             }
                             else -> Logger.error("onLocationChanged args is not `Location`")
                         }
 
-                        if (FakeLoc.enableDebugLog) {
+                        if (context.state.configuration.debugLog) {
                             Logger.debug("${chain.executable}: injected! ${args[0]}")
                         }
 

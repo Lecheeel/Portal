@@ -36,10 +36,10 @@ class RuntimeSnapshotTest {
 
     @Test fun updatePreservesOtherFields() {
         val store = RuntimeSnapshotStore(RuntimeSnapshot(configRevision = 2, environmentVersion = 4))
-        val updated = store.update { it.copy(gnssModel = com.system.location.service.core.gnss.GnssModelMode.ORBITAL) }
+        val updated = store.update { it.copy(physicalNoise = true) }
         assertEquals(2L, updated.configRevision)
         assertEquals(4L, updated.environmentVersion)
-        assertEquals(com.system.location.service.core.gnss.GnssModelMode.ORBITAL, updated.gnssModel)
+        assertEquals(true, updated.physicalNoise)
     }
 
     @Test fun clearSampleKeepsConfig() {

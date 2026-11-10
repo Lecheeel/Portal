@@ -4,7 +4,6 @@ import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentSourceMode
-import com.system.location.service.core.gnss.GnssModelMode
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.providers.ProviderKind
 import com.system.location.service.core.routing.RoutingConfig
@@ -20,7 +19,6 @@ data class RuntimeSnapshot(
     val environment: EnvironmentProfile? = null,
     val provider: ProviderKind? = null,
     val routing: RoutingConfig? = null,
-    val gnssModel: GnssModelMode = GnssModelMode.ANALYTIC,
     val environmentSeed: Long = 0L,
     val environmentApCount: Int = 4,
     val cellMode: CellMode = CellMode.FULL_REPLAY,

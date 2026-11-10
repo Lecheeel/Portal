@@ -9,11 +9,12 @@ class RawGnssRegistrationTest {
     private class Call(name: String, val failure: RuntimeException? = null) {
         var proceeds = 0
         val result = Any()
+        val arguments = listOf(Any())
         private val executable = Service::class.java.getDeclaredMethod(name, Any::class.java)
         val chain = Proxy.newProxyInstance(XposedInterface.Chain::class.java.classLoader,
             arrayOf(XposedInterface.Chain::class.java)) { _, method, _ -> when (method.name) {
                 "getExecutable" -> executable
-                "getArgs" -> listOf(Any())
+                "getArgs" -> arguments
                 "proceed" -> { proceeds++; if (failure != null) throw failure; result }
                 else -> error(method.name)
             } } as XposedInterface.Chain
@@ -49,6 +50,20 @@ class RawGnssRegistrationTest {
         val call = Call("addBoolean")
         assertSame(call.result, hook.intercept(call.chain))
         assertEquals(1, call.proceeds)
+    }
+
+    @Test fun receiverAvailabilityUsesTheCurrentCallArgumentsAndDoesNotQueryExcludedCallers() {
+        val call = Call("addBoolean")
+        var queries = 0
+        val hook = rawGnssRegistrationHook({ true }, { false }, { args ->
+            queries++
+            assertEquals(call.chain.args, args)
+            true
+        }, { true })
+        assertEquals(false, hook.intercept(call.chain))
+        assertEquals(1, queries)
+        val excluded = rawGnssRegistrationHook({ true }, { false }, { error("excluded caller queried") }, { false })
+        assertSame(call.result, excluded.intercept(call.chain))
     }
 
     @Test fun unregistrationAndOriginalFailureAlwaysReachAndroidExactlyOnce() {

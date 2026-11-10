@@ -7,7 +7,7 @@
     <string name="overlay_expand">展开摇杆，拖动可移动悬浮窗</string>
     <string name="overlay_minimize">最小化摇杆</string>
     <string name="overlay_drag">拖动悬浮窗</string>
-    <string name="overlay_auto">自动模式</string>
+    <string name="overlay_auto">选择路线或地点</string>
     <string name="overlay_auto_on">已开启</string>
     <string name="overlay_auto_off">已关闭</string>
     <string name="overlay_joystick">方向摇杆</string>
@@ -19,4 +19,13 @@
     <string name="overlay_speed_toggle">速度调节</string>
     <string name="overlay_expanded">已展开</string>
     <string name="overlay_collapsed">已收起</string>
+    <string name="overlay_target_menu">选择路线或地点</string>
+    <string name="overlay_target_loading">正在加载已保存地点和路线…</string>
+    <string name="overlay_target_empty">暂无已保存地点或路线，请先在资料库添加。</string>
+    <string name="overlay_target_route">路线 · %1$s</string>
+    <string name="overlay_target_location">地点 · %1$s</string>
+    <string name="overlay_target_missing">目标已被删除，请重新选择</string>
+    <string name="overlay_target_load_failed">资料库加载失败，请重新打开菜单重试</string>
+    <string name="overlay_target_start_failed">目标启动失败，请检查运行模式和授权后重试</string>
+    <string name="overlay_target_open_failed">无法打开目标菜单，请检查悬浮窗权限</string>
 </resources>

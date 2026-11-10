@@ -140,7 +140,8 @@ object RockerOverlay {
     }
 
     private fun publishMotion() {
-        if (ScenarioRuntime.state.value.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) {
+        val state = ScenarioRuntime.state.value
+        if (state.routeId == null && state.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) {
             ScenarioRuntime.motion(bearing, moving, strength)
         }
     }

@@ -7,7 +7,7 @@
     <string name="overlay_expand">ジョイスティックを展開。ドラッグして移動</string>
     <string name="overlay_minimize">ジョイスティックを最小化</string>
     <string name="overlay_drag">フローティングパネルを移動</string>
-    <string name="overlay_auto">自動モード</string>
+    <string name="overlay_auto">ルートまたは地点を選択</string>
     <string name="overlay_auto_on">オン</string>
     <string name="overlay_auto_off">オフ</string>
     <string name="overlay_joystick">方向ジョイスティック</string>
@@ -19,4 +19,13 @@
     <string name="overlay_speed_toggle">速度調整</string>
     <string name="overlay_expanded">展開中</string>
     <string name="overlay_collapsed">折りたたみ中</string>
+    <string name="overlay_target_menu">ルートまたは地点を選択</string>
+    <string name="overlay_target_loading">保存済みの地点とルートを読み込み中…</string>
+    <string name="overlay_target_empty">保存済みの地点またはルートがありません。ライブラリに追加してください。</string>
+    <string name="overlay_target_route">ルート · %1$s</string>
+    <string name="overlay_target_location">地点 · %1$s</string>
+    <string name="overlay_target_missing">対象が削除されました。選択し直してください</string>
+    <string name="overlay_target_load_failed">読み込めませんでした。メニューを開き直してください</string>
+    <string name="overlay_target_start_failed">開始できませんでした。動作モードと権限を確認してください</string>
+    <string name="overlay_target_open_failed">メニューを開けません。オーバーレイの権限を確認してください</string>
 </resources>

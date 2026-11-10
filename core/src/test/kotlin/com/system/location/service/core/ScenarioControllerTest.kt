@@ -222,7 +222,7 @@ class ScenarioControllerTest {
             val c = ScenarioController({ Backend() }, clock)
             val scene = if (route) scenario else Scenario("p", "point", point = Wgs84(0.0, 0.0))
             assertTrue(c.start(scene.copy(profile = MovementProfile(speedMps = 2.0))))
-            if (!route) assertTrue(c.setMotion(90.0, true))
+            if (route) assertFalse(c.setMotion(90.0, true)) else assertTrue(c.setMotion(90.0, true))
             val startedAt = c.state.value.startedAt
             clock.time = 1000
             assertTrue(c.setSpeed(8.0))

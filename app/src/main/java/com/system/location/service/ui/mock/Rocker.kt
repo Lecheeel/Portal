@@ -44,7 +44,7 @@ class Rocker(private val context: Context) {
         private set
     var isMinimized = true
         private set
-    private var autoStatus = false
+    private val targetMenu = RockerTargetMenu(context)
     private var speedExpanded = false
     private val speedSlider = root.findViewById<Slider>(R.id.speed_slider)
     private val speedText = root.findViewById<TextView>(R.id.speed)
@@ -70,15 +70,10 @@ class Rocker(private val context: Context) {
         attachDrag(compact)
         attachDrag(root.findViewById(R.id.move))
         root.findViewById<View>(R.id.auto).setOnClickListener {
-            autoStatus = !autoStatus
-            rockerView.auto(autoStatus)
-            renderAutoState()
-            if (!autoStatus) {
-                resetMovement()
-                rockerView.listener?.onFinished()
-            }
+            resetMovement()
+            rockerView.listener?.onFinished()
+            targetMenu.open()
         }
-        renderAutoState()
         root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> clampPosition() }
     }
 
@@ -91,6 +86,7 @@ class Rocker(private val context: Context) {
     }
 
     fun hide() {
+        targetMenu.close()
         resetMovement()
         if (isStart) windowManager.removeViewImmediate(root)
         isStart = false
@@ -133,27 +129,20 @@ class Rocker(private val context: Context) {
                 RuntimePhase.ERROR -> R.color.red500
                 else -> R.color.text_tertiary
             }))
-        root.findViewById<View>(R.id.auto).apply {
-            isEnabled = canMove
-            alpha = if (canMove) 1f else 0.4f
+        root.findViewById<ImageView>(R.id.auto).apply {
+            isEnabled = phase !in setOf(RuntimePhase.PREPARING, RuntimePhase.READY, RuntimePhase.STOPPING)
+            isSelected = route && phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)
+            alpha = if (isEnabled) 1f else 0.4f
+            imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context,
+                if (isSelected) R.color.primary else R.color.text_secondary))
+            stateDescription = if (isSelected) status else context.getString(R.string.overlay_target_menu)
         }
         if (!canMove) resetMovement()
     }
 
     fun resetMovement() {
-        autoStatus = false
         rockerView.auto(false)
         rockerView.reset()
-        renderAutoState()
-    }
-
-    private fun renderAutoState() {
-        root.findViewById<ImageView>(R.id.auto).apply {
-            isSelected = autoStatus
-            imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context,
-                if (autoStatus) R.color.primary else R.color.text_secondary))
-            stateDescription = context.getString(if (autoStatus) R.string.overlay_auto_on else R.string.overlay_auto_off)
-        }
     }
 
     fun setRockerListener(listener: RockerView.Companion.OnMoveListener) {

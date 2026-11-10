@@ -12,19 +12,12 @@ data class LocationFieldPolicy(
     val speedAccuracyMps: Float = 0.15f,
     val bearingAccuracyDegrees: Float = 2.0f,
     val elapsedRealtimeUncertaintyNanos: Long = 5_000_000L,
-    val satellites: Int = 12,
-    val meanCn0DbHz: Float = 32.0f,
-    val maxCn0DbHz: Float = 44.0f,
-    val mslAltitudeOffsetMeters: Double = 0.0,
 ) {
     init {
         require(verticalAccuracyFactor > 0f) { "verticalAccuracyFactor must be positive" }
         require(speedAccuracyMps >= 0f) { "speedAccuracyMps must be non-negative" }
         require(bearingAccuracyDegrees >= 0f) { "bearingAccuracyDegrees must be non-negative" }
         require(elapsedRealtimeUncertaintyNanos >= 0L) { "elapsedRealtimeUncertaintyNanos must be non-negative" }
-        require(satellites >= 0) { "satellites must be non-negative" }
-        require(meanCn0DbHz >= 0f && maxCn0DbHz >= meanCn0DbHz) { "CN0 defaults must be ordered" }
-        require(mslAltitudeOffsetMeters.isFinite()) { "mslAltitudeOffsetMeters must be finite" }
     }
 }
 
@@ -33,21 +26,15 @@ data class SanitizedLocationFields(
     val verticalAccuracyMeters: Float,
     val speedAccuracyMetersPerSecond: Float,
     val bearingAccuracyDegrees: Float,
-    val mslAltitudeMeters: Double,
-    val mslAltitudeAccuracyMeters: Float,
     val elapsedRealtimeUncertaintyNanos: Long,
-    val satellites: Int,
-    val meanCn0DbHz: Float,
-    val maxCn0DbHz: Float,
 )
 
 /**
  * Derives missing fields without injecting randomness.
  *
  * - vertical accuracy is always worse than horizontal accuracy;
- * - speed/bearing accuracy are only present when the corresponding field is meaningful;
- * - MSL altitude reuses the WGS84 altitude until P2 adds a real geoid model;
- * - satellites/CN0 are placeholders until the GNSS model (P3) becomes the single source.
+ * - speed/bearing accuracy are only present when the corresponding field is meaningful.
+ * GNSS extras belong to the receiver frame; MSL altitude requires a geoid model.
  */
 object LocationSanitizer {
 
@@ -68,12 +55,7 @@ object LocationSanitizer {
             verticalAccuracyMeters = vertical,
             speedAccuracyMetersPerSecond = speedAccuracy,
             bearingAccuracyDegrees = bearingAccuracy,
-            mslAltitudeMeters = sanitizeAltitude(sample.altitude + policy.mslAltitudeOffsetMeters),
-            mslAltitudeAccuracyMeters = vertical * MSL_ACCURACY_FACTOR,
             elapsedRealtimeUncertaintyNanos = sanitizeUncertainty(policy.elapsedRealtimeUncertaintyNanos),
-            satellites = policy.satellites,
-            meanCn0DbHz = policy.meanCn0DbHz,
-            maxCn0DbHz = policy.maxCn0DbHz,
         )
     }
 
@@ -99,7 +81,6 @@ object LocationSanitizer {
     const val MAX_UNCERTAINTY_NANOS = 999_000_000L
     private const val MIN_SPEED_ACCURACY_MPS = 0.05f
     private const val SPEED_ACCURACY_FRACTION = 0.1f
-    private const val MSL_ACCURACY_FACTOR = 2f
     private const val MIN_ALTITUDE_METERS = -500.0
     private const val MAX_ALTITUDE_METERS = 20_000.0
 }

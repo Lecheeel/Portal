@@ -1,7 +1,6 @@
 package com.system.location.service.core
 
 import com.system.location.service.core.geo.Wgs84
-import com.system.location.service.core.location.LocationFieldPolicy
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.location.LocationSanitizer
 import org.junit.Assert.assertEquals
@@ -28,7 +27,6 @@ class LocationSanitizerTest {
     fun verticalAccuracyIsWorseThanHorizontal() {
         val fields = LocationSanitizer.fieldsFor(sample(accuracy = 8f))
         assertTrue(fields.verticalAccuracyMeters > 8f)
-        assertTrue(fields.mslAltitudeAccuracyMeters > fields.verticalAccuracyMeters)
     }
 
     @Test
@@ -49,10 +47,7 @@ class LocationSanitizerTest {
     fun missingFieldsUseFiniteDefaults() {
         val fields = LocationSanitizer.fieldsFor(sample())
         assertTrue(fields.verticalAccuracyMeters.isFinite())
-        assertTrue(fields.mslAltitudeMeters.isFinite())
         assertTrue(fields.elapsedRealtimeUncertaintyNanos in 0..LocationSanitizer.MAX_UNCERTAINTY_NANOS)
-        assertEquals(12, fields.satellites)
-        assertTrue(fields.meanCn0DbHz <= fields.maxCn0DbHz)
     }
 
     @Test

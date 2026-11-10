@@ -25,35 +25,43 @@ object GnssHook : BaseLocationHook() {
 
         val rawRegistration = rawGnssRegistrationHook()
 
+        // A void registration reports intentional policy rejection by throwing. PROTECTIVE
+        // would swallow that API result and execute the original registration instead.
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "addGnssAntennaInfoListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "addGnssMeasurementsListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "addGnssNavigationMessageListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "removeGnssAntennaInfoListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "removeGnssMeasurementsListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "removeGnssNavigationMessageListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
     }
 

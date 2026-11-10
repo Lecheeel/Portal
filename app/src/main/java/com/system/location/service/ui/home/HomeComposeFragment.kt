@@ -170,7 +170,7 @@ class HomeComposeFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 mockModel.runtimeState.collect { runtime ->
-                    if (runtime.isActive) {
+                    if (runtime.isActive || startInFlight) {
                         stopRealLocation()
                         locationState.value = locationState.value.copy(loading = false, issue = null)
                     } else startRealLocation()
@@ -340,8 +340,9 @@ class HomeComposeFragment : Fragment() {
 
     private fun startSelected() {
         val selected = targetState.value.selection ?: return
-        if (startInFlight || targetState.value.busy || mockModel.runtimeState.value.isActive) return
+        if (startInFlight || targetState.value.busy) return
         startInFlight = true
+        stopRealLocation()
         val revision = selectionRevision
         targetState.value = targetState.value.copy(busy = true)
         viewLifecycleOwner.lifecycleScope.launch {
@@ -372,6 +373,7 @@ class HomeComposeFragment : Fragment() {
             } finally {
                 startInFlight = false
                 targetState.value = targetState.value.copy(busy = libraryState.value.busy)
+                if (!mockModel.runtimeState.value.isActive) startRealLocation()
             }
         }
     }
@@ -577,7 +579,7 @@ class HomeComposeFragment : Fragment() {
     @Suppress("MissingPermission")
     private fun startRealLocation() {
         val map = map ?: return
-        if (mockModel.runtimeState.value.isActive) {
+        if (mockModel.runtimeState.value.isActive || startInFlight) {
             stopRealLocation()
             locationState.value = locationState.value.copy(loading = false, issue = null)
             return
@@ -947,9 +949,9 @@ private fun HomeScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = onStart,
-                        enabled = target.selection != null && !target.busy && !runtime.isActive,
+                        enabled = target.selection != null && !target.busy,
                         modifier = Modifier.weight(1f),
-                    ) { Text(if (runtime.isActive) "运行中" else "开始模拟") }
+                    ) { Text(if (runtime.isActive) "切换位置" else "开始模拟") }
                     OutlinedButton(
                         onClick = { scope.launch { mockModel.stopScenario() } },
                         enabled = runtime.isActive,

@@ -59,7 +59,7 @@ class HomeSelectionUiTest {
                 scenario.recreate()
                 assertEquals("Recreation must retain the active route session", runningRouteId, ScenarioRuntime.state.value.scenarioId)
                 assertEquals(RuntimePhase.RUNNING, ScenarioRuntime.state.value.phase)
-                compose.onNodeWithText("运行中").assertIsNotEnabled()
+                compose.onNodeWithText("切换位置").assertIsEnabled()
                 stopFromHome()
                 val savedRouteScenario = checkNotNull(FileConfigStore(File(context.noBackupFilesDir, "active-config.json")).load()).scenario
                 assertEquals(route.route, savedRouteScenario.route)
@@ -78,6 +78,35 @@ class HomeSelectionUiTest {
                 val savedPointScenario = checkNotNull(FileConfigStore(File(context.noBackupFilesDir, "active-config.json")).load()).scenario
                 assertNull(savedPointScenario.route)
                 assertEquals(location.coordinate, savedPointScenario.point)
+            }
+        }
+    }
+
+    @Test fun runningRouteCanSwitchToANewCoordinateWithoutStoppingFromHome() = withSavedTargets { _, route ->
+        withMockRuntime {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                selectSavedTarget("路线", route.route.name)
+                compose.onNodeWithText("开始模拟").performClick()
+                awaitRunning(route.route.name)
+                val previousId = ScenarioRuntime.state.value.scenarioId
+                compose.onNodeWithContentDescription("输入坐标").performClick()
+                compose.onNodeWithText("纬度").performTextReplacement("25.123456")
+                compose.onNodeWithText("经度").performTextReplacement("119.123456")
+                compose.onNodeWithText("确定").performClick()
+                // Selection is a preview until the user confirms the switch.
+                assertEquals(previousId, ScenarioRuntime.state.value.scenarioId)
+                assertEquals(route.route.id, ScenarioRuntime.state.value.routeId)
+                scenario.recreate()
+                compose.onNodeWithText("切换位置").assertIsEnabled().performClick()
+                compose.waitUntil(15_000) {
+                    val state = ScenarioRuntime.state.value
+                    assertNotEquals("Switch failed: ${state.error}", RuntimePhase.ERROR, state.phase)
+                    state.phase == RuntimePhase.RUNNING && state.scenarioId != previousId && state.sample != null
+                }
+                assertNull(ScenarioRuntime.state.value.routeId)
+                assertCoordinate(Wgs84(25.123456, 119.123456), ScenarioRuntime.state.value)
+                compose.onNodeWithText("停止模拟").assertIsEnabled()
+                stopFromHome()
             }
         }
     }

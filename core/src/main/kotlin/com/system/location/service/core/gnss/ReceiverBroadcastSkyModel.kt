@@ -34,7 +34,10 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
             }
         }
         val beiDouTime = beiDouEvidence?.let { e -> elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) } }
-        val glonassTime = glonassEvidence?.let { e -> elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) } }
+        val glonassDomain = glonassEvidence?.clock?.domain()
+        val glonassTime = glonassEvidence?.let { e ->
+            elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount, glonassDomain!!) }
+        }
         val base = replay.selection(atMillis, 0) ?: return null
         val diagnostics = mutableListOf<String>()
         if (evidence != null) diagnostics += "GPS 方位/仰角来自广播轨道和真空光程；CN0、在用候选来自本次采集的经验校准，非实时接收状态"
@@ -164,7 +167,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
             } else {
                 val receiver = GlonassReceiver(glonassEvidence.receiverFrame, pzPosition,
                     GeodeticOrientation(latitude, longitude))
-                val domain = glonassEvidence.clock.domain()
+                val domain = glonassDomain!!
                 glonassEvidence.ephemerides.mapNotNull { encoded ->
                     val ephemeris = encoded.resolve(domain)
                     if (ephemeris == null) {

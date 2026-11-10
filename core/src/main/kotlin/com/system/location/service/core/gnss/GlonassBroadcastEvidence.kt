@@ -48,10 +48,10 @@ data class GlonassElapsedClockEvidence(
     fun domain(): GlonassTimeDomain = GlonassTimeDomain(domainId,
         coverageFrom.coordinate(), coverageUntil.coordinate())
 
-    fun at(elapsedNanos: Long, currentBootCount: Int?): GlonassTime? {
+    fun at(elapsedNanos: Long, currentBootCount: Int?, timeDomain: GlonassTimeDomain = domain()): GlonassTime? {
         if (currentBootCount != bootCount || elapsedNanos < elapsedRealtimeNanos) return null
         val delta = (elapsedNanos - elapsedRealtimeNanos) / 1e9
-        return runCatching { domain().at(anchor.coordinate())?.plusSeconds(delta) }.getOrNull()
+        return runCatching { timeDomain.at(anchor.coordinate())?.plusSeconds(delta) }.getOrNull()
     }
 }
 

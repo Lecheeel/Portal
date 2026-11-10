@@ -15,19 +15,20 @@ import kotlin.math.abs
 /**
  * C07 · NMEA 自洽性。
  *
- * 期望：GGA/RMC/GSA/GSV 校验和正确；GSV 卫星数与 GGA 卫星数、GnssStatus 一致；
+ * 期望：GGA/RMC/GSA/GSV 校验和正确；GGA 在用数不超过同时间窗 GSV 可见数；
  * talker ID 与星座匹配，且定位状态（GGA quality / RMC status）与位置样本不矛盾。
  *
  * 解析规则：`$` + talker+type + 逗号分隔字段 + `*HH`，按 NMEA 0183 XOR 校验和验证。
- * 无法解析的句子只记录、不参与判定；完全没有 NMEA 时返回 UNKNOWN（未启用），
- * 收到语句但缺必需类型/校验和错误/交叉校验矛盾时 FAIL。
+ * 完全没有 NMEA 时返回 UNKNOWN（未启用或未获得输出），
+ * 语句类型不足时 UNKNOWN；校验和错误、无法解析或交叉校验矛盾时 FAIL。
  */
 class NmeaCheck : Check {
     override val id = CheckIds.NMEA
     override val title = "NMEA 语句"
 
-    override fun run(context: CheckContext): CheckResult {
-        val snapshot = context.snapshot
+    override fun run(context: CheckContext): CheckResult = evaluate(context.snapshot)
+
+    internal fun evaluate(snapshot: SampleSnapshot): CheckResult {
         val rawSentences = snapshot.nmeaSentences
         if (rawSentences.isEmpty()) {
             return unknown(
@@ -40,9 +41,13 @@ class NmeaCheck : Check {
         val analysis = analyze(snapshot, summary)
         val evidence = buildEvidence(snapshot, analysis)
         if (analysis.issues.isEmpty()) {
+            val missing = REQUIRED_TYPES.filter { analysis.typeCounts[it] == 0 }
+            if (missing.isNotEmpty()) return unknown(
+                "未收到 ${missing.joinToString("/")}，现有语句未见硬性矛盾，完整自洽性证据不足", evidence,
+            )
             return pass(
-                "NMEA 自洽：可解析 ${summary.parsed.size}/${rawSentences.size} 句，GGA/RMC/GSA/GSV/GST/ZDA 齐全，" +
-                    "校验和全部正确，GGA/GSV/GnssStatus 卫星数一致，talker 与星座匹配",
+                "NMEA 自洽：可解析 ${summary.parsed.size}/${rawSentences.size} 句，GGA/RMC/GSA/GSV 已收到，" +
+                    "校验和正确，可比较的在用数/可见数未见矛盾，talker 与星座匹配",
                 evidence,
             )
         }
@@ -65,9 +70,8 @@ class NmeaCheck : Check {
         if (summary.checksumFailures.isNotEmpty()) {
             issues += "NMEA 校验和错误 ${summary.checksumFailures.size} 条"
         }
-        val missing = REQUIRED_TYPES.filter { type -> (typeCounts[type] ?: 0) == 0 }
-        if (missing.isNotEmpty()) {
-            issues += "缺少必需语句 ${missing.joinToString("/")}"
+        if (summary.unparsable.isNotEmpty()) {
+            issues += "NMEA 无法解析 ${summary.unparsable.size} 条"
         }
 
         val ggaSatellites = ggaList.mapNotNull { sentence ->
@@ -78,14 +82,14 @@ class NmeaCheck : Check {
         }
         val latestGgaQuality = ggaList.lastOrNull()?.fields?.getOrNull(5)?.trim()?.toIntOrNull()
         val latestRmcStatus = rmcList.lastOrNull()?.fields?.getOrNull(1)?.trim()?.uppercase(Locale.US)
-        val hasLocations = snapshot.locations.isNotEmpty()
 
-        val latestGgaUtc = ggaList.lastOrNull()?.fields?.getOrNull(0)?.trim()
         val latestGst = gstList.lastOrNull()
         if (latestGst != null) {
             val utc = latestGst.fields.getOrNull(0)?.trim()
-            if (latestGgaUtc != null && utc != null && utc != latestGgaUtc) {
-                issues += "GST UTC=$utc 与最新 GGA UTC=$latestGgaUtc 不一致"
+            val sameInstantGga = ggaList.lastOrNull { it.timestampMillis == latestGst.timestampMillis }
+            val ggaUtc = sameInstantGga?.fields?.getOrNull(0)?.toDoubleOrNull()
+            if (ggaUtc != null && utc?.toDoubleOrNull() != ggaUtc) {
+                issues += "GST 与同刻 GGA UTC 不一致"
             }
             val errors = latestGst.fields.drop(5).mapNotNull { it.trim().toDoubleOrNull() }
             if (errors.size < 3 || errors.any { it < 0.0 || !it.isFinite() }) {
@@ -95,8 +99,10 @@ class NmeaCheck : Check {
         val latestZda = zdaList.lastOrNull()
         if (latestZda != null) {
             val utc = latestZda.fields.getOrNull(0)?.trim()
-            if (latestGgaUtc != null && utc != null && utc != latestGgaUtc) {
-                issues += "ZDA UTC=$utc 与最新 GGA UTC=$latestGgaUtc 不一致"
+            val sameInstantGga = ggaList.lastOrNull { it.timestampMillis == latestZda.timestampMillis }
+            val ggaUtc = sameInstantGga?.fields?.getOrNull(0)?.toDoubleOrNull()
+            if (ggaUtc != null && utc?.toDoubleOrNull() != ggaUtc) {
+                issues += "ZDA 与同刻 GGA UTC 不一致"
             }
             val day = latestZda.fields.getOrNull(1)?.trim()?.toIntOrNull()
             val month = latestZda.fields.getOrNull(2)?.trim()?.toIntOrNull()
@@ -106,11 +112,23 @@ class NmeaCheck : Check {
             }
         }
 
-        if (hasLocations && latestGgaQuality == 0) {
-            issues += "最新 GGA fixQuality=0 但已收到 ${snapshot.locations.size} 个位置样本"
+        ggaList.forEach { gga ->
+            val used = gga.fields.getOrNull(6)?.toIntOrNull()
+            val quality = gga.fields.getOrNull(5)?.toIntOrNull()
+            if (used == null || used < 0 || quality == null || quality !in 0..8)
+                issues += "GGA 卫星数或定位质量字段非法"
+            if (quality == 0 && used != null && used > 0) issues += "GGA 无解却声明 $used 颗卫星参与定位"
+            // Network/cached/mock Location can coexist with no current GNSS fix.
+            val gsa = gsaList.filter { it.timestampMillis == gga.timestampMillis }
+            if (quality != null && quality > 0 && gsa.any { it.fields.getOrNull(1) == "3" } && used != null && used < 4)
+                issues += "GSA 声明三维定位，但同刻 GGA 仅 $used 颗卫星在用"
         }
-        if (hasLocations && latestRmcStatus == "V") {
-            issues += "最新 RMC status=V 但已收到 ${snapshot.locations.size} 个位置样本"
+        gsaList.forEach { gsa ->
+            val fix = gsa.fields.getOrNull(1)?.toIntOrNull()
+            val dop = gsa.fields.drop(14).take(3)
+            if (fix !in 1..3) issues += "GSA 定位类型非法"
+            if (fix in 2..3 && (dop.size != 3 || dop.any { it.toDoubleOrNull()?.let { value -> value.isFinite() && value > 0 } != true }))
+                issues += "GSA 有解但 DOP 缺失或无效"
         }
 
         val bursts = groupGsvBursts(parsed)
@@ -122,39 +140,43 @@ class NmeaCheck : Check {
             val ggaCount = gga.fields.getOrNull(6)?.trim()?.toIntOrNull() ?: return@mapNotNull null
             val burst = nearestBurst(bursts, gga) ?: return@mapNotNull null
             val gsvTotal = burst.satelliteTotal() ?: return@mapNotNull null
-            GgaGsvPair(ggaCount, gsvTotal, abs(ggaCount - gsvTotal))
+            GgaGsvPair(ggaCount, gsvTotal, ggaCount - gsvTotal)
         }
         val maxGgaGsvDiff = comparisons.maxOfOrNull { it.diff }
-        if (maxGgaGsvDiff != null && maxGgaGsvDiff > MAX_GGA_GSV_DIFF) {
-            issues += "GGA 卫星数与最近 GSV 星座卫星合计最大相差 $maxGgaGsvDiff（> $MAX_GGA_GSV_DIFF）"
+        if (maxGgaGsvDiff != null && maxGgaGsvDiff > 0) {
+            issues += "同时间窗 GGA 在用数超过 GSV 可见数（最多 $maxGgaGsvDiff 颗）"
         }
 
-        val latestFrame = snapshot.gnssFrames.maxByOrNull { it.capturedAtMillis }
-        val latestFrameCount = latestFrame?.satellites?.size
         val latestGsvTotal = bursts.lastOrNull { it.isComplete() }?.satelliteTotal()
             ?: bursts.lastOrNull()?.satelliteTotal()
         var gsvVsGnssDiff: Int? = null
-        if (latestFrameCount != null && latestGsvTotal != null) {
-            val diff = abs(latestFrameCount - latestGsvTotal)
-            gsvVsGnssDiff = diff
-            if (diff > MAX_GSV_GNSS_DIFF) {
-                issues += "GSV 卫星合计 $latestGsvTotal 与最新 GnssStatus $latestFrameCount 相差 " +
-                    "$diff（> $MAX_GSV_GNSS_DIFF）"
-            }
+        val latestBurst = bursts.lastOrNull { it.isComplete() }
+        val matchedFrame = latestBurst?.let { burst -> snapshot.gnssFrames.minByOrNull {
+            abs(it.capturedAtMillis - burst.anchorMillis)
+        }?.takeIf { abs(it.capturedAtMillis - burst.anchorMillis) <= 1000L } }
+        var matchedFrameCount: Int? = null
+        if (matchedFrame != null) {
+            // A talker may report only some constellations/signals. Compare only represented systems.
+            val represented = latestBurst.byTalker.keys.flatMap { TALKER_CONSTELLATIONS[it].orEmpty() }.toSet()
+            val statusCount = matchedFrame.satellites.filter { it.constellation in represented }
+                .map { it.constellation to it.svid }.distinct().size
+            matchedFrameCount = statusCount
+            val reported = latestBurst.satelliteTotal()
+            gsvVsGnssDiff = reported?.let { abs(statusCount - it) }
         }
 
         // 只校验真正报告了卫星的 talker：部分设备会为当前不可见星座输出 0 星 GSV。
-        val gsvTalkers = gsvList
+        val gsvTalkers = latestBurst?.sentences.orEmpty()
             .filter { sentence -> gsvSatelliteCount(sentence) > 0 }
             .map { it.talker }
             .distinct()
-        if (latestFrame != null && latestFrame.satellites.isNotEmpty()) {
-            val frameConstellations = latestFrame.satellites.map { it.constellation }.toSet()
+        if (matchedFrame != null && matchedFrame.satellites.isNotEmpty()) {
+            val frameConstellations = matchedFrame.satellites.map { it.constellation }.toSet()
             val unmatched = gsvTalkers.filter { talker ->
-                TALKER_CONSTELLATIONS[talker]?.let { it !in frameConstellations } == true
+                TALKER_CONSTELLATIONS[talker]?.let { systems -> systems.none { it in frameConstellations } } == true
             }
             if (unmatched.isNotEmpty()) {
-                issues += "GSV talker ${unmatched.joinToString("/")} 对应星座不在最新 GnssStatus 中"
+                issues += "GSV talker ${unmatched.joinToString("/")} 对应星座不在同时间窗 GnssStatus 中"
             }
         }
 
@@ -205,7 +227,7 @@ class NmeaCheck : Check {
             comparisons = comparisons,
             maxGgaGsvDiff = maxGgaGsvDiff,
             latestGsvTotal = latestGsvTotal,
-            latestFrameCount = latestFrameCount,
+            latestFrameCount = matchedFrameCount,
             gsvVsGnssDiff = gsvVsGnssDiff,
             issues = issues,
         )
@@ -250,7 +272,7 @@ class NmeaCheck : Check {
         evidence += "GSV：${analysis.bursts.size} 组 burst" +
             (if (analysis.boundaryBursts > 0) "（边界截断 ${analysis.boundaryBursts} 组已忽略）" else "") +
             "；各组合计 ${sampleValues(analysis.burstTotals.map { it.toString() })}；最新合计=" +
-            "${analysis.latestGsvTotal ?: "n/a"}，最新 GnssStatus=${analysis.latestFrameCount ?: "n/a"}" +
+            "${analysis.latestGsvTotal ?: "n/a"}，配对 GnssStatus 对应星座唯一卫星=${analysis.latestFrameCount ?: "n/a"}" +
             (analysis.gsvVsGnssDiff?.let { "，差=$it" } ?: "")
         evidence += "NMEA UTC：GGA ${analysis.firstGgaUtc ?: "无"} → ${analysis.lastGgaUtc ?: "无"}；" +
             "RMC 最新 ${analysis.latestRmcDateTime ?: "无"}"
@@ -274,8 +296,6 @@ class NmeaCheck : Check {
     }
 
     companion object {
-        private const val MAX_GGA_GSV_DIFF = 1
-        private const val MAX_GSV_GNSS_DIFF = 2
         private const val MAX_EVIDENCE_LINES = 20
         private const val MAX_EVIDENCE_CHARS = 299
     }
@@ -383,13 +403,16 @@ private class GsvBurst(
 }
 
 private val TYPE_ORDER = listOf("GGA", "RMC", "GSA", "GSV", "GST", "ZDA")
-private val REQUIRED_TYPES = listOf("GGA", "RMC", "GSA", "GSV", "GST", "ZDA")
+private val REQUIRED_TYPES = listOf("GGA", "RMC", "GSA", "GSV")
 
 private val TALKER_CONSTELLATIONS = mapOf(
-    "GP" to GnssStatus.CONSTELLATION_GPS,
-    "BD" to GnssStatus.CONSTELLATION_BEIDOU,
-    "GL" to GnssStatus.CONSTELLATION_GLONASS,
-    "GA" to GnssStatus.CONSTELLATION_GALILEO,
+    "GP" to setOf(GnssStatus.CONSTELLATION_GPS, GnssStatus.CONSTELLATION_SBAS),
+    "BD" to setOf(GnssStatus.CONSTELLATION_BEIDOU),
+    "GB" to setOf(GnssStatus.CONSTELLATION_BEIDOU),
+    "GL" to setOf(GnssStatus.CONSTELLATION_GLONASS),
+    "GA" to setOf(GnssStatus.CONSTELLATION_GALILEO),
+    "GQ" to setOf(GnssStatus.CONSTELLATION_QZSS),
+    "GI" to setOf(GnssStatus.CONSTELLATION_IRNSS),
 )
 
 /** NMEA 4.1 GSA systemId：1=GPS、2=GLONASS、3=Galileo、4=BeiDou、5=QZSS、6=NavIC。 */
@@ -398,7 +421,8 @@ private val TALKER_SYSTEM_IDS = mapOf(
     "GL" to 2,
     "GA" to 3,
     "BD" to 4,
-    "QZ" to 5,
+    "GQ" to 5,
+    "GB" to 4,
     "GI" to 6,
 )
 
@@ -409,8 +433,11 @@ private val TALKER_SYSTEM_IDS = mapOf(
 private val TALKER_PRN_RANGES = mapOf(
     "GP" to listOf(1..64, 120..158, 193..200),
     "BD" to listOf(1..64, 201..235),
-    "GL" to listOf(1..24, 65..96),
+    "GL" to listOf(1..25, 65..96),
     "GA" to listOf(1..36, 301..336),
+    "GB" to listOf(1..64, 201..235),
+    "GQ" to listOf(1..10, 193..202),
+    "GI" to listOf(1..14),
 )
 
 private fun parseAll(sentences: List<NmeaSentenceSnapshot>): ParseSummary {
@@ -436,8 +463,8 @@ private fun parseSentence(snapshot: NmeaSentenceSnapshot, sequence: Int): ParseO
     if (star < 0) return ParseOutcome.Unparsable(line)
     val payload = body.substring(0, star)
     val checksumText = body.substring(star + 1).trim()
-    if (checksumText.length < 2) return ParseOutcome.Unparsable(line)
-    val expected = checksumText.substring(0, 2).toIntOrNull(16) ?: return ParseOutcome.Unparsable(line)
+    if (checksumText.length != 2) return ParseOutcome.Unparsable(line)
+    val expected = checksumText.toIntOrNull(16) ?: return ParseOutcome.ChecksumFailure(line)
     val actual = payload.fold(0) { checksum, char -> checksum xor char.code }
     if (actual != expected) return ParseOutcome.ChecksumFailure(line)
     val parts = payload.split(',')
@@ -550,11 +577,10 @@ private fun validateGsvBursts(bursts: List<GsvBurst>): GsvValidation {
 }
 
 private fun nearestBurst(bursts: List<GsvBurst>, gga: ParsedNmea): GsvBurst? {
-    if (bursts.isEmpty()) return null
-    if (gga.timestampMillis == 0L || bursts.all { it.anchorMillis == 0L }) {
-        return bursts.minByOrNull { burst -> abs(burst.firstSequence.toLong() - gga.sequence.toLong()) }
-    }
-    return bursts.minByOrNull { burst -> abs(burst.anchorMillis - gga.timestampMillis) }
+    if (gga.timestampMillis <= 0L) return null
+    return bursts.filter { it.isComplete() && it.anchorMillis > 0 && abs(it.anchorMillis - gga.timestampMillis) <= 1000L }
+        .minByOrNull { abs(it.anchorMillis - gga.timestampMillis) }
+
 }
 
 private fun gsvSatelliteGroups(sentence: ParsedNmea): List<List<String>> {

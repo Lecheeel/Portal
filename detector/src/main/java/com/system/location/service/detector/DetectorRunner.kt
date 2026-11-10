@@ -5,6 +5,7 @@ import com.system.location.service.detector.checks.AllChecks
 import com.system.location.service.detector.model.CheckContext
 import com.system.location.service.detector.model.DetectorReport
 import com.system.location.service.detector.model.DeviceInfoCollector
+import com.system.location.service.detector.model.GnssEvidenceSnapshot
 import com.system.location.service.detector.model.SampleSnapshot
 import com.system.location.service.detector.sample.CheckSampler
 import com.system.location.service.detector.CheckRunner
@@ -39,6 +40,7 @@ object DetectorRunner {
                 generatedAtMillis = System.currentTimeMillis(),
                 device = DeviceInfoCollector.collect(appContext),
                 checks = results,
+                gnssEvidence = GnssEvidenceSnapshot(snapshot.startedAtMillis, snapshot.endedAtMillis, snapshot.gnssFrames),
             )
             val json = report.toJson()
             lastReportJson = json

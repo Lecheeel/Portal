@@ -45,6 +45,8 @@ class DetectorReport(
     val generatedAtMillis: Long,
     val device: DeviceInfo,
     val checks: List<CheckResult>,
+    /** Public callback observations for independent before/after distribution analysis. */
+    val gnssEvidence: GnssEvidenceSnapshot? = null,
 ) {
     val passCount: Int get() = checks.count { it.status == CheckStatus.PASS }
     val failCount: Int get() = checks.count { it.status == CheckStatus.FAIL }
@@ -80,6 +82,36 @@ class DetectorReport(
                 })
             }
         })
+        gnssEvidence?.let { evidence ->
+            root.put("gnssEvidence", JSONObject().apply {
+                put("schema", 1)
+                put("startedAtMillis", evidence.startedAtMillis)
+                put("endedAtMillis", evidence.endedAtMillis)
+                put("timeSource", "Android callback arrival UTC milliseconds")
+                put("frames", JSONArray().apply {
+                    evidence.frames.forEach { frame ->
+                        put(JSONObject().apply {
+                            put("capturedAtMillis", frame.capturedAtMillis)
+                            put("satellites", JSONArray().apply {
+                                frame.satellites.forEach { satellite ->
+                                    put(JSONObject().apply {
+                                        put("constellation", satellite.constellation)
+                                        put("svid", satellite.svid)
+                                        // Invalid native values must remain exportable as evidence.
+                                        put("cn0DbHz", satellite.cn0DbHz.finiteJsonValue())
+                                        put("elevationDegrees", satellite.elevationDegrees.finiteJsonValue())
+                                        put("azimuthDegrees", satellite.azimuthDegrees.finiteJsonValue())
+                                        put("usedInFix", satellite.usedInFix)
+                                        put("hasEphemeris", satellite.hasEphemeris)
+                                        put("hasAlmanac", satellite.hasAlmanac)
+                                    })
+                                }
+                            })
+                        })
+                    }
+                })
+            })
+        }
         return root.toString(2)
     }
 
@@ -101,3 +133,8 @@ class DetectorReport(
         const val SCHEMA = 1
     }
 }
+
+data class GnssEvidenceSnapshot(val startedAtMillis: Long, val endedAtMillis: Long,
+    val frames: List<GnssFrameSnapshot>)
+
+private fun Float.finiteJsonValue(): Any = if (isFinite()) toDouble() else toString()

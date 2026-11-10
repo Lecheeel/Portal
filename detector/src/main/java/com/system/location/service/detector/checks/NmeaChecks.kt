@@ -45,6 +45,12 @@ class NmeaCheck : Check {
             if (missing.isNotEmpty()) return unknown(
                 "未收到 ${missing.joinToString("/")}，现有语句未见硬性矛盾，完整自洽性证据不足", evidence,
             )
+            if (analysis.comparisons.isEmpty()) return unknown(
+                "已收到语句，但没有覆盖完整星座的同时间窗 GGA/GSV 配对，无法完成数量对账", evidence,
+            )
+            if (analysis.gsvVsGnssDiff?.let { it > 0 } == true || analysis.sourceConcerns.isNotEmpty()) return unknown(
+                "NMEA 与 GnssStatus 存在同时间窗差异，需核对信号覆盖和回调时序", evidence + analysis.sourceConcerns,
+            )
             return pass(
                 "NMEA 自洽：可解析 ${summary.parsed.size}/${rawSentences.size} 句，GGA/RMC/GSA/GSV 已收到，" +
                     "校验和正确，可比较的在用数/可见数未见矛盾，talker 与星座匹配",
@@ -67,6 +73,7 @@ class NmeaCheck : Check {
         val zdaList = byType["ZDA"].orEmpty()
 
         val issues = mutableListOf<String>()
+        val sourceConcerns = mutableListOf<String>()
         if (summary.checksumFailures.isNotEmpty()) {
             issues += "NMEA 校验和错误 ${summary.checksumFailures.size} 条"
         }
@@ -140,6 +147,18 @@ class NmeaCheck : Check {
             val ggaCount = gga.fields.getOrNull(6)?.trim()?.toIntOrNull() ?: return@mapNotNull null
             val burst = nearestBurst(bursts, gga) ?: return@mapNotNull null
             val gsvTotal = burst.satelliteTotal() ?: return@mapNotNull null
+            if (gga.talker == "GN" && ggaCount > 0) {
+                val usedSystems = gsaList.filter {
+                    abs(it.timestampMillis - gga.timestampMillis) <= 1000 &&
+                        it.fields.drop(2).take(12).any(String::isNotBlank)
+                }.map { it.fields.getOrNull(17)?.toIntOrNull() ?: TALKER_SYSTEM_IDS[it.talker] }
+                val represented = burst.sentences.mapNotNull { TALKER_SYSTEM_IDS[it.talker] }.toSet()
+                if (usedSystems.isEmpty() || usedSystems.any { it == null || it !in represented })
+                    return@mapNotNull null
+            } else if (gga.talker != "GN" && burst.sentences.any { it.talker != gga.talker }) {
+                // System-specific GGA cannot be compared with a combined total.
+                return@mapNotNull null
+            }
             GgaGsvPair(ggaCount, gsvTotal, ggaCount - gsvTotal)
         }
         val maxGgaGsvDiff = comparisons.maxOfOrNull { it.diff }
@@ -176,7 +195,7 @@ class NmeaCheck : Check {
                 TALKER_CONSTELLATIONS[talker]?.let { systems -> systems.none { it in frameConstellations } } == true
             }
             if (unmatched.isNotEmpty()) {
-                issues += "GSV talker ${unmatched.joinToString("/")} 对应星座不在同时间窗 GnssStatus 中"
+                sourceConcerns += "GSV talker ${unmatched.joinToString("/")} 对应星座不在同时间窗 GnssStatus 中"
             }
         }
 
@@ -230,6 +249,7 @@ class NmeaCheck : Check {
             latestFrameCount = matchedFrameCount,
             gsvVsGnssDiff = gsvVsGnssDiff,
             issues = issues,
+            sourceConcerns = sourceConcerns,
         )
     }
 
@@ -356,6 +376,7 @@ private data class NmeaAnalysis(
     val latestFrameCount: Int?,
     val gsvVsGnssDiff: Int?,
     val issues: List<String>,
+    val sourceConcerns: List<String>,
 )
 
 /** 同一接收时刻内 $xxGSV 的连续块；按卫星编号是否重置划分。 */

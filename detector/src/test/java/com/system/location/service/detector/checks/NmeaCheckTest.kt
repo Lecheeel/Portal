@@ -42,6 +42,7 @@ class NmeaCheckTest {
     @Test fun staleGsvIsNotComparedWithCurrentFix() {
         val result = evaluate(fixture(used = 9, gsvAt = 1000))
         assertFalse(result.detail, result.detail.contains("在用数超过"))
+        assertEquals(CheckStatus.UNKNOWN, result.status)
     }
 
     @Test fun threeDimensionalClaimRequiresAtLeastFourUsedSatellitesAndFiniteDop() {
@@ -92,6 +93,24 @@ class NmeaCheckTest {
         val result = evaluate(fixture().filterNot { it.sentence.contains("GSV") } + sentence("GPGSV,0,1,-1"))
         assertEquals(CheckStatus.FAIL, result.status)
         assertTrue(result.detail.contains("GSV 头"))
+    }
+
+    @Test fun combinedFixWithMissingConstellationGsvIsNotCountedAsContradiction() {
+        val base = fixture(used = 9).map {
+            if (it.sentence.contains("GGA")) sentence(it.sentence.substringAfter('$').substringBefore('*').replace("GPGGA", "GNGGA")) else it
+        }
+        val bdsFields = listOf("A", "3", "01") + List(11) { "" } + listOf("1.2", "1.0", "0.7", "4")
+        val result = evaluate(base + sentence("GNGSA," + bdsFields.joinToString(",")))
+        assertEquals(result.detail, CheckStatus.UNKNOWN, result.status)
+        assertFalse(result.detail, result.detail.contains("在用数超过"))
+    }
+
+    @Test fun sourceDifferenceNeedsTimingAndCapabilityReviewInsteadOfPassOrForgery() {
+        val satellite = GnssSatelliteSnapshot(1, 1, 30f, 30f, 30f, true, true, true, false)
+        val result = NmeaCheck().evaluate(SampleSnapshot(startedAtMillis = 10000, endedAtMillis = 20000,
+            nmeaSentences = fixture(), gnssFrames = listOf(GnssFrameSnapshot(10000, listOf(satellite)))))
+        assertEquals(result.detail, CheckStatus.UNKNOWN, result.status)
+        assertTrue(result.detail.contains("GnssStatus"))
     }
 
     @Test fun checksumFailureRemainsAnError() {

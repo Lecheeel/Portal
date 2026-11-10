@@ -1,41 +1,18 @@
 package com.system.location.service.hook.hooks.gnss
 
-import android.os.IBinder
 import android.os.IInterface
 import com.system.location.service.core.geo.Wgs84
-import com.system.location.service.hook.hooks.ListenerRouting
 import com.system.location.service.hook.utils.BinderUtils
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.WeakHashMap
 
-/** P5-02: maps GNSS status callback objects to their registration caller for fixed-point geometry. */
 object GnssListenerRouting {
-    private data class Caller(val packageName: String?, val uid: Int)
+    private val registry = GnssCallbackRegistry()
 
-    private val callers = WeakHashMap<IBinder, Caller>()
-    private val active = CopyOnWriteArrayList<IInterface>()
-
-    @Synchronized
     fun register(listener: IInterface, packageName: String?) {
-        val uid = BinderUtils.getCallerUid()
-        if (uid > 0) callers[listener.asBinder()] = Caller(packageName, uid)
-        active.add(listener)
-        GnssSignalInjection.ensureStarted()
+        if (registry.register(listener, packageName, BinderUtils.getCallerUid())) GnssSignalInjection.ensureStarted()
     }
-
-    @Synchronized
-    fun unregister(listener: IInterface) {
-        callers.remove(listener.asBinder())
-        active.remove(listener)
-    }
-
-    @Synchronized
-    fun listeners(): List<IInterface> = active.toList()
-
-    @Synchronized
-    fun fixedPointFor(listener: Any?): Wgs84? {
-        val binder = (listener as? IInterface)?.asBinder() ?: return null
-        val caller = callers[binder] ?: return null
-        return ListenerRouting.fixedPointFor(caller.packageName, caller.uid)
-    }
+    fun unregister(listener: IInterface) = registry.unregister(listener)
+    fun listeners(): List<IInterface> = registry.listeners()
+    fun fixedPointFor(listener: Any?): Wgs84? = registry.fixedPointFor(listener)
+    fun shouldDeliver(listener: Any?): Boolean = registry.shouldDeliver(listener)
+    fun clear() = registry.clear()
 }

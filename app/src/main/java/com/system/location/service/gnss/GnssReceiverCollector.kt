@@ -107,6 +107,8 @@ class GnssReceiverCollector(
             val measurementCallback = object : GnssMeasurementsEvent.Callback() {
                 override fun onGnssMeasurementsReceived(event: GnssMeasurementsEvent) {
                     if (!accepts() || measurements.size >= GnssCapture.MAX_FRAMES) return
+                    val capturedElapsed = SystemClock.elapsedRealtimeNanos()
+                    val capturedAt = System.currentTimeMillis()
                     val clock = event.clock
                     val values = event.measurements.mapNotNull { sample ->
                         val constellation = constellation(sample.constellationType) ?: return@mapNotNull null
@@ -120,19 +122,32 @@ class GnssReceiverCollector(
                                 sample.codeType)
                         }.onFailure { notes += "部分原始测量字段无效：${it.javaClass.simpleName}" }.getOrNull()
                     }.take(512)
-                    measurements += GnssMeasurementBatch(System.currentTimeMillis(), clock.timeNanos,
-                        if (clock.hasFullBiasNanos()) clock.fullBiasNanos else null,
-                        if (clock.hasBiasNanos()) clock.biasNanos else null,
-                        clock.hardwareClockDiscontinuityCount, values)
+                    runCatching {
+                        GnssMeasurementBatch(capturedAt, clock.timeNanos,
+                            if (clock.hasFullBiasNanos()) clock.fullBiasNanos else null,
+                            if (clock.hasBiasNanos()) clock.biasNanos else null,
+                            clock.hardwareClockDiscontinuityCount, values,
+                            timeUncertaintyNanos = if (clock.hasTimeUncertaintyNanos()) clock.timeUncertaintyNanos else null,
+                            biasUncertaintyNanos = if (clock.hasBiasUncertaintyNanos()) clock.biasUncertaintyNanos else null,
+                            driftNanosPerSecond = if (clock.hasDriftNanosPerSecond()) clock.driftNanosPerSecond else null,
+                            driftUncertaintyNanosPerSecond = if (clock.hasDriftUncertaintyNanosPerSecond()) clock.driftUncertaintyNanosPerSecond else null,
+                            leapSecond = if (clock.hasLeapSecond()) clock.leapSecond else null,
+                            elapsedRealtimeNanos = if (Build.VERSION.SDK_INT >= 29 && clock.hasElapsedRealtimeNanos()) clock.elapsedRealtimeNanos else null,
+                            elapsedRealtimeUncertaintyNanos = if (Build.VERSION.SDK_INT >= 29 && clock.hasElapsedRealtimeUncertaintyNanos()) clock.elapsedRealtimeUncertaintyNanos else null,
+                            capturedElapsedRealtimeNanos = capturedElapsed)
+                    }.onSuccess { measurements += it }
+                        .onFailure { notes += "原始接收机时钟字段无效：${it.message}" }
                 }
                 override fun onStatusChanged(status: Int) { notes += "原始测量状态：$status" }
             }
             val navigationCallback = object : GnssNavigationMessage.Callback() {
                 override fun onGnssNavigationMessageReceived(event: GnssNavigationMessage) {
                     if (!accepts() || navigation.size >= GnssCapture.MAX_NAVIGATION_MESSAGES) return
+                    val capturedElapsed = SystemClock.elapsedRealtimeNanos()
+                    val capturedAt = System.currentTimeMillis()
                     runCatching {
-                        GnssNavigationObservation(System.currentTimeMillis(), event.type, event.svid, event.status,
-                            event.messageId, event.submessageId, Base64.getEncoder().encodeToString(event.data))
+                        GnssNavigationObservation(capturedAt, event.type, event.svid, event.status,
+                            event.messageId, event.submessageId, Base64.getEncoder().encodeToString(event.data), capturedElapsed)
                     }.onSuccess { navigation += it }
                         .onFailure { notes += "导航电文字段无效：${it.javaClass.simpleName}" }
                 }

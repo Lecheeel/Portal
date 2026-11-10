@@ -88,10 +88,19 @@ python scripts/compare_gnss_profiles.py receiver-capture.json detector-after.jso
 - [x] 样本生成在一次成功 CAS 中读取位置、精度、航向、间隔及其他状态，样本发布不再拥有配置版本写权限，避免并发样本回退版本。
 - [x] 每次 GNSS 投递固定一份配置、场景样本、路由和画像源，状态与 NMEA 共享路由 publication。raw 注册/raw 回调、真实状态/NMEA 抑制各自捕获一次上下文；Location 转换的 extras 和 mock 标记使用同一配置，批量结果及主动监听器投递复用上下文。
 - [x] 修复噪声同时间戳第二次读取退回无噪声原值、旧时间戳回退内部时钟的问题；重复读取复用漂移，延迟请求不改变后续随机步。删除无人调用的旧 NMEA 坐标改写器。
-- [ ] 初始跨进程 `sync_config` 的完整原子恢复，以及 start/stop/位置控制命令的批次原子性。现有认证命令转发顺序、代理启动与配置恢复仍须独立审查，不能将 `put_config` 的完成推广到全部命令。
+- [x] start 一次发布经过验证的位置、可选精度/高度/速度和运行策略；stop、样本到期及配置停用清除旧外部样本、运动状态和场景，重新启用不能复活旧样本。
+- [x] 位置控制先完整检查模式、类型、坐标、运动速度和可选航向，再一起发布；相对运算读取一次原始状态。修复坐标除法操作数颠倒、未知模式虚报成功及坏坐标先改变航向的问题。数值控制拒绝缺失、错误类型及非有限数值，航向和有效标志一次发布。
+- [x] 初始跨进程同步改为注册后发送完整状态，消除“先读配置、再注册”之间漏更新的窗口；首次完整恢复成功才认为初始化完成，超时或请求失败撤销本地会话。`sync_config` 仅保留完整快照诊断接口，不再逐字段恢复或传递真实 `Location`。
+- [x] 成功控制命令之后复制完整状态，覆盖 GNSS/Wi-Fi 开关和样本到期；删除在校验/执行前同步转发增量命令的旧路径。完整恢复包括画像、路由、环境、策略、场景及原始运动时刻；不携带 publication/cache 或原始 GNSS 测量。
+- [x] 代理回调检查 system UID、会话和单调序列；解码/校验成功后才推进序列。每个订阅最多一个在途状态和一个最新待发状态，投递在线程中进行，不持命令锁调用远端 Binder。注册表限制容量，按 UID/服务名替换、按 Binder 去重并清理死亡连接；旧连接失败不能误删替代连接。
+- [x] 外部样本和场景使用原始单调时刻，在严格截止时刻失效；配置重复携带同一样本不会续期或误禁用，IPC 延迟不会重新激活运动。拒绝会溢出的样本截止时间，完整状态及会话标识加入日志脱敏。
 - [ ] 运行中停用、路由/画像切换、并发旧上下文、噪声 seed 切换与多个路由的实际框架回调验收；JVM 检查不能证明 Binder 调度、厂商适配及进程重载恢复已通过。
 
 `PreparedRuntimeConfigurationTest` 覆盖坏批次不发表、缺失/清除语义、完整解码、活动速度保留和合并最新样本；`ConfigCommandTest` 并发读取仅允许观察完整批次，`RuntimeSnapshotTest` 覆盖配置版本与样本并发。`SnapshotTest` 验证样本与一次发布的状态一致；`ProviderViewTest` 验证上下文、场景隔离和重复噪声视图。新增 ART 转换策略测试目前仅完成源码编译，尚未执行。
+
+`RuntimeTransferWireTest` 与 `OrderedRuntimeReceiverTest` 覆盖完整状态往返、画像源复用、损坏/超限消息、陈旧样本、未来时刻及过期时钟；`SessionSequenceGateTest` 覆盖旧会话、重复/乱序、校验失败不推进及并发恢复。`LatestStateWorkerTest` 覆盖阻塞时一万次更新仅保留最新待发状态、关闭/失败清理及跨空闲间隔复用线程；`RuntimePeerRegistryTest` 用 Binder 替身验证容量、去重、死亡、慢连接隔离和替换竞态。这些测试未执行真实跨进程 Binder 事务，不能据此声称厂商服务重启、超时恢复、实际回调时序或高频传输性能已验收。
+
+`RuntimeLifecycleTest` 覆盖完整恢复、停止/配置停用后的旧样本不复活、运动不续期和场景批次；`ControlCommandTest`、`LocationCommandTest`、`SampleCommandTest` 覆盖严格类型、算术、运动元数据及场景 ID 预校验。球面移动计算仅从状态对象抽离，继续沿用原有模型；它不替代 GNSS 的椭球观测几何或广播星历计算。
 
 ## GPS 星历实现与后续验收
 
@@ -143,8 +152,8 @@ Android I/NAV 采用 228 位偶/奇页组合，CRC 覆盖前 196 位，末尾 SS
 - [NovAtel GSV](https://docs.novatel.com/OEM7/Content/Logs/GPGSV.htm) 与 [GSA](https://docs.novatel.com/OEM7/Content/Logs/GPGSA.htm)：核对 talker、卫星编号、可见/在用区别及 DOP 字段。
 - Android 本机 SDK 37 的 `GnssStatus.java`、`OnNmeaMessageListener.java` 用于核对公开 Builder、CN0 范围和 UTC 毫秒时间戳。
 
-`put_config` 的原子发布和主要 GNSS/Location 读取上下文已落地；其余控制命令及初始跨进程同步的缺口见上，完整目标仍未完成。
+配置、主要 GNSS/Location 读取上下文、控制命令和完整跨进程状态复制的实现已落地。剩余重点仍是多系统物理天空、星历/时间有效性证据、有效真实画像与真机跨进程验收；完整目标尚未完成。
 
 每组模型逻辑、每个 Hook 和文档分别提交，提交前执行最小相关验证。完整目标仍未完成，不发布 APK 或声称真机已通过。
 
-前阶段 Core/NMEA/Xposed/Detector JVM 全套、App Kotlin 与 arm64 仪器测试源码编译、Python 验证脚本及模块规范检查均已通过。本阶段配置原子性和读取上下文改动后，Core/NMEA/Xposed/App arm64 JVM 全套、App Kotlin、arm64 仪器测试源码编译和模块规范检查通过；Detector 未因这些改动重跑。此前通过 ADB 启动 Portal 的操作被自动审批策略以 `blocked by policy` 拒绝，本阶段未继续安装或启动新采集，不能将先前空采集当作有效画像。
+前阶段 Core/NMEA/Xposed/Detector JVM 全套、App Kotlin 与 arm64 仪器测试源码编译、Python 验证脚本及模块规范检查均已通过。本阶段配置原子性、读取上下文、状态复制和控制链路改动后，Core/NMEA/Xposed/App arm64 JVM 全套、App Kotlin、arm64 仪器测试源码编译和模块规范检查通过；Detector 未因这些改动重跑。此前通过 ADB 启动 Portal 的操作被自动审批策略以 `blocked by policy` 拒绝，本阶段未继续安装或启动新采集，不能将先前空采集当作有效画像。

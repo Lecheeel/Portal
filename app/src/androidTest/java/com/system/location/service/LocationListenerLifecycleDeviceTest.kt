@@ -19,7 +19,11 @@ import org.junit.runner.RunWith
 /** Opt-in framework round trip; never starts simulation or modifies receiver evidence/settings. */
 @RunWith(AndroidJUnit4::class)
 class LocationListenerLifecycleDeviceTest {
-    @Test fun repeatedRegistrationKeepsOneSubscriptionPerProviderAndUnregisterReleasesIt() = runBlocking {
+    @Test fun repeatedRegistrationKeepsOneSubscriptionPerProviderAndUnregisterReleasesIt() = verifyRegistration()
+
+    @Test fun rejectedProviderDoesNotCreateAModuleSubscription() = verifyRegistration(rejectedProvider = true)
+
+    private fun verifyRegistration(rejectedProvider: Boolean = false) = runBlocking {
         assumeTrue("Explicit device run required",
             InstrumentationRegistry.getArguments().getString("libxposedDevice") == "true")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -41,16 +45,28 @@ class LocationListenerLifecycleDeviceTest {
         val baseline = size()
         val listener = LocationListener { }
         val executor = Executor { it.run() }
+        var verified = false
         try {
+            if (rejectedProvider) {
+                val error = runCatching {
+                    manager.requestLocationUpdates("portal_lifecycle_missing_provider", 1000L, 0f, executor, listener)
+                }.exceptionOrNull()
+                assertTrue("Framework must reject the unknown provider", error is IllegalArgumentException)
+                assertEquals("Rejected registration left a module subscription", baseline, size())
+                verified = true
+                return@runBlocking
+            }
             repeat(20) { manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, executor, listener) }
             assertEquals("Duplicate GPS subscriptions in module registry", baseline + 1, size())
             repeat(5) { manager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000L, 0f, executor, listener) }
             assertEquals("One transport must preserve its separate provider subscriptions", baseline + 2, size())
             manager.removeUpdates(listener)
             assertEquals("Explicit unregister did not release all provider subscriptions", baseline, size())
+            verified = true
         } finally {
             manager.removeUpdates(listener)
-            assertEquals("Test left listener subscriptions behind", baseline, size())
+            // Keep the original assertion if Android did not retain a rejected client transport.
+            if (verified) assertEquals("Test left listener subscriptions behind", baseline, size())
             assertFalse(command("get_runtime_status").getBoolean("is_start"))
         }
     }

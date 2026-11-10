@@ -24,7 +24,7 @@ data class GnssGeometryResult(val dop: GnssDop?, val reason: String? = null, val
  */
 object GnssGeometry {
     fun solve(satellites: List<GnssSatellite>): GnssGeometryResult {
-        val used = satellites.filter { it.usedInFix && it.elevationDeg >= 0f }
+        val used = satellites.filter { it.usedInFix && GnssCaptureValidator.isUsableSatellite(it) }
         if (used.map { it.constellation to it.svid }.distinct().size != used.size) {
             return GnssGeometryResult(null, "duplicate satellite identity")
         }

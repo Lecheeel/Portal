@@ -40,4 +40,11 @@ class GnssGeometryTest {
         val unused = satellite(10, 130f, 40f).copy(usedInFix = false)
         assertEquals(expected, GnssGeometry.solve(geometry() + unused).dop)
     }
+
+    @Test fun zeroCn0UsedRowsDoNotContributeToGeometry() {
+        val expected = GnssGeometry.solve(geometry()).dop!!
+        val zero = satellite(10, 130f, 40f).copy(cn0DbHz = 0f)
+        assertEquals(expected, GnssGeometry.solve(geometry() + zero).dop)
+        assertNull(GnssGeometry.solve(geometry().take(3) + zero).dop)
+    }
 }

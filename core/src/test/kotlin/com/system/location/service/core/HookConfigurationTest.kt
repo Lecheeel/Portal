@@ -53,5 +53,8 @@ class HookConfigurationTest {
         assertThrows(IllegalArgumentException::class.java) { HookConfiguration(reportIntervalMs = 49) }
         assertThrows(IllegalArgumentException::class.java) { HookConfiguration(sensorCadenceScale = Double.NaN) }
         assertThrows(IllegalArgumentException::class.java) { HookConfiguration(sensorVariation = 0.6) }
+        for (amplitude in listOf(Double.NaN, Double.POSITIVE_INFINITY, -1.0, 10.1)) {
+            assertThrows(IllegalArgumentException::class.java) { HookConfiguration(speedAmplitude = amplitude) }
+        }
     }
 }

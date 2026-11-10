@@ -37,5 +37,6 @@ data class HookConfiguration(
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         require(reportIntervalMs in 50..1000)
         require(sensorCadenceScale in 0.5..2.0 && sensorVariation in 0.0..0.5)
+        require(speedAmplitude in 0.0..10.0)
     }
 }

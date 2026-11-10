@@ -26,7 +26,7 @@ class RawGnssRegistrationTest {
     }
 
     @Test fun rejectionIsFalseForBooleanApiAndExplicitFailureForVoidApi() {
-        val hook = rawGnssRegistrationHook({ true }, { false }, { true })
+        val hook = rawGnssRegistrationHook({ true }, { false }, { true }, { true })
         val boolean = Call("addBoolean")
         assertEquals(false, hook.intercept(boolean.chain))
         assertEquals(0, boolean.proceeds)
@@ -44,9 +44,16 @@ class RawGnssRegistrationTest {
         }
     }
 
+    @Test fun excludedCallerKeepsPhysicalRegistration() {
+        val hook = rawGnssRegistrationHook({ true }, { false }, { true }, { false })
+        val call = Call("addBoolean")
+        assertSame(call.result, hook.intercept(call.chain))
+        assertEquals(1, call.proceeds)
+    }
+
     @Test fun unregistrationAndOriginalFailureAlwaysReachAndroidExactlyOnce() {
         val call = Call("removeListener")
-        val hook = rawGnssRegistrationHook({ true }, { false }, { true })
+        val hook = rawGnssRegistrationHook({ true }, { false }, { true }, { true })
         assertSame(call.result, hook.intercept(call.chain))
         assertEquals(1, call.proceeds)
         val failure = IllegalStateException("Android registration failure")

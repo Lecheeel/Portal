@@ -1,14 +1,19 @@
 package com.system.location.service
 
 import android.Manifest
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.gnss.GnssCaptureCodec
+import com.system.location.service.core.gnss.GnssCaptureStore
+import com.system.location.service.core.gnss.GnssCaptureValidator
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.gnss.GnssReceiverCollector
+import com.system.location.service.gnss.GnssCaptureRepository
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.service.MockServiceHelper
 import kotlinx.coroutines.CompletableDeferred
@@ -23,6 +28,8 @@ import org.junit.Assume.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.nio.file.Files
 
 /** Opt-in system-server checks. Never save fixture data or change the user's backend/settings. */
 @RunWith(AndroidJUnit4::class)
@@ -90,6 +97,36 @@ class GnssCaptureIsolationDeviceTest {
         }
         try { withTimeout(15_000L) { retryFrame.await() } }
         finally { retry.cancelAndJoin() }
+    }
+
+    @Test fun physicalWindowRetainsEvidenceAndPromotesOnlyWhenQualityAllows() = runBlocking {
+        val duration = InstrumentationRegistry.getArguments().getString("physicalCaptureMillis")?.toLong() ?: 60_000L
+        require(duration in 30_000L..300_000L)
+        val capture = withTimeout(duration + 15_000L) { GnssReceiverCollector(context).capture(duration) }
+        val quality = GnssCaptureValidator.validate(capture, System.currentTimeMillis())
+        // Persist real evidence in the test cache for inspection, never the user's profile.
+        File(context.cacheDir, "gnss-physical-window.json").writeText(GnssCaptureCodec.encode(capture))
+        val directory = Files.createTempDirectory(context.cacheDir.toPath(), "gnss-physical-test-").toFile()
+        val isolated = object : ContextWrapper(context) { override fun getNoBackupFilesDir() = directory }
+        try {
+            val repository = GnssCaptureRepository(isolated)
+            val failure = runCatching { repository.save(capture) }.exceptionOrNull()
+            if (quality.eligible) {
+                assertNull(failure)
+                assertEquals(capture, repository.load())
+            } else {
+                assertTrue("Rejected evidence must reach the archival boundary: $failure", failure is IllegalStateException)
+                assertNull(repository.load())
+                assertEquals(capture, GnssCaptureStore(directory.resolve("gnss/latest-rejected-capture.json")).load())
+            }
+            instrumentation.sendStatus(0, android.os.Bundle().apply {
+                putString("physical_capture_quality", "eligible=${quality.eligible}; ${quality.issues.joinToString()}")
+                putInt("physical_capture_frames", capture.frames.size)
+                putInt("physical_capture_usable_samples", capture.frames.sumOf { f ->
+                    f.satellites.count(GnssCaptureValidator::isUsableSatellite)
+                })
+            })
+        } finally { directory.deleteRecursively() }
     }
 
     private fun stopSystem() {

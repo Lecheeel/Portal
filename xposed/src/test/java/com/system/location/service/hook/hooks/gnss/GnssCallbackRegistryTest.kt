@@ -10,6 +10,53 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssCallbackRegistryTest {
+    @Test fun deathDuringLinkCannotReportASuccessfulRegistrationOrRestore() {
+        for (restoring in listOf(false, true)) {
+            val transport = Transport().apply { dieDuringLink = true }
+            val registry = GnssCallbackRegistry()
+            val listener = transport.listener()
+            val registered = if (restoring) registry.restore(
+                com.system.location.service.hook.runtime.CallbackSubscription(listener, 10001, "app"))
+            else registry.register(listener, "app", 10001)
+            assertFalse(registered)
+            assertTrue(registry.listeners().isEmpty())
+            assertEquals(transport.links, transport.unlinks)
+        }
+    }
+
+    @Test fun delayedDeathFromReplacedRegistrationCannotRemoveCurrentListener() {
+        val transport = Transport()
+        val registry = GnssCallbackRegistry()
+        val listener = transport.listener()
+        assertTrue(registry.register(listener, "old", 10001))
+        val oldDeath = transport.death!!
+        registry.unregister(listener)
+        assertTrue(registry.register(listener, "new", 10002))
+        oldDeath.binderDied()
+        assertEquals(10002, registry.subscriptions().single().uid)
+        registry.clear()
+        assertEquals(transport.links, transport.unlinks)
+    }
+
+    @Test fun retirementUnlinksOldGenerationAndRestoresOnlyOneSuccessorDeathLink() {
+        val transport = Transport()
+        val old = GnssCallbackRegistry()
+        val successor = GnssCallbackRegistry()
+        assertTrue(old.register(transport.listener(), "app", 10001))
+        val saved = old.subscriptions().single()
+        val oldDeath = transport.death!!
+        old.clear()
+        assertTrue(old.listeners().isEmpty())
+        assertEquals(1, transport.unlinks)
+        assertTrue(successor.restore(saved))
+        assertFalse(successor.restore(saved))
+        oldDeath.binderDied()
+        assertEquals(1, successor.listeners().size)
+        successor.clear()
+        assertEquals(2, transport.links)
+        assertEquals(transport.links, transport.unlinks)
+    }
+
     @Test fun receiverRouteRetainsScenarioAndPointIdentityAcrossLiveConfigChanges() {
         val point = Wgs84(31.0, 121.0)
         var config = RoutingConfig(mode = RoutingMode.PER_APP, routes = listOf(
@@ -63,13 +110,18 @@ class GnssCallbackRegistryTest {
 
     private class Transport {
         var alive = true
+        var dieDuringLink = false
         var links = 0
         var unlinks = 0
         var death: IBinder.DeathRecipient? = null
         private val binder = Proxy.newProxyInstance(IBinder::class.java.classLoader, arrayOf(IBinder::class.java)) { proxy, method, args ->
             when (method.name) {
                 "isBinderAlive" -> alive
-                "linkToDeath" -> { links++; death = args!![0] as IBinder.DeathRecipient; null }
+                "linkToDeath" -> {
+                    links++; death = args!![0] as IBinder.DeathRecipient
+                    if (dieDuringLink) { alive = false; death!!.binderDied() }
+                    null
+                }
                 "unlinkToDeath" -> { unlinks++; true }
                 "hashCode" -> System.identityHashCode(proxy)
                 "equals" -> proxy === args?.get(0)

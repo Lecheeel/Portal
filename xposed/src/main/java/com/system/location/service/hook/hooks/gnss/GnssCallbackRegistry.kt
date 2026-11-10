@@ -15,7 +15,7 @@ internal class GnssCallbackRegistry(
     private val callerDecision: (String?, Int, RoutingConfig?) -> RoutingDecision = ::gnssCallerDecision,
 ) {
     private data class Entry(val listener: IInterface, val packageName: String?, val uid: Int,
-        val death: IBinder.DeathRecipient)
+        val death: IBinder.DeathRecipient, val token: Any)
     private val entries = LinkedHashMap<IBinder, Entry>()
 
     @Synchronized
@@ -23,16 +23,17 @@ internal class GnssCallbackRegistry(
         val binder = listener.asBinder()
         if (entries.containsKey(binder)) return true
         if (!binder.isBinderAlive) return false
-        val death = IBinder.DeathRecipient { unregisterBinder(binder) }
-        val entry = Entry(listener, packageName, uid, death)
+        val token = Any()
+        val death = IBinder.DeathRecipient { unregisterBinder(binder, token) }
+        val entry = Entry(listener, packageName, uid, death, token)
         entries[binder] = entry
         try {
             binder.linkToDeath(death, 0)
         } catch (_: android.os.RemoteException) {
-            entries.remove(binder)
+            unregisterBinder(binder, token)
             return false
         }
-        if (!binder.isBinderAlive) { unregisterBinder(binder); return false }
+        if (entries[binder] !== entry || !binder.isBinderAlive) { unregisterBinder(binder, token); return false }
         return true
     }
 
@@ -47,32 +48,35 @@ internal class GnssCallbackRegistry(
     fun restore(subscription: CallbackSubscription): Boolean {
         val binder = subscription.listener.asBinder()
         if (!binder.isBinderAlive || entries.containsKey(binder)) return false
-        val death = IBinder.DeathRecipient { unregisterBinder(binder) }
-        val entry = Entry(subscription.listener, subscription.packageName, subscription.uid, death)
+        val token = Any()
+        val death = IBinder.DeathRecipient { unregisterBinder(binder, token) }
+        val entry = Entry(subscription.listener, subscription.packageName, subscription.uid, death, token)
         entries[binder] = entry
         return try {
             binder.linkToDeath(death, 0)
-            if (!binder.isBinderAlive) { unregisterBinder(binder); false } else true
+            if (entries[binder] !== entry || !binder.isBinderAlive) { unregisterBinder(binder, token); false } else true
         } catch (_: android.os.RemoteException) {
-            unregisterBinder(binder)
+            unregisterBinder(binder, token)
             false
         }
     }
 
     @Synchronized
-    private fun unregisterBinder(binder: IBinder) {
-        val entry = entries.remove(binder) ?: return
+    private fun unregisterBinder(binder: IBinder, expectedToken: Any? = null) {
+        val entry = entries[binder] ?: return
+        if (expectedToken != null && entry.token !== expectedToken) return
+        entries.remove(binder)
         runCatching { binder.unlinkToDeath(entry.death, 0) }
     }
 
     @Synchronized
     fun listeners(): List<IInterface> {
-        entries.keys.filter { !it.isBinderAlive }.toList().forEach(::unregisterBinder)
+        entries.keys.filter { !it.isBinderAlive }.toList().forEach { unregisterBinder(it) }
         return entries.values.map { it.listener }
     }
 
     @Synchronized
-    fun clear() { entries.keys.toList().forEach(::unregisterBinder) }
+    fun clear() { entries.keys.toList().forEach { unregisterBinder(it) } }
 
     fun routeFor(listener: Any?, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? {
         val entry = entry(listener) ?: return null

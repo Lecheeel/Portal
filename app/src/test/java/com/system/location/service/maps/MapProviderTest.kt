@@ -4,9 +4,10 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MapProviderTest {
-    @Test fun existingAndUnknownPreferencesDefaultToAmap() {
-        assertEquals(MapProvider.AMAP, MapProvider.restore(null))
-        assertEquals(MapProvider.AMAP, MapProvider.restore("old"))
+    @Test fun missingAndUnknownPreferencesDefaultToTencentWhileSavedChoicesArePreserved() {
+        assertEquals(MapProvider.TENCENT, MapProvider.restore(null))
+        assertEquals(MapProvider.TENCENT, MapProvider.restore("old"))
+        assertEquals(MapProvider.AMAP, MapProvider.restore("AMAP"))
         assertEquals(MapProvider.TENCENT, MapProvider.restore("TENCENT"))
     }
     @Test fun tencentWalkingDeltaDecodesBothAxesWithoutMutatingInput() {

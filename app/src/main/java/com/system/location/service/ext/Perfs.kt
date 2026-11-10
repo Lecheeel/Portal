@@ -160,7 +160,7 @@ var Context.altitude: Double
     }
 
 var Context.accuracy: Float
-    get() = sharedPrefs.getFloat("accuracy", FakeLoc.accuracy)
+    get() = sharedPrefs.getFloat("accuracy", 2.5f)
     set(value) = sharedPrefs.edit {
         putFloat("accuracy", value)
     }

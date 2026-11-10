@@ -6,7 +6,7 @@ import com.system.location.service.ext.sharedPrefs
 enum class MapProvider(val label: String) {
     AMAP("高德地图"), TENCENT("腾讯地图");
     companion object {
-        fun restore(value: String?) = entries.firstOrNull { it.name == value } ?: AMAP
+        fun restore(value: String?) = entries.firstOrNull { it.name == value } ?: TENCENT
     }
 }
 

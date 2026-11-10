@@ -6,15 +6,16 @@ import android.os.Bundle
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.gnss.GnssLocationExtras
+import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.hook.hooks.gnss.GnssReceiverRuntime
 
 /** Android conversion derives GPS extras from the same provider sample as status and NMEA. */
-fun LocationSample.toLocation(provider: String?): Location {
+fun LocationSample.toLocation(provider: String?, route: GnssFrameRoute = GnssFrameRoute.Global): Location {
     val sample = this
     val fields = LocationSanitizer.fieldsFor(sample)
     val effectiveProvider = provider ?: LocationManager.GPS_PROVIDER
     val publication = if (FakeLoc.enable && FakeLoc.enableMockGnss && effectiveProvider == LocationManager.GPS_PROVIDER)
-        GnssReceiverRuntime.frameForSample(sample) else null
+        GnssReceiverRuntime.frameForSample(sample, route) else null
     return Location(effectiveProvider).also {
         it.latitude = sample.latitude
         it.longitude = sample.longitude

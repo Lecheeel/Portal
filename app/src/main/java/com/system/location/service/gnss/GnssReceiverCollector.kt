@@ -140,7 +140,14 @@ class GnssReceiverCollector(
                                 sample.accumulatedDeltaRangeState, sample.accumulatedDeltaRangeMeters,
                                 sample.accumulatedDeltaRangeUncertaintyMeters,
                                 if (sample.hasCarrierFrequencyHz()) sample.carrierFrequencyHz.toDouble() else null,
-                                sample.codeType)
+                                if (sample.hasCodeType()) sample.codeType else null,
+                                fullInterSignalBiasNanos = if (sample.hasFullInterSignalBiasNanos()) sample.fullInterSignalBiasNanos else null,
+                                fullInterSignalBiasUncertaintyNanos = if (sample.hasFullInterSignalBiasUncertaintyNanos())
+                                    sample.fullInterSignalBiasUncertaintyNanos else null,
+                                satelliteInterSignalBiasNanos = if (sample.hasSatelliteInterSignalBiasNanos())
+                                    sample.satelliteInterSignalBiasNanos else null,
+                                satelliteInterSignalBiasUncertaintyNanos = if (sample.hasSatelliteInterSignalBiasUncertaintyNanos())
+                                    sample.satelliteInterSignalBiasUncertaintyNanos else null)
                         }.onFailure { notes += "部分原始测量字段无效：${it.javaClass.simpleName}" }.getOrNull()
                     }.take(512)
                     runCatching {
@@ -155,7 +162,12 @@ class GnssReceiverCollector(
                             leapSecond = if (clock.hasLeapSecond()) clock.leapSecond else null,
                             elapsedRealtimeNanos = if (Build.VERSION.SDK_INT >= 29 && clock.hasElapsedRealtimeNanos()) clock.elapsedRealtimeNanos else null,
                             elapsedRealtimeUncertaintyNanos = if (Build.VERSION.SDK_INT >= 29 && clock.hasElapsedRealtimeUncertaintyNanos()) clock.elapsedRealtimeUncertaintyNanos else null,
-                            capturedElapsedRealtimeNanos = capturedElapsed)
+                            capturedElapsedRealtimeNanos = capturedElapsed,
+                            referenceConstellationTypeForIsb = if (clock.hasReferenceConstellationTypeForIsb())
+                                clock.referenceConstellationTypeForIsb else null,
+                            referenceCarrierHzForIsb = if (clock.hasReferenceCarrierFrequencyHzForIsb())
+                                clock.referenceCarrierFrequencyHzForIsb else null,
+                            referenceCodeTypeForIsb = if (clock.hasReferenceCodeTypeForIsb()) clock.referenceCodeTypeForIsb else null)
                     }.onSuccess { measurements += it }
                         .onFailure { notes += "原始接收机时钟字段无效：${it.message}" }
                 }

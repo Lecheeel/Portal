@@ -2,7 +2,6 @@ package com.system.location.service.hook.hooks.gnss
 
 import android.os.IBinder
 import android.os.IInterface
-import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.core.routing.RoutingDecision
 import com.system.location.service.core.routing.RoutingTable
@@ -54,20 +53,21 @@ internal class GnssCallbackRegistry(
 
     fun routeFor(listener: Any?): GnssFrameRoute? {
         val entry = entry(listener) ?: return null
-        return when (val decision = callerDecision(entry.packageName, entry.uid)) {
-            RoutingDecision.Global -> GnssFrameRoute.Global
-            RoutingDecision.Deny -> null
-            is RoutingDecision.Point -> GnssFrameRoute.FixedPoint(decision.point)
-            is RoutingDecision.Scenario -> GnssFrameRoute.Scenario(decision.scenarioId)
-        }
+        return receiverRouteFor(callerDecision(entry.packageName, entry.uid))
     }
-
-    fun fixedPointFor(listener: Any?): Wgs84? = (routeFor(listener) as? GnssFrameRoute.FixedPoint)?.point
-
-    fun shouldDeliver(listener: Any?): Boolean = routeFor(listener) != null
 
     @Synchronized
     private fun entry(listener: Any?): Entry? = (listener as? IInterface)?.asBinder()?.let(entries::get)
+}
+
+internal fun gnssCallerRoute(packageName: String?, uid: Int): GnssFrameRoute? =
+    receiverRouteFor(gnssCallerDecision(packageName, uid))
+
+private fun receiverRouteFor(decision: RoutingDecision): GnssFrameRoute? = when (decision) {
+    RoutingDecision.Global -> GnssFrameRoute.Global
+    RoutingDecision.Deny -> null
+    is RoutingDecision.Point -> GnssFrameRoute.FixedPoint(decision.point)
+    is RoutingDecision.Scenario -> GnssFrameRoute.Scenario(decision.scenarioId)
 }
 
 private fun gnssCallerDecision(packageName: String?, uid: Int): RoutingDecision {

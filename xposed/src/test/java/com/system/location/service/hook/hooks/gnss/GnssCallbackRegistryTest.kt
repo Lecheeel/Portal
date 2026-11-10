@@ -17,7 +17,6 @@ class GnssCallbackRegistryTest {
         val registry = GnssCallbackRegistry { packageName, uid -> RoutingTable(config).decision(uid, packageName, false) }
         val listener = Transport().listener()
         assertNull(registry.routeFor(listener))
-        assertFalse(registry.shouldDeliver(listener))
         registry.register(listener, "app", 10001)
         assertEquals(GnssFrameRoute.Scenario("route-a"), registry.routeFor(listener))
         config = config.copy(routes = listOf(AppRoute("app", point = point)))
@@ -26,7 +25,6 @@ class GnssCallbackRegistryTest {
         assertEquals(GnssFrameRoute.Scenario("route-b"), registry.routeFor(listener))
         config = config.copy(deniedPackages = setOf("app"))
         assertNull(registry.routeFor(listener))
-        assertFalse(registry.shouldDeliver(listener))
         config = config.copy(mode = RoutingMode.GLOBAL)
         assertEquals(GnssFrameRoute.Global, registry.routeFor(listener))
         registry.unregister(listener)

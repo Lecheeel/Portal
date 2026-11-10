@@ -4,6 +4,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PublicationLeaseTest {
+    @Test fun fullStateRestoreAcceptsRepeatedSampleWithoutExtendingDeadline() {
+        val lease = PublicationLease(100)
+        assertTrue(lease.restore(1000, 1001))
+        assertTrue(lease.restore(1000, 1099))
+        assertFalse(lease.expired(1099))
+        assertTrue(lease.expired(1100))
+        assertFalse(lease.restore(1000, 1100))
+        assertFalse(lease.renew(1000, 1100))
+        assertFalse(lease.restore(1200, 1199))
+    }
+    @Test fun invalidDurationAndOverflowCannotCreateNonExpiringLease() {
+        assertThrows(IllegalArgumentException::class.java) { PublicationLease(0) }
+        val lease = PublicationLease(100)
+        assertFalse(lease.renew(Long.MAX_VALUE, Long.MAX_VALUE))
+        assertFalse(lease.restore(Long.MAX_VALUE - 99, Long.MAX_VALUE))
+        assertTrue(lease.restore(Long.MAX_VALUE - 100, Long.MAX_VALUE - 1))
+        assertTrue(lease.expired(Long.MAX_VALUE))
+    }
     @Test fun staleFutureAndRepeatedSamplesAreRejected() {
         val lease = PublicationLease(100)
         assertFalse(lease.renew(-1, 0))

@@ -25,6 +25,8 @@ data class GnssCapture(
     val galileoBroadcastEvidence: GalileoBroadcastEvidence? = null,
     /** Optional BeiDou evidence; BDT is carried directly and is never inferred from GPS. */
     val beiDouBroadcastEvidence: BeiDouBroadcastEvidence? = null,
+    /** Optional GLONASS evidence; UTC(SU)+3h, PZ-90 and receiver datum are explicit. */
+    val glonassBroadcastEvidence: GlonassBroadcastEvidence? = null,
 ) {
     init {
         require(schemaVersion == 1) { "unsupported GNSS capture version" }
@@ -54,6 +56,16 @@ data class GnssCapture(
             }.map { it.svid }.toSet()
             require(evidence.identities.all { it in observed }) {
                 "BeiDou evidence contains a satellite without valid visible status"
+            }
+        }
+        glonassBroadcastEvidence?.let { evidence ->
+            require(evidence.clock.bootCount == bootCount) { "GLONASS evidence belongs to another boot" }
+            val observed = frames.flatMap { it.satellites }.filter {
+                it.constellation == Constellation.GLONASS && it.elevationDeg >= 0f &&
+                    it.azimuthDeg in 0f..<360f && it.cn0DbHz > 0f
+            }.map { it.svid }.toSet()
+            require(evidence.identities.all { it in observed }) {
+                "GLONASS evidence contains a satellite without valid visible status"
             }
         }
         require(deviceModel.isNotBlank() && osVersion.isNotBlank()) { "missing device metadata" }

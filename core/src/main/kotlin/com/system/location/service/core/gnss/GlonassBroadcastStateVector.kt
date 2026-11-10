@@ -2,11 +2,14 @@ package com.system.location.service.core.gnss
 
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlinx.serialization.Serializable
 
 /** Realization is supplied by the navigation-data source; it is never inferred from a slot. */
+@Serializable
 enum class GlonassReferenceFrame { PZ_90_02, PZ_90_11 }
 
 /** Components in one explicitly identified PZ-90 ECEF realization, in SI units. */
+@Serializable
 data class GlonassCartesianVector(val x: Double, val y: Double, val z: Double) {
     init { require(listOf(x, y, z).all(Double::isFinite)) }
     internal fun within(limit: Double) = abs(x) <= limit && abs(y) <= limit && abs(z) <= limit
@@ -19,6 +22,7 @@ data class GlonassCartesianVector(val x: Double, val y: Double, val z: Double) {
  * No calendar, leap-second, GPS/UTC association, health, clock or service validity is implied.
  * A caller must independently establish the requested SI interval from tb before propagation.
  */
+@Serializable
 data class GlonassBroadcastStateVector(
     val slot: Int,
     val referenceFrame: GlonassReferenceFrame,

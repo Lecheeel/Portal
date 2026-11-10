@@ -15,16 +15,17 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         GpsBroadcastEvidence.fromCapture(capture) else capture.gpsBroadcastEvidence
     private val galileoEvidence = capture.galileoBroadcastEvidence
     private val beiDouEvidence = capture.beiDouBroadcastEvidence
+    private val glonassEvidence = capture.glonassBroadcastEvidence
     internal val broadcastBootCount: Int?
         get() = evidence?.clock?.bootCount ?: galileoEvidence?.clock?.bootCount
-            ?: beiDouEvidence?.clock?.bootCount
+            ?: beiDouEvidence?.clock?.bootCount ?: glonassEvidence?.clock?.bootCount
     private val ratios = capture.profile().constellations.associate { it.constellation to it.ratio }
 
     fun frame(atMillis: Long, observer: Wgs84, altitudeMeters: Double, minimumSatellites: Int = 0,
         elapsedRealtimeNanos: Long? = null, currentBootCount: Int? = null): ReceiverGnssFrame? {
         require(atMillis >= 0 && altitudeMeters.isFinite())
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
-        if (evidence == null && galileoEvidence == null && beiDouEvidence == null)
+        if (evidence == null && galileoEvidence == null && beiDouEvidence == null && glonassEvidence == null)
             return replay.frame(atMillis, observer, altitudeMeters, minimumSatellites)
         val time = evidence?.let { e -> elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) } }
         val galileoTime = galileoEvidence?.let { e ->
@@ -33,6 +34,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
             }
         }
         val beiDouTime = beiDouEvidence?.let { e -> elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) } }
+        val glonassTime = glonassEvidence?.let { e -> elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) } }
         val base = replay.selection(atMillis, 0) ?: return null
         val diagnostics = mutableListOf<String>()
         if (evidence != null) diagnostics += "GPS 方位/仰角来自广播轨道和真空光程；CN0、在用候选来自本次采集的经验校准，非实时接收状态"
@@ -41,13 +43,16 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         if (evidence != null && time == null) diagnostics += "GPS 广播几何未启用：缺少同次开机的有效单调时间，当前明确使用统计回放"
         if (galileoEvidence != null && galileoTime == null) diagnostics += "Galileo 广播几何未启用：缺少同次开机的有效 GPS/GST 时标，当前明确使用统计回放"
         if (beiDouEvidence != null && beiDouTime == null) diagnostics += "北斗广播几何未启用：缺少同次开机的有效 BDT 时标，当前明确使用统计回放"
+        if (glonassEvidence != null && glonassTime == null) diagnostics += "GLONASS 广播几何未启用：缺少同次开机的 UTC(SU)+3h 连续时标，当前明确使用统计回放"
         val broadcastIds = evidence?.ephemerides?.map { it.ephemeris.svid }?.toSet().orEmpty()
         val galileoIds = galileoEvidence?.identities.orEmpty()
         val beiDouIds = beiDouEvidence?.identities.orEmpty()
+        val glonassIds = glonassEvidence?.identities.orEmpty()
         fun statistical(s: GnssSatellite) = when (s.constellation) {
             Constellation.GPS -> s.svid !in broadcastIds
             Constellation.GALILEO -> s.svid !in galileoIds
             Constellation.BEIDOU -> s.svid !in beiDouIds
+            Constellation.GLONASS -> s.svid !in glonassIds
             else -> true
         }
         val physicalGps = if (evidence != null && time != null) evidence.ephemerides.mapNotNull { decoded ->
@@ -147,9 +152,44 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         } else emptyList()
         if (beiDouEvidence != null && beiDouEvidence.receiverFrame != BeiDouReceiverFrame.BDCS)
             diagnostics += "北斗广播证据坐标系不受支持，未输出物理几何"
+        val physicalGlonass = if (glonassEvidence != null && glonassTime != null) {
+            val transform = glonassEvidence.receiverTransform
+            val wgsPosition = GnssObserverGeometry.ecef(observer, altitudeMeters)
+            val pzPosition = transform.apply(wgsPosition)
+            val latitude = observer.latitude + transform.latitudeOffsetDegrees
+            val longitude = observer.longitude + transform.longitudeOffsetDegrees
+            if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) {
+                diagnostics += "GLONASS 接收机坐标变换产生非法椭球方向，未输出物理几何"
+                emptyList()
+            } else {
+                val receiver = GlonassReceiver(glonassEvidence.receiverFrame, pzPosition,
+                    GeodeticOrientation(latitude, longitude))
+                val domain = glonassEvidence.clock.domain()
+                glonassEvidence.ephemerides.mapNotNull { encoded ->
+                    val ephemeris = encoded.resolve(domain)
+                    if (ephemeris == null) {
+                        diagnostics += "GLONASS ${encoded.orbit.slot}：广播有效期不在独立时钟覆盖内"
+                        return@mapNotNull null
+                    }
+                    val result = GlonassReceptionGeometry.observe(ephemeris, glonassTime, receiver)
+                    val los = result.observation?.lineOfSight
+                    if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
+                        diagnostics += "GLONASS ${encoded.orbit.slot}：${result.reason ?: "地平线以下或方位未定义"}"
+                        return@mapNotNull null
+                    }
+                    val calibration = empirical(Constellation.GLONASS, los.elevationDegrees)
+                        ?: run { diagnostics += "GLONASS ${encoded.orbit.slot}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
+                    GnssSatellite(Constellation.GLONASS, encoded.orbit.slot, los.elevationDegrees.toFloat(),
+                        los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                        true, calibration.almanac, calibration.carrier)
+                }
+            }
+        } else emptyList()
+        if (glonassEvidence != null && glonassTime == null)
+            diagnostics += "GLONASS 广播证据保留但未生成几何：时钟域不完整或已过期"
         // All genuinely observed, valid broadcast identities may contribute, including those
         // absent from the current statistical window. The remaining pool stays local empirical.
-        val physical = physicalGps + physicalGalileo + physicalBeiDou
+        val physical = physicalGps + physicalGalileo + physicalBeiDou + physicalGlonass
         val pool = physical + base.evidencePool.filter(::statistical)
         val selected = (physical + base.satellites.filter(::statistical)).toMutableList()
         while (selected.size < minimumSatellites) {

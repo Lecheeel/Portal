@@ -7,18 +7,20 @@ import kotlin.math.abs
  * Words 1–4 carry IODnav but no GST; word 5 carries GST/BGD/health but no IODnav.
  * Consequently an independent trusted GST reference is required for EVERY input, and word 5
  * is maintained per satellite, never copied into an issue as permanently valid service state.
- * The 120s assembly policy is not a fit interval. Validity evidence is supplied externally.
+ * The 120s assembly policy is not a fit interval. The decoder applies OS SDD's forward age
+ * limit from the decoded toe; optional independent validity limits can only shorten it.
  * No UTC/GPS alias, fixed page order, or OSNMA authenticity is assumed.
  */
 class GalileoInavAssembler(
     private val captureFrom: GalileoTime,
     private val captureUntil: GalileoTime,
-    private val validFrom: GalileoTime,
-    private val validUntil: GalileoTime,
+    private val validFrom: GalileoTime? = null,
+    private val validUntil: GalileoTime? = null,
 ) {
     init {
         require(captureUntil.secondsSince(captureFrom) in 0.0..120.0)
-        require(validUntil.secondsSince(validFrom) > 0)
+        require((validFrom == null && validUntil == null) ||
+            (validFrom != null && validUntil != null && validUntil.secondsSince(validFrom) > 0))
     }
 
     private data class Key(val svid: Int, val iod: Int)
@@ -50,7 +52,8 @@ class GalileoInavAssembler(
         val part = Part(page, ref)
         if (page.wordType == 5) {
             val time = transmissionTime(page, ref) ?: return invalid("I/NAV word 5 time disagrees with trusted GST")
-            if (time.secondsSince(validFrom) < 0 || validUntil.secondsSince(time) < 0)
+            if (validFrom != null && validUntil != null &&
+                (time.secondsSince(validFrom) < 0 || validUntil.secondsSince(time) < 0))
                 return invalid("I/NAV transmission outside supplied validity evidence")
             val previous = services[page.svid]
             if (previous == null || time.secondsSince(previous.transmission) > 0) services[page.svid] = Service(part, time)

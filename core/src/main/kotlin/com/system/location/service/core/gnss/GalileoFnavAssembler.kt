@@ -5,9 +5,10 @@ import kotlin.math.abs
 /**
  * Capture-scoped F/NAV accumulation (OS SIS ICD 2.2 §§4.1.2, 5.1.9.2; Tables 30–33).
  * Pages may arrive in any order. IOD identifies only orbit/clock/SISA, not BGD or health.
- * The caller supplies independently established full GST and validity evidence; this class
- * neither derives GST from UTC nor authenticates navigation data. The 120-second window is
- * the decoder's assembly policy, NOT a Galileo ephemeris validity duration.
+ * The caller supplies independently established full GST; the decoder applies OS SDD's
+ * forward age limit from toe, optionally shortened by independent validity evidence.
+ * This class neither derives GST from UTC nor authenticates navigation data. The
+ * 120-second window is the assembly policy, NOT an ephemeris validity duration.
  *
  * Results are provisional until completed() rechecks all evidence, including late conflicts.
  * Start a new instance for another capture window; no eviction can rehabilitate a conflict.
@@ -15,12 +16,13 @@ import kotlin.math.abs
 class GalileoFnavAssembler(
     private val captureFrom: GalileoTime,
     private val captureUntil: GalileoTime,
-    private val validFrom: GalileoTime,
-    private val validUntil: GalileoTime,
+    private val validFrom: GalileoTime? = null,
+    private val validUntil: GalileoTime? = null,
 ) {
     init {
         require(captureUntil.secondsSince(captureFrom) in 0.0..120.0)
-        require(validUntil.secondsSince(validFrom) > 0)
+        require((validFrom == null && validUntil == null) ||
+            (validFrom != null && validUntil != null && validUntil.secondsSince(validFrom) > 0))
     }
 
     private data class Key(val svid: Int, val iod: Int)
@@ -55,7 +57,8 @@ class GalileoFnavAssembler(
             return invalid("F/NAV SVID disagrees with receiver metadata")
         val time = transmissionTime(page, trustedTimeAtCapture)
             ?: return invalid("F/NAV page time disagrees with trusted GST")
-        if (time.secondsSince(validFrom) < 0 || validUntil.secondsSince(time) < 0)
+        if (validFrom != null && validUntil != null &&
+            (time.secondsSince(validFrom) < 0 || validUntil.secondsSince(time) < 0))
             return invalid("F/NAV transmission outside supplied validity evidence")
         val key = Key(page.svid, page.unsigned(if (page.wordType == 1) 12 else 6, 10).toInt())
         val part = Part(page, time, trustedTimeAtCapture)

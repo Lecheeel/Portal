@@ -7,6 +7,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GalileoInavAssemblerTest {
+    @Test fun standardAgeIsDerivedAfterAssemblyAndNotFromCaptureWindow() {
+        val start = GalileoTime(1081, 432690.0)
+        val a = GalileoInavAssembler(start, start.plusSeconds(120.0))
+        complete(a)
+        val e = a.completed().single().ephemeris
+        assertEquals(GalileoTime(1081, 432000.0), e.validFrom)
+        assertEquals(GalileoTime(1081, 446400.0), e.validUntil)
+    }
+
     private val fixture = Json.parseToJsonElement(javaClass.getResource("/gnss/galileo-pages-reference.json")!!
         .readText()).jsonObject.getValue("pages").jsonArray.map { it.jsonObject }
         .filter { it.getValue("type").jsonPrimitive.int == 0x0601 && it.getValue("wordType").jsonPrimitive.int in 1..5 }

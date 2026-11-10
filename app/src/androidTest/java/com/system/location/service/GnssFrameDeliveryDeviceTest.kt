@@ -15,11 +15,15 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.runtime.RuntimeTransferWire
+import com.system.location.service.core.routing.AppRoute
+import com.system.location.service.core.routing.RoutingConfig
+import com.system.location.service.core.routing.RoutingMode
 import com.system.location.service.hook.RuntimeSyncCommand
 import com.system.location.service.hook.security.CommandClient
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.runtime.ScenarioRuntime
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Assume.*
@@ -32,7 +36,12 @@ class GnssFrameDeliveryDeviceTest {
     private data class Status(val arrived: Long, val satellites: List<GnssSatellite>)
     private data class Sentence(val epoch: Long, val text: String)
 
-    @Test fun sharedFrameReachesStatusNmeaAndLocationExtrasThroughSystemServer() = runBlocking {
+    @Test fun sharedFrameReachesStatusNmeaAndLocationExtrasThroughSystemServer() = verifyDelivery()
+
+    @Test fun fixedPointRouteReachesLocationAndNmeaWithoutUsingTheGlobalCoordinate() =
+        verifyDelivery(Wgs84(40.0, 116.0))
+
+    private fun verifyDelivery(fixedPoint: Wgs84? = null) = runBlocking {
         assumeTrue("Explicit device run required", InstrumentationRegistry.getArguments().getString("libxposedDevice") == "true")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val manager = context.getSystemService(LocationManager::class.java)
@@ -53,7 +62,7 @@ class GnssFrameDeliveryDeviceTest {
         assertEquals("SYSTEM_SERVER", initial.getString("hook_scope"))
         assumeFalse("Preserve system simulation", initial.getBoolean("is_start"))
         val original = RuntimeTransferWire.decode(checkNotNull(command("sync_config").getByteArray(RuntimeSyncCommand.PAYLOAD))).state
-        assumeTrue("Fixture requires global routing; preserve existing rules", original.routing == null)
+        assumeTrue("Preserve existing routing rules", original.routing == null)
         assumeTrue("Fixture requires no production source; do not replace user evidence", original.configuration.gnssSource == null)
         val statuses = ConcurrentLinkedQueue<Status>()
         val sentences = ConcurrentLinkedQueue<Sentence>()
@@ -95,6 +104,11 @@ class GnssFrameDeliveryDeviceTest {
                 putBoolean("enable_nmea", true)
                 putBoolean("enable_physical_noise", false)
                 putInt("min_satellites", 0)
+                fixedPoint?.let { point ->
+                    putString("routing_json", Json.encodeToString(RoutingConfig.serializer(),
+                        RoutingConfig(mode = RoutingMode.PER_APP,
+                            routes = listOf(AppRoute(context.packageName, point = point)))))
+                }
             }
             configured = true
             command("start_gnss_mock")
@@ -127,6 +141,12 @@ class GnssFrameDeliveryDeviceTest {
                 assertEquals(1, gga[6].toInt())
                 assertEquals(satellites.size, gga[7].toInt())
                 assertEquals(expectedDop.hdop, gga[8].toDouble(), 0.051)
+                if (fixedPoint != null) {
+                    assertEquals("4000.0000", gga[2])
+                    assertEquals("N", gga[3])
+                    assertEquals("11600.0000", gga[4])
+                    assertEquals("E", gga[5])
+                }
                 assertEquals("One GGA per frame", 1, batch.count { type(it.text) == "GGA" })
                 val gsv = batch.filter { type(it.text) == "GSV" }
                 assertEquals(setOf("GP", "BD", "GA", "GL", "GQ", "GI"), gsv.map { it.text.substring(1, 3) }.toSet())
@@ -149,6 +169,8 @@ class GnssFrameDeliveryDeviceTest {
                 assertEquals(satellites.size, gsa.sumOf { fields -> fields.subList(3, 15).count { it.isNotBlank() } })
             }
             for (fix in locations) {
+                assertEquals((fixedPoint ?: observer).latitude, fix.latitude, 0.0)
+                assertEquals((fixedPoint ?: observer).longitude, fix.longitude, 0.0)
                 val extras = checkNotNull(fix.extras) { "Missing extras: sampleAfterCapture=${fix.time - fixture.endedAtMillis}ms provider=${fix.provider}" }
                 assertEquals(satellites.size, extras.getInt("satellites", -1))
                 assertEquals(33.5f, extras.getFloat("meanCn0", -1f), 0.001f)
@@ -173,12 +195,14 @@ class GnssFrameDeliveryDeviceTest {
                         putBoolean("enable_nmea", original.configuration.nmeaEnabled)
                         putBoolean("enable_physical_noise", original.physicalNoise)
                         putInt("min_satellites", original.configuration.minimumSatellites)
+                        if (fixedPoint != null) putString("routing_json", null)
                     }
                     command(if (original.configuration.gnssEnabled) "start_gnss_mock" else "stop_gnss_mock")
                 }
                 val restored = RuntimeTransferWire.decode(checkNotNull(command("sync_config").getByteArray(RuntimeSyncCommand.PAYLOAD))).state
                 assertNull("Synthetic evidence must not survive fixture cleanup", restored.configuration.gnssSource)
                 assertFalse(restored.configuration.enabled)
+                assertEquals(original.routing, restored.routing)
             }
         }
     }

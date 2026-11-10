@@ -36,9 +36,11 @@ internal object RawGnssCallbacks {
         }
     }
 
-    fun blocked(listener: Any?): Boolean = FakeLoc.enable && FakeLoc.enableMockGnss &&
-        !FakeLoc.allowPhysicalRawGnss && registry.shouldDeliver(listener) &&
-        GnssReceiverRuntime.currentFrame(registry.fixedPointFor(listener)) != null
+    fun blocked(listener: Any?): Boolean {
+        if (!FakeLoc.enable || !FakeLoc.enableMockGnss || FakeLoc.allowPhysicalRawGnss) return false
+        val route = registry.routeFor(listener) ?: return false
+        return GnssReceiverRuntime.frameForRoute(route) != null
+    }
 
     fun clear() = registry.clear()
 }

@@ -12,6 +12,15 @@ import com.system.location.service.core.runtime.RuntimeSnapshot
 
 /** Configured only by the authenticated command channel. No catalog fallback exists here. */
 object GnssReceiverRuntime {
+    /** A callback evaluates all policy and evidence against this one captured context. */
+    fun activeContext(): ProviderReadContext? {
+        val initial = FakeLoc.runtimeSnapshots.current().configuration
+        if (!initial.enabled || !initial.gnssEnabled || initial.gnssSource == null) return null
+        val context = ProviderView.capture()
+        val policy = context.state.configuration
+        return context.takeIf { policy.enabled && policy.gnssEnabled && policy.gnssSource != null }
+    }
+
     @Synchronized
     fun configure(payload: String?) {
         val prepared = CapturedGnssSource.prepare(payload, FakeLoc.runtimeSnapshots.current().configuration.gnssSource)

@@ -1,21 +1,17 @@
 package com.system.location.service.hook.hooks.gnss
 
-import com.system.location.service.hook.utils.FakeLoc
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
 import com.system.location.service.hook.utils.BinderUtils
 
 /** Raw observations are either real receiver data or explicitly unsupported, never fabricated. */
 internal fun rawGnssRegistrationHook(
-    enabled: () -> Boolean = { FakeLoc.enable && FakeLoc.enableMockGnss },
-    allowPhysical: () -> Boolean = { FakeLoc.allowPhysicalRawGnss },
-    hasFrame: (List<Any?>) -> Boolean = ::rawGnssCallerHasFrame,
-    appliesToCaller: (List<Any?>) -> Boolean = { true },
+    blocked: (List<Any?>) -> Boolean = ::rawGnssCallerBlocked,
 ): XposedInterface.Hooker = XposedInterface.Hooker { chain ->
     val method = chain.executable as? Method ?: return@Hooker chain.proceed()
     // Removal must always reach Android, including listeners created before simulation started.
     if (!method.name.startsWith("add") || chain.args.isEmpty() ||
-        !enabled() || allowPhysical() || !appliesToCaller(chain.args) || !hasFrame(chain.args)) return@Hooker RawGnssCallbacks.proceed(chain)
+        !blocked(chain.args)) return@Hooker RawGnssCallbacks.proceed(chain)
     if (method.returnType == Boolean::class.javaPrimitiveType || method.returnType == Boolean::class.javaObjectType) {
         false
     } else {
@@ -23,8 +19,10 @@ internal fun rawGnssRegistrationHook(
     }
 }
 
-private fun rawGnssCallerHasFrame(args: List<Any?>): Boolean {
-    val route = gnssCallerRoute(args.filterIsInstance<String>().firstOrNull(), BinderUtils.getCallerUid())
+private fun rawGnssCallerBlocked(args: List<Any?>): Boolean {
+    val context = GnssReceiverRuntime.activeContext() ?: return false
+    if (context.state.configuration.allowPhysicalRawGnss) return false
+    val route = gnssCallerRoute(args.filterIsInstance<String>().firstOrNull(), BinderUtils.getCallerUid(), context.state.routing)
         ?: return false
-    return GnssReceiverRuntime.frameForRoute(route) != null
+    return GnssReceiverRuntime.frameForRoute(route, context) != null
 }

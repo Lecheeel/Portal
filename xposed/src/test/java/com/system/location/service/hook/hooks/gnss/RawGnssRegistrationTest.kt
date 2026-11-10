@@ -27,7 +27,7 @@ class RawGnssRegistrationTest {
     }
 
     @Test fun rejectionIsFalseForBooleanApiAndExplicitFailureForVoidApi() {
-        val hook = rawGnssRegistrationHook({ true }, { false }, { true }, { true })
+        val hook = rawGnssRegistrationHook { true }
         val boolean = Call("addBoolean")
         assertEquals(false, hook.intercept(boolean.chain))
         assertEquals(0, boolean.proceeds)
@@ -36,45 +36,38 @@ class RawGnssRegistrationTest {
         assertEquals(0, void.proceeds)
     }
 
-    @Test fun inactiveMissingCaptureOrPhysicalOptInLeavesRealRegistrationIntact() {
-        for (flags in listOf(Triple(false, false, true), Triple(true, true, true), Triple(true, false, false))) {
-            val call = Call("addBoolean")
-            val hook = rawGnssRegistrationHook({ flags.first }, { flags.second }, { flags.third })
-            assertSame(call.result, hook.intercept(call.chain))
-            assertEquals(1, call.proceeds)
-        }
-    }
-
-    @Test fun excludedCallerKeepsPhysicalRegistration() {
-        val hook = rawGnssRegistrationHook({ true }, { false }, { true }, { false })
+    @Test fun policyPassthroughLeavesRealRegistrationIntact() {
         val call = Call("addBoolean")
-        assertSame(call.result, hook.intercept(call.chain))
+        assertSame(call.result, rawGnssRegistrationHook { false }.intercept(call.chain))
         assertEquals(1, call.proceeds)
     }
 
-    @Test fun receiverAvailabilityUsesTheCurrentCallArgumentsAndDoesNotQueryExcludedCallers() {
+    @Test fun policyReceivesTheCurrentCallArgumentsExactlyOnce() {
         val call = Call("addBoolean")
         var queries = 0
-        val hook = rawGnssRegistrationHook({ true }, { false }, { args ->
+        val hook = rawGnssRegistrationHook { args ->
             queries++
             assertEquals(call.chain.args, args)
             true
-        }, { true })
+        }
         assertEquals(false, hook.intercept(call.chain))
         assertEquals(1, queries)
-        val excluded = rawGnssRegistrationHook({ true }, { false }, { error("excluded caller queried") }, { false })
+        val excluded = rawGnssRegistrationHook { false }
         assertSame(call.result, excluded.intercept(call.chain))
     }
 
     @Test fun unregistrationAndOriginalFailureAlwaysReachAndroidExactlyOnce() {
         val call = Call("removeListener")
-        val hook = rawGnssRegistrationHook({ true }, { false }, { true }, { true })
+        val hook = rawGnssRegistrationHook { true }
         assertSame(call.result, hook.intercept(call.chain))
         assertEquals(1, call.proceeds)
+        val noQuery = rawGnssRegistrationHook { error("removal queried policy") }
+        assertSame(call.result, noQuery.intercept(call.chain))
+        assertEquals(2, call.proceeds)
         val failure = IllegalStateException("Android registration failure")
         val failed = Call("addVoid", failure)
         assertSame(failure, assertThrows(IllegalStateException::class.java) {
-            rawGnssRegistrationHook({ false }, { false }, { true }).intercept(failed.chain)
+            rawGnssRegistrationHook { false }.intercept(failed.chain)
         })
         assertEquals(1, failed.proceeds)
     }

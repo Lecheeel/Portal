@@ -3,17 +3,30 @@ package com.system.location.service.hook
 import android.os.Bundle
 import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.runtime.RuntimeStart
 
 /** P5-08: simple control/getter commands extracted from RemoteCommandHandler. */
 object ControlCommand {
+    private val startKeys = setOf("lat", "lon", "speed", "altitude", "accuracy", "report_interval")
+
+    private inline fun <reified T> typed(values: Map<String, Any?>, key: String): T? {
+        if (key !in values) return null
+        return values[key] as? T ?: throw IllegalArgumentException("Invalid start field: $key")
+    }
+
+    internal fun prepareStart(values: Map<String, Any?>): RuntimeStart = RuntimeStart(
+        Wgs84(typed<Double>(values, "lat") ?: throw IllegalArgumentException("Missing latitude"),
+            typed<Double>(values, "lon") ?: throw IllegalArgumentException("Missing longitude")),
+        typed<Double>(values, "speed"), typed<Double>(values, "altitude"), typed<Float>(values, "accuracy"),
+        typed<Long>(values, "report_interval") ?: 100L,
+    )
+
+    @Suppress("DEPRECATION")
     fun start(rely: Bundle): Boolean {
+        val prepared = prepareStart(startKeys.filter(rely::containsKey).associateWith { rely.get(it) })
+        FakeLoc.startRuntime(prepared)
         SampleCommand.clearLease()
-        FakeLoc.speed = rely.getDouble("speed", FakeLoc.speed)
-        FakeLoc.altitude = rely.getDouble("altitude", FakeLoc.altitude)
-        FakeLoc.accuracy = rely.getFloat("accuracy", FakeLoc.accuracy)
-        FakeLoc.reportIntervalMs = rely.getLong("report_interval", 100L).coerceIn(50, 1000)
-        FakeLoc.updateCoordinates(rely.getDouble("lat"), rely.getDouble("lon"))
-        FakeLoc.enable = true
         if (FakeLoc.isSystemServerProcess) {
             LocationServiceHook.callOnLocationChanged()
             LocationTicker.start()
@@ -22,10 +35,9 @@ object ControlCommand {
     }
 
     fun stop(): Boolean {
+        FakeLoc.stopRuntime()
         SampleCommand.clearLease()
-        FakeLoc.enable = false
         LocationTicker.stop()
-        FakeLoc.hasBearings = false
         NativeCommand.disable()
         return true
     }

@@ -24,6 +24,7 @@ import com.system.location.service.hook.RuntimeSyncCommand
 import com.system.location.service.hook.security.CommandClient
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.runtime.ScenarioRuntime
+import com.system.location.service.runtime.XposedServiceBridge
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.serialization.json.Json
@@ -44,11 +45,18 @@ class GnssFrameDeliveryDeviceTest {
     @Test fun fixedPointRouteReachesLocationAndNmeaWithoutUsingTheGlobalCoordinate() =
         verifyDelivery(Wgs84(40.0, 116.0))
 
-    private fun verifyDelivery(fixedPoint: Wgs84? = null) = runBlocking {
+    @Test fun hotReloadRestoresActiveFixedPointListenersWithoutReregistration() {
+        assumeTrue("Explicit hot reload lab run required",
+            InstrumentationRegistry.getArguments().getString("libxposedReload") == "true")
+        verifyDelivery(Wgs84(40.0, 116.0), reload = true)
+    }
+
+    private fun verifyDelivery(fixedPoint: Wgs84? = null, reload: Boolean = false) = runBlocking {
         assumeTrue("Explicit device run required", InstrumentationRegistry.getArguments().getString("libxposedDevice") == "true")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val manager = context.getSystemService(LocationManager::class.java)
         ScenarioRuntime.awaitInitialized()
+        if (reload) assumeTrue("Bound libxposed service required", XposedServiceBridge.bound())
         assumeFalse("Preserve local simulation", ScenarioRuntime.state.value.isActive)
         for (permission in listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
             assumeTrue("Existing permission required: $permission",
@@ -105,6 +113,7 @@ class GnssFrameDeliveryDeviceTest {
         assertNotNull("Fixture must have valid geometry", GnssGeometry.solve(satellites).dop)
         var renewal: Job? = null
         var configured = false
+        var reloadAttempted = false
         try {
             command("put_config") {
                 putString("gnss_capture", GnssCaptureWire.encode(fixture))
@@ -143,6 +152,31 @@ class GnssFrameDeliveryDeviceTest {
             withTimeout(12_000L) {
                 while (statuses.size < 3 || sentences.count { type(it.text) == "GGA" } < 3 || locations.size < 3) delay(100L)
             }
+            if (reload) {
+                fun systemPid(): String = ParcelFileDescriptor.AutoCloseInputStream(
+                    InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("pidof system_server"))
+                    .bufferedReader().use { it.readText().trim() }
+                val beforePid = systemPid()
+                assertTrue(beforePid.isNotBlank())
+                renewal.cancelAndJoin()
+                // Reconnect command authentication after a generation change; do not re-register
+                // any receiver listener or resend its routing/profile/configuration.
+                reloadAttempted = true
+                val outcome = withContext(Dispatchers.IO) { XposedServiceBridge.hotReloadSystemServer() }
+                assertTrue("Command authentication did not recover", client.connect(manager))
+                assertTrue(outcome, outcome.startsWith("hot reload SUCCEEDED"))
+                assertEquals("Reload must not restart system_server", beforePid, systemPid())
+                val restored = RuntimeTransferWire.decode(checkNotNull(command("sync_config")
+                    .getByteArray(RuntimeSyncCommand.PAYLOAD))).state
+                assertNotNull("Reload lost the active receiver profile", restored.configuration.gnssSource)
+                assertEquals(fixedPoint, restored.routing!!.routes.single().point)
+                statuses.clear(); sentences.clear(); locations.clear()
+                publish()
+                renewal = launch(Dispatchers.IO) { while (isActive) { delay(100L); publish() } }
+                withTimeout(10_000L) {
+                    while (statuses.size < 4 || sentences.count { type(it.text) == "GGA" } < 4 || locations.size < 20) delay(100L)
+                }
+            }
             val expectedIds = satellites.map { it.constellation to it.svid }.toSet()
             for (status in statuses) {
                 assertEquals(expectedIds, status.satellites.map { it.constellation to it.svid }.toSet())
@@ -154,6 +188,8 @@ class GnssFrameDeliveryDeviceTest {
             assertTrue("Need at least two complete epochs", complete.size >= 2)
             val expectedDop = checkNotNull(GnssGeometry.solve(satellites).dop)
             for (batch in complete) {
+                assertEquals("One GGA per epoch ${batch.first().epoch}: ${batch.map { it.text }}",
+                    1, batch.count { type(it.text) == "GGA" })
                 val gga = batch.single { type(it.text) == "GGA" }.text.substringBefore('*').split(',')
                 assertEquals(1, gga[6].toInt())
                 assertEquals(satellites.size, gga[7].toInt())
@@ -164,7 +200,6 @@ class GnssFrameDeliveryDeviceTest {
                     assertEquals("11600.0000", gga[4])
                     assertEquals("E", gga[5])
                 }
-                assertEquals("One GGA per frame", 1, batch.count { type(it.text) == "GGA" })
                 val gsv = batch.filter { type(it.text) == "GSV" }
                 assertEquals(setOf("GP", "BD", "GA", "GL", "GQ", "GI"), gsv.map { it.text.substring(1, 3) }.toSet())
                 assertEquals(7, gsv.size) // GPS and SBAS share GP, requiring two GSV pages.
@@ -221,6 +256,7 @@ class GnssFrameDeliveryDeviceTest {
                 manager.unregisterGnssMeasurementsCallback(existingRaw)
                 manager.unregisterGnssMeasurementsCallback(blockedRaw)
             } finally {
+                if (reloadAttempted) assertTrue("Reconnect for fixture cleanup", client.connect(manager))
                 command("stop")
                 if (configured) {
                     command("put_config") {
@@ -247,7 +283,9 @@ class GnssFrameDeliveryDeviceTest {
         val dump = ParcelFileDescriptor.AutoCloseInputStream(
             InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("dumpsys location"))
             .bufferedReader().use { it.readText() }.lines()
-        val start = dump.indices.single { dump[it].trim() == "Measurements Provider:" }
+        val starts = dump.indices.filter { dump[it].trim() == "Measurements Provider:" }
+        check(starts.size == 1) { "Expected one Measurements Provider section, found ${starts.size}: $starts" }
+        val start = starts.single()
         val indent = dump[start].takeWhile(Char::isWhitespace).length
         val section = dump.drop(start + 1).takeWhile { it.isBlank() || it.takeWhile(Char::isWhitespace).length > indent }
         check(section.any { it.trimStart().startsWith("service:") }) { "Provider dump has no service state" }

@@ -57,6 +57,7 @@ abstract class BaseDivineService {
 
         val session = java.util.UUID.randomUUID().toString()
         RemoteCommandHandler.resetProxySession(session)
+        val initialized = java.util.concurrent.CountDownLatch(1)
 
         rely.putBinder("proxy", object: Binder() {
             override fun getInterfaceDescriptor(): String {
@@ -68,6 +69,7 @@ abstract class BaseDivineService {
                     if (Binder.getCallingUid() != 1000) return false
                     val bundle = data.readBundle(javaClass.classLoader) ?: return false
                     val accepted = RemoteCommandHandler.handleProxyInstruction(bundle)
+                    if (accepted) initialized.countDown()
                     reply?.writeNoException()
                     reply?.writeInt(if (accepted) 1 else 0)
                     return true
@@ -79,7 +81,19 @@ abstract class BaseDivineService {
         rely.putString(RuntimeSyncCommand.SESSION, session)
         rely.putString("command_id", "set_proxy")
         if (!client.send(locationManager, rely)) {
+            RemoteCommandHandler.resetProxySession(java.util.UUID.randomUUID().toString())
             Logger.error("Failed to init service proxy in $from")
+            return false
+        }
+        val ready = try {
+            initialized.await(5, java.util.concurrent.TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        }
+        if (!ready) {
+            RemoteCommandHandler.resetProxySession(java.util.UUID.randomUUID().toString())
+            Logger.error("Initial runtime state not restored in $from")
             return false
         }
         return true

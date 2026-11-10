@@ -4,6 +4,15 @@
     <string name="title_export">导出 JSON</string>
     <string name="title_copy">复制 JSON</string>
     <string name="title_settings">设置</string>
+    <string name="reference_save">将本次 GNSS 窗口设为参考</string>
+    <string name="reference_clear">清除 GNSS 参考窗口</string>
+    <string name="reference_loading">正在读取本机参考窗口…</string>
+    <string name="reference_environment">记录地点与环境（例如：同一地点、室外无遮挡）</string>
+    <string name="reference_confirm">请先关闭所有模拟定位，完成一次至少 30 秒的实测检查，再保存该次结果作为本机参考。填写地点和遮挡情况；保存将替换旧参考，下次检查生效。来源由你确认，分布差异不能直接证明伪造。</string>
+    <string name="reference_status">本机参考：%1$s；%2$s。后续检查在 C06 展示差异，来源真实性需另行确认。</string>
+    <string name="reference_saved">已保存参考窗口，下次检查生效</string>
+    <string name="reference_cleared">已清除参考窗口，下次检查生效</string>
+    <string name="reference_failed">参考窗口操作失败：%1$s</string>
     <string name="summary_idle">尚未运行</string>
     <string name="summary_counts">PASS %1$d · FAIL %2$d · UNKNOWN %3$d</string>
     <string name="progress_preparing">准备检查…</string>

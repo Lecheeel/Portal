@@ -95,6 +95,30 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/referenceStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/reference_loading"
+                android:textColor="@color/detector_text_secondary"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/saveReferenceButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:text="@string/reference_save"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/clearReferenceButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/reference_clear"
+                android:textAllCaps="false" />
+
             <ProgressBar
                 android:id="@+id/progress"
                 style="?android:attr/progressBarStyleHorizontal"

@@ -1,6 +1,7 @@
 package com.system.location.service.detector
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -10,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -19,6 +21,8 @@ import com.system.location.service.detector.model.CheckResult
 import com.system.location.service.detector.model.CheckStatus
 import com.system.location.service.detector.model.DetectorReport
 import com.system.location.service.detector.model.DeviceInfoCollector
+import com.system.location.service.detector.model.GnssReference
+import java.util.concurrent.Executors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,6 +46,12 @@ class MainActivity : Activity() {
     private lateinit var resultsContainer: LinearLayout
     private lateinit var settings: DetectorSettings
     private var lastReportJson: String? = null
+    private var lastReport: DetectorReport? = null
+    private lateinit var saveReferenceButton: Button
+    private lateinit var clearReferenceButton: Button
+    private lateinit var referenceStatus: TextView
+    private val referenceWorker = Executors.newSingleThreadExecutor()
+    private var referenceBusy = false
 
     @Volatile private var running = false
     @Volatile private var destroyed = false
@@ -59,6 +69,13 @@ class MainActivity : Activity() {
         progressText = findViewById(R.id.progressText)
         resultsContainer = findViewById(R.id.resultsContainer)
         settings = DetectorSettings.get(this)
+        saveReferenceButton = findViewById(R.id.saveReferenceButton)
+        clearReferenceButton = findViewById(R.id.clearReferenceButton)
+        referenceStatus = findViewById(R.id.referenceStatus)
+        saveReferenceButton.setOnClickListener { chooseReference() }
+        clearReferenceButton.setOnClickListener {
+            referenceTask { GnssReferenceStore.clear(applicationContext); getString(R.string.reference_cleared) }
+        }
 
         toolbar.title = getString(R.string.app_name)
         runButton.setOnClickListener { runChecks() }
@@ -68,6 +85,7 @@ class MainActivity : Activity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
         deviceInfoView.text = deviceLine()
+        referenceTask { null }
         ensurePermissions()
     }
 
@@ -79,11 +97,12 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         destroyed = true
+        referenceWorker.shutdown()
         super.onDestroy()
     }
 
     private fun runChecks() {
-        if (running) return
+        if (running || referenceBusy) return
         running = true
         val startedAt = System.currentTimeMillis()
         val runSettings = settings
@@ -92,6 +111,7 @@ class MainActivity : Activity() {
         runButton.isEnabled = false
         exportButton.isEnabled = false
         copyButton.isEnabled = false
+        updateReferenceButtons()
         progress.visibility = View.VISIBLE
         progress.progress = 0
         progressText.visibility = View.VISIBLE
@@ -106,6 +126,7 @@ class MainActivity : Activity() {
                     finishRun(report, startedAt)
                 } else {
                     running = false
+                    updateReferenceButtons()
                     runButton.isEnabled = true
                     exportButton.isEnabled = lastReportJson != null
                     copyButton.isEnabled = lastReportJson != null
@@ -118,6 +139,7 @@ class MainActivity : Activity() {
 
     private fun finishRun(report: DetectorReport, startedAt: Long) {
         lastReportJson = DetectorRunner.lastReportJson
+        lastReport = report
         render(report)
         progress.visibility = View.GONE
         progressText.text = getString(
@@ -128,6 +150,78 @@ class MainActivity : Activity() {
         exportButton.isEnabled = true
         copyButton.isEnabled = true
         running = false
+        updateReferenceButtons()
+    }
+
+    private fun updateReferenceButtons() {
+        saveReferenceButton.isEnabled = !running && !referenceBusy && lastReport?.gnssEvidence != null
+        clearReferenceButton.isEnabled = !running && !referenceBusy
+    }
+
+    private fun chooseReference() {
+        val report = lastReport ?: return
+        val evidence = report.gnssEvidence ?: return
+        val environment = EditText(this).apply {
+            hint = getString(R.string.reference_environment)
+            isSingleLine = true
+            filters = arrayOf(android.text.InputFilter.LengthFilter(120))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.reference_save)
+            .setMessage(R.string.reference_confirm)
+            .setView(environment)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.reference_save, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val label = environment.text.toString().trim()
+                if (label.isEmpty()) {
+                    environment.error = getString(R.string.reference_environment)
+                    return@setOnClickListener
+                }
+                val reference = GnssReference(Build.FINGERPRINT, label, System.currentTimeMillis(), evidence)
+                dialog.dismiss()
+                referenceTask {
+                    GnssReferenceStore.save(applicationContext, reference)
+                    getString(R.string.reference_saved)
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    /** File reads, validation and atomic writes all run away from the UI thread. */
+    private fun referenceTask(action: () -> String?) {
+        if (referenceBusy || destroyed) return
+        referenceBusy = true
+        runButton.isEnabled = false
+        updateReferenceButtons()
+        referenceWorker.execute {
+            val outcome = runCatching {
+                val message = action()
+                val loaded = GnssReferenceStore.load(applicationContext)
+                val reference = loaded.reference
+                val status = if (reference == null) loaded.note else {
+                    val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(reference.savedAtMillis))
+                    getString(R.string.reference_status, time, reference.environment)
+                }
+                status to message
+            }
+            runOnUiThread {
+                if (destroyed) return@runOnUiThread
+                referenceBusy = false
+                runButton.isEnabled = !running
+                updateReferenceButtons()
+                outcome.onSuccess { (status, message) ->
+                    referenceStatus.text = status
+                    if (message != null) Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                }.onFailure {
+                    Toast.makeText(this, getString(R.string.reference_failed,
+                        it.message ?: it.javaClass.simpleName), Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     private fun render(report: DetectorReport) {

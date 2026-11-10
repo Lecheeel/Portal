@@ -2,22 +2,20 @@ package com.system.location.service.hook.utils
 
 import android.location.Location
 import android.location.LocationManager
-import android.os.Build
 import android.os.Bundle
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.location.LocationSanitizer
+import com.system.location.service.core.gnss.GnssLocationExtras
+import com.system.location.service.hook.hooks.gnss.GnssReceiverRuntime
 
-/**
- * Android conversion stays outside the shared immutable domain sample.
- *
- * P1-01: fill the fields a location provider is expected to expose (vertical/speed/bearing
- * accuracy, MSL altitude, elapsed-realtime uncertainty, satellite extras) instead of leaving them
- * at 0 / null. Values are derived deterministically from the sample; the random/noise layer is P4.
- */
+/** Android conversion derives GPS extras from the same provider sample as status and NMEA. */
 fun LocationSample.toLocation(provider: String?): Location {
     val sample = this
     val fields = LocationSanitizer.fieldsFor(sample)
-    return Location(provider ?: LocationManager.GPS_PROVIDER).also {
+    val effectiveProvider = provider ?: LocationManager.GPS_PROVIDER
+    val publication = if (FakeLoc.enable && FakeLoc.enableMockGnss && effectiveProvider == LocationManager.GPS_PROVIDER)
+        GnssReceiverRuntime.frameForSample(sample) else null
+    return Location(effectiveProvider).also {
         it.latitude = sample.latitude
         it.longitude = sample.longitude
         it.altitude = sample.altitude
@@ -29,16 +27,15 @@ fun LocationSample.toLocation(provider: String?): Location {
         it.verticalAccuracyMeters = fields.verticalAccuracyMeters
         it.speedAccuracyMetersPerSecond = fields.speedAccuracyMetersPerSecond
         it.bearingAccuracyDegrees = fields.bearingAccuracyDegrees
-        // MSL altitude APIs exist only on Android 14 (API 34) and later.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            it.mslAltitudeMeters = fields.mslAltitudeMeters
-            it.mslAltitudeAccuracyMeters = fields.mslAltitudeAccuracyMeters
-        }
+        // Ellipsoidal altitude cannot be reported as MSL without an observed/modelled geoid separation.
         it.elapsedRealtimeUncertaintyNanos = fields.elapsedRealtimeUncertaintyNanos.toDouble()
-        it.extras = Bundle().apply {
-            putInt("satellites", fields.satellites)
-            putFloat("meanCn0", fields.meanCn0DbHz)
-            putFloat("maxCn0", fields.maxCn0DbHz)
+        it.extras = publication?.let { frame ->
+            val summary = GnssLocationExtras.from(frame)
+            Bundle().apply {
+                putInt("satellites", summary.satellites)
+                summary.meanCn0DbHz?.let { value -> putFloat("meanCn0", value) }
+                summary.maxCn0DbHz?.let { value -> putFloat("maxCn0", value) }
+            }
         }
         it.isMock = !FakeLoc.hideMock
     }

@@ -22,6 +22,14 @@ class GnssFrameStoreTest {
         assertTrue(store.current(63000, point, 10.0, 0, 2.0, 90.0)!!.sequence > other.sequence)
     }
 
+    @Test fun oldLocationTimestampCannotReviveExpiredCaptureOrCachedPublication() {
+        val store = GnssFrameStore()
+        store.configure(capture())
+        assertNotNull(store.current(62000, point, 10.0, 0, 0.0, 0.0))
+        assertNull(store.current(62000, point, 10.0, 0, 0.0, 0.0,
+            validationAtMillis = 62000 + GnssCaptureValidator.MAX_AGE_MILLIS))
+    }
+
     @Test fun noCaptureOrExpiredCaptureCannotProduceSyntheticFrame() {
         val store = GnssFrameStore()
         assertNull(store.current(62000, point, 10.0, 0, 0.0, 0.0))

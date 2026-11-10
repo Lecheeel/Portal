@@ -29,10 +29,11 @@ class GnssFrameStore {
 
     @Synchronized
     fun current(atMillis: Long, observer: Wgs84, altitudeMeters: Double,
-        minimumSatellites: Int, speedMps: Double, bearingDeg: Double): PublishedGnssFrame? {
-        require(atMillis >= 0 && speedMps.isFinite() && speedMps >= 0 && bearingDeg.isFinite())
+        minimumSatellites: Int, speedMps: Double, bearingDeg: Double,
+        validationAtMillis: Long = atMillis): PublishedGnssFrame? {
+        require(atMillis >= 0 && validationAtMillis >= 0 && speedMps.isFinite() && speedMps >= 0 && bearingDeg.isFinite())
         val source = capture ?: return null
-        if (!GnssCaptureValidator.validate(source, atMillis).eligible) { cache.clear(); return null }
+        if (!GnssCaptureValidator.validate(source, validationAtMillis).eligible) { cache.clear(); return null }
         val key = Key(atMillis / 1000 * 1000, observer, altitudeMeters, minimumSatellites, speedMps,
             ((bearingDeg % 360) + 360) % 360)
         if (cache.containsKey(key)) return cache[key]

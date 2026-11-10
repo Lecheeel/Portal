@@ -18,6 +18,8 @@ object GnssListenerRouting {
     fun routeFor(listener: Any?, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? =
         registry.routeFor(listener, routing)
     fun clear() = registry.clear()
+    internal fun deliverOnce(listener: IInterface, key: String, action: () -> Boolean) =
+        registry.deliverOnce(listener, key, action)
     internal fun subscriptions(): List<CallbackSubscription> = registry.subscriptions()
     internal fun restore(subscription: CallbackSubscription): Boolean = registry.restore(subscription)
 }

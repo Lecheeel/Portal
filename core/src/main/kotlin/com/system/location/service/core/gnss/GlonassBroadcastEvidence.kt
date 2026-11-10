@@ -95,6 +95,24 @@ data class GlonassEcefTransform(
     }
 }
 
+/**
+ * Independently established applicability of BOTH immediate and almanac health evidence.
+ * This interval is not derived from tb, En, P1 or the orbital integration limit.
+ */
+@Serializable
+data class GlonassServiceEvidence(
+    val broadcastAt: GlonassCoordinateEvidence,
+    val validFrom: GlonassCoordinateEvidence,
+    val validUntil: GlonassCoordinateEvidence,
+    val almanacHealthCn: Int,
+) {
+    init {
+        require(almanacHealthCn in 0..1)
+        require(broadcastAt.coordinate().secondsSince(validFrom.coordinate()) >= 0.0)
+        require(validUntil.coordinate().secondsSince(broadcastAt.coordinate()) > 0.0)
+    }
+}
+
 /** Compact, validated GLONASS evidence. It is never inferred from callback arrival timestamps. */
 @Serializable
 data class GlonassBroadcastEphemerisEvidence(
@@ -106,6 +124,8 @@ data class GlonassBroadcastEphemerisEvidence(
     val healthLn: Int,
     val accuracyFt: Int,
     val ageDays: Int,
+    /** Missing legacy evidence remains decodable but cannot authorize physical sky output. */
+    val service: GlonassServiceEvidence? = null,
 ) {
     init {
         require(healthBn in 0..7 && healthLn in 0..1 && accuracyFt in 0..15 && ageDays in 0..31)
@@ -121,6 +141,20 @@ data class GlonassBroadcastEphemerisEvidence(
         GlonassOrbitalEphemeris(orbit, domain.at(referenceTime.coordinate())!!,
             domain.at(validFrom.coordinate())!!, domain.at(validUntil.coordinate())!!)
     }.getOrNull()
+
+    fun serviceRejection(transmissionTime: GlonassTime): String? {
+        // ICD 5.1 §4.5: only the MSB of Bn is a malfunction flag; the two LSBs are ignored.
+        if (healthBn and 4 != 0 || healthLn != 0) return "即时健康标志不允许导航使用"
+        if (accuracyFt == 15) return "FT=15 未定义测距精度"
+        val evidence = service ?: return "缺少独立健康适用期和年历 Cn 证据"
+        if (evidence.almanacHealthCn != 1) return "年历 Cn 表明卫星不可用"
+        val domain = transmissionTime.domain
+        val from = domain.at(evidence.validFrom.coordinate()) ?: return "健康适用期不在当前连续时钟域内"
+        val until = domain.at(evidence.validUntil.coordinate()) ?: return "健康适用期不在当前连续时钟域内"
+        if (domain.at(evidence.broadcastAt.coordinate()) == null) return "健康广播标签不在当前连续时钟域内"
+        return if (transmissionTime.secondsSince(from)!! < 0.0 || transmissionTime.secondsSince(until)!! >= 0.0)
+            "发射时刻超出独立健康适用期" else null
+    }
 }
 
 /**

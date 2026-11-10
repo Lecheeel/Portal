@@ -66,7 +66,8 @@ class GlonassBroadcastEvidenceTest {
         val orbit = GlonassBroadcastStateVector(2, GlonassReferenceFrame.PZ_90_02,
             vector("positionMeters"), vector("velocityMetersPerSecond"), vector("luniSolarAccelerationMetersPerSecondSquared"))
         val eph = GlonassBroadcastEphemerisEvidence(orbit, coordinate(10_800.0), coordinate(9_901.0), coordinate(11_699.0),
-            healthBn = 0, healthLn = 0, accuracyFt = 1, ageDays = 0)
+            healthBn = 0, healthLn = 0, accuracyFt = 1, ageDays = 0,
+            service = GlonassServiceEvidence(coordinate(10_700.0), coordinate(9_901.0), coordinate(11_699.0), 1))
         val transform = GlonassEcefTransform(List(9) { index -> if (index % 4 == 0) 1.0 else 0.0 },
             GlonassCartesianVector(0.0, 0.0, 0.0), 0.0, 0.0)
         val evidence = GlonassBroadcastEvidence(clock, GlonassReferenceFrame.PZ_90_02, transform, listOf(eph))
@@ -77,10 +78,37 @@ class GlonassBroadcastEvidenceTest {
         val capture = GnssCapture(deviceModel = "receiver", osVersion = "os", startedAtMillis = 0,
             endedAtMillis = 30_000, frames = frames, bootCount = 3,
             glonassBroadcastEvidence = evidence)
+        assertEquals(evidence, GnssCaptureWire.decode(GnssCaptureWire.encode(capture)).glonassBroadcastEvidence)
         val result = ReceiverBroadcastSkyModel(capture).frame(30_000, observer, 0.0,
             elapsedRealtimeNanos = 0L, currentBootCount = 3)
         assertTrue(result != null)
         assertTrue(result!!.diagnostics.joinToString("; "), result.source != ReceiverGnssSource.STATISTICAL_REPLAY)
         assertTrue(result.satellites.any { it.constellation == Constellation.GLONASS && it.hasEphemeris })
+        fun frame(candidate: GlonassBroadcastEphemerisEvidence) = ReceiverBroadcastSkyModel(capture.copy(
+            glonassBroadcastEvidence = evidence.copy(ephemerides = listOf(candidate))))
+            .frame(30_000, observer, 0.0, 128, elapsedRealtimeNanos = 0L, currentBootCount = 3)!!
+        // Every Bn combination: reserved low bits must not mark a healthy satellite unhealthy.
+        for (bn in 0..7) {
+            val output = frame(eph.copy(healthBn = bn))
+            assertEquals(bn < 4, output.satellites.any { it.constellation == Constellation.GLONASS })
+        }
+        val unusable = listOf(eph.copy(healthLn = 1), eph.copy(accuracyFt = 15), eph.copy(service = null),
+            eph.copy(service = eph.service!!.copy(almanacHealthCn = 0)),
+            // Reception is inside this interval, but the actual emission is earlier: reject.
+            eph.copy(service = GlonassServiceEvidence(coordinate(10_800.0), coordinate(10_800.0), coordinate(10_900.0), 1)),
+            eph.copy(service = GlonassServiceEvidence(coordinate(10_600.0), coordinate(10_600.0), coordinate(10_700.0), 1)))
+        for (candidate in unusable) {
+            val output = frame(candidate)
+            assertTrue(output.satellites.none { it.constellation == Constellation.GLONASS })
+            assertTrue(output.diagnostics.any { it.contains("未回退同身份") })
+            assertTrue(output.diagnostics.any { it.contains("无法满足") })
+        }
+        val at = clock.at(0L, 3)!!
+        val start = at.plusSeconds(-1.0)!!
+        val end = at.plusSeconds(1.0)!!
+        val bounded = eph.copy(service = GlonassServiceEvidence(GlonassCoordinateEvidence.from(start.coordinate),
+            GlonassCoordinateEvidence.from(start.coordinate), GlonassCoordinateEvidence.from(end.coordinate), 1))
+        assertEquals(null, bounded.serviceRejection(start))
+        assertTrue(bounded.serviceRejection(end) != null)
     }
 }

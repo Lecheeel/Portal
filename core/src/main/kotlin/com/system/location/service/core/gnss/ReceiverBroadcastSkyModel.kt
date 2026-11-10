@@ -175,6 +175,12 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                         return@mapNotNull null
                     }
                     val result = GlonassReceptionGeometry.observe(ephemeris, glonassTime, receiver)
+                    result.observation?.let { observation ->
+                        encoded.serviceRejection(observation.transmissionTime)?.let { reason ->
+                            diagnostics += "GLONASS ${encoded.orbit.slot}：$reason，未回退同身份统计几何"
+                            return@mapNotNull null
+                        }
+                    }
                     val los = result.observation?.lineOfSight
                     if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
                         diagnostics += "GLONASS ${encoded.orbit.slot}：${result.reason ?: "地平线以下或方位未定义"}"

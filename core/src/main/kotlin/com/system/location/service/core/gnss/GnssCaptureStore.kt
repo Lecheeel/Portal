@@ -25,6 +25,14 @@ class GnssCaptureStore(private val file: File) {
         return GnssCaptureCodec.decode(file.readText(Charsets.UTF_8))
     }
 
+    /** Production promotion is distinct from retaining incomplete receiver evidence. */
+    @Synchronized
+    fun saveForPlayback(capture: GnssCapture, nowMillis: Long) {
+        val quality = GnssCaptureValidator.validate(capture, nowMillis)
+        require(quality.eligible) { "采集未达到回放条件：${quality.issues.joinToString("；")}" }
+        save(capture)
+    }
+
     @Synchronized
     fun save(capture: GnssCapture) {
         val bytes = GnssCaptureCodec.encode(capture).toByteArray(Charsets.UTF_8)

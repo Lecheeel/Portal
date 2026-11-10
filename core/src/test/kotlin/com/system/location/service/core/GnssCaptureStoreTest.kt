@@ -1,6 +1,7 @@
 package com.system.location.service.core
 
 import com.system.location.service.core.gnss.*
+import com.system.location.service.core.geo.Wgs84
 import java.nio.file.Files
 import org.junit.Assert.*
 import org.junit.Test
@@ -39,5 +40,31 @@ class GnssCaptureStoreTest {
         assertThrows(IllegalArgumentException::class.java) {
             GnssNavigationObservation(1, 1, 1, 1, 1, 1, "not base64!")
         }
+    }
+
+    @Test fun ineligibleEvidenceCannotReplaceThePlaybackSource() {
+        val directory = Files.createTempDirectory("gnss-promotion").toFile()
+        try {
+            val file = directory.resolve("capture.json")
+            val store = GnssCaptureStore(file)
+            val valid = capture().copy(endedAtMillis = 60_001,
+                frames = (0..60).map { index -> capture().frames.single().copy(
+                    capturedAtMillis = 1 + index * 1000L, observer = Wgs84(31.0, 121.0)) })
+            store.saveForPlayback(valid, 60_001)
+            val originalBytes = file.readBytes()
+            for (invalid in listOf(capture(), valid.copy(frames = valid.frames.map { it.copy(observer = null) }))) {
+                assertThrows(IllegalArgumentException::class.java) { store.saveForPlayback(invalid, 60_001) }
+                assertArrayEquals(originalBytes, file.readBytes())
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                store.saveForPlayback(valid, valid.endedAtMillis + GnssCaptureValidator.MAX_AGE_MILLIS + 1)
+            }
+            assertArrayEquals(originalBytes, file.readBytes())
+            // Incomplete evidence can still be archived, independently of the production source.
+            val archive = GnssCaptureStore(directory.resolve("rejected.json"))
+            archive.save(capture())
+            assertEquals(capture(), archive.load())
+            assertEquals(valid, store.load())
+        } finally { directory.deleteRecursively() }
     }
 }

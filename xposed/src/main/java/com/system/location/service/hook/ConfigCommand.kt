@@ -32,8 +32,7 @@ object ConfigCommand {
             rely.getBoolean("disable_register_location_listener", FakeLoc.disableRegisterLocationListener)
         FakeLoc.disableFusedLocation = rely.getBoolean("disable_fused_location", FakeLoc.disableFusedLocation)
         FakeLoc.needDowngradeToCdma = rely.getBoolean("need_downgrade_to_2g", FakeLoc.needDowngradeToCdma)
-        val minSatellites = rely.getInt("min_satellites", 12)
-        FakeLoc.minSatellites = if (minSatellites < 0) 12 else minSatellites
+        FakeLoc.minSatellites = rely.getInt("min_satellites", FakeLoc.minSatellites)
         FakeLoc.enableAGPS = rely.getBoolean("enable_agps", FakeLoc.enableAGPS)
         FakeLoc.enableNMEA = rely.getBoolean("enable_nmea", FakeLoc.enableNMEA)
         FakeLoc.disableRequestGeofence = rely.getBoolean("disable_request_geofence", FakeLoc.disableRequestGeofence)

@@ -43,7 +43,7 @@ object ConfigCommand {
         FakeLoc.gnssModelMode = runCatching {
             GnssModelMode.valueOf(rely.getString("gnss_model") ?: FakeLoc.gnssModelMode.name)
         }.getOrDefault(FakeLoc.gnssModelMode)
-        FakeLoc.environmentApCount = rely.getInt("environment_ap_count", FakeLoc.environmentApCount).coerceIn(1, 8)
+        FakeLoc.environmentApCount = rely.getInt("environment_ap_count", FakeLoc.environmentApCount)
         FakeLoc.cellMode = runCatching {
             CellMode.valueOf(rely.getString("cell_mode") ?: FakeLoc.cellMode.name)
         }.getOrDefault(FakeLoc.cellMode)

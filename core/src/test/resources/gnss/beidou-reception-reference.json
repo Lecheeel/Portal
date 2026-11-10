@@ -1,0 +1,295 @@
+{
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c",
+  "parameters": "beidou-reference.json; synthetic B1I parameters, GEO oracle PRN=1, IGSO/MEO oracle PRN=6",
+  "method": "RTKLIB eph2pos/ecef2enu; independent fixed-point vacuum light-time and reception-axis rotation. Synthetic explicit BDCS origins and local normals, no datum or timescale conversion claim.",
+  "cases": [
+    {
+      "recordIndex": 0,
+      "offsetSeconds": -900,
+      "latitudeDegrees": 0,
+      "longitudeDegrees": 0,
+      "receiverEcefMeters": [
+        6378137,
+        0,
+        0
+      ],
+      "expected": {
+        "propagationSeconds": 0.11927712921682856,
+        "xMeters": 42042404.84134505,
+        "yMeters": 1660757.073345606,
+        "zMeters": -1990952.9815714878,
+        "rangeMeters": 35758383.75109667,
+        "eastMeters": 1660757.073345606,
+        "northMeters": -1990952.9815714878,
+        "upMeters": 35664267.84134505,
+        "elevationDegrees": 85.84208589612524,
+        "azimuthDegrees": 140.16676347419718,
+        "clockBiasSeconds": 0.00011997891034500443
+      }
+    },
+    {
+      "recordIndex": 0,
+      "offsetSeconds": 0,
+      "latitudeDegrees": 31.2,
+      "longitudeDegrees": 121.5,
+      "receiverEcefMeters": [
+        -2850000,
+        4650000,
+        3290000
+      ],
+      "expected": {
+        "propagationSeconds": 0.15102352605324337,
+        "xMeters": 42060430.165577516,
+        "yMeters": 1641243.8914247393,
+        "zMeters": -1597835.4618022025,
+        "rangeMeters": 45275714.09132887,
+        "eastMeters": -36720365.80928008,
+        "northMeters": 9303892.509502038,
+        "upMeters": -24798036.323145457,
+        "elevationDegrees": -33.21016418423011,
+        "azimuthDegrees": 284.21790593616146,
+        "clockBiasSeconds": 0.00011999942285736703
+      }
+    },
+    {
+      "recordIndex": 0,
+      "offsetSeconds": 900,
+      "latitudeDegrees": 90,
+      "longitudeDegrees": -179.9,
+      "receiverEcefMeters": [
+        0,
+        0,
+        6356752.314245179
+      ],
+      "expected": {
+        "propagationSeconds": 0.14269444368238896,
+        "xMeters": 42075219.716626376,
+        "yMeters": 1619675.4018688232,
+        "zMeters": -1197799.449632103,
+        "rangeMeters": 42778718.014485955,
+        "eastMeters": -1546237.860489908,
+        "northMeters": 42077982.49784073,
+        "upMeters": -7554551.763877285,
+        "elevationDegrees": -10.171550577067421,
+        "azimuthDegrees": 357.89550131127106,
+        "clockBiasSeconds": 0.00012001993859860878
+      }
+    },
+    {
+      "recordIndex": 1,
+      "offsetSeconds": -900,
+      "latitudeDegrees": 0,
+      "longitudeDegrees": 0,
+      "receiverEcefMeters": [
+        6378137,
+        0,
+        0
+      ],
+      "expected": {
+        "propagationSeconds": 0.11927712921682856,
+        "xMeters": 42042404.84134505,
+        "yMeters": 1660757.073345606,
+        "zMeters": -1990952.9815714878,
+        "rangeMeters": 35758383.75109667,
+        "eastMeters": 1660757.073345606,
+        "northMeters": -1990952.9815714878,
+        "upMeters": 35664267.84134505,
+        "elevationDegrees": 85.84208589612524,
+        "azimuthDegrees": 140.16676347419718,
+        "clockBiasSeconds": 0.00011997891034500443
+      }
+    },
+    {
+      "recordIndex": 1,
+      "offsetSeconds": 0,
+      "latitudeDegrees": 31.2,
+      "longitudeDegrees": 121.5,
+      "receiverEcefMeters": [
+        -2850000,
+        4650000,
+        3290000
+      ],
+      "expected": {
+        "propagationSeconds": 0.15102352605324337,
+        "xMeters": 42060430.165577516,
+        "yMeters": 1641243.8914247393,
+        "zMeters": -1597835.4618022025,
+        "rangeMeters": 45275714.09132887,
+        "eastMeters": -36720365.80928008,
+        "northMeters": 9303892.509502038,
+        "upMeters": -24798036.323145457,
+        "elevationDegrees": -33.21016418423011,
+        "azimuthDegrees": 284.21790593616146,
+        "clockBiasSeconds": 0.00011999942285736703
+      }
+    },
+    {
+      "recordIndex": 1,
+      "offsetSeconds": 900,
+      "latitudeDegrees": 90,
+      "longitudeDegrees": -179.9,
+      "receiverEcefMeters": [
+        0,
+        0,
+        6356752.314245179
+      ],
+      "expected": {
+        "propagationSeconds": 0.14269444368238896,
+        "xMeters": 42075219.716626376,
+        "yMeters": 1619675.4018688232,
+        "zMeters": -1197799.449632103,
+        "rangeMeters": 42778718.014485955,
+        "eastMeters": -1546237.860489908,
+        "northMeters": 42077982.49784073,
+        "upMeters": -7554551.763877285,
+        "elevationDegrees": -10.171550577067421,
+        "azimuthDegrees": 357.89550131127106,
+        "clockBiasSeconds": 0.00012001993859860878
+      }
+    },
+    {
+      "recordIndex": 2,
+      "offsetSeconds": -900,
+      "latitudeDegrees": 0,
+      "longitudeDegrees": 0,
+      "receiverEcefMeters": [
+        6378137,
+        0,
+        0
+      ],
+      "expected": {
+        "propagationSeconds": 0.14130505174621097,
+        "xMeters": 1534458.3069259515,
+        "yMeters": -28073768.089549806,
+        "zMeters": -31352150.8212911,
+        "rangeMeters": 42362188.79081378,
+        "eastMeters": -28073768.089549806,
+        "northMeters": -31352150.8212911,
+        "upMeters": -4843678.6930740485,
+        "elevationDegrees": -6.565539710489961,
+        "azimuthDegrees": 221.84233266850177,
+        "clockBiasSeconds": 0.00011998725986702426
+      }
+    },
+    {
+      "recordIndex": 2,
+      "offsetSeconds": 0,
+      "latitudeDegrees": 31.2,
+      "longitudeDegrees": 121.5,
+      "receiverEcefMeters": [
+        -2850000,
+        4650000,
+        3290000
+      ],
+      "expected": {
+        "propagationSeconds": 0.15957334292065947,
+        "xMeters": 2080438.1412106163,
+        "yMeters": -27019232.39246679,
+        "zMeters": -32224917.841240417,
+        "rangeMeters": 47838884.705461405,
+        "eastMeters": 12343238.883660227,
+        "northMeters": -15055674.42761864,
+        "upMeters": -43698169.42679496,
+        "elevationDegrees": -65.98579209028706,
+        "azimuthDegrees": 140.65374126566587,
+        "clockBiasSeconds": 0.00012000771976463382
+      }
+    },
+    {
+      "recordIndex": 2,
+      "offsetSeconds": 900,
+      "latitudeDegrees": 90,
+      "longitudeDegrees": -179.9,
+      "receiverEcefMeters": [
+        0,
+        0,
+        6356752.314245179
+      ],
+      "expected": {
+        "propagationSeconds": 0.1575758383221653,
+        "xMeters": 2759794.4298118087,
+        "yMeters": -26044718.40951489,
+        "zMeters": -32958363.131520625,
+        "rangeMeters": 47240047.89201253,
+        "eastMeters": 26049495.48865275,
+        "northMeters": 2714333.640583621,
+        "upMeters": -39315115.44576581,
+        "elevationDegrees": -56.329659330846994,
+        "azimuthDegrees": 84.05129935659892,
+        "clockBiasSeconds": 0.00012002814656450929
+      }
+    },
+    {
+      "recordIndex": 3,
+      "offsetSeconds": -900,
+      "latitudeDegrees": 0,
+      "longitudeDegrees": 0,
+      "receiverEcefMeters": [
+        6378137,
+        0,
+        0
+      ],
+      "expected": {
+        "propagationSeconds": 0.10221959551442415,
+        "xMeters": -8579092.032974353,
+        "yMeters": 14120097.137440788,
+        "zMeters": 22715624.04150751,
+        "rangeMeters": 30644663.79503499,
+        "eastMeters": 14120097.137440788,
+        "northMeters": 22715624.04150751,
+        "upMeters": -14957229.032974353,
+        "elevationDegrees": -29.214852345342646,
+        "azimuthDegrees": 31.865202817652346,
+        "clockBiasSeconds": 0.00011996157350804598
+      }
+    },
+    {
+      "recordIndex": 3,
+      "offsetSeconds": 0,
+      "latitudeDegrees": 31.2,
+      "longitudeDegrees": 121.5,
+      "receiverEcefMeters": [
+        -2850000,
+        4650000,
+        3290000
+      ],
+      "expected": {
+        "propagationSeconds": 0.07486170295138254,
+        "xMeters": -10355294.130377403,
+        "yMeters": 12659532.129354764,
+        "zMeters": 22865623.470552772,
+        "rangeMeters": 22442973.937860828,
+        "eastMeters": 2214346.1792166517,
+        "northMeters": 11175107.639268337,
+        "upMeters": 19336512.597282253,
+        "elevationDegrees": 59.49492909938888,
+        "azimuthDegrees": 11.207969027281138,
+        "clockBiasSeconds": 0.00011998426162620554
+      }
+    },
+    {
+      "recordIndex": 3,
+      "offsetSeconds": 900,
+      "latitudeDegrees": 90,
+      "longitudeDegrees": -179.9,
+      "receiverEcefMeters": [
+        0,
+        0,
+        6356752.314245179
+      ],
+      "expected": {
+        "propagationSeconds": 0.07776669840565238,
+        "xMeters": -12210299.22624757,
+        "yMeters": 11308169.882861882,
+        "zMeters": 22683736.282181863,
+        "rangeMeters": 23313869.66557521,
+        "eastMeters": -11329463.64113427,
+        "northMeters": -12190544.159240108,
+        "upMeters": 16326983.967936683,
+        "elevationDegrees": 44.452045555509144,
+        "azimuthDegrees": 222.90330618535492,
+        "clockBiasSeconds": 0.00012000717724325477
+      }
+    }
+  ]
+}

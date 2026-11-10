@@ -229,7 +229,7 @@ var Context.simReady: Boolean
     }
 
 var Context.gnssOrbital: Boolean
-    get() = sharedPrefs.getBoolean("gnssOrbital", false)
+    get() = sharedPrefs.getBoolean("gnssOrbital", true)
     set(value) = sharedPrefs.edit {
         putBoolean("gnssOrbital", value)
     }
@@ -302,7 +302,7 @@ var Context.enableAGPS: Boolean
     }
 
 var Context.enableNMEA: Boolean
-    get() = sharedPrefs.getBoolean("enableNMEA", FakeLoc.enableNMEA)
+    get() = sharedPrefs.getBoolean("enableNMEA", true)
     set(value) = sharedPrefs.edit {
         putBoolean("enableNMEA", value)
         FakeLoc.enableNMEA = value

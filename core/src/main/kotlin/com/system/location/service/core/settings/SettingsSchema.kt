@@ -97,7 +97,7 @@ object PortalSettingsSchema {
             SettingSpec("enable_debug_log", SettingType.BOOLEAN, "false"),
             SettingSpec("sim_ready", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_agps", SettingType.BOOLEAN, "false"),
-            SettingSpec("enable_nmea", SettingType.BOOLEAN, "false"),
+            SettingSpec("enable_nmea", SettingType.BOOLEAN, "true"),
             SettingSpec("disable_get_current_location", SettingType.BOOLEAN, "false"),
             SettingSpec("disable_register_location_listener", SettingType.BOOLEAN, "false"),
             SettingSpec("disable_fused_location", SettingType.BOOLEAN, "false"),
@@ -120,7 +120,7 @@ object PortalSettingsSchema {
             SettingSpec("environment_source", SettingType.ENUM, "AUTO", choices = setOf(
                 "AUTO", "PROCEDURAL", "REPLAY",
             )),
-            SettingSpec("gnss_model", SettingType.ENUM, "ANALYTIC", choices = setOf(
+            SettingSpec("gnss_model", SettingType.ENUM, "ORBITAL", choices = setOf(
                 "ANALYTIC", "ORBITAL",
             )),
         ),

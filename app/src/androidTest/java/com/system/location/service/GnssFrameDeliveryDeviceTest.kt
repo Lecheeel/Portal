@@ -50,13 +50,17 @@ class GnssFrameDeliveryDeviceTest {
     @Test fun fixedPointRouteReachesLocationAndNmeaWithoutUsingTheGlobalCoordinate() =
         verifyDelivery(Wgs84(40.0, 116.0))
 
+    @Test fun unregisterReregisterStopAndResumeDoNotLeakOrRepeatFrozenFrames() =
+        verifyDelivery(Wgs84(40.0, 116.0), cycleListeners = true)
+
     @Test fun hotReloadRestoresActiveFixedPointListenersWithoutReregistration() {
         assumeTrue("Explicit hot reload lab run required",
             InstrumentationRegistry.getArguments().getString("libxposedReload") == "true")
         verifyDelivery(Wgs84(40.0, 116.0), reload = true)
     }
 
-    private fun verifyDelivery(fixedPoint: Wgs84? = null, reload: Boolean = false) = runBlocking {
+    private fun verifyDelivery(fixedPoint: Wgs84? = null, reload: Boolean = false,
+        cycleListeners: Boolean = false) = runBlocking {
         assumeTrue("Explicit device run required", InstrumentationRegistry.getArguments().getString("libxposedDevice") == "true")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val manager = context.getSystemService(LocationManager::class.java)
@@ -290,6 +294,46 @@ class GnssFrameDeliveryDeviceTest {
                 val latest = statuses.filter { it.satellites.size == expectedCount }
                 assertEquals("Frozen publication must be delivered exactly once at minimum=$minimum", 1, latest.size)
                 assertTrue(latest.all { it.satellites.all { satellite -> satellite.constellation to satellite.svid in expectedIds } })
+            }
+            if (cycleListeners) {
+                manager.unregisterGnssStatusCallback(callback)
+                manager.removeNmeaListener(nmea)
+                statuses.clear(); sentences.clear()
+                delay(1_200L)
+                assertTrue("Unregistered status callback still received data", statuses.isEmpty())
+                assertTrue("Unregistered NMEA callback still received data", sentences.isEmpty())
+                assertTrue(manager.registerGnssStatusCallback({ it.run() }, callback))
+                assertTrue(manager.addNmeaListener({ it.run() }, nmea))
+                withTimeout(5_000L) {
+                    while (statuses.isEmpty() || sentences.none { type(it.text) == "ZDA" }) delay(50L)
+                }
+                delay(1_100L)
+                assertEquals("New registration receives the current frozen frame exactly once", 1, statuses.size)
+                assertEquals(1, sentences.count { type(it.text) == "GGA" })
+
+                renewal.cancelAndJoin()
+                command("stop")
+                assertFalse(command("get_runtime_status").getBoolean("is_start"))
+                // Already queued one-way Binder callbacks may finish. This window verifies that
+                // no later worker tick submits the old synthetic epoch; physical passthrough is allowed.
+                delay(300L)
+                sentences.clear()
+                delay(1_300L)
+                assertTrue("Stopped simulation continued submitting its frozen NMEA epoch",
+                    sentences.none { it.epoch == fixture.endedAtMillis })
+
+                val resumedEpoch = System.currentTimeMillis()
+                sampleWallOverride.set(resumedEpoch)
+                statuses.clear(); sentences.clear()
+                publish()
+                renewal = launch(Dispatchers.IO) { while (isActive) { delay(100L); publish() } }
+                withTimeout(5_000L) {
+                    while (statuses.isEmpty() || sentences.none { it.epoch == resumedEpoch && type(it.text) == "ZDA" }) delay(50L)
+                }
+                delay(1_100L)
+                assertEquals("Resumed epoch must be delivered once", 1,
+                    sentences.count { it.epoch == resumedEpoch && type(it.text) == "GGA" })
+                assertTrue(command("get_runtime_status").getBoolean("is_start"))
             }
         } catch (error: Throwable) {
             primaryFailure = error

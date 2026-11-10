@@ -80,6 +80,7 @@ class PortalModule : XposedModule() {
                     putParcelableArrayList("nmea", ArrayList(NmeaListenerRouting.subscriptions().map { it.toBundle() }))
                     putParcelableArrayList("raw", ArrayList(RawGnssCallbacks.subscriptions().map { it.toBundle() }))
                     putParcelableArrayList("peers", ArrayList(ProxyCommand.subscriptions().map { it.toBundle() }))
+                    putLong("peer_sequence", ProxyCommand.publicationSequence())
                     putString("process", "system_server")
                     putString("package", "android")
                     putInt("uid", 1000)
@@ -135,6 +136,7 @@ class PortalModule : XposedModule() {
             }
             lifecycle.systemServerStarting(loader)
             restoreCallbacks(saved)
+            ProxyCommand.restorePublicationSequence(saved?.getLong("peer_sequence") ?: 0L)
             restorePeers(saved)
             if (FakeLoc.runtimeSnapshots.current().configuration.enabled) LocationTicker.start()
             if (FakeLoc.runtimeSnapshots.current().configuration.gnssEnabled) com.system.location.service.hook.hooks.gnss.GnssSignalInjection.ensureStarted()

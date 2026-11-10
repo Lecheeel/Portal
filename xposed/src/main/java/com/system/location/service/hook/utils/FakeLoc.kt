@@ -18,9 +18,11 @@ object FakeLoc {
     /**
      * 是否允许打印日志
      */
-    var enableLog = true
+    var enableLog: Boolean
+        get() = runtimeSnapshots.current().configuration.logEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(logEnabled = value)) } }
 
-    /** P5-07: authoritative sample/environment/routing storage; legacy config fields remain. */
+    /** Authoritative immutable sample/environment/routing/policy state; properties below are adapters. */
     val runtimeSnapshots = RuntimeSnapshotStore()
 
     private fun updateSnapshot(transform: (RuntimeSnapshot) -> RuntimeSnapshot) {
@@ -30,76 +32,102 @@ object FakeLoc {
     /**
      * 是否允许打印调试日志
      */
-    var enableDebugLog = false
+    var enableDebugLog: Boolean
+        get() = runtimeSnapshots.current().configuration.debugLog
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(debugLog = value)) } }
 
     /**
      * 模拟定位服务开关
      */
-    @Volatile
-    var enable = false
+    var enable: Boolean
+        get() = runtimeSnapshots.current().configuration.enabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(enabled = value)) } }
 
     /**
      * 模拟Gnss卫星数据开关（默认开启，仅在模拟定位启动时生效）
      */
-    @Volatile
-    var enableMockGnss = true
+    var enableMockGnss: Boolean
+        get() = runtimeSnapshots.current().configuration.gnssEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(gnssEnabled = value)) } }
 
     /**
      * 模拟WLAN数据（默认开启，仅在模拟定位启动时生效）
      */
-    @Volatile
-    var enableMockWifi = true
+    var enableMockWifi: Boolean
+        get() = runtimeSnapshots.current().configuration.wifiEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(wifiEnabled = value)) } }
 
     /**
      * 是否禁用GetCurrentLocation方法（在部分系统不禁用可能导致hook失效）
      */
-    var disableGetCurrentLocation = false
+    var disableGetCurrentLocation: Boolean
+        get() = runtimeSnapshots.current().configuration.disableGetCurrentLocation
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(disableGetCurrentLocation = value)) } }
 
     /**
      * 是否禁用RegisterLocationListener方法
      */
-    var disableRegisterLocationListener = false
+    var disableRegisterLocationListener: Boolean
+        get() = runtimeSnapshots.current().configuration.disableRegisterLocationListener
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(disableRegisterLocationListener = value)) } }
 
     /**
      * 如果TelephonyHook失效，可能需要打开此开关
      */
-    var disableFusedLocation = false
-    var disableNetworkLocation = true
+    var disableFusedLocation: Boolean
+        get() = runtimeSnapshots.current().configuration.disableFusedLocation
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(disableFusedLocation = value)) } }
+    var disableNetworkLocation: Boolean
+        get() = runtimeSnapshots.current().configuration.disableNetworkLocation
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(disableNetworkLocation = value)) } }
 
-    var disableRequestGeofence = false
-    var disableGetFromLocation = false
+    var disableRequestGeofence: Boolean
+        get() = runtimeSnapshots.current().configuration.disableRequestGeofence
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(disableRequestGeofence = value)) } }
+    var disableGetFromLocation: Boolean
+        get() = runtimeSnapshots.current().configuration.disableGetFromLocation
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(disableGetFromLocation = value)) } }
 
     /** Legacy enable_agps key now controls only real raw GNSS data access. */
-    @Volatile
-    var allowPhysicalRawGnss = false
+    var allowPhysicalRawGnss: Boolean
+        get() = runtimeSnapshots.current().configuration.allowPhysicalRawGnss
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(allowPhysicalRawGnss = value)) } }
 
     /**
      * 是否允许NMEA模块
      */
-    @Volatile
-    var enableNMEA = true
+    var enableNMEA: Boolean
+        get() = runtimeSnapshots.current().configuration.nmeaEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(nmeaEnabled = value)) } }
 
     /**
      * 是否隐藏模拟位置
      */
-    var hideMock = true
+    var hideMock: Boolean
+        get() = runtimeSnapshots.current().configuration.hideMock
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(hideMock = value)) } }
 
     /**
      * may cause system to crash
      */
-    var hookWifi = true
+    var hookWifi: Boolean
+        get() = runtimeSnapshots.current().configuration.hookWifi
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(hookWifi = value)) } }
 
     /**
      * 将网络定位降级为 Cdma（ADR-005：旧路径默认关闭，下一版本删除）
      */
-    var needDowngradeToCdma = false
+    var needDowngradeToCdma: Boolean
+        get() = runtimeSnapshots.current().configuration.downgradeToCdma
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(downgradeToCdma = value)) } }
     var isSystemServerProcess = false
 
     /**
      * 模拟最小卫星数量
      */
-    @Volatile
-    var minSatellites = 0
+    var minSatellites: Int
+        get() = runtimeSnapshots.current().configuration.minimumSatellites
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(minimumSatellites = value)) } }
 
     /** 环境生成 seed；同一位置、同一 seed 必须生成同一组 AP/基站（ADR-022）。 */
     var environmentSeed: Long
@@ -140,8 +168,12 @@ object FakeLoc {
         set(value) { updateSnapshot { it.copy(environmentSourceMode = value) } }
 
     /** P2-06: optional imported WiFi fingerprint catalog (JSON); disabled by default. */
-    @Volatile var wifiFingerprintEnabled = false
-    @Volatile var wifiFingerprintCatalogJson: String? = null
+    var wifiFingerprintEnabled: Boolean
+        get() = runtimeSnapshots.current().configuration.wifiFingerprintEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(wifiFingerprintEnabled = value)) } }
+    var wifiFingerprintCatalogJson: String?
+        get() = runtimeSnapshots.current().configuration.wifiFingerprintCatalogJson
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(wifiFingerprintCatalogJson = value)) } }
 
     /** P5-02: null/global keeps every listener on the current fake fix. */
     var routingConfig: com.system.location.service.core.routing.RoutingConfig?
@@ -154,7 +186,7 @@ object FakeLoc {
     @Volatile var lastLocation: Location? = null
     val latitude get() = runtimeSnapshots.current().latitude
     val longitude get() = runtimeSnapshots.current().longitude
-    fun coordinatePair(): Pair<Double, Double> = latitude to longitude
+    fun coordinatePair(): Pair<Double, Double> = runtimeSnapshots.current().let { it.latitude to it.longitude }
     var altitude: Double
         get() = runtimeSnapshots.current().altitudeMeters
         set(value) { runtimeSnapshots.update { it.copy(altitudeMeters = value) } }
@@ -163,7 +195,9 @@ object FakeLoc {
         get() = runtimeSnapshots.current().speedMps
         set(value) { runtimeSnapshots.update { it.copy(speedMps = value.coerceAtLeast(0.0)) } }
 
-    var speedAmplitude = 1.0
+    var speedAmplitude: Double
+        get() = runtimeSnapshots.current().configuration.speedAmplitude
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(speedAmplitude = value)) } }
 
     var hasBearings: Boolean
         get() = runtimeSnapshots.current().hasBearings
@@ -172,11 +206,17 @@ object FakeLoc {
     var bearing: Double
         get() = runtimeSnapshots.current().bearingDeg
         set(value) { runtimeSnapshots.update { it.copy(bearingDeg = value) } }
-    @Volatile var reportIntervalMs = 100L
+    var reportIntervalMs: Long
+        get() = runtimeSnapshots.current().configuration.reportIntervalMs
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(reportIntervalMs = value)) } }
 
     /** Java-side sensor tuning; Native only consumes the resulting cadence/variation values. */
-    @Volatile var sensorCadenceScale = 1.0
-    @Volatile var sensorVariation = 0.15
+    var sensorCadenceScale: Double
+        get() = runtimeSnapshots.current().configuration.sensorCadenceScale
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(sensorCadenceScale = value)) } }
+    var sensorVariation: Double
+        get() = runtimeSnapshots.current().configuration.sensorVariation
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(sensorVariation = value)) } }
     /** P5-02: per-scenario samples; routing falls back to the active fix when a scenario has none. */
     val scenarioSamples = com.system.location.service.core.runtime.ScenarioSampleStore()
 

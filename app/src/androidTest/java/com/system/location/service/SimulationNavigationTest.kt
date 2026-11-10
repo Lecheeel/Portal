@@ -19,7 +19,7 @@ import org.junit.runner.RunWith
 class SimulationNavigationTest {
     @get:Rule val compose = createEmptyComposeRule()
     @Before fun consent() {
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
         grantUiPermissions()
     }
 

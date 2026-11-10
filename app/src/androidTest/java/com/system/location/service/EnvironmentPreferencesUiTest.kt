@@ -29,7 +29,7 @@ class EnvironmentPreferencesUiTest {
         val profile = EnvironmentProfile(source = EnvironmentSourceType.REPLAY, origin = Wgs84(30.0, 120.0),
             generatedAtMillis = 1, seed = 42,
             wifi = listOf(WifiAp("sample", "A4:50:46:12:34:56", -55, 2412, 1)))
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
         grantUiPermissions()
         try {
             store.save(name, profile)

@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 class SimulationFeaturesTest {
     @get:Rule val compose = createEmptyComposeRule()
     @org.junit.Before fun acceptMapConsentForThisFixture() {
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
     }
     @Test fun androidSaxPreservesSeparatedTracksAndRejectsExternalEntities() {
         val route = Route("r", "测试 & 路线", listOf(Wgs84(1.0, 2.0), Wgs84(1.1, 2.1)))

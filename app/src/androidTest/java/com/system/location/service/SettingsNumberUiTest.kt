@@ -27,7 +27,7 @@ class SettingsNumberUiTest {
     @Test fun invalidInputCanBeCorrectedAndSavedValueAppearsWithoutNavigation() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val original = context.altitude
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
         grantUiPermissions()
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->

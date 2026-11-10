@@ -17,7 +17,7 @@ class SettingsSwitchUiTest {
     @get:Rule val compose = createEmptyComposeRule()
 
     @Test fun sharedSwitchAnimatesBetweenOffAndOn() {
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
         grantUiPermissions()
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         fun shell(command: String): String = automation.executeShellCommand(command).use {
@@ -73,7 +73,7 @@ class SettingsSwitchUiTest {
 
     @Test fun preferenceSwitchesUpdateImmediatelyAndCanToggleBackWithoutLeavingPage() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
         grantUiPermissions()
         val smooth = context.smoothRouteMotion
         val noise = context.physicalNoise

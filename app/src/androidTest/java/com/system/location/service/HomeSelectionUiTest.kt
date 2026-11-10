@@ -38,7 +38,7 @@ class HomeSelectionUiTest {
     private val context get() = instrumentation.targetContext
 
     @Before fun fixture() {
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
         grantUiPermissions()
     }
 

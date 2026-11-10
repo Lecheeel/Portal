@@ -13,6 +13,10 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.findNavController
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
+import com.system.location.service.maps.MapProvider
+import com.system.location.service.maps.mapProvider
+import com.system.location.service.privacy.SdkPrivacy
+import com.system.location.service.privacy.TencentPrivacy
 
 /** ActivityScenario owns launch/recreation; the empty Compose rule only synchronizes semantics. */
 internal fun ComposeTestRule.openPage(scenario: ActivityScenario<MainActivity>, destination: Int) {
@@ -51,6 +55,18 @@ internal fun ComposeTestRule.scrollTo(matcher: SemanticsMatcher): SemanticsNodeI
 
 internal fun ComposeTestRule.scrollToText(text: String, substring: Boolean = false) =
     scrollTo(hasText(text, substring = substring))
+
+/** Explicit fixture consent follows the saved provider, including the fresh-install default. */
+internal fun acceptSelectedMapForUiTest() {
+    val instrumentation = InstrumentationRegistry.getInstrumentation()
+    val context = instrumentation.targetContext
+    instrumentation.runOnMainSync {
+        when (context.mapProvider) {
+            MapProvider.TENCENT -> TencentPrivacy.accept(context)
+            MapProvider.AMAP -> SdkPrivacy.acceptMaps()
+        }
+    }
+}
 
 internal fun grantUiPermissions() {
     val instrumentation = InstrumentationRegistry.getInstrumentation()

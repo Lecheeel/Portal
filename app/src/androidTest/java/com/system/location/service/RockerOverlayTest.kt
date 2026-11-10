@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicReference
 class RockerOverlayTest {
     @get:Rule val compose = createEmptyComposeRule()
     @org.junit.Before fun acceptMapConsentForThisFixture() {
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
     }
     @Test fun deniedOverlayPermissionOpensSettingsEvenWhenVisibilityWasEnabled() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()

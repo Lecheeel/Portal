@@ -33,7 +33,7 @@ import org.junit.runner.RunWith
 class UiDesignTest {
     @get:Rule val compose = createEmptyComposeRule()
     @org.junit.Before fun acceptMapConsentForThisFixture() {
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
     }
     @Test fun homeHasNoToolbarGapAfterReturningFromEveryOtherPage() {
         permissions()

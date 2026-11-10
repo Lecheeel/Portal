@@ -30,7 +30,7 @@ class SettingsRestoreUiTest {
     @Test fun restoreWorksAfterStopAndSynchronizesSavedMotionWithThePage() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        com.system.location.service.privacy.SdkPrivacy.acceptMaps()
+        acceptSelectedMapForUiTest()
         grantUiPermissions()
         runBlocking { ScenarioRuntime.refreshDiagnostics().await() }
         assertFalse("Requires an inactive test fixture", ScenarioRuntime.state.value.isActive)

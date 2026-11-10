@@ -275,6 +275,21 @@ object FakeLoc {
     }
 
     @Synchronized
+    fun configureRuntime(prepared: com.system.location.service.core.runtime.PreparedRuntimeConfiguration): RuntimeSnapshot {
+        val published = runtimeSnapshots.update { current ->
+            prepared.applyTo(current).let { next ->
+                if (next.configuration.enabled) next else next.copy(sample = null, provider = null, hasBearings = false)
+            }
+        }
+        if (!published.configuration.enabled) {
+            externallyDriven = false
+            movementSpeed = 0f
+            scenarioSamples.replace(emptyMap())
+        }
+        return published
+    }
+
+    @Synchronized
     fun stopRuntime(): RuntimeSnapshot {
         val stopped = runtimeSnapshots.update {
             it.copy(configuration = it.configuration.copy(enabled = false), hasBearings = false, sample = null, provider = null,

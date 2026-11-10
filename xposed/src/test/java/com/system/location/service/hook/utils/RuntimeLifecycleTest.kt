@@ -7,6 +7,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RuntimeLifecycleTest {
+    @Test fun configurationDisableClearsSampleOwnershipInTheSameLifecycleTransition() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot())
+            val sample = LocationSample(Wgs84(31.0, 121.0), 10.0, 5f, 8f, 90f, 1000, 1000)
+            FakeLoc.acceptSample(sample, "route")
+            val disabled = FakeLoc.configureRuntime(PreparedRuntimeConfiguration.prepare(mapOf("enable" to false,
+                "min_satellites" to 24)))
+            assertEquals(2L, disabled.configRevision)
+            assertFalse(disabled.configuration.enabled)
+            assertNull(disabled.sample)
+            assertFalse(FakeLoc.externallyDriven)
+            assertTrue(FakeLoc.scenarioSamples.scenarioIds().isEmpty())
+            FakeLoc.configureRuntime(PreparedRuntimeConfiguration.prepare(mapOf("enable" to true)))
+            assertNotSame(sample, FakeLoc.snapshot(true, 2000, 2000))
+        } finally {
+            FakeLoc.stopRuntime()
+            FakeLoc.runtimeSnapshots.set(saved)
+        }
+    }
+
     @Test fun targetAndHeadingAreValidatedAndReplacedTogetherWithMotion() {
         val saved = FakeLoc.runtimeSnapshots.current()
         try {

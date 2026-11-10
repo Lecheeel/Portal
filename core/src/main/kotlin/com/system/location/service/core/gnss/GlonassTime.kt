@@ -15,19 +15,6 @@ data class GlonassCalendarCoordinate(val date: LocalDate, val secondsOfDay: Doub
     internal fun secondsSince(other: GlonassCalendarCoordinate) =
         (date.toEpochDay() - other.date.toEpochDay()) * 86400.0 + secondsOfDay - other.secondsOfDay
 
-    internal fun plusSeconds(seconds: Double): GlonassCalendarCoordinate? {
-        if (!seconds.isFinite()) return null
-        val total = secondsOfDay + seconds
-        if (!total.isFinite()) return null
-        val days = floor(total / 86400.0)
-        if (days < Long.MIN_VALUE.toDouble() || days >= Long.MAX_VALUE.toDouble()) return null
-        val normalized = total - days * 86400.0
-        if (normalized < 0 || normalized >= 86400) return null
-        return try { GlonassCalendarCoordinate(date.plusDays(days.toLong()), normalized) }
-        catch (_: DateTimeException) { null }
-        catch (_: ArithmeticException) { null }
-    }
-
     companion object {
         /** Complete broadcast N4/NT, not a nearest-century guess or a repeated 1461-day modulo. */
         fun fromBroadcastDate(n4: Int, nt: Int, secondsOfDay: Double): GlonassCalendarCoordinate? {

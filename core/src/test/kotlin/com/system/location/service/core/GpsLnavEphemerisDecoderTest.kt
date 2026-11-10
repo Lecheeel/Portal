@@ -57,12 +57,8 @@ class GpsLnavEphemerisDecoderTest {
                 "cuc" to e.cucRad, "cus" to e.cusRad, "cic" to e.cicRad, "cis" to e.cisRad,
                 "af0" to e.af0Seconds, "af1" to e.af1SecondsPerSecond,
                 "af2" to e.af2SecondsPerSecondSquared, "tgd" to e.tgdSeconds)
-            val semicircleFields = setOf("i0", "omega0", "omega", "m0", "deltaN", "omegaDot", "iDot")
             values.forEach { (name, value) ->
-                // RTKLIB uses SC2RAD=3.1415926535898; production uses full Double PI.
-                val tolerance = if (name in semicircleFields) kotlin.math.abs(r.n(name)) * 3e-15
-                    else Math.ulp(r.n(name)) * 4
-                assertEquals(name, r.n(name), value, tolerance)
+                assertEquals(name, r.n(name), value, Math.ulp(r.n(name)) * 4)
             }
             assertNotNull(GpsBroadcastPropagator.propagate(e, e.toe).state)
         }

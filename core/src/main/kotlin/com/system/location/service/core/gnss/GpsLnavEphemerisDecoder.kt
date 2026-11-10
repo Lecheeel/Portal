@@ -1,6 +1,5 @@
 package com.system.location.service.core.gnss
 
-import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.pow
 
@@ -18,6 +17,8 @@ data class GpsLnavDecodeResult(val decoded: DecodedGpsLnav?, val reason: String?
  * subframe 1, not UTC or a modulo week. It resolves the 10-bit week, never supplies orbit data.
  */
 object GpsLnavEphemerisDecoder {
+    // IS-GPS-200N Table 20-IV specifies this constant for semi-circle conversion.
+    private const val SEMICIRCLE_TO_RADIANS = 3.1415926535898
     fun decode(subframes: Collection<GpsLnavSubframe>,
         referenceAtSubframeOneCapture: GpsTime): GpsLnavDecodeResult {
         fun invalid(reason: String) = GpsLnavDecodeResult(null, reason)
@@ -87,7 +88,7 @@ object GpsLnavEphemerisDecoder {
     }
 
     private fun GpsLnavSubframe.scale(start: Int, length: Int, power: Int, semicircles: Boolean = false) =
-        signed(start, length) * 2.0.pow(power) * if (semicircles) PI else 1.0
+        signed(start, length) * 2.0.pow(power) * if (semicircles) SEMICIRCLE_TO_RADIANS else 1.0
 
     /** Modern GPS blocks, Table 20-XII including reserved ranges (not old heuristic fallbacks). */
     internal fun fitHours(iodc: Int, extended: Boolean): Int? {

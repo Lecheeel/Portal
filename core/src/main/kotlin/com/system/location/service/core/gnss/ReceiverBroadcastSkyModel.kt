@@ -136,10 +136,13 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         } else emptyList()
         if (galileoEvidence != null && galileoEvidence.receiverFrame != GalileoReceiverFrame.GTRF)
             diagnostics += "Galileo 广播证据坐标系不受支持，未输出物理几何"
+        val receiverBdcs = beiDouEvidence?.receiverTransform
+            ?.receiver(observer, altitudeMeters, elapsedRealtimeNanos, currentBootCount)
+            ?.let { BdcsReceiver(it.position, it.orientation) }
+        if (beiDouEvidence != null && receiverBdcs == null)
+            diagnostics += "北斗广播几何未启用：缺少适用的 WGS 84 → BDCS 接收机变换，未回退同身份统计几何"
         val physicalBeiDou = if (beiDouEvidence != null && beiDouTime != null &&
-            beiDouEvidence.receiverFrame == BeiDouReceiverFrame.BDCS) {
-            val receiverBdcs = BdcsReceiver(GnssObserverGeometry.ecef(observer, altitudeMeters),
-                GeodeticOrientation(observer.latitude, observer.longitude))
+            beiDouEvidence.receiverFrame == BeiDouReceiverFrame.BDCS && receiverBdcs != null) {
             (beiDouEvidence.d1.mapNotNull { decoded ->
                 val result = BeiDouSignalReception.observe(decoded, beiDouTime, receiverBdcs,
                     BeiDouLegacySignal.B1I, beiDouEvidence.serviceValidity)

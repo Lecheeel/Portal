@@ -32,8 +32,10 @@ data class BeiDouBroadcastEvidence(
     val serviceValidity: BeiDouServiceValidity,
     val d1: List<BeiDouD1Decoded> = emptyList(),
     val d2: List<BeiDouD2Decoded> = emptyList(),
+    val receiverTransform: GnssReceiverDatumTransform? = null,
 ) {
     init {
+        require(receiverTransform == null || receiverTransform.bootCount == clock.bootCount)
         require(d1.isNotEmpty() || d2.isNotEmpty()) { "BeiDou evidence is empty" }
         require(d1.map { it.ephemeris.svid }.distinct().size == d1.size)
         require(d2.map { it.ephemeris.svid }.distinct().size == d2.size)

@@ -57,4 +57,9 @@ class HookConfigurationPreferencesTest {
         val wire = HookConfigurationPreferences.read(mapOf("minSatelliteCount" to 999), RuntimeSnapshot())
         assertEquals(128, wire["min_satellites"])
     }
+
+    @Test fun staleAccuracyPreferenceIsClampedAtTheWireBoundary() {
+        assertEquals(0.1f, HookConfigurationPreferences.read(mapOf("accuracy" to -5f), RuntimeSnapshot())["accuracy"])
+        assertEquals(10_000f, HookConfigurationPreferences.read(mapOf("accuracy" to 50_000f), RuntimeSnapshot())["accuracy"])
+    }
 }

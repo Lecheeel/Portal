@@ -17,7 +17,8 @@ object HookConfigurationPreferences {
         return mapOf(
             "altitude" to number("altitude", 0f).toDouble(),
             "speed" to number("speed", fallback.speedMps.toFloat()).toDouble(),
-            "accuracy" to number("accuracy", LocationSanitizer.FALLBACK_HORIZONTAL_ACCURACY),
+            "accuracy" to number("accuracy", LocationSanitizer.FALLBACK_HORIZONTAL_ACCURACY)
+                .coerceIn(0.1f, 10_000f),
             "report_interval" to if (flag("loopBroadcastLocation", false)) interval else maxOf(500L, interval),
             // `disableWifiScan` is a legacy key whose historical true value
             // actually enabled replacement. Prefer the canonical key when it

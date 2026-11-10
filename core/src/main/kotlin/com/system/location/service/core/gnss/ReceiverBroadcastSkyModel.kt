@@ -13,25 +13,37 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
     private val signal = GpsEmpiricalSignalModel(capture)
     private val evidence = if (capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
         GpsBroadcastEvidence.fromCapture(capture) else capture.gpsBroadcastEvidence
-    internal val broadcastBootCount: Int? get() = evidence?.clock?.bootCount
+    private val galileoEvidence = capture.galileoBroadcastEvidence
+    internal val broadcastBootCount: Int?
+        get() = evidence?.clock?.bootCount ?: galileoEvidence?.clock?.bootCount
     private val ratios = capture.profile().constellations.associate { it.constellation to it.ratio }
 
     fun frame(atMillis: Long, observer: Wgs84, altitudeMeters: Double, minimumSatellites: Int = 0,
         elapsedRealtimeNanos: Long? = null, currentBootCount: Int? = null): ReceiverGnssFrame? {
         require(atMillis >= 0 && altitudeMeters.isFinite())
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
-        val e = evidence ?: return replay.frame(atMillis, observer, altitudeMeters, minimumSatellites)
-        val time = elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) }
-        if (time == null) {
-            val fallback = replay.frame(atMillis, observer, altitudeMeters, minimumSatellites) ?: return null
-            return fallback.copy(diagnostics = fallback.diagnostics +
-                "GPS 广播几何未启用：缺少同次开机的有效单调时间，当前明确使用统计回放")
+        if (evidence == null && galileoEvidence == null)
+            return replay.frame(atMillis, observer, altitudeMeters, minimumSatellites)
+        val time = evidence?.let { e -> elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) } }
+        val galileoTime = galileoEvidence?.let { e ->
+            elapsedRealtimeNanos?.let { elapsed ->
+                e.clock.at(elapsed, currentBootCount)?.let { gps -> e.gpsToGst.gpsToGalileo(gps).time }
+            }
         }
         val base = replay.selection(atMillis, 0) ?: return null
-        val diagnostics = mutableListOf("GPS 方位/仰角来自广播轨道和真空光程；CN0、在用候选来自本次采集的经验校准，非实时接收状态")
-        val broadcastIds = e.ephemerides.map { it.ephemeris.svid }.toSet()
-        fun statistical(s: GnssSatellite) = s.constellation != Constellation.GPS || s.svid !in broadcastIds
-        val physical = e.ephemerides.mapNotNull { decoded ->
+        val diagnostics = mutableListOf<String>()
+        if (evidence != null) diagnostics += "GPS 方位/仰角来自广播轨道和真空光程；CN0、在用候选来自本次采集的经验校准，非实时接收状态"
+        if (galileoEvidence != null) diagnostics += "Galileo 方位/仰角来自经 GGTO 对齐的广播轨道；坐标系和时标证据均需独立建立"
+        if (evidence != null && time == null) diagnostics += "GPS 广播几何未启用：缺少同次开机的有效单调时间，当前明确使用统计回放"
+        if (galileoEvidence != null && galileoTime == null) diagnostics += "Galileo 广播几何未启用：缺少同次开机的有效 GPS/GST 时标，当前明确使用统计回放"
+        val broadcastIds = evidence?.ephemerides?.map { it.ephemeris.svid }?.toSet().orEmpty()
+        val galileoIds = galileoEvidence?.identities.orEmpty()
+        fun statistical(s: GnssSatellite) = when (s.constellation) {
+            Constellation.GPS -> s.svid !in broadcastIds
+            Constellation.GALILEO -> s.svid !in galileoIds
+            else -> true
+        }
+        val physicalGps = if (evidence != null && time != null) evidence.ephemerides.mapNotNull { decoded ->
             val id = decoded.ephemeris.svid
             val age = time.secondsSince(decoded.frameTransmissionTime.plusSeconds(18.0))
             if (age !in 0.0..GpsBroadcastEvidence.MAX_BROADCAST_AGE_SECONDS) {
@@ -59,9 +71,44 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 azimuth.toFloat().let { if (it >= 360f) 0f else it }, calibration.cn0DbHz.toFloat(),
                 calibration.usedFraction >= 0.5 && calibration.cn0DbHz > 0.0,
                 hasEphemeris = true, hasAlmanac = calibration.hasAlmanac, carrierHz = calibration.carrierHz)
-        }.sortedBy { it.svid }
+        }.sortedBy { it.svid } else emptyList()
+        val receiver = GtrfReceiver(GnssObserverGeometry.ecef(observer, altitudeMeters),
+            GeodeticOrientation(observer.latitude, observer.longitude))
+        val physicalGalileo = if (galileoEvidence != null && galileoTime != null &&
+            galileoEvidence.receiverFrame == GalileoReceiverFrame.GTRF) {
+            val inav = galileoEvidence.inav.mapNotNull { decoded ->
+                val result = GalileoReceptionGeometry.observe(decoded.ephemeris, galileoTime, receiver)
+                val los = result.observation?.lineOfSight
+                if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
+                    diagnostics += "Galileo ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
+                    return@mapNotNull null
+                }
+                val calibration = empirical(Constellation.GALILEO, los.elevationDegrees)
+                    ?: run { diagnostics += "Galileo ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
+                GnssSatellite(Constellation.GALILEO, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
+                    los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    true, calibration.almanac, calibration.carrier)
+            }
+            val fnav = galileoEvidence.fnav.mapNotNull { decoded ->
+                val result = GalileoReceptionGeometry.observe(decoded.ephemeris, galileoTime, receiver)
+                val los = result.observation?.lineOfSight
+                if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
+                    diagnostics += "Galileo ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
+                    return@mapNotNull null
+                }
+                val calibration = empirical(Constellation.GALILEO, los.elevationDegrees)
+                    ?: run { diagnostics += "Galileo ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
+                GnssSatellite(Constellation.GALILEO, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
+                    los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    true, calibration.almanac, calibration.carrier)
+            }
+            (inav + fnav).distinctBy { it.constellation to it.svid }
+        } else emptyList()
+        if (galileoEvidence != null && galileoEvidence.receiverFrame != GalileoReceiverFrame.GTRF)
+            diagnostics += "Galileo 广播证据坐标系不受支持，未输出物理几何"
         // All genuinely observed, valid broadcast identities may contribute, including those
         // absent from the current statistical window. The remaining pool stays local empirical.
+        val physical = physicalGps + physicalGalileo
         val pool = physical + base.evidencePool.filter(::statistical)
         val selected = (physical + base.satellites.filter(::statistical)).toMutableList()
         while (selected.size < minimumSatellites) {
@@ -84,8 +131,28 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         val output = selected.sortedWith(compareBy({ it.constellation.ordinal }, { it.svid })).map {
             if (geometry.dop == null) it.copy(usedInFix = false) else it
         }
+        val hasPhysical = physical.isNotEmpty()
+        val source = when {
+            !hasPhysical -> ReceiverGnssSource.STATISTICAL_REPLAY
+            usesReplay -> ReceiverGnssSource.HYBRID_BROADCAST_REPLAY
+            else -> ReceiverGnssSource.BROADCAST_EPHEMERIS
+        }
         return ReceiverGnssFrame(atMillis, observer, altitudeMeters, output, geometry,
-            if (usesReplay) ReceiverGnssSource.HYBRID_BROADCAST_REPLAY else ReceiverGnssSource.BROADCAST_EPHEMERIS,
+            source,
             diagnostics, pool.size, minimumSatellites)
+    }
+
+    private data class Empirical(val cn0: Double, val used: Double, val carrier: Float?, val almanac: Boolean)
+
+    private fun empirical(constellation: Constellation, elevation: Double): Empirical? {
+        val samples = capture.frames.flatMap { it.satellites }.filter {
+            it.constellation == constellation && it.elevationDeg >= 0f && it.cn0DbHz > 0f
+        }
+        if (samples.isEmpty()) return null
+        val nearest = samples.sortedBy { kotlin.math.abs(it.elevationDeg - elevation.toFloat()) }.take(8)
+        if (kotlin.math.abs(nearest.first().elevationDeg - elevation.toFloat()) > 30f) return null
+        return Empirical(nearest.map { it.cn0DbHz.toDouble() }.average(),
+            nearest.count { it.usedInFix }.toDouble() / nearest.size,
+            nearest.mapNotNull { it.carrierHz }.firstOrNull(), nearest.any { it.hasAlmanac })
     }
 }

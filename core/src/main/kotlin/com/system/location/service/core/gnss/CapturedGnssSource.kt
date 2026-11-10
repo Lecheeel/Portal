@@ -13,7 +13,8 @@ class CapturedGnssSource private constructor(private val payload: String) {
     private val capture = GnssCaptureWire.decode(payload)
     private val frames = GnssFrameStore(sequences).apply { configure(capture) }
     val requiresBootIdentity: Boolean = capture.bootCount != null &&
-        (capture.gpsBroadcastEvidence != null || capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
+        (capture.gpsBroadcastEvidence != null || capture.galileoBroadcastEvidence != null ||
+            capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
 
     fun frame(sample: LocationSample, minimumSatellites: Int, route: GnssFrameRoute,
         validationAtMillis: Long, currentBootCount: Int? = null): PublishedGnssFrame? =

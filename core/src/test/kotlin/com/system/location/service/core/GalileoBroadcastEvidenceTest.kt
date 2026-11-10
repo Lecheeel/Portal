@@ -28,8 +28,10 @@ class GalileoBroadcastEvidenceTest {
             endedAtMillis = 60_000, bootCount = 7,
             frames = (0..60).map { index -> GnssObservationFrame(index * 1000L,
                 satellites = listOf(GnssSatellite(Constellation.GALILEO, 1, 30f, 90f, 35f, true, true, true))) },
-            galileoBroadcastEvidence = GalileoBroadcastEvidence(clock, offset, inav = listOf(decoded)))
+            galileoBroadcastEvidence = GalileoBroadcastEvidence(clock, offset, GalileoReceiverFrame.GTRF,
+                inav = listOf(decoded)))
         val result = GnssCaptureWire.decode(GnssCaptureWire.encode(capture))
         assertEquals(capture.galileoBroadcastEvidence, result.galileoBroadcastEvidence)
+        assertEquals(7, ReceiverBroadcastSkyModel(result).broadcastBootCount)
     }
 }

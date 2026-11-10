@@ -75,7 +75,6 @@
   <string name="physical_noise">位置の微小な揺らぎ</string>
   <string name="physical_noise_desc">緯度・経度、高度、精度に、範囲が制限された再現可能な微小な揺らぎを加えます。初期設定では無効です。次回のシナリオ開始時に反映されます</string>
   <string name="sim_ready">SIM を有効にする（無効時は SIM なし／WiFi のみ）</string>
-  <string name="gnss_orbital">衛星軌道に基づく GNSS モデル（試験的）</string>
   <string name="per_app_routing">アプリごとの位置情報制御（試験的）</string>
   <string name="per_app_routing_desc">モック位置情報を受信しないアプリを選択します。初期設定では無効です。次回のシナリオ開始時に反映されます</string>
   <string name="per_app_point">アプリごとの固定位置（試験的）</string>

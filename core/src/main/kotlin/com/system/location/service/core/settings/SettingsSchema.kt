@@ -1,5 +1,7 @@
 package com.system.location.service.core.settings
 
+import com.system.location.service.core.environment.EnvironmentConfig
+
 enum class SettingType { BOOLEAN, INT, LONG, FLOAT, DOUBLE, STRING, ENUM }
 
 data class SettingSpec(
@@ -114,7 +116,8 @@ object PortalSettingsSchema {
             SettingSpec("speed_amplitude", SettingType.DOUBLE, "1.0", 0.0, 10.0),
             SettingSpec("sensor_cadence_scale", SettingType.DOUBLE, "1.0", 0.5, 2.0),
             SettingSpec("sensor_variation", SettingType.DOUBLE, "0.15", 0.0, 0.5),
-            SettingSpec("environment_ap_count", SettingType.INT, "4", 1.0, 8.0),
+            SettingSpec("environment_ap_count", SettingType.INT, "4",
+                EnvironmentConfig.MIN_AP_PER_CELL.toDouble(), EnvironmentConfig.MAX_AP_PER_CELL.toDouble()),
             SettingSpec("cell_mode", SettingType.ENUM, "FULL_REPLAY", choices = setOf(
                 "AUTO", "FULL_REPLAY", "NO_SIM_WIFI_ONLY", "LEGACY_CDMA",
             )),

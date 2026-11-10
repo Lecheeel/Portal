@@ -1,5 +1,6 @@
 package com.system.location.service.core.runtime
 
+import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentSourceMode
@@ -38,7 +39,7 @@ data class RuntimeSnapshot(
     init {
         require(configRevision >= 0L) { "configRevision must be non-negative" }
         require(environmentVersion >= 0L) { "environmentVersion must be non-negative" }
-        require(environmentApCount in 1..8) { "environmentApCount out of range" }
+        require(environmentApCount in EnvironmentConfig.MIN_AP_PER_CELL..EnvironmentConfig.MAX_AP_PER_CELL) { "environmentApCount out of range" }
         require(latitude in -90.0..90.0 && longitude in -180.0..180.0) { "coordinate out of range" }
         require(altitudeMeters.isFinite()) { "altitudeMeters must be finite" }
         require(speedMps.isFinite() && speedMps >= 0.0) { "speedMps must be non-negative" }

@@ -31,6 +31,21 @@ class EnvironmentModelsTest {
         connected = connected,
     )
 
+    @Test fun apRangeMatchesCommandSchemaRuntimeAndGenerator() {
+        val schema = com.system.location.service.core.settings.PortalSettingsSchema.schema
+        for (count in 0..10) {
+            if (count in EnvironmentConfig.MIN_AP_PER_CELL..EnvironmentConfig.MAX_AP_PER_CELL) {
+                org.junit.Assert.assertNull(schema.validate("environment_ap_count", count.toString()))
+                org.junit.Assert.assertEquals(count, com.system.location.service.core.runtime.RuntimeSnapshot(environmentApCount = count).environmentApCount)
+                org.junit.Assert.assertEquals(count, EnvironmentConfig(apPerCell = count).apPerCell)
+            } else {
+                org.junit.Assert.assertNotNull(schema.validate("environment_ap_count", count.toString()))
+                assertThrows { com.system.location.service.core.runtime.RuntimeSnapshot(environmentApCount = count) }
+                assertThrows { EnvironmentConfig(apPerCell = count) }
+            }
+        }
+    }
+
     @Test
     fun profileRoundTripsThroughJson() {
         val profile = EnvironmentProfile(

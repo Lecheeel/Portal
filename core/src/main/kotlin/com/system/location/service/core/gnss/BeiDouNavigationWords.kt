@@ -15,7 +15,7 @@ class BeiDouNavigationSubframe internal constructor(
     information: ByteArray,
 ) {
     private val bytes = information.copyOf()
-    /** Read an ICD bit range in the original 300-bit word layout, skipping BCH parity gaps. */
+    /** Read the ICD's deinterleaved 300-bit diagram layout; parity positions are rejected. */
     fun rawUnsigned(start: Int, length: Int): Long {
         require(start >= 0 && length in 1..63 && start + length <= 300)
         var value = 0L
@@ -24,8 +24,7 @@ class BeiDouNavigationSubframe internal constructor(
             val word = raw / 30
             val within = raw % 30
             require(if (word == 0) within < 26 else within < 22) { "range includes BeiDou BCH parity" }
-            val info = if (word == 0) within else 26 + (word - 1) * 22 +
-                if (within % 2 == 0) within / 2 else 11 + within / 2
+            val info = if (word == 0) within else 26 + (word - 1) * 22 + within
             value = (value shl 1) or ((bytes[info / 8].toInt() ushr (7 - info % 8)) and 1).toLong()
         }
         return value

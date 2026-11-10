@@ -72,8 +72,7 @@ class BeiDouNavigationWordsTest {
         val information = BooleanArray(224)
         fun infoIndex(raw: Int): Int {
             val word = raw / 30; val within = raw % 30
-            return if (word == 0) within else 26 + (word - 1) * 22 +
-                if (within % 2 == 0) within / 2 else 11 + within / 2
+            return if (word == 0) within else 26 + (word - 1) * 22 + within
         }
         fun setRaw(start: Int, length: Int, value: Int) = repeat(length) { bit ->
             information[infoIndex(start + bit)] = value ushr (length - bit - 1) and 1 != 0

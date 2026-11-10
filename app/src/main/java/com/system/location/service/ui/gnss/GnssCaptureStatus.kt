@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.system.location.service.core.gnss.GnssCapturePlaybackState
+import com.system.location.service.core.gnss.ReceiverGnssSource
 import com.system.location.service.ui.viewmodel.GnssCaptureViewModel
 
 /** The preview is local evidence, not a claim about a third-party receiver's current callbacks. */
@@ -28,9 +29,17 @@ internal fun GnssCaptureStatus(model: GnssCaptureViewModel, minimumSatellites: I
                 current.issues.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
             GnssCapturePlaybackState.READY -> current.frame?.let { frame ->
-                Text("本机统计回放预览：当前实测池 ${frame.availableSatelliteCapacity} 颗，可见 ${frame.satellites.size} 颗。",
+                val sourceLabel = when (frame.source) {
+                    ReceiverGnssSource.STATISTICAL_REPLAY -> "统计回放"
+                    ReceiverGnssSource.BROADCAST_EPHEMERIS -> "GPS 广播几何"
+                    ReceiverGnssSource.HYBRID_BROADCAST_REPLAY -> "GPS 广播几何 + 统计回放"
+                }
+                Text("采集地点预览（$sourceLabel）：当前有效池 ${frame.availableSatelliteCapacity} 颗，可见 ${frame.satellites.size} 颗。",
                     style = MaterialTheme.typography.bodySmall)
-                Text(if (minimumSatellites == 0) "自动：按实测数量分布回放。"
+                Text(if (minimumSatellites == 0) {
+                    if (frame.source == ReceiverGnssSource.STATISTICAL_REPLAY) "自动：按实测数量分布回放。"
+                    else "自动：按采集证据和当前可用几何生成。"
+                }
                     else "可见卫星下限 $minimumSatellites 颗${if (frame.satellites.size >= minimumSatellites) "，已满足。" else "，当前无法满足。"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (frame.satellites.size < minimumSatellites) MaterialTheme.colorScheme.error

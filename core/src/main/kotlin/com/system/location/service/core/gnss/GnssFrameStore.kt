@@ -1,6 +1,7 @@
 package com.system.location.service.core.gnss
 
 import com.system.location.service.core.geo.Wgs84
+import java.util.concurrent.atomic.AtomicLong
 
 data class PublishedGnssFrame(
     val sequence: Long,
@@ -10,7 +11,7 @@ data class PublishedGnssFrame(
 )
 
 /** First sample of each route/second anchors one immutable receiver publication for all adapters. */
-class GnssFrameStore {
+class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
     private sealed interface ObserverIdentity {
         data class Routed(val route: GnssFrameRoute) : ObserverIdentity
         data class Exact(val observer: Wgs84, val altitude: Double, val speed: Double,
@@ -19,7 +20,6 @@ class GnssFrameStore {
     private data class Key(val epochMillis: Long, val identity: ObserverIdentity, val minimum: Int)
     private var capture: GnssCapture? = null
     private var model: ReceiverGnssSkyModel? = null
-    private var sequence = 0L
     private val cache = object : LinkedHashMap<Key, PublishedGnssFrame?>(16, 0.75f, true) {
         // Covers adjacent seconds for all configured routes (RoutingConfig permits 1024).
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, PublishedGnssFrame?>?): Boolean = size > 4096
@@ -47,7 +47,7 @@ class GnssFrameStore {
         val key = Key(atMillis / 1000 * 1000, identity, minimumSatellites)
         if (cache.containsKey(key)) return cache[key]
         val frame = model?.frame(key.epochMillis, observer, altitudeMeters, minimumSatellites)
-        val published = frame?.let { PublishedGnssFrame(++sequence, it, speedMps, bearing) }
+        val published = frame?.let { PublishedGnssFrame(sequence.incrementAndGet(), it, speedMps, bearing) }
         cache[key] = published
         return published
     }

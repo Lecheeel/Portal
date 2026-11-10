@@ -33,6 +33,7 @@ data class RuntimeSnapshot(
     val accuracyMeters: Float = 25f,
     val bearingDeg: Double = 0.0,
     val hasBearings: Boolean = false,
+    val configuration: HookConfiguration = HookConfiguration(),
 ) {
     init {
         require(configRevision >= 0L) { "configRevision must be non-negative" }

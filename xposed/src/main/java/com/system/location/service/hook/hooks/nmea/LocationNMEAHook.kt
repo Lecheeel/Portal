@@ -2,50 +2,49 @@ package com.system.location.service.hook.hooks.nmea
 
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.utils.FakeLoc
-import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.onceHookAllMethod
 import io.github.libxposed.api.XposedInterface
 import android.os.IInterface
 import com.system.location.service.hook.hooks.gnss.GnssReceiverRuntime
+import com.system.location.service.hook.hooks.gnss.rawGnssRegistrationHook
 
 object LocationNMEAHook : BaseLocationHook() {
     operator fun invoke(classILocationManager: Class<*>) {
         hookGnssNmea(classILocationManager)
         NmeaServiceHook.hook(classILocationManager.classLoader!!)
 
-        val doNothingMethod =
-            nmeaRegistrationHook(debugLog = { if (FakeLoc.enableDebugLog) Logger.debug(it) })
+        val rawRegistration = rawGnssRegistrationHook()
 
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "addGnssMeasurementsListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "removeGnssMeasurementsListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "addGnssNavigationMessageListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "removeGnssNavigationMessageListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "addGnssAntennaInfoListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "removeGnssAntennaInfoListener",
-            doNothingMethod,
+            rawRegistration,
         )
     }
 
@@ -79,21 +78,3 @@ internal fun ownsNmeaDelivery(listener: Any?): Boolean =
     FakeLoc.enable && FakeLoc.enableMockGnss && FakeLoc.enableNMEA &&
         NmeaListenerRouting.shouldDeliver(listener) &&
         GnssReceiverRuntime.currentFrame(NmeaListenerRouting.fixedPointFor(listener)) != null
-
-/** Suppress new raw listeners while keeping Android responsible for unregistering existing ones. */
-internal fun nmeaRegistrationHook(
-    enable: () -> Boolean = { FakeLoc.enable },
-    enableNmea: () -> Boolean = { FakeLoc.enableNMEA },
-    debugLog: (String) -> Unit = {},
-): XposedInterface.Hooker =
-    XposedInterface.Hooker { chain ->
-        if (chain.args.isEmpty()) return@Hooker chain.proceed()
-        val method = chain.executable.name
-        debugLog("doNothingMethod: $method")
-        if (method.startsWith("add") && enable() && !enableNmea()) {
-            debugLog("$method: disable")
-            null
-        } else {
-            chain.proceed()
-        }
-    }

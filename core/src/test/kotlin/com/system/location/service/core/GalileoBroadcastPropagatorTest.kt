@@ -43,7 +43,15 @@ class GalileoBroadcastPropagatorTest {
         assertNull(GalileoBroadcastPropagator.propagate(e, e.validUntil.plusSeconds(0.001)).state)
         assertNotNull(GalileoBroadcastPropagator.propagate(e, e.validFrom).state)
         assertNotNull(GalileoBroadcastPropagator.propagate(e, e.validUntil).state)
-        assertThrows(IllegalArgumentException::class.java) { e.copy(toc = e.toc.plusSeconds(-604800.0)) }
+    }
+
+    @Test fun shortenedOperationalIntervalCanStartAfterParameterReferenceEpochs() {
+        val e = ephemeris()
+        val time = e.toe.plusSeconds(600.0)
+        val shortened = e.copy(validFrom = time, validUntil = time.plusSeconds(60.0))
+        assertEquals(GalileoBroadcastPropagator.propagate(e, time).state,
+            GalileoBroadcastPropagator.propagate(shortened, time).state)
+        assertNull(GalileoBroadcastPropagator.propagate(shortened, time.plusSeconds(-0.001)).state)
     }
 
     @Test fun clockModelIdentityIsPreservedAndDoesNotSilentlyApplyBgd() {

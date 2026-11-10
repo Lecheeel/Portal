@@ -21,15 +21,15 @@ data class GalileoInavDecodeResult(val decoded: DecodedGalileoInav?, val reason:
 
 /**
  * OS SIS ICD 2.2 Tables 42–46/67/70/78/91. Decode complete CRC-checked I/NAV words 1–5.
- * Galileo carries no GPS LNAV fit flag: absolute validity must be supplied as independently
- * established evidence. This component does not invent a four-hour usable interval or perform
- * OSNMA authentication. Health/DVS are kept per signal and never merged into one healthy bit.
+ * Galileo carries no GPS LNAV fit flag. OS SDD 1.3 limits age to [toe,toe+4h]; optional
+ * independent limits may only shorten that interval. This does not establish future signal
+ * health or OSNMA authentication. Health/DVS are never merged into one healthy bit.
  */
 object GalileoInavEphemerisDecoder {
     private const val SEMICIRCLE_TO_RADIANS = 3.1415926535898
 
     fun decode(pages: Collection<GalileoNavigationPage>, trustedTimeAtWordFiveCapture: GalileoTime,
-        validFrom: GalileoTime, validUntil: GalileoTime): GalileoInavDecodeResult {
+        validFrom: GalileoTime? = null, validUntil: GalileoTime? = null): GalileoInavDecodeResult {
         fun invalid(reason: String) = GalileoInavDecodeResult(null, reason)
         if (pages.size != 5 || pages.map { it.wordType }.toSet() != (1..5).toSet() ||
             pages.any { it.format != GalileoClockReference.INAV_E1_E5B })
@@ -61,10 +61,12 @@ object GalileoInavEphemerisDecoder {
         }
         val toe = resolveEpoch(one.unsigned(16, 14) * 60.0) ?: return invalid("invalid Galileo toe")
         val toc = resolveEpoch(four.unsigned(54, 14) * 60.0) ?: return invalid("invalid Galileo toc")
-        if (transmission.secondsSince(validFrom) < 0 || validUntil.secondsSince(transmission) < 0)
-            return invalid("transmission outside supplied Galileo validity evidence")
+        val validity = GalileoEphemerisValidity.resolve(toe, validFrom, validUntil)
+            ?: return invalid("invalid Galileo ephemeris age interval")
+        if (!validity.contains(transmission))
+            return invalid("transmission outside Galileo ephemeris age/supplied validity interval")
         return try {
-            val e = GalileoBroadcastEphemeris(one.svid, toe, toc, validFrom, validUntil, issues.first(),
+            val e = GalileoBroadcastEphemeris(one.svid, toe, toc, validity.from, validity.until, issues.first(),
                 GalileoClockReference.INAV_E1_E5B, one.unsigned(94, 32) * 2.0.pow(-19),
                 one.unsigned(62, 32) * 2.0.pow(-33), two.scale(48, 32, -31, true),
                 two.scale(16, 32, -31, true), two.scale(80, 32, -31, true), one.scale(30, 32, -31, true),

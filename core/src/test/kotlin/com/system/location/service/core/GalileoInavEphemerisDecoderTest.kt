@@ -21,6 +21,25 @@ class GalileoInavEphemerisDecoderTest {
     private val from = GalileoTime(1081, 424800.0)
     private val until = GalileoTime(1081, 439200.0)
     private fun decode(p: List<GalileoNavigationPage> = pages) = GalileoInavEphemerisDecoder.decode(p, ref, from, until)
+
+    @Test fun defaultsToSddAgeLimitAndRejectsExpiredOrFutureEphemeris() {
+        val e = GalileoInavEphemerisDecoder.decode(pages, ref).decoded!!.ephemeris
+        assertEquals(e.toe, e.validFrom)
+        assertEquals(e.toe.plusSeconds(14400.0), e.validUntil)
+        fun at(seconds: Long): GalileoInavDecodeResult {
+            val updated = pages.dropLast(1) + altered(pages.last(), 85, 20, seconds)
+            return GalileoInavEphemerisDecoder.decode(updated, GalileoTime(ref.week, seconds.toDouble()))
+        }
+        assertNotNull(at(446400).decoded)
+        assertNull(at(446401).decoded)
+        assertNull(at(431999).decoded)
+        val limited = decode().decoded!!.ephemeris
+        assertEquals(e.toe, limited.validFrom)
+        assertEquals(until, limited.validUntil)
+        val shortened = GalileoInavEphemerisDecoder.decode(pages, ref, ref.plusSeconds(-1.0), until).decoded!!.ephemeris
+        assertEquals(ref.plusSeconds(-1.0), shortened.validFrom)
+        assertEquals(e.toe, shortened.toe)
+    }
     private fun altered(page: GalileoNavigationPage, start: Int, length: Int, value: Long,
         svid: Int = page.svid): GalileoNavigationPage {
         val bytes = ByteArray(16) { page.unsigned(it * 8, 8).toByte() }

@@ -17,8 +17,9 @@ enum class GalileoClockReference { INAV_E1_E5B, FNAV_E1_E5A }
 
 /**
  * Galileo OS SIS ICD 2.2 Tables 67/70/78. CRC/page assembly and IODnav consistency must be
- * established before constructing this decoded model. Absolute validity is explicit evidence
- * supplied by the decoder; GPS LNAV's fit flag and fixed four-hour assumptions do not apply.
+ * established before constructing this decoded model. Absolute validity is supplied by the
+ * decoder using Galileo's forward age limit and any additional independent restrictions.
+ * Reference epochs toe/toc need not lie inside a shortened operational interval.
  * All angular parameters are radians; rates use seconds. No GPS/GST/UTC conversion is implicit.
  */
 data class GalileoBroadcastEphemeris(
@@ -50,8 +51,7 @@ data class GalileoBroadcastEphemeris(
 ) {
     init {
         require(svid in 1..36 && iodnav in 0..1023)
-        require(validUntil.secondsSince(validFrom) > 0 && toe.secondsSince(validFrom) >= 0 &&
-            validUntil.secondsSince(toe) >= 0 && toc.secondsSince(validFrom) >= 0 && validUntil.secondsSince(toc) >= 0)
+        require(validUntil.secondsSince(validFrom) > 0)
         // Unsigned bit widths/scales in Table 67; no invented nominal MEO radius/eccentricity.
         require(sqrtSemiMajorAxis.isFinite() && sqrtSemiMajorAxis > 0 && sqrtSemiMajorAxis < 8192)
         require(eccentricity >= 0 && eccentricity < 0.5)

@@ -136,7 +136,12 @@ class GalileoInavAssemblerTest {
         val start = GalileoTime(4095, 604796.0)
         val a = GalileoInavAssembler(start, start.plusSeconds(120.0), GalileoTime(4095, 424800.0), start.plusSeconds(200.0))
         (1..5).reversed().forEach { type ->
-            a.offer(observation(type, tow = 4, week = 4096), start.plusSeconds((type - 1) * 2.0))
+            val edits = when (type) {
+                1 -> listOf(Triple(16, 14, 10079L)) // toe=604740, still usable across rollover.
+                4 -> listOf(Triple(54, 14, 10079L))
+                else -> emptyList()
+            }
+            a.offer(observation(type, tow = 4, week = 4096, edits = edits), start.plusSeconds((type - 1) * 2.0))
         }
         val decoded = a.completed().single()
         assertEquals(GalileoTime(4096, 4.0), decoded.transmissionTimeOfWordFive)

@@ -12,12 +12,12 @@ data class DecodedGalileoFnav(
 )
 data class GalileoFnavDecodeResult(val decoded: DecodedGalileoFnav?, val reason: String? = null)
 
-/** OS SIS ICD 2.2 Tables 30–33. Absolute validity evidence is required, as for I/NAV. */
+/** OS SIS ICD 2.2 Tables 30–33 and OS SDD 1.3 ephemeris age limit, as for I/NAV. */
 object GalileoFnavEphemerisDecoder {
     private const val SEMICIRCLE_TO_RADIANS = 3.1415926535898
 
     fun decode(pages: Collection<GalileoNavigationPage>, trustedTimeAtPageOneCapture: GalileoTime,
-        validFrom: GalileoTime, validUntil: GalileoTime): GalileoFnavDecodeResult {
+        validFrom: GalileoTime? = null, validUntil: GalileoTime? = null): GalileoFnavDecodeResult {
         fun invalid(reason: String) = GalileoFnavDecodeResult(null, reason)
         if (pages.size != 4 || pages.map { it.wordType }.toSet() != (1..4).toSet() ||
             pages.any { it.format != GalileoClockReference.FNAV_E1_E5A })
@@ -55,11 +55,13 @@ object GalileoFnavEphemerisDecoder {
         if (fourth == null || abs(fourth.secondsSince(transmission)) > 120) return invalid("inconsistent F/NAV page 4 time")
         val toe = nearest(three.unsigned(160, 14) * 60.0) ?: return invalid("invalid F/NAV toe")
         val toc = nearest(one.unsigned(22, 14) * 60.0) ?: return invalid("invalid F/NAV toc")
+        val validity = GalileoEphemerisValidity.resolve(toe, validFrom, validUntil)
+            ?: return invalid("invalid Galileo ephemeris age interval")
         val allEpochs = listOf(transmission, fourth) + otherEpochs.filterNotNull()
-        if (allEpochs.any { it.secondsSince(validFrom) < 0 || validUntil.secondsSince(it) < 0 })
-            return invalid("F/NAV transmission outside supplied validity evidence")
+        if (allEpochs.any { !validity.contains(it) })
+            return invalid("F/NAV transmission outside Galileo ephemeris age/supplied validity interval")
         return try {
-            val e = GalileoBroadcastEphemeris(one.svid, toe, toc, validFrom, validUntil, iod,
+            val e = GalileoBroadcastEphemeris(one.svid, toe, toc, validity.from, validity.until, iod,
                 GalileoClockReference.FNAV_E1_E5A, two.unsigned(104, 32) * 2.0.pow(-19),
                 two.unsigned(72, 32) * 2.0.pow(-33), three.scale(16, 32, -31, true),
                 two.scale(136, 32, -31, true), three.scale(48, 32, -31, true), two.scale(16, 32, -31, true),

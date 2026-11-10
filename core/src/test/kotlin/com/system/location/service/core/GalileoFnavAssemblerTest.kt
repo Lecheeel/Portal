@@ -164,7 +164,12 @@ class GalileoFnavAssemblerTest {
         val a = GalileoFnavAssembler(start, start.plusSeconds(120.0), GalileoTime(4095, 424800.0), start.plusSeconds(200.0))
         (1..4).reversed().forEach { type ->
             val time = start.plusSeconds((type - 1) * 10.0)
-            a.offer(observation(type, tow = time.secondsOfWeek.toInt(), week = time.week), time)
+            val edits = when (type) {
+                1 -> listOf(Triple(22, 14, 10079L)) // toc=604740.
+                3 -> listOf(Triple(160, 14, 10079L)) // toe=604740.
+                else -> emptyList()
+            }
+            a.offer(observation(type, tow = time.secondsOfWeek.toInt(), week = time.week, edits = edits), time)
         }
         val decoded = a.completed().single()
         assertEquals(start, decoded.transmissionTimeOfPageOne)

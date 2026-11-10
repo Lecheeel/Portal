@@ -19,6 +19,17 @@ class GalileoFnavEphemerisDecoderTest {
     private val from = GalileoTime(1081, 424800.0)
     private val until = GalileoTime(1081, 439200.0)
     private fun decode(p: List<GalileoNavigationPage> = pages) = GalileoFnavEphemerisDecoder.decode(p, ref, from, until)
+
+    @Test fun defaultsToStandardForwardAgeAndExternalLimitsCannotExtendIt() {
+        val e = GalileoFnavEphemerisDecoder.decode(pages, ref).decoded!!.ephemeris
+        assertEquals(e.toe, e.validFrom)
+        assertEquals(e.toe.plusSeconds(14400.0), e.validUntil)
+        val extended = GalileoFnavEphemerisDecoder.decode(pages, ref, e.toe.plusSeconds(-100.0),
+            e.toe.plusSeconds(100000.0)).decoded!!.ephemeris
+        assertEquals(e, extended)
+        // Move toe to five hours before the unchanged, independently checked page times.
+        assertNull(GalileoFnavEphemerisDecoder.decode(altered(2, 160, 14, 6900), ref).decoded)
+    }
     private fun altered(index: Int, start: Int, length: Int, value: Long): List<GalileoNavigationPage> = pages.mapIndexed { i, p ->
         if (i != index) p else {
             val bytes = ByteArray(27)

@@ -1,0 +1,171 @@
+{
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c",
+  "method": "Synthetic 77-bit information plus solved Hamming parity using independent C byte masks; C test_glostr and getbitg verify left-aligned strings. Android payloads are right-aligned 85-bit integers. Not receiver data or physical ephemerides.",
+  "strings": [
+    {
+      "stringId": 1,
+      "androidBase64": "ASBin2++2CwHzdg=",
+      "expected": {
+        "stringId": 1,
+        "signed64_24": -2060222,
+        "signed40_5": -11,
+        "signed35_27": 2885581,
+        "unsigned80_22": 530599
+      }
+    },
+    {
+      "stringId": 2,
+      "androidBase64": "AqVrqpRV4+cGgn4=",
+      "expected": {
+        "stringId": 2,
+        "signed64_24": -2790485,
+        "signed40_5": -12,
+        "signed35_27": 65472130,
+        "unsigned80_22": 2710250
+      }
+    },
+    {
+      "stringId": 3,
+      "androidBase64": "Ay73KLT6QkheOpA=",
+      "expected": {
+        "stringId": 3,
+        "signed64_24": 2667770,
+        "signed40_5": 8,
+        "signed35_27": 38297146,
+        "unsigned80_22": 769482
+      }
+    },
+    {
+      "stringId": 4,
+      "androidBase64": "BLFnqcN4fGXB5VQ=",
+      "expected": {
+        "stringId": 4,
+        "signed64_24": -2737016,
+        "signed40_5": 15,
+        "signed35_27": -6668773,
+        "unsigned80_22": 2906602
+      }
+    },
+    {
+      "stringId": 5,
+      "androidBase64": "BdrUcT1gyKcGOVU=",
+      "expected": {
+        "stringId": 5,
+        "signed64_24": 7421280,
+        "signed40_5": -9,
+        "signed35_27": 10946105,
+        "unsigned80_22": 3585308
+      }
+    },
+    {
+      "stringId": 6,
+      "androidBase64": "Brp6AkIE98G9h6Y=",
+      "expected": {
+        "stringId": 6,
+        "signed64_24": 147972,
+        "signed40_5": -14,
+        "signed35_27": -63028615,
+        "unsigned80_22": 3055232
+      }
+    },
+    {
+      "stringId": 7,
+      "androidBase64": "B4fkQ994lViGf3E=",
+      "expected": {
+        "stringId": 7,
+        "signed64_24": 4448120,
+        "signed40_5": -2,
+        "signed35_27": -22578815,
+        "unsigned80_22": 2226448
+      }
+    },
+    {
+      "stringId": 8,
+      "androidBase64": "CDqBMyh2N+vc2S8=",
+      "expected": {
+        "stringId": 8,
+        "signed64_24": 3352694,
+        "signed40_5": 6,
+        "signed35_27": -65789145,
+        "unsigned80_22": 958540
+      }
+    },
+    {
+      "stringId": 9,
+      "androidBase64": "CRcjxmEvSCaGczo=",
+      "expected": {
+        "stringId": 9,
+        "signed64_24": -4612399,
+        "signed40_5": 9,
+        "signed35_27": 2524787,
+        "unsigned80_22": 379121
+      }
+    },
+    {
+      "stringId": 10,
+      "androidBase64": "CsqeTW48GEbUJH8=",
+      "expected": {
+        "stringId": 10,
+        "signed64_24": 5074492,
+        "signed40_5": 3,
+        "signed35_27": 4641828,
+        "unsigned80_22": 3319699
+      }
+    },
+    {
+      "stringId": 11,
+      "androidBase64": "C478vQTDQCEu90s=",
+      "expected": {
+        "stringId": 11,
+        "signed64_24": -3998915,
+        "signed40_5": 8,
+        "signed35_27": 2174711,
+        "unsigned80_22": 2342703
+      }
+    },
+    {
+      "stringId": 12,
+      "androidBase64": "DEj7l9Q1iFYXEh0=",
+      "expected": {
+        "stringId": 12,
+        "signed64_24": -1561653,
+        "signed40_5": -1,
+        "signed35_27": 5642002,
+        "unsigned80_22": 1195749
+      }
+    },
+    {
+      "stringId": 13,
+      "androidBase64": "DW+aFkEGz2plnv4=",
+      "expected": {
+        "stringId": 13,
+        "signed64_24": 1458438,
+        "signed40_5": -9,
+        "signed35_27": -57304478,
+        "unsigned80_22": 1828485
+      }
+    },
+    {
+      "stringId": 14,
+      "androidBase64": "DpRPZdTZJZ9DKQ4=",
+      "expected": {
+        "stringId": 14,
+        "signed64_24": 6673625,
+        "signed40_5": 4,
+        "signed35_27": -27214633,
+        "unsigned80_22": 2429913
+      }
+    },
+    {
+      "stringId": 15,
+      "androidBase64": "D2ES4MiyutZA+1g=",
+      "expected": {
+        "stringId": 15,
+        "signed64_24": -6342834,
+        "signed40_5": -7,
+        "signed35_27": 47595771,
+        "unsigned80_22": 1590456
+      }
+    }
+  ]
+}

@@ -64,6 +64,9 @@ class GnssReceiverCollector(
                 if (accepts()) location = Location(sample)
             }
             val statusCallback = object : GnssStatus.Callback() {
+                override fun onStarted() { if (accepts()) notes += "GNSS 引擎已启动" }
+                override fun onStopped() { if (accepts()) notes += "GNSS 引擎已停止" }
+                override fun onFirstFix(ttffMillis: Int) { if (accepts()) notes += "首次定位耗时：${ttffMillis}ms" }
                 override fun onSatelliteStatusChanged(status: GnssStatus) {
                     if (!accepts() || frames.size >= GnssCapture.MAX_FRAMES) return
                     if (status.satelliteCount > 512) {
@@ -71,7 +74,10 @@ class GnssReceiverCollector(
                         return
                     }
                     val signals = (0 until status.satelliteCount).mapNotNull { index ->
-                        val constellation = constellation(status.getConstellationType(index)) ?: return@mapNotNull null
+                        val constellation = constellation(status.getConstellationType(index)) ?: run {
+                            notes += "未知星座类型：${status.getConstellationType(index)}"
+                            return@mapNotNull null
+                        }
                         runCatching {
                             val satellite = GnssSatellite(constellation, status.getSvid(index), status.getElevationDegrees(index),
                                 status.getAzimuthDegrees(index), status.getCn0DbHz(index), status.usedInFix(index),
@@ -80,7 +86,7 @@ class GnssReceiverCollector(
                             GnssSignalObservation(satellite,
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && status.hasBasebandCn0DbHz(index))
                                     status.getBasebandCn0DbHz(index) else null)
-                        }.onFailure { notes += "部分卫星状态字段无效：${it.javaClass.simpleName}" }.getOrNull()
+                        }.onFailure { notes += "部分卫星状态字段无效：${it.javaClass.simpleName} ${it.message}" }.getOrNull()
                     }
                     val satellites = GnssSignalProjection.spacecraft(signals)
                     val observer = location?.takeIf {
@@ -147,7 +153,10 @@ class GnssReceiverCollector(
                     delay(250L)
                     check(accepts()) { "采集期间启动了模拟，已废弃本次采集" }
                 }
-                check(frames.any { it.satellites.isNotEmpty() }) { "未收到有效卫星，请到开阔室外重新采集" }
+                check(frames.any { it.satellites.isNotEmpty() }) {
+                    "未收到有效卫星（状态帧 ${frames.size}、测量批次 ${measurements.size}、导航电文 ${navigation.size}）；" +
+                        "${notes.joinToString("；")}" + "。请检查接收环境和系统定位后重新采集"
+                }
                 check(System.currentTimeMillis() >= frames.last().capturedAtMillis &&
                     frames.zipWithNext().all { (a, b) -> a.capturedAtMillis <= b.capturedAtMillis }) {
                     "采集期间系统时间倒退，请重新采集"

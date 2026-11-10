@@ -87,4 +87,17 @@ class GnssStatusCheckTest {
         assertEquals(listOf(1, 1, 1), result.usedInFixPerFrame)
         assertEquals(3, result.usedInFixTotal)
     }
+
+    @Test fun identityTurnoverRemainsDescriptiveWithoutAttributingItToRandomization() {
+        val result = check.analyze((0..2).map { index ->
+            GnssFrameSnapshot(1000L + index * 1000,
+                (1..8).map { satellite(it + index * 8, false).copy(cn0DbHz = 0f) })
+        })
+        assertEquals(0.0, result.jaccardMin!!, 0.0)
+        assertEquals(0.0, result.jaccardAvg!!, 0.0)
+        assertEquals(2, result.jaccardPairs)
+        assertTrue(result.issues.isEmpty())
+        assertTrue(result.observations.any { it.contains("未参与定位") })
+        assertFalse(result.observations.any { it.contains("shuffle") || it.contains("Jaccard") })
+    }
 }

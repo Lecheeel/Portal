@@ -133,10 +133,8 @@ class GnssStatusCheck : Check {
         }
         val jaccardMin = jaccardValues.minOrNull()
         val jaccardAvg = if (jaccardValues.isEmpty()) null else jaccardValues.average()
-        if (jaccardMin != null && jaccardMin < SHUFFLE_JACCARD) {
-            observations += "相邻帧卫星集合 Jaccard 最低 ${formatRatio(jaccardMin)}" +
-                "（< ${formatRatio(SHUFFLE_JACCARD)}），疑似每帧 shuffle"
-        }
+        // Identity turnover also occurs in unmodified receiver output during acquisition.
+        // Keep Jaccard as descriptive evidence; no calibrated causal threshold is available.
 
         val correlation = correlate(frames)
         correlation.verdict?.let { observations += "$it；环境遮挡与多径也可能导致该现象，不能据此认定伪造" }
@@ -313,9 +311,6 @@ class GnssStatusCheck : Check {
     companion object {
         /** 少于 3 帧无法判断时间稳定性，按文档给 UNKNOWN。 */
         private const val MIN_FRAMES = 3
-
-        /** 相邻帧卫星集合 Jaccard 低于该值视为 shuffle。 */
-        private const val SHUFFLE_JACCARD = 0.5
 
         /** CN0 有效值少于该数时不判定“常数”。 */
         private const val MIN_CONSTANT_CN0_SAMPLES = 4

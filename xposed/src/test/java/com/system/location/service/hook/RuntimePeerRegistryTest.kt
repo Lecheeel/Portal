@@ -60,6 +60,23 @@ class RuntimePeerRegistryTest {
         } finally { release.countDown(); registry.clear() }
     }
 
+    @Test fun subscriptionsCanBeRecreatedWithOriginalUidNameSessionAndBinder() {
+        val first = RuntimePeerRegistry(2, { _, _, _ -> }, { throw AssertionError(it) })
+        val restored = RuntimePeerRegistry(2, { _, _, _ -> }, { throw AssertionError(it) })
+        val transport = Transport()
+        try {
+            assertTrue(first.register(1001, "phone", "session-a", transport.binder))
+            val row = first.subscriptions().single()
+            assertEquals(1001, row.uid)
+            assertEquals("phone", row.name)
+            assertEquals("session-a", row.session)
+            assertSame(transport.binder, row.binder)
+            first.clear()
+            assertTrue(restored.restore(row))
+            assertEquals(1, restored.size())
+        } finally { first.clear(); restored.clear() }
+    }
+
     private class Transport {
         @Volatile var alive = true
         var unlinks = 0

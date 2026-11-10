@@ -376,9 +376,10 @@ internal object LocationServiceHook : BaseLocationHook() {
                     XposedInterface.Hooker status@{ event ->
                         val method = event.executable as? Method
                         if (!FakeLoc.enable || !FakeLoc.enableMockGnss || method == null ||
-                            !ReceiverGnssStatusAdapter.supports(method) ||
-                            !GnssListenerRouting.shouldDeliver(event.thisObject) ||
-                            GnssReceiverRuntime.currentFrame(GnssListenerRouting.fixedPointFor(event.thisObject)) == null)
+                            !ReceiverGnssStatusAdapter.supports(method))
+                            return@status event.proceed()
+                        val route = GnssListenerRouting.routeFor(event.thisObject)
+                        if (route == null || GnssReceiverRuntime.frameForRoute(route) == null)
                             return@status event.proceed()
                         // The managed worker owns simulated delivery and invokes ORIGIN.
                         null

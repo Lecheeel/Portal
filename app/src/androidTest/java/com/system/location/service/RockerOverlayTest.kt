@@ -2,6 +2,11 @@ package com.system.location.service
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.app.Activity
+import android.app.AppOpsManager
+import android.app.Instrumentation
+import android.os.Process
 import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -30,6 +35,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.hamcrest.Matchers.containsString
+import java.util.concurrent.atomic.AtomicReference
 
 /** Integration test for overlay ownership and the user's persisted visibility choice. */
 @RunWith(AndroidJUnit4::class)
@@ -38,6 +44,54 @@ class RockerOverlayTest {
     @org.junit.Before fun acceptMapConsentForThisFixture() {
         com.system.location.service.privacy.SdkPrivacy.acceptMaps()
     }
+    @Test fun deniedOverlayPermissionOpensSettingsEvenWhenVisibilityWasEnabled() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        grantUiPermissions()
+        val appOps = context.getSystemService(AppOpsManager::class.java)
+        val previousMode = appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW, Process.myUid(), context.packageName)
+        val preferences = context.getSharedPreferences("rocker_overlay", Context.MODE_PRIVATE)
+        val previousPreferences = preferences.all
+        val requested = AtomicReference<Intent>()
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+                if (intent.action != Settings.ACTION_MANAGE_OVERLAY_PERMISSION) return null
+                requested.set(intent)
+                return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+            }
+        }
+        fun permission(mode: String) {
+            ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
+                "appops set ${context.packageName} SYSTEM_ALERT_WINDOW $mode")).use { it.readBytes() }
+        }
+        instrumentation.addMonitor(monitor)
+        try {
+            permission("ignore")
+            assertFalse(com.system.location.service.android.window.OverlayUtils.hasOverlayPermissions(context))
+            preferences.edit().putBoolean("enabled", true).commit()
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                compose.onNodeWithContentDescription("打开悬浮窗").performClick()
+                compose.waitUntil(5_000) { requested.get() != null }
+                assertEquals("package:${context.packageName}", requested.get().dataString)
+                scenario.onActivity { assertFalse(RockerOverlay.isVisible) }
+                compose.onNodeWithContentDescription("打开悬浮窗").assertIsDisplayed()
+            }
+        } finally {
+            instrumentation.removeMonitor(monitor)
+            instrumentation.runOnMainSync { RockerOverlay.setEnabled(false) }
+            preferences.edit().apply {
+                if (previousPreferences.containsKey("enabled")) putBoolean("enabled", previousPreferences["enabled"] as Boolean)
+                else remove("enabled")
+            }.commit()
+            permission(when (previousMode) {
+                AppOpsManager.MODE_ALLOWED -> "allow"
+                AppOpsManager.MODE_IGNORED -> "ignore"
+                AppOpsManager.MODE_ERRORED -> "deny"
+                else -> "default"
+            })
+        }
+    }
+
     @Test fun overlaySurvivesNavigationRecreationAndStopUntilHomeDisablesIt() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext

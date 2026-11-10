@@ -8,6 +8,9 @@ import android.view.ContextThemeWrapper
 import android.view.Display
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.system.location.service.LocationServiceApp
 import com.system.location.service.R
 import com.system.location.service.android.widget.RockerView
@@ -39,7 +42,8 @@ object RockerOverlay {
         if (key == "speed") scope.launch { updateSpeedState() }
     }
     val isEnabled get() = preferences.getBoolean("enabled", true)
-    val isVisible get() = rocker?.isStart == true
+    var isVisible by mutableStateOf(false)
+        private set
 
     fun refresh(): Boolean {
         if (!isEnabled || !OverlayUtils.hasOverlayPermissions(context)) {
@@ -47,6 +51,7 @@ object RockerOverlay {
             locked = false
             publishMotion()
             rocker?.hide()
+            isVisible = false
             return false
         }
         val nightMode = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
@@ -55,6 +60,7 @@ object RockerOverlay {
             locked = false
             publishMotion()
             rocker?.hide()
+            isVisible = false
             rocker = null
         }
         overlayNightMode = nightMode
@@ -114,6 +120,7 @@ object RockerOverlay {
             updatePlaybackState()
             updateSpeedState()
             window.show()
+            isVisible = window.isStart
             true
         } catch (error: RuntimeException) {
             Log.e("RockerOverlay", "Unable to show floating rocker", error)
@@ -128,6 +135,7 @@ object RockerOverlay {
         locked = false
         publishMotion()
         rocker?.hide()
+        isVisible = false
         return true
     }
 

@@ -145,6 +145,15 @@ class HomeComposeFragment : Fragment() {
     private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         if (hasLocationPermission()) locate() else showLocationIssue(HomeLocationIssue.PERMISSION)
     }
+    private val overlayPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (com.system.location.service.android.window.OverlayUtils.hasOverlayPermissions(requireContext())) {
+            if (!RockerOverlay.setEnabled(true)) {
+                Toast.makeText(requireContext(), "悬浮窗显示失败", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(requireContext(), "未授予悬浮窗权限，可再次点击摇杆授权", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -391,10 +400,16 @@ class HomeComposeFragment : Fragment() {
     }
 
     private fun toggleRocker() {
-        if (RockerOverlay.isEnabled) {
-            RockerOverlay.setEnabled(false)
-        } else if (!com.system.location.service.android.window.OverlayUtils.hasOverlayPermissions(requireContext())) {
+        if (!com.system.location.service.android.window.OverlayUtils.hasOverlayPermissions(requireContext())) {
             Toast.makeText(requireContext(), "请先授权悬浮窗权限", Toast.LENGTH_SHORT).show()
+            runCatching {
+                overlayPermission.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:${requireContext().packageName}")))
+            }.onFailure {
+                Toast.makeText(requireContext(), "无法打开设置，请在系统设置中允许 Portal 显示悬浮窗", Toast.LENGTH_LONG).show()
+            }
+        } else if (RockerOverlay.isVisible) {
+            RockerOverlay.setEnabled(false)
         } else if (!RockerOverlay.setEnabled(true)) {
             Toast.makeText(requireContext(), "悬浮窗显示失败", Toast.LENGTH_SHORT).show()
         }
@@ -910,7 +925,7 @@ private fun HomeScreen(
                     }
                     IconButton(onClick = onRocker) {
                         Icon(painterResource(R.drawable.ic_home_rocker),
-                            contentDescription = if (RockerOverlay.isEnabled) "关闭悬浮窗" else "打开悬浮窗")
+                            contentDescription = if (RockerOverlay.isVisible) "关闭悬浮窗" else "打开悬浮窗")
                     }
                 }
                 target.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }

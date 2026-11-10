@@ -2,41 +2,37 @@ package com.system.location.service.hook.hooks
 
 import android.os.DeadObjectException
 import android.os.IInterface
-import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
-import com.system.location.service.hook.utils.toLocation
+import com.system.location.service.hook.utils.ProviderView
 import java.lang.reflect.InvocationTargetException
 
 /** Sends the current provider view through the listener's original implementation. */
 internal object LocationListenerDelivery : BaseLocationHook() {
     fun deliver(locationListeners: Collection<Pair<String, IInterface>>) {
         if (!FakeLoc.enable) return
-        val sample = FakeLoc.snapshot(force = true)
-        if (FakeLoc.enableDebugLog) {
+        val context = ProviderView.capture(force = true)
+        if (!context.state.configuration.enabled) return
+        if (context.state.configuration.debugLog) {
             Logger.debug("==> callOnLocationChanged: ${locationListeners.size}")
         }
         locationListeners.forEach { listenerWithProvider ->
             val listener = listenerWithProvider.second
             if (!FakeLoc.enable) return
-            val route = ListenerRouting.route(listener)
+            val route = ListenerRouting.route(listener, context.state.routing)
             if (route is ListenerRouting.Route.Denied) return@forEach
             val scenarioId = (route as? ListenerRouting.Route.Scenario)?.scenarioId
             val point = (route as? ListenerRouting.Route.Point)?.point
             val location =
-                sampleForProvider(
+                locationForProvider(
                         if (listenerWithProvider.first == "GnssBatch") "gps"
                         else listenerWithProvider.first,
                         scenarioId,
                         point,
-                    )
-                    .toLocation(
-                        if (listenerWithProvider.first == "GnssBatch") "gps"
-                        else listenerWithProvider.first,
-                        GnssFrameRoute.forObserver(scenarioId, point),
+                        context,
                     )
             var called = false
             var error: Throwable? = null
@@ -102,7 +98,7 @@ internal object LocationListenerDelivery : BaseLocationHook() {
             }
         }
 
-        if (FakeLoc.enableDebugLog) {
+        if (context.state.configuration.debugLog) {
             Logger.debug("==> callOnLocationChanged: end")
         }
     }

@@ -7,6 +7,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
 import com.system.location.service.core.runtime.RuntimeTransferWire
 import com.system.location.service.hook.runtime.ReloadExecutionGate
+import com.system.location.service.hook.runtime.ReloadPreparation
 import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.hook.hooks.gnss.GnssListenerRouting
 import com.system.location.service.hook.hooks.gnss.RawGnssCallbacks
@@ -68,29 +69,35 @@ class PortalModule : XposedModule() {
         }
         val gate = HookRuntime.executionGate
         if (!runCatching { gate.freeze(2000) }.getOrElse { HookRuntime.log(it); false }) return false
-        val paused = LocationTicker.stop() && com.system.location.service.hook.hooks.gnss.GnssSignalInjection.pause()
-        if (!paused) { gate.resume(); return false }
-        try {
-            val state = Bundle().apply {
-                putBundle("gate", gate.transferBundle())
-                putByteArray("runtime", RuntimeTransferWire.encode(FakeLoc.captureTransfer()))
-                putParcelableArrayList("location", ArrayList(LocationServiceHook.locationSubscriptions().map { it.toBundle() }))
-                putParcelableArrayList("gnss", ArrayList(GnssListenerRouting.subscriptions().map { it.toBundle() }))
-                putParcelableArrayList("nmea", ArrayList(NmeaListenerRouting.subscriptions().map { it.toBundle() }))
-                putParcelableArrayList("raw", ArrayList(RawGnssCallbacks.subscriptions().map { it.toBundle() }))
-                putParcelableArrayList("peers", ArrayList(ProxyCommand.subscriptions().map { it.toBundle() }))
-                putString("process", "system_server")
-                putString("package", "android")
-                putInt("uid", 1000)
-                putInt("flags", 0)
+        return ReloadPreparation.prepare(
+            pauseLocation = { LocationTicker.stop() },
+            pauseGnss = { com.system.location.service.hook.hooks.gnss.GnssSignalInjection.pause() },
+            save = {
+                val state = Bundle().apply {
+                    putBundle("gate", gate.transferBundle())
+                    putByteArray("runtime", RuntimeTransferWire.encode(FakeLoc.captureTransfer()))
+                    putParcelableArrayList("location", ArrayList(LocationServiceHook.locationSubscriptions().map { it.toBundle() }))
+                    putParcelableArrayList("gnss", ArrayList(GnssListenerRouting.subscriptions().map { it.toBundle() }))
+                    putParcelableArrayList("nmea", ArrayList(NmeaListenerRouting.subscriptions().map { it.toBundle() }))
+                    putParcelableArrayList("raw", ArrayList(RawGnssCallbacks.subscriptions().map { it.toBundle() }))
+                    putParcelableArrayList("peers", ArrayList(ProxyCommand.subscriptions().map { it.toBundle() }))
+                    putString("process", "system_server")
+                    putString("package", "android")
+                    putInt("uid", 1000)
+                    putInt("flags", 0)
+                }
+                param.setSavedInstanceState(state)
+                android.util.Log.i("PortalModule", "hot reloading system_server")
+        }, abort = {
+            try { gate.resume() } finally {
+                val configuration = FakeLoc.runtimeSnapshots.current().configuration
+                try {
+                    if (configuration.enabled) LocationTicker.start()
+                } finally {
+                    if (configuration.gnssEnabled) com.system.location.service.hook.hooks.gnss.GnssSignalInjection.ensureStarted()
+                }
             }
-            param.setSavedInstanceState(state)
-        } catch (error: Throwable) {
-            gate.resume()
-            throw error
-        }
-        android.util.Log.i("PortalModule", "hot reloading system_server")
-        return true
+        })
     }
 
     override fun onHotReloaded(param: XposedModuleInterface.HotReloadedParam) {

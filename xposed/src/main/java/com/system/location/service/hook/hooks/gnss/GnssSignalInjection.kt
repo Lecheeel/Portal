@@ -1,118 +1,96 @@
 package com.system.location.service.hook.hooks.gnss
 
 import android.os.IInterface
-import android.os.SystemClock
 import com.system.location.service.hook.hooks.nmea.NmeaBridge
 import com.system.location.service.hook.hooks.nmea.NmeaListenerRouting
+import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.utils.FakeLoc
-import java.util.concurrent.atomic.AtomicBoolean
+import com.system.location.service.hook.utils.LogRateLimiter
 
-/**
- * Proactively feeds registered GNSS/NMEA callbacks from the simulated sky model.
- *
- * Rewriting only incoming callbacks is insufficient on devices without a real GNSS fix: an app
- * registering while indoors would otherwise receive no GnssStatus/NMEA at all.
- */
+/** The only producer of simulated GNSS callbacks. Missing capture leaves the real stream intact. */
 object GnssSignalInjection {
-    private val started = AtomicBoolean(false)
+    private val failures = LogRateLimiter()
+    private val worker = ReceiverDeliveryWorker(::tick) { error -> report("worker", error) }
 
-    fun ensureStarted() {
-        if (!started.compareAndSet(false, true)) return
-        Thread({
-            while (!Thread.currentThread().isInterrupted) {
-                runCatching {
-                    if (FakeLoc.enable && FakeLoc.enableMockGnss) {
-                        injectStatus()
-                        if (FakeLoc.enableNMEA) injectNmea()
-                    }
-                }
-                try {
-                    Thread.sleep(1_000L)
-                } catch (interrupted: InterruptedException) {
-                    Thread.currentThread().interrupt()
+    fun ensureStarted() = worker.start()
+
+    fun stop() {
+        worker.stop()
+        GnssListenerRouting.clear()
+        NmeaListenerRouting.clear()
+    }
+
+    private fun tick() {
+        if (!FakeLoc.enable || !FakeLoc.enableMockGnss) return
+        GnssListenerRouting.listeners().forEach { listener ->
+            deliver(listener, { GnssListenerRouting.unregister(listener) }) {
+                if (!GnssListenerRouting.shouldDeliver(listener)) return@deliver
+                val publication = GnssReceiverRuntime.currentFrame(GnssListenerRouting.fixedPointFor(listener))
+                    ?: return@deliver
+                val method = listener.javaClass.methods.firstOrNull {
+                    it.name == "onSvStatusChanged" && ReceiverGnssStatusAdapter.supports(it)
+                } ?: error("unsupported GNSS status callback signature")
+                HookRuntime.invokeOriginalMethod(method, listener, ReceiverGnssStatusAdapter.arguments(method, publication))
+            }
+        }
+        if (!FakeLoc.enableNMEA) return
+        NmeaListenerRouting.listeners().forEach { listener ->
+            deliver(listener, { NmeaListenerRouting.unregister(listener) }) {
+                if (!NmeaListenerRouting.shouldDeliver(listener)) return@deliver
+                val publication = GnssReceiverRuntime.currentFrame(NmeaListenerRouting.fixedPointFor(listener))
+                    ?: return@deliver
+                val method = listener.javaClass.methods.firstOrNull {
+                    it.name == "onNmeaReceived" && it.parameterTypes.toList() ==
+                        listOf(Long::class.javaPrimitiveType, String::class.java)
+                } ?: error("unsupported NMEA callback signature")
+                NmeaBridge.generatedSentences(publication).forEach { sentence ->
+                    if (Thread.currentThread().isInterrupted) return@deliver
+                    // Android OnNmeaMessageListener timestamps are UTC milliseconds, not elapsed nanos.
+                    HookRuntime.invokeOriginalMethod(method, listener,
+                        arrayOf(publication.frame.generatedAtMillis, sentence))
                 }
             }
-        }, "GnssSignalInjection").apply { isDaemon = true }.start()
+        }
+    }
+
+    private inline fun deliver(listener: IInterface, remove: () -> Unit, action: () -> Unit) {
+        if (Thread.currentThread().isInterrupted) return
+        try { action() } catch (error: Exception) {
+            if (error is InterruptedException) { Thread.currentThread().interrupt(); return }
+            if (error is android.os.DeadObjectException || !listener.asBinder().isBinderAlive) remove()
+            report(listener.javaClass.name, error)
+        }
+    }
+
+    private fun report(key: String, error: Exception) {
+        if (failures.allow(key, System.nanoTime()))
+            HookRuntime.log("GNSS delivery failed [$key]: ${error.javaClass.simpleName}: ${error.message}")
+    }
+}
+
+/** A referenced worker cannot overlap its replacement, including while a callback is returning. */
+internal class ReceiverDeliveryWorker(private val tick: () -> Unit, private val failure: (Exception) -> Unit) {
+    private var worker: Thread? = null
+
+    @Synchronized fun start() {
+        if (worker != null) return
+        worker = Thread({
+            try {
+                while (!Thread.currentThread().isInterrupted) {
+                    try { tick() } catch (interrupted: InterruptedException) { throw interrupted }
+                    catch (error: Exception) { failure(error) }
+                    Thread.sleep(1000)
+                }
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            } finally {
+                synchronized(this) { if (worker === Thread.currentThread()) worker = null }
+            }
+        }, "GnssSignalInjection").apply { isDaemon = true; start() }
     }
 
     fun stop() {
-        started.set(false)
-        // Threads are daemon and exit when interrupted; keep this callable from hot reload.
-        Thread.getAllStackTraces().keys
-            .firstOrNull { it.name == "GnssSignalInjection" }
-            ?.interrupt()
+        val current = synchronized(this) { worker?.also { it.interrupt() } } ?: return
+        if (current !== Thread.currentThread()) current.join(2000)
     }
-
-    private fun injectStatus() {
-        val listeners = GnssListenerRouting.listeners()
-        if (listeners.isEmpty()) return
-        val data = GnssStatusBridge.toMockData(GnssStatusBridge.currentFrame())
-        listeners.forEach { listener ->
-            runCatching {
-                val method = listener.javaClass.methods.firstOrNull {
-                    it.name == "onSvStatusChanged" && it.parameterTypes.isNotEmpty()
-                } ?: return@forEach
-                val args = when {
-                    method.parameterTypes.first() == Int::class.javaPrimitiveType ||
-                        method.parameterTypes.first() == Int::class.java -> arrayOf(
-                        data.svCount,
-                        data.svidWithFlags,
-                        data.cn0s,
-                        data.elevations,
-                        data.azimuths,
-                        data.carrierFreqs,
-                        GnssStatusBridge.basebandCn0(data),
-                    )
-                    method.parameterTypes.first().name == "android.location.GnssStatus" ->
-                        arrayOf(gnssStatus(data) ?: return@forEach)
-                    else -> return@forEach
-                }
-                method.invoke(listener, *args)
-            }
-        }
-    }
-
-    private fun injectNmea() {
-        val listeners = NmeaListenerRouting.listeners()
-        if (listeners.isEmpty()) return
-        val sentences = NmeaBridge.generatedSentences()
-        if (sentences.isEmpty()) return
-        val timestamp = SystemClock.elapsedRealtimeNanos()
-        listeners.forEach { listener ->
-            runCatching {
-                val method = listener.javaClass.methods.firstOrNull {
-                    it.name == "onNmeaReceived" && it.parameterTypes.size == 2
-                } ?: return@forEach
-                // The callback method is itself hooked to drop real NMEA; invoke ORIGIN so the
-                // injected frame is not swallowed by that hook.
-                sentences.forEach { sentence ->
-                    com.system.location.service.hook.runtime.HookRuntime.invokeOriginalMethod(
-                        method,
-                        listener,
-                        arrayOf<Any?>(timestamp, sentence),
-                    )
-                }
-            }.onFailure {
-                com.system.location.service.hook.runtime.HookRuntime.log(
-                    "NMEA injection failed for ${listener.javaClass.name}: ${it.javaClass.simpleName}: ${it.message}"
-                )
-            }
-        }
-    }
-
-    private fun gnssStatus(data: MockGnssData): Any? = runCatching {
-        val type = Class.forName("android.location.GnssStatus")
-        val constructor = type.declaredConstructors.firstOrNull { it.parameterTypes.size == 7 }
-            ?: return null
-        constructor.isAccessible = true
-        constructor.newInstance(
-            data.svCount,
-            data.svidWithFlags,
-            data.cn0s,
-            data.elevations,
-            data.azimuths,
-            data.carrierFreqs,
-            GnssStatusBridge.basebandCn0(data),
-        )
-    }.getOrNull()
 }

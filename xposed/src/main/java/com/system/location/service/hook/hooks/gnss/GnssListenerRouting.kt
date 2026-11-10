@@ -2,6 +2,8 @@ package com.system.location.service.hook.hooks.gnss
 
 import android.os.IInterface
 import com.system.location.service.core.gnss.GnssFrameRoute
+import com.system.location.service.core.routing.RoutingConfig
+import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.BinderUtils
 
 object GnssListenerRouting {
@@ -12,6 +14,7 @@ object GnssListenerRouting {
     }
     fun unregister(listener: IInterface) = registry.unregister(listener)
     fun listeners(): List<IInterface> = registry.listeners()
-    fun routeFor(listener: Any?): GnssFrameRoute? = registry.routeFor(listener)
+    fun routeFor(listener: Any?, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? =
+        registry.routeFor(listener, routing)
     fun clear() = registry.clear()
 }

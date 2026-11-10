@@ -5,12 +5,13 @@ import android.os.IInterface
 import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.core.routing.RoutingDecision
 import com.system.location.service.core.routing.RoutingTable
+import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 
 /** Strong callbacks are bounded by Binder lifetime, explicit unregister and module teardown. */
 internal class GnssCallbackRegistry(
-    private val callerDecision: (String?, Int) -> RoutingDecision = ::gnssCallerDecision,
+    private val callerDecision: (String?, Int, RoutingConfig?) -> RoutingDecision = ::gnssCallerDecision,
 ) {
     private data class Entry(val listener: IInterface, val packageName: String?, val uid: Int,
         val death: IBinder.DeathRecipient)
@@ -51,17 +52,18 @@ internal class GnssCallbackRegistry(
     @Synchronized
     fun clear() { entries.keys.toList().forEach(::unregisterBinder) }
 
-    fun routeFor(listener: Any?): GnssFrameRoute? {
+    fun routeFor(listener: Any?, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? {
         val entry = entry(listener) ?: return null
-        return receiverRouteFor(callerDecision(entry.packageName, entry.uid))
+        return receiverRouteFor(callerDecision(entry.packageName, entry.uid, routing))
     }
 
     @Synchronized
     private fun entry(listener: Any?): Entry? = (listener as? IInterface)?.asBinder()?.let(entries::get)
 }
 
-internal fun gnssCallerRoute(packageName: String?, uid: Int): GnssFrameRoute? =
-    receiverRouteFor(gnssCallerDecision(packageName, uid))
+internal fun gnssCallerRoute(packageName: String?, uid: Int,
+    routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? =
+    receiverRouteFor(gnssCallerDecision(packageName, uid, routing))
 
 private fun receiverRouteFor(decision: RoutingDecision): GnssFrameRoute? = when (decision) {
     RoutingDecision.Global -> GnssFrameRoute.Global
@@ -70,8 +72,8 @@ private fun receiverRouteFor(decision: RoutingDecision): GnssFrameRoute? = when 
     is RoutingDecision.Scenario -> GnssFrameRoute.Scenario(decision.scenarioId)
 }
 
-private fun gnssCallerDecision(packageName: String?, uid: Int): RoutingDecision {
-    val config = FakeLoc.routingConfig ?: return RoutingDecision.Global
+private fun gnssCallerDecision(packageName: String?, uid: Int, routing: RoutingConfig?): RoutingDecision {
+    val config = routing ?: return RoutingDecision.Global
     val packages = packageName?.takeIf { it.isNotBlank() }?.let(::listOf)
         ?: runCatching { BinderUtils.getUidPackageNames(uid = uid)?.toList().orEmpty() }.getOrDefault(emptyList())
     val system = packages.any { runCatching { BinderUtils.isSystemPackages(it) }.getOrDefault(false) }

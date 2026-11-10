@@ -14,21 +14,24 @@ class GnssCallbackRegistryTest {
         val point = Wgs84(31.0, 121.0)
         var config = RoutingConfig(mode = RoutingMode.PER_APP, routes = listOf(
             AppRoute("app", scenarioId = "route-a", uid = 10001)))
-        val registry = GnssCallbackRegistry { packageName, uid -> RoutingTable(config).decision(uid, packageName, false) }
+        val registry = GnssCallbackRegistry { packageName, uid, captured -> RoutingTable(captured ?: RoutingConfig()).decision(uid, packageName, false) }
         val listener = Transport().listener()
-        assertNull(registry.routeFor(listener))
+        assertNull(registry.routeFor(listener, config))
         registry.register(listener, "app", 10001)
-        assertEquals(GnssFrameRoute.Scenario("route-a"), registry.routeFor(listener))
+        assertEquals(GnssFrameRoute.Scenario("route-a"), registry.routeFor(listener, config))
+        val retained = config
         config = config.copy(routes = listOf(AppRoute("app", point = point)))
-        assertEquals(GnssFrameRoute.FixedPoint(point), registry.routeFor(listener))
+        assertEquals(GnssFrameRoute.Scenario("route-a"), registry.routeFor(listener, retained))
+        assertEquals(GnssFrameRoute.Global, registry.routeFor(listener, null))
+        assertEquals(GnssFrameRoute.FixedPoint(point), registry.routeFor(listener, config))
         config = config.copy(routes = emptyList(), globalScenarioId = "route-b")
-        assertEquals(GnssFrameRoute.Scenario("route-b"), registry.routeFor(listener))
+        assertEquals(GnssFrameRoute.Scenario("route-b"), registry.routeFor(listener, config))
         config = config.copy(deniedPackages = setOf("app"))
-        assertNull(registry.routeFor(listener))
+        assertNull(registry.routeFor(listener, config))
         config = config.copy(mode = RoutingMode.GLOBAL)
-        assertEquals(GnssFrameRoute.Global, registry.routeFor(listener))
+        assertEquals(GnssFrameRoute.Global, registry.routeFor(listener, config))
         registry.unregister(listener)
-        assertNull(registry.routeFor(listener))
+        assertNull(registry.routeFor(listener, config))
     }
 
     @Test fun duplicateTransportRegistrationIsDeduplicatedAndDeathReleasesTheCallback() {

@@ -71,6 +71,16 @@ class ReceiverBroadcastSkyModelTest {
         }
     }
 
+    @Test fun capturePreviewUsesTheProductionModelAndExposesItsSource() {
+        val c = capture()
+        val previewer = GnssCapturePreviewer(c)
+        val preview = previewer.current(62000, 0, elapsed, 42)
+        assertEquals(GnssCapturePlaybackState.READY, preview.state)
+        assertEquals(ReceiverBroadcastSkyModel(c).frame(62000, point, 0.0, 0, elapsed, 42), preview.frame)
+        assertEquals(ReceiverGnssSource.HYBRID_BROADCAST_REPLAY, preview.frame!!.source)
+        assertEquals(ReceiverGnssSource.STATISTICAL_REPLAY, previewer.current(62000, 0).frame!!.source)
+    }
+
     @Test fun fitAndCalibrationFailuresCannotResurrectStatisticalGeometryForSameIdentity() {
         val c = capture()
         val e = c.gpsBroadcastEvidence!!

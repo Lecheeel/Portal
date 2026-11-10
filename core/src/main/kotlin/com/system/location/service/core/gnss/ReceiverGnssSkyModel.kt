@@ -13,10 +13,13 @@ data class ReceiverGnssFrame(
     val geometry: GnssGeometryResult,
     val source: ReceiverGnssSource,
     val diagnostics: List<String> = emptyList(),
+    val availableSatelliteCapacity: Int = satellites.size,
+    val requestedMinimumSatellites: Int = 0,
 ) {
     init {
         require(generatedAtMillis >= 0 && altitudeMeters.isFinite())
-        require(satellites.size <= GnssFrame.MAX_SATELLITES)
+        require(availableSatelliteCapacity in satellites.size..GnssFrame.MAX_SATELLITES)
+        require(requestedMinimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         require(satellites.all { it.elevationDeg >= 0f && it.azimuthDeg < 360f })
         require(satellites.map { it.constellation to it.svid }.distinct().size == satellites.size)
     }
@@ -62,13 +65,14 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
         }.toMutableList()
         val diagnostics = mutableListOf("统计回放：局部天空形态来自实测画像，不代表目标地点的精确星历")
         if (excluded.isNotEmpty()) diagnostics += "统一排除无明确 NMEA 编号映射的卫星：${excluded.joinToString()}"
+        // Capacity uses the same local evidence pool as allocation, including the current frame.
+        val pool = (selected + frames.filter { abs(it.capturedAtMillis - replayAt) <= POOL_WINDOW_MILLIS }
+            .sortedBy { abs(it.capturedAtMillis - replayAt) }
+            .flatMap { it.satellites }).filter { it.elevationDeg >= 0f }
+            .distinctBy { it.constellation to it.svid }
+        val capacity = minOf(pool.size, GnssFrame.MAX_SATELLITES)
         if (selected.size < minimumSatellites) {
-            // Only reuse genuinely observed satellites from a local temporal window. Never make
-            // up SVIDs or lift below-horizon satellites to satisfy the requested count.
-            val pool = frames.filter { abs(it.capturedAtMillis - replayAt) <= 10_000L }
-                .sortedBy { abs(it.capturedAtMillis - replayAt) }
-                .flatMap { it.satellites }.filter { it.elevationDeg >= 0f }
-                .distinctBy { it.constellation to it.svid }.toMutableList()
+            // Only reuse genuinely observed identities. Never lift a below-horizon observation.
             while (selected.size < minimumSatellites) {
                 val identities = selected.map { it.constellation to it.svid }.toSet()
                 val candidate = pool.filter { (it.constellation to it.svid) !in identities }.maxByOrNull { satellite ->
@@ -84,8 +88,10 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
         geometry.reason?.let { diagnostics += "无有效三维定位解：$it" }
         val output = if (geometry.dop == null) ordered.map { it.copy(usedInFix = false) } else ordered
         return ReceiverGnssFrame(atMillis, observer, altitudeMeters, output, geometry,
-            ReceiverGnssSource.STATISTICAL_REPLAY, diagnostics)
+            ReceiverGnssSource.STATISTICAL_REPLAY, diagnostics, capacity, minimumSatellites)
     }
+
+    private companion object { const val POOL_WINDOW_MILLIS = 10_000L }
 
     private fun interpolate(a: GnssSatellite, b: GnssSatellite, fraction: Double): GnssSatellite {
         fun mix(x: Float, y: Float) = (x + (y - x) * fraction).toFloat()

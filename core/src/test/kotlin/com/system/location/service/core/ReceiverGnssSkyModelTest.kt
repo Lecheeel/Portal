@@ -28,12 +28,27 @@ class ReceiverGnssSkyModelTest {
 
     @Test fun minimumUsesOnlyObservedIdentitiesAndReportsUnavailableCapacity() {
         val model = ReceiverGnssSkyModel(capture())
-        assertEquals(2, model.frame(62000, observer, 0.0)!!.satellites.size)
+        val automatic = model.frame(62000, observer, 0.0)!!
+        assertEquals(2, automatic.satellites.size)
+        assertEquals(3, automatic.availableSatelliteCapacity)
+        assertEquals(0, automatic.requestedMinimumSatellites)
         assertEquals(3, model.frame(62000, observer, 0.0, 3)!!.satellites.size)
         val excessive = model.frame(62000, observer, 0.0, 30)!!
         assertEquals(3, excessive.satellites.size)
+        assertEquals(automatic.availableSatelliteCapacity, excessive.availableSatelliteCapacity)
+        assertEquals(30, excessive.requestedMinimumSatellites)
         assertTrue(excessive.diagnostics.any { it.contains("无法满足") })
         assertNull(excessive.geometry.dop)
+    }
+
+    @Test fun capacityExcludesIdentitiesOutsideTheCurrentEvidenceWindow() {
+        val source = capture()
+        val withOldIdentity = source.copy(frames = source.frames.mapIndexed { index, frame ->
+            if (index == 0) frame.copy(satellites = frame.satellites + satellite(3)) else frame
+        })
+        val model = ReceiverGnssSkyModel(withOldIdentity)
+        assertEquals(3, model.frame(62000, observer, 0.0, 10)!!.availableSatelliteCapacity)
+        assertEquals(4, model.frame(121000, observer, 0.0, 10)!!.availableSatelliteCapacity)
     }
 
     @Test fun interpolationCrossesNorthViaTheShortestArcAndIsDeterministic() {

@@ -4,6 +4,7 @@ import android.os.IInterface
 import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.core.gnss.PublishedGnssFrame
 import com.system.location.service.core.runtime.RuntimeSnapshot
+import com.system.location.service.core.runtime.RuntimeSnapshotObservation
 import com.system.location.service.hook.hooks.nmea.NmeaBridge
 import com.system.location.service.hook.hooks.nmea.NmeaListenerRouting
 import com.system.location.service.hook.runtime.HookRuntime
@@ -33,8 +34,9 @@ object GnssSignalInjection {
 
     private fun tick() {
         // Avoid generating samples while inactive; the captured policy below is authoritative.
-        val initial = FakeLoc.runtimeSnapshots.current().configuration
-        if (!initial.enabled || !initial.gnssEnabled || initial.gnssSource == null) return
+        val initial = FakeLoc.runtimeSnapshots.observation()
+        val initialPolicy = initial.state.configuration
+        if (!initialPolicy.enabled || !initialPolicy.gnssEnabled || initialPolicy.gnssSource == null) return
         val context = ProviderView.capture()
         val policy = context.state.configuration
         if (!policy.enabled || !policy.gnssEnabled || policy.gnssSource == null) return
@@ -47,7 +49,8 @@ object GnssSignalInjection {
                     it.name == "onSvStatusChanged" && ReceiverGnssStatusAdapter.supports(it)
                 } ?: error("unsupported GNSS status callback signature")
                 GnssListenerRouting.deliverOnce(listener, publication.frame.toString()) {
-                    if (!receiverDeliveryAllowed(context.state, FakeLoc.runtimeSnapshots.current())) return@deliverOnce false
+                    if (!receiverDeliveryAllowed(context.state, initial.simulationGeneration,
+                            FakeLoc.runtimeSnapshots.observation())) return@deliverOnce false
                     HookRuntime.invokeOriginalMethod(method, listener, ReceiverGnssStatusAdapter.arguments(method, publication))
                     true
                 }
@@ -66,7 +69,8 @@ object GnssSignalInjection {
                 // Compare the exact emitted epoch/text, without rounded-time windows or hashes.
                 val key = "${publication.frame.generatedAtMillis}:${sentences.joinToString("")}"
                 NmeaListenerRouting.deliverBatch(listener, key, sentences.size,
-                    allowed = { receiverDeliveryAllowed(context.state, FakeLoc.runtimeSnapshots.current(), nmea = true) }) { index ->
+                    allowed = { receiverDeliveryAllowed(context.state, initial.simulationGeneration,
+                        FakeLoc.runtimeSnapshots.observation(), nmea = true) }) { index ->
                     // Android OnNmeaMessageListener timestamps are UTC milliseconds, not elapsed nanos.
                     HookRuntime.invokeOriginalMethod(method, listener,
                         arrayOf(publication.frame.generatedAtMillis, sentences[index]))
@@ -91,10 +95,11 @@ object GnssSignalInjection {
 }
 
 /** Stop/configuration/routing changes invalidate a captured batch; sample renewal does not. */
-internal fun receiverDeliveryAllowed(captured: RuntimeSnapshot, current: RuntimeSnapshot,
-    nmea: Boolean = false): Boolean = current.configuration.enabled && current.configuration.gnssEnabled &&
-    (!nmea || current.configuration.nmeaEnabled) && current.configRevision == captured.configRevision &&
-    current.configuration == captured.configuration && current.routing == captured.routing
+internal fun receiverDeliveryAllowed(captured: RuntimeSnapshot, simulationGeneration: Long,
+    current: RuntimeSnapshotObservation, nmea: Boolean = false): Boolean =
+    current.simulationGeneration == simulationGeneration && current.state.configuration.enabled &&
+    current.state.configuration.gnssEnabled && (!nmea || current.state.configuration.nmeaEnabled) &&
+    current.state.configuration == captured.configuration && current.state.routing == captured.routing
 
 /** Freeze each route once per delivery tick, even if provider samples advance during callbacks. */
 internal class ReceiverTickFrames(private val source: (GnssFrameRoute) -> PublishedGnssFrame?) {

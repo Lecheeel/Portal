@@ -268,20 +268,28 @@ object FakeLoc {
         externallyDriven = true
     }
 
+    fun snapshot(force: Boolean = false, now: Long = SystemClock.elapsedRealtimeNanos(),
+        timeMillis: Long = System.currentTimeMillis()): LocationSample = snapshotState(force, now, timeMillis).sample!!
+
+    /** Return the policy and the sample from the same successful CAS, including on config races. */
     @Synchronized
-    fun snapshot(force: Boolean = false, now: Long = SystemClock.elapsedRealtimeNanos(), timeMillis: Long = System.currentTimeMillis()): LocationSample {
-        runtimeSnapshots.current().sample?.let {
-            if (externallyDriven) return it
-            if (!force && now - it.elapsedNanos < reportIntervalMs.coerceIn(50, 1000) * 1_000_000) return it
+    fun snapshotState(force: Boolean = false, now: Long = SystemClock.elapsedRealtimeNanos(),
+        timeMillis: Long = System.currentTimeMillis()): RuntimeSnapshot {
+        val nextSampleNanos = maxOf(now, Math.addExact(lastSampleNanos, 1))
+        val published = runtimeSnapshots.update { state ->
+            val interval = state.configuration.reportIntervalMs
+            val existing = state.sample
+            if (existing != null && (externallyDriven || (!force && now - existing.elapsedNanos < interval * 1_000_000))) {
+                state
+            } else state.copy(sample = LocationSample(
+                Wgs84(state.latitude, state.longitude), state.altitudeMeters, state.accuracyMeters,
+                if (now - lastMovementNanos <= maxOf(500L, interval * 2) * 1_000_000) movementSpeed else 0f,
+                ((state.bearingDeg % 360 + 360) % 360).toFloat().coerceAtMost(359.99997f),
+                timeMillis, nextSampleNanos,
+            ))
         }
-        val point = coordinatePair()
-        lastSampleNanos = maxOf(now, lastSampleNanos + 1)
-        return LocationSample(
-            Wgs84(point.first, point.second), altitude, accuracy.coerceAtLeast(0.1f),
-            if (now - lastMovementNanos <= maxOf(500L, reportIntervalMs * 2) * 1_000_000) movementSpeed else 0f,
-            ((bearing % 360 + 360) % 360).toFloat().coerceAtMost(359.99997f),
-            timeMillis, lastSampleNanos,
-        ).also { runtimeSnapshots.publishSample(it) }
+        lastSampleNanos = maxOf(lastSampleNanos, published.sample!!.elapsedNanos)
+        return published
     }
 
     var accuracy: Float

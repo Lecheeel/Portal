@@ -4,6 +4,40 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SnapshotTest {
+    @Test fun sampleAndConfigurationComeFromOnePublicationDuringConcurrentUpdates() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+        val done = java.util.concurrent.atomic.AtomicBoolean(false)
+        val started = java.util.concurrent.CountDownLatch(1)
+        try {
+            FakeLoc.updateCoordinates(1.0, 2.0, nowNanos = 0)
+            FakeLoc.runtimeSnapshots.set(com.system.location.service.core.runtime.RuntimeSnapshot(
+                latitude = 1.0, longitude = 2.0, altitudeMeters = 10.0, accuracyMeters = 10f))
+            val writer = executor.submit {
+                started.countDown()
+                while (!done.get()) {
+                    FakeLoc.runtimeSnapshots.update { state ->
+                        val altitude = if (state.altitudeMeters == 10.0) 20.0 else 10.0
+                        state.copy(altitudeMeters = altitude, accuracyMeters = altitude.toFloat(),
+                            configuration = state.configuration.copy(minimumSatellites = altitude.toInt()))
+                    }
+                }
+            }
+            started.await(5, java.util.concurrent.TimeUnit.SECONDS)
+            repeat(5_000) { i ->
+                val result = FakeLoc.snapshotState(true, 1_000_000_000L + i, 1_000L + i)
+                val sample = result.sample!!
+                assertEquals(result.altitudeMeters, sample.altitude, 0.0)
+                assertEquals(result.accuracyMeters, sample.accuracy)
+            }
+            done.set(true)
+            writer.get(10, java.util.concurrent.TimeUnit.SECONDS)
+        } finally {
+            done.set(true)
+            executor.shutdownNow()
+            FakeLoc.runtimeSnapshots.set(saved)
+        }
+    }
     @Test fun legacyBearingNearFullCircleRemainsValidAfterFloatRounding() {
         val old = FakeLoc.bearing
         try {

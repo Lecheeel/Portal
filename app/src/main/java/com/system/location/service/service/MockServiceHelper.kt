@@ -5,32 +5,8 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
 import com.system.location.service.LocationServiceApp
-import com.system.location.service.ext.accuracy
-import com.system.location.service.ext.altitude
-import com.system.location.service.ext.mockWifiEnabled
-import com.system.location.service.ext.debug
-import com.system.location.service.ext.disableFusedProvider
-import com.system.location.service.ext.disableGetCurrentLocation
-import com.system.location.service.ext.disableRegisterLocationListener
-import com.system.location.service.ext.allowPhysicalRawGnss
-import com.system.location.service.ext.enableGetFromLocation
-import com.system.location.service.ext.enableNMEA
-import com.system.location.service.ext.enableRequestGeofence
-import com.system.location.service.ext.environmentReplayJson
-import com.system.location.service.ext.minSatelliteCount
-import com.system.location.service.ext.needDowngradeToCdma
-import com.system.location.service.ext.physicalNoise
-import com.system.location.service.ext.routingJson
-import com.system.location.service.ext.simReady
-import com.system.location.service.ext.sensorCadenceScale
-import com.system.location.service.ext.sensorVariation
-import com.system.location.service.ext.environmentApCount
-import com.system.location.service.ext.cellMode
-import com.system.location.service.ext.environmentSourceMode
-import com.system.location.service.ext.wifiFingerprintEnabled
-import com.system.location.service.ext.wifiFingerprintCatalogJson
-import com.system.location.service.ext.speed
 import com.system.location.service.ext.reportDuration
+import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.ext.loopBroadcastlocation
 import com.system.location.service.hook.utils.FakeLoc
 
@@ -312,61 +288,48 @@ object MockServiceHelper {
             return false
         }
 
-        FakeLoc.altitude = context.altitude
-        FakeLoc.speed = context.speed
-        FakeLoc.accuracy = context.accuracy
-        FakeLoc.enableDebugLog = context.debug
-        FakeLoc.disableGetCurrentLocation = context.disableGetCurrentLocation
-        FakeLoc.disableRegisterLocationListener = context.disableRegisterLocationListener
-        FakeLoc.disableFusedLocation = context.disableFusedProvider
-        FakeLoc.needDowngradeToCdma = context.needDowngradeToCdma
-        FakeLoc.minSatellites = context.minSatelliteCount
-        FakeLoc.allowPhysicalRawGnss = context.allowPhysicalRawGnss
-        FakeLoc.enableNMEA = context.enableNMEA
-        FakeLoc.sensorCadenceScale = context.sensorCadenceScale
-        FakeLoc.sensorVariation = context.sensorVariation
-        FakeLoc.disableRequestGeofence = !context.enableRequestGeofence
-        FakeLoc.disableGetFromLocation = !context.enableGetFromLocation
-
-        val rely = Bundle()
-        rely.putString("command_id", "put_config")
-        rely.putDouble("altitude", FakeLoc.altitude)
-        rely.putDouble("speed", FakeLoc.speed)
-        rely.putFloat("accuracy", FakeLoc.accuracy)
-        rely.putLong("report_interval", broadcastInterval(context))
-        rely.putBoolean("enable_mock_wifi", context.mockWifiEnabled)
-        rely.putBoolean("enable_debug_log", FakeLoc.enableDebugLog)
-        rely.putBoolean("disable_get_current_location", FakeLoc.disableGetCurrentLocation)
-        rely.putBoolean("disable_register_location_listener", FakeLoc.disableRegisterLocationListener)
-        rely.putBoolean("disable_fused_location", FakeLoc.disableFusedLocation)
-        rely.putBoolean("need_downgrade_to_2g", FakeLoc.needDowngradeToCdma)
-        rely.putInt("min_satellites", FakeLoc.minSatellites)
+        val fallback = FakeLoc.runtimeSnapshots.current()
+        val values = try {
+            com.system.location.service.data.persistence.HookConfigurationPreferences
+                .read(context.sharedPrefs.all, fallback).toMutableMap()
+        } catch (error: Exception) {
+            com.system.location.service.hook.utils.Logger.error("Configuration preferences invalid: ${error.javaClass.simpleName}")
+            return false
+        }
         val captureFile = java.io.File(context.noBackupFilesDir, "gnss/receiver-capture.json")
         val capturePayload = runCatching {
             com.system.location.service.core.gnss.GnssCaptureStore(captureFile).load()
                 ?.let(com.system.location.service.core.gnss.GnssCaptureWire::encode)
         }.getOrElse {
             com.system.location.service.hook.utils.Logger.error("GNSS capture unavailable: ${it.javaClass.simpleName}")
-            null
+            return false
         }
-        rely.putString("gnss_capture", capturePayload)
-        rely.putBoolean("enable_agps", FakeLoc.allowPhysicalRawGnss)
-        rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
-        rely.putDouble("sensor_cadence_scale", FakeLoc.sensorCadenceScale)
-        rely.putDouble("sensor_variation", FakeLoc.sensorVariation)
-        rely.putBoolean("disable_request_geofence", FakeLoc.disableRequestGeofence)
-        rely.putBoolean("disable_get_from_location", FakeLoc.disableGetFromLocation)
-        rely.putBoolean("enable_physical_noise", context.physicalNoise)
-        rely.putBoolean("sim_ready", context.simReady)
-        rely.putInt("environment_ap_count", context.environmentApCount)
-        rely.putString("cell_mode", context.cellMode)
-        rely.putString("environment_source", context.environmentSourceMode)
-        rely.putBoolean("wifi_fingerprint_enabled", context.wifiFingerprintEnabled)
-        context.wifiFingerprintCatalogJson.takeIf { it.isNotBlank() }?.let { rely.putString("wifi_fingerprint_json", it) }
-        context.routingJson.takeIf { it.isNotBlank() }?.let { rely.putString("routing_json", it) }
-        context.environmentReplayJson.takeIf { it.isNotBlank() }?.let { rely.putString("environment_json", it) }
-
-        return commandClient.send(locationManager, rely)
+        values["gnss_capture"] = capturePayload
+        val prepared = try {
+            com.system.location.service.core.runtime.PreparedRuntimeConfiguration
+                .prepare(values, fallback.configuration.gnssSource)
+        } catch (error: Exception) {
+            com.system.location.service.hook.utils.Logger.error("Configuration rejected: ${error.javaClass.simpleName}")
+            return false
+        }
+        val rely = Bundle().apply {
+            putString("command_id", "put_config")
+            values.forEach { (key, value) ->
+                when (value) {
+                    null -> putString(key, null)
+                    is String -> putString(key, value)
+                    is Boolean -> putBoolean(key, value)
+                    is Int -> putInt(key, value)
+                    is Long -> putLong(key, value)
+                    is Float -> putFloat(key, value)
+                    is Double -> putDouble(key, value)
+                    else -> error("Unsupported configuration type for $key")
+                }
+            }
+        }
+        if (!commandClient.send(locationManager, rely)) return false
+        FakeLoc.runtimeSnapshots.update(prepared::applyTo)
+        return true
     }
 
     fun isServiceInit(): Boolean {

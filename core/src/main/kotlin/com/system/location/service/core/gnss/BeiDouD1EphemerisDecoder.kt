@@ -1,6 +1,5 @@
 package com.system.location.service.core.gnss
 
-import kotlin.math.abs
 import kotlin.math.pow
 
 data class BeiDouD1Decoded(
@@ -42,32 +41,15 @@ object BeiDouD1EphemerisDecoder {
         fun follows(previous: Long, current: Long) = (current - previous + 604800L) % 604800L == 6L
         if (!follows(sow1, sow2) || !follows(sow2, sow3)) return invalid("inconsistent BeiDou D1 SOW sequence")
         val week13 = one.rawUnsigned(60, 13).toInt()
-        val ref = referenceAtSubframeOneCapture
-        val era = ref.week / 8192
-        val week = (era - 1..era + 1).map { it.toLong() * 8192 + week13 }
-            .filter { it in 0..Int.MAX_VALUE.toLong() }.minByOrNull { abs(it - ref.week) }?.toInt()
-            ?: return invalid("cannot resolve full BDT week")
         val tocUnits = (one.rawUnsigned(73, 9) shl 8) or one.rawUnsigned(90, 8)
         val toc = tocUnits * 8.0
         val toeUnits = (two.rawUnsigned(290, 2) shl 15) or
             (three.rawUnsigned(42, 10) shl 5) or three.rawUnsigned(60, 5)
         val toe = toeUnits * 8.0
-        val transmission = BeiDouTime(week, sow1.toDouble())
-        if (abs(transmission.secondsSince(ref)) > 120)
-            return invalid("D1 transmission disagrees with trusted capture BDT")
-        fun resolveEpoch(seconds: Double): BeiDouTime? {
-            if (seconds >= 604800) return null
-            val candidates = (week.toLong() - 1..week.toLong() + 1)
-                .filter { it in 0..Int.MAX_VALUE.toLong() }.map { BeiDouTime(it.toInt(), seconds) }
-            val closest = candidates.minByOrNull { abs(it.secondsSince(transmission)) } ?: return null
-            // Exactly half a week has two possible epochs; do not choose one by list order.
-            if (candidates.count { abs(it.secondsSince(transmission)) == abs(closest.secondsSince(transmission)) } != 1)
-                return null
-            if (abs(closest.secondsSince(transmission)) > 302400) return null
-            return closest
-        }
-        val toeEpoch = resolveEpoch(toe) ?: return invalid("invalid or ambiguous BeiDou toe")
-        val tocEpoch = resolveEpoch(toc) ?: return invalid("invalid or ambiguous BeiDou toc")
+        val transmission = BeiDouDecodeEpochs.transmission(week13, sow1.toDouble(), referenceAtSubframeOneCapture)
+            ?: return invalid("D1 transmission disagrees with trusted capture BDT")
+        val toeEpoch = BeiDouDecodeEpochs.epoch(toe, transmission) ?: return invalid("invalid or ambiguous BeiDou toe")
+        val tocEpoch = BeiDouDecodeEpochs.epoch(toc, transmission) ?: return invalid("invalid or ambiguous BeiDou toc")
         if (transmission.secondsSince(validFrom) < 0 || validUntil.secondsSince(transmission) < 0)
             return invalid("D1 transmission outside supplied validity evidence")
         return try {

@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Test APK only. No location data or production configuration is exposed. -->
+        <service
+            android:name="com.system.location.service.GnssBinderTestService"
+            android:exported="true"
+            android:process=":gnss_binder_test" />
+    </application>
+</manifest>

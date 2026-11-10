@@ -137,9 +137,9 @@ class SettingsComposeFragment : Fragment() {
                         }
                     },
                     onEditSatelliteCount = {
-                        editNumber("设置最小模拟卫星数量", context.minSatelliteCount.toString(), decimal = false) { raw ->
+                        editNumber("可见卫星下限（0 为自动）", context.minSatelliteCount.toString(), decimal = false) { raw ->
                             val value = raw.toIntOrNull() ?: error("数量不合法")
-                            require(value in 0..35) { "卫星数量需在 0–35 之间" }
+                            require(value in 0..128) { "卫星数量需在 0–128 之间；0 表示按真实画像自动生成" }
                             context.minSatelliteCount = value
                             refresh()
                             applyConfigNowWithToast()
@@ -574,7 +574,8 @@ private fun SettingsScreen(
                         )
                         PortalActionRow(
                             title = "最少卫星数",
-                            subtitle = "${values.minSatelliteCount} 颗（仅北斗）",
+                            subtitle = if (values.minSatelliteCount == 0) "自动：按本机真实画像生成"
+                                else "可见卫星下限 ${values.minSatelliteCount} 颗；受有效实测池容量限制",
                             onClick = onEditSatelliteCount,
                             enabled = hooksEnabled,
                         )

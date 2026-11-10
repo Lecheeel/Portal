@@ -66,15 +66,23 @@ class GnssReceiverCollector(
             val statusCallback = object : GnssStatus.Callback() {
                 override fun onSatelliteStatusChanged(status: GnssStatus) {
                     if (!accepts() || frames.size >= GnssCapture.MAX_FRAMES) return
-                    val satellites = (0 until status.satelliteCount).mapNotNull { index ->
+                    if (status.satelliteCount > 512) {
+                        notes += "卫星状态超过 512 条信号记录，未保存该异常帧"
+                        return
+                    }
+                    val signals = (0 until status.satelliteCount).mapNotNull { index ->
                         val constellation = constellation(status.getConstellationType(index)) ?: return@mapNotNull null
                         runCatching {
-                            GnssSatellite(constellation, status.getSvid(index), status.getElevationDegrees(index),
+                            val satellite = GnssSatellite(constellation, status.getSvid(index), status.getElevationDegrees(index),
                                 status.getAzimuthDegrees(index), status.getCn0DbHz(index), status.usedInFix(index),
                                 status.hasEphemerisData(index), status.hasAlmanacData(index),
                                 if (status.hasCarrierFrequencyHz(index)) status.getCarrierFrequencyHz(index) else null)
+                            GnssSignalObservation(satellite,
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && status.hasBasebandCn0DbHz(index))
+                                    status.getBasebandCn0DbHz(index) else null)
                         }.onFailure { notes += "部分卫星状态字段无效：${it.javaClass.simpleName}" }.getOrNull()
-                    }.distinctBy { it.constellation to it.svid }
+                    }
+                    val satellites = GnssSignalProjection.spacecraft(signals)
                     val observer = location?.takeIf {
                         SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos in 0..10_000_000_000L
                     }
@@ -83,6 +91,7 @@ class GnssReceiverCollector(
                         observer = observer?.let { Wgs84(it.latitude, it.longitude) },
                         altitudeMeters = observer?.takeIf { it.hasAltitude() }?.altitude,
                         satellites = satellites,
+                        signalObservations = signals,
                         measurementsAvailable = measurements.isNotEmpty(),
                         navigationMessagesAvailable = navigation.isNotEmpty(),
                     )

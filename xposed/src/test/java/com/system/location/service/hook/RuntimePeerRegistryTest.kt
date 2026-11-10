@@ -71,10 +71,15 @@ class RuntimePeerRegistryTest {
             assertEquals("phone", row.name)
             assertEquals("session-a", row.session)
             assertSame(transport.binder, row.binder)
+            val oldDeath = transport.death!!
             first.clear()
+            assertEquals(1, transport.unlinks)
+            assertEquals(0, first.size())
             assertTrue(restored.restore(row))
+            oldDeath.binderDied()
             assertEquals(1, restored.size())
         } finally { first.clear(); restored.clear() }
+        assertEquals(2, transport.unlinks)
     }
 
     private class Transport {

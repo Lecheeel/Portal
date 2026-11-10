@@ -48,5 +48,7 @@ object ProxyCommand {
 
     internal fun subscriptions(): List<RuntimePeerRegistry.Subscription> = statePeers.subscriptions()
     internal fun restore(subscription: RuntimePeerRegistry.Subscription): Boolean = statePeers.restore(subscription)
+    /** Detach old-generation death recipients and pending replication after saving peers. */
+    internal fun retireSubscriptions() = statePeers.clear()
 
 }

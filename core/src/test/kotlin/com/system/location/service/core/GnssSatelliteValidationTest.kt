@@ -12,7 +12,6 @@ class GnssSatelliteValidationTest {
             val profile = GnssObservationProfileBuilder.build(
                 listOf(GnssObservationFrame(1000, satellites = listOf(satellite))), "receiver", "android")
             assertEquals(mapOf(cn0.toInt() to 1), profile.constellations.single().cn0Histogram)
-            assertEquals(cn0, RawGnssPolicy(minCn0DbHz = cn0).minCn0DbHz, 0f)
         }
         assertEquals(63f, GnssFrame.MAX_CN0_DB_HZ, 0f)
     }

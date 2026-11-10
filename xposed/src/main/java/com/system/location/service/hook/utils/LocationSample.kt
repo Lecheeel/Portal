@@ -8,14 +8,17 @@ import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.gnss.GnssLocationExtras
 import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.hook.hooks.gnss.GnssReceiverRuntime
+import com.system.location.service.core.runtime.RuntimeSnapshot
 
 /** Android conversion derives GPS extras from the same provider sample as status and NMEA. */
-fun LocationSample.toLocation(provider: String?, route: GnssFrameRoute = GnssFrameRoute.Global): Location {
+fun LocationSample.toLocation(provider: String?, route: GnssFrameRoute = GnssFrameRoute.Global,
+    state: RuntimeSnapshot = FakeLoc.runtimeSnapshots.current(), validationAtMillis: Long = System.currentTimeMillis()): Location {
     val sample = this
     val fields = LocationSanitizer.fieldsFor(sample)
     val effectiveProvider = provider ?: LocationManager.GPS_PROVIDER
-    val publication = if (FakeLoc.enable && FakeLoc.enableMockGnss && effectiveProvider == LocationManager.GPS_PROVIDER)
-        GnssReceiverRuntime.frameForSample(sample, route) else null
+    val policy = state.configuration
+    val publication = if (policy.enabled && policy.gnssEnabled && effectiveProvider == LocationManager.GPS_PROVIDER)
+        GnssReceiverRuntime.frameForSample(sample, route, state, validationAtMillis) else null
     return Location(effectiveProvider).also {
         it.latitude = sample.latitude
         it.longitude = sample.longitude
@@ -38,6 +41,6 @@ fun LocationSample.toLocation(provider: String?, route: GnssFrameRoute = GnssFra
                 summary.maxCn0DbHz?.let { value -> putFloat("maxCn0", value) }
             }
         }
-        it.isMock = !FakeLoc.hideMock
+        it.isMock = !policy.hideMock
     }
 }

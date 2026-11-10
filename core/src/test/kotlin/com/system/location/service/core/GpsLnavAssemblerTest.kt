@@ -28,7 +28,9 @@ class GpsLnavAssemblerTest {
         assertEquals(1, result.decoded!!.ephemeris.svid)
         assertNull(assembler.offer(observation(3), reference(3)).decoded)
         assertEquals(3, assembler.offer(observation(5), reference(5)).decoded!!.ephemeris.svid)
+        assertEquals(setOf(1, 3), assembler.completed().map { it.ephemeris.svid }.toSet())
         assembler.clear()
+        assertTrue(assembler.completed().isEmpty())
         assertNull(assembler.offer(observation(2), reference(2)).decoded)
     }
 
@@ -36,6 +38,7 @@ class GpsLnavAssemblerTest {
         val assembler = GpsLnavAssembler()
         val first = observation(0)
         assertNull(assembler.offer(first, reference(0)).decoded)
+        assertTrue(assembler.completed().isEmpty())
         assertNull(assembler.offer(first, reference(0)).decoded)
         assertNull(assembler.offer(first.copy(dataBase64 = Base64.getEncoder().encodeToString(ByteArray(40))), reference(0)).decoded)
         assertNull(assembler.offer(observation(1), reference(1)).decoded)

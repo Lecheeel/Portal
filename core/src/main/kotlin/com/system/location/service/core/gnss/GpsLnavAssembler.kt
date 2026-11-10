@@ -18,6 +18,14 @@ class GpsLnavAssembler {
     @Synchronized
     fun clear() = candidates.clear()
 
+    /** Re-evaluate at the end of a capture, after late conflicts have invalidated candidates. */
+    @Synchronized
+    fun completed(): List<DecodedGpsLnav> = candidates.values.filter { !it.conflict && it.parts.size == 3 }
+        .mapNotNull { candidate ->
+            GpsLnavEphemerisDecoder.decode(candidate.parts.values.map { it.frame },
+                candidate.parts.getValue(1).reference).decoded
+        }
+
     @Synchronized
     fun offer(observation: GnssNavigationObservation, trustedGpsTimeAtCapture: GpsTime): GpsLnavDecodeResult {
         val checked = GpsLnavWords.decode(observation)

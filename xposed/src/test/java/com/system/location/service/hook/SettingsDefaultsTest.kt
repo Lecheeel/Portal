@@ -8,6 +8,17 @@ import org.junit.Test
 class SettingsDefaultsTest {
     private val schema = PortalSettingsSchema.schema
 
+    @Test fun legacyApValuesCannotReachGeneratorOutsideItsRange() {
+        val previous = FakeLoc.environmentApCount
+        try {
+            for ((saved, expected) in listOf(Int.MIN_VALUE to 3, 1 to 3, 2 to 3, 3 to 3, 8 to 8, 9 to 8, Int.MAX_VALUE to 8)) {
+                FakeLoc.environmentApCount = saved
+                assertEquals(expected, FakeLoc.environmentApCount)
+                com.system.location.service.core.environment.EnvironmentConfig(apPerCell = FakeLoc.environmentApCount)
+            }
+        } finally { FakeLoc.environmentApCount = previous }
+    }
+
     @Test fun schemaDefaultsMatchRuntimeDefaults() {
         assertEquals(FakeLoc.altitude.toString(), schema.defaultValue("altitude"))
         assertEquals(FakeLoc.speed.toString(), schema.defaultValue("speed"))

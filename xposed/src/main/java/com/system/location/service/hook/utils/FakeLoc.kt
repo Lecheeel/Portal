@@ -1,6 +1,7 @@
 package com.system.location.service.hook.utils
 
 import android.location.Location
+import com.system.location.service.core.environment.EnvironmentConfig
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow
@@ -136,7 +137,7 @@ object FakeLoc {
     /** P2-07 environment knobs; defaults preserve the P2-03/P2-05 behavior. */
     var environmentApCount: Int
         get() = runtimeSnapshots.current().environmentApCount
-        set(value) { updateSnapshot { it.copy(environmentApCount = value.coerceIn(1, 8)) } }
+        set(value) { updateSnapshot { it.copy(environmentApCount = value.coerceIn(EnvironmentConfig.MIN_AP_PER_CELL, EnvironmentConfig.MAX_AP_PER_CELL)) } }
     var cellMode: com.system.location.service.core.environment.CellMode
         get() = runtimeSnapshots.current().cellMode
         set(value) { updateSnapshot { it.copy(cellMode = value) } }

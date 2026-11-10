@@ -35,7 +35,9 @@ class EnvironmentPreferencesUiTest {
             store.save(name, profile)
             context.environmentSourceMode = "PROCEDURAL"
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                compose.openPage(scenario, R.id.nav_environment)
+                compose.openPage(scenario, R.id.nav_mock)
+                compose.onNodeWithText("位置").assertIsSelected()
+                compose.scrollToText("环境工具").performClick()
                 compose.scrollToText(context.getString(R.string.environment_source_value, "PROCEDURAL")).assertIsDisplayed()
                 compose.scrollToText(context.getString(R.string.environment_list_action)).performClick()
                 compose.waitUntil(5_000) { compose.onAllNodesWithText(name).fetchSemanticsNodes().isNotEmpty() }

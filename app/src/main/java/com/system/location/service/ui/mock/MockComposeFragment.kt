@@ -80,6 +80,7 @@ class MockComposeFragment : Fragment() {
                     onStart = { model.saveOrStart(true) },
                     onSave = { model.saveOrStart(false) },
                     onOpenLibrary = { findNavController().navigate(R.id.nav_route_gallery) },
+                    onOpenEnvironment = { findNavController().navigate(R.id.nav_environment) },
                     messageFlow = model.message,
                 )
             }
@@ -96,6 +97,7 @@ private fun MockScreen(
     onStart: () -> Unit,
     onSave: () -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenEnvironment: () -> Unit,
     messageFlow: kotlinx.coroutines.flow.Flow<String?>,
 ) {
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
@@ -175,6 +177,11 @@ private fun MockScreen(
                     Icon(painterResource(R.drawable.ic_layers_modern), null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("打开资料库")
+                }
+            }
+            item(key = "environment") {
+                OutlinedButton(onClick = onOpenEnvironment, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Text("环境工具")
                 }
             }
             item(key = "runtime") {

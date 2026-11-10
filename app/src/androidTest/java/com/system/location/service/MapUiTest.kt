@@ -58,7 +58,7 @@ class MapUiTest {
             compose.onNodeWithText("导出完整诊断日志").assertDoesNotExist()
             captureUi("runtime-overview")
             compose.scrollToText("开发者工具").performClick()
-            compose.scrollToText("环境工具").assertIsDisplayed()
+            compose.onNodeWithText("环境工具").assertDoesNotExist()
             compose.scrollToText("运行日志").performClick()
             compose.scrollToText("日志筛选").assertIsDisplayed()
             compose.scrollToText("清空日志").performClick()

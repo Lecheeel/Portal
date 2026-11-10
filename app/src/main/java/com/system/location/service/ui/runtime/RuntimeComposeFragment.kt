@@ -57,7 +57,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.Navigation
 import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
 import com.system.location.service.core.backend.Availability
@@ -119,9 +118,6 @@ class RuntimeComposeFragment : Fragment() {
             PortalTheme {
                 RuntimeScreen(
                     onExport = { exportLog.launch("location-diagnostics.txt") },
-                    onOpenEnvironment = {
-                        Navigation.findNavController(this).navigate(R.id.nav_environment)
-                    },
                     onOpenProbe = {
                         startActivity(
                             Intent(requireContext(), com.system.location.service.ui.diagnostics.LocationProbeActivity::class.java),
@@ -148,7 +144,6 @@ class RuntimeComposeFragment : Fragment() {
 @Composable
 private fun RuntimeScreen(
     onExport: () -> Unit,
-    onOpenEnvironment: () -> Unit,
     onOpenProbe: () -> Unit,
     onOpenDeveloperSettings: () -> Unit,
 ) {
@@ -371,9 +366,6 @@ private fun RuntimeScreen(
                 PortalCard {
                     RuntimeSectionToggle("开发者工具", developerExpanded, { developerExpanded = !developerExpanded })
                     if (developerExpanded) {
-                        OutlinedButton(onClick = onOpenEnvironment, modifier = Modifier.fillMaxWidth()) {
-                            Text("环境工具")
-                        }
                         RuntimeSectionToggle("能力与诊断", capabilitiesExpanded, { capabilitiesExpanded = !capabilitiesExpanded })
                         if (capabilitiesExpanded) {
                             OutlinedButton(

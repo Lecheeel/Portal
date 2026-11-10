@@ -48,6 +48,18 @@ class RuntimeTransferWireTest {
         assertSame(source, restored.state.configuration.gnssSource)
     }
 
+    @Test fun movementRetainsOriginalClockAndRejectsInvalidSpeeds() {
+        val transfer = RuntimeTransfer(RuntimeSnapshot(), false, movementSpeedMps = 4f, lastMovementNanos = 1000)
+        assertEquals(transfer, RuntimeTransferWire.decode(RuntimeTransferWire.encode(transfer)))
+        assertEquals(1000L, transfer.atReception(9000).lastMovementNanos)
+        assertEquals(0f, transfer.atReception(999).movementSpeedMps)
+        for (speed in listOf(-1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                RuntimeTransfer(RuntimeSnapshot(), false, movementSpeedMps = speed)
+            }
+        }
+    }
+
     @Test fun delayNeverRenewsAStaleExternalSampleOrScenario() {
         val state = RuntimeSnapshot(sample = sample, hasBearings = true, configuration = HookConfiguration(enabled = true))
         val transfer = RuntimeTransfer(state, true, mapOf("route" to sample))

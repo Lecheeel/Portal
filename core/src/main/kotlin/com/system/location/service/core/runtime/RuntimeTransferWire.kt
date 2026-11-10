@@ -15,8 +15,11 @@ data class RuntimeTransfer(
     val state: RuntimeSnapshot,
     val externallyDriven: Boolean,
     val scenarios: Map<String, LocationSample> = emptyMap(),
+    val movementSpeedMps: Float = 0f,
+    val lastMovementNanos: Long = 0L,
 ) {
     init {
+        require(movementSpeedMps.isFinite() && movementSpeedMps >= 0f && lastMovementNanos >= 0L)
         require(scenarios.size <= ScenarioSampleStore.MAX_SCENARIOS)
         require(scenarios.keys.all { it.isNotBlank() && it.length <= ScenarioSampleStore.MAX_ID_LENGTH })
         require(if (externallyDriven) state.configuration.enabled && state.sample != null else state.sample == null)
@@ -29,7 +32,8 @@ data class RuntimeTransfer(
         val active = externallyDriven && fresh(state.sample!!)
         val received = if (externallyDriven && !active) state.copy(sample = null, provider = null,
             configuration = state.configuration.copy(enabled = false), hasBearings = false) else state
-        return RuntimeTransfer(received, active, scenarios.filterValues(::fresh))
+        return copy(state = received, externallyDriven = active, scenarios = scenarios.filterValues(::fresh),
+            movementSpeedMps = if (lastMovementNanos <= nowNanos) movementSpeedMps else 0f)
     }
 }
 
@@ -47,11 +51,13 @@ object RuntimeTransferWire {
         val externallyDriven: Boolean,
         val scenarios: Map<String, LocationSample>,
         val gnssCapture: String?,
+        val movementSpeedMps: Float = 0f,
+        val lastMovementNanos: Long = 0L,
     )
 
     fun encode(transfer: RuntimeTransfer): ByteArray {
         val envelope = Envelope(VERSION, transfer.state, transfer.externallyDriven, transfer.scenarios,
-            transfer.state.configuration.gnssSource?.wirePayload())
+            transfer.state.configuration.gnssSource?.wirePayload(), transfer.movementSpeedMps, transfer.lastMovementNanos)
         val raw = json.encodeToString(Envelope.serializer(), envelope).toByteArray(Charsets.UTF_8)
         require(raw.size <= MAX_DECODED_BYTES) { "Runtime transfer exceeds decoded budget" }
         val output = ByteArrayOutputStream()
@@ -78,6 +84,7 @@ object RuntimeTransferWire {
         envelope.state.configuration.wifiFingerprintCatalogJson?.let { WifiFingerprintImporter.importJson(it) }
         val source = CapturedGnssSource.prepare(envelope.gnssCapture, previousSource)
         val state = envelope.state.copy(configuration = envelope.state.configuration.copy(gnssSource = source))
-        return RuntimeTransfer(state, envelope.externallyDriven, envelope.scenarios.toMap())
+        return RuntimeTransfer(state, envelope.externallyDriven, envelope.scenarios.toMap(),
+            envelope.movementSpeedMps, envelope.lastMovementNanos)
     }
 }

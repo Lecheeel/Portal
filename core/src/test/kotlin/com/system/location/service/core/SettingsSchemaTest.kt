@@ -14,7 +14,7 @@ class SettingsSchemaTest {
     private val schema = PortalSettingsSchema.schema
 
     @Test fun defaultsAreDeclared() {
-        assertEquals("80.0", schema.defaultValue("altitude"))
+        assertEquals("0.0", schema.defaultValue("altitude"))
         assertEquals("FULL_REPLAY", schema.defaultValue("cell_mode"))
         assertEquals("ORBITAL", schema.defaultValue("gnss_model"))
         assertEquals("true", schema.defaultValue("enable_nmea"))

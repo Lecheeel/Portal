@@ -29,7 +29,7 @@ data class RuntimeSnapshot(
     val physicalNoiseSeed: Long = 0L,
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
-    val altitudeMeters: Double = 80.0,
+    val altitudeMeters: Double = 0.0,
     val speedMps: Double = 3.05,
     val accuracyMeters: Float = 25f,
     val bearingDeg: Double = 0.0,

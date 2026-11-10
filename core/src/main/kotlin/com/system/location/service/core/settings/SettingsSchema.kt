@@ -88,7 +88,7 @@ class SettingsSchema(specs: List<SettingSpec>) {
 object PortalSettingsSchema {
     val schema = SettingsSchema(
         listOf(
-            SettingSpec("altitude", SettingType.DOUBLE, "80.0", 0.0, 20_000.0),
+            SettingSpec("altitude", SettingType.DOUBLE, "0.0", 0.0, 20_000.0),
             SettingSpec("speed", SettingType.DOUBLE, "3.05", 0.0, 1_000.0),
             SettingSpec("accuracy", SettingType.FLOAT, "25.0", 0.1, 10_000.0),
             SettingSpec("report_interval", SettingType.LONG, "100", 50.0, 1_000.0),

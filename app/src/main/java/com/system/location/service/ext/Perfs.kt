@@ -154,7 +154,7 @@ var Context.speed: Double
     }
 
 var Context.altitude: Double
-    get() = sharedPrefs.getFloat("altitude", FakeLoc.altitude.toFloat()).toDouble()
+    get() = sharedPrefs.getFloat("altitude", 0f).toDouble()
     set(value) = sharedPrefs.edit {
         putFloat("altitude", value.toFloat())
     }

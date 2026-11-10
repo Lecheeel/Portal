@@ -14,7 +14,7 @@ import java.util.Collections
     fun frozen(): Route = copy(points = Collections.unmodifiableList(ArrayList(points)))
 }
 
-@Serializable data class MovementProfile(val speedMps: Double = 3.05, val altitudeMeters: Double = 80.0,
+@Serializable data class MovementProfile(val speedMps: Double = 3.05, val altitudeMeters: Double = 0.0,
     val accuracyMeters: Float = 25f, val intervalMs: Long = 500, val smoothMotion: Boolean = false) {
     init {
         require(speedMps.isFinite() && speedMps in 0.0..1000.0)

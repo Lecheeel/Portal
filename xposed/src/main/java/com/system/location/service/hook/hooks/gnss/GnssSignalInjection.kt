@@ -20,6 +20,7 @@ object GnssSignalInjection {
         worker.stop()
         GnssListenerRouting.clear()
         NmeaListenerRouting.clear()
+        RawGnssCallbacks.clear()
     }
 
     private fun tick() {

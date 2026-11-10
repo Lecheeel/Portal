@@ -43,7 +43,7 @@
 - [ ] 移动、噪声、100ms Location 和 1Hz GNSS 输出的序列/时间窗集成验收。相同完整样本共享缓存，但同一秒不同坐标/速度仍可能产生多个序列，不能声称所有移动回调都已同帧。
 - [ ] 注册/注销与正在执行的 Binder 回调竞态、停用中断、热重载后现有监听器恢复的设备验证。
 - [x] 本机保存逐信号状态、载频和可用基带 CN0，不再 distinctBy 后丢弃多频证据；画像/几何按唯一星座与 SVID 统计。投影优先保留在用信号，再按载频和稳定字段选取整条记录，统计载频的选择不是伪距加权模型。逐信号证据不进入 Binder 配置载荷。真实多频设备回归仍待完成。
-- [ ] 多系统完整广播星历与生产输出。GPS LNAV 已实现逐字奇偶校验/数据反转、子帧 1/2/3 同发送帧拼接、IODC/IODE、健康/告警/URA、10 位周号与可信完整时刻解析、toe/toc 和拟合期；有界组帧拒绝冲突重复电文。已能从本机采集的接收机时钟证据解码 GPS 星历，但尚未接入生产天空输出。Galileo、北斗和 GLONASS 仍未实现；GLONASS 状态向量不能套 Kepler，北斗 GEO 不能套通用 MEO 旋转。
+- [ ] 多系统完整广播星历与生产输出。GPS LNAV 已实现逐字奇偶校验/数据反转、子帧 1/2/3 同发送帧拼接、IODC/IODE、健康/告警/URA、10 位周号与可信完整时刻解析、toe/toc 和拟合期；有界组帧拒绝冲突重复电文。已能从本机采集的接收机时钟证据解码 GPS 星历，但尚未接入生产天空输出。Galileo 已有独立 GST 类型、广播传播、Android I/NAV 与 F/NAV 页 CRC 和参数解码；仍缺有界组帧、捕获时钟关联、有效期来源及生产集成。北斗和 GLONASS 仍未实现；GLONASS 状态向量不能套 Kepler，北斗 GEO 不能套通用 MEO 旋转。
 - [ ] 多系统传播与设备闭环。GPS LNAV 传播、相对论钟差、L1 C/A TGD、真空飞行时间、接收时刻 ECEF 旋转、WGS 84/ENU 观测几何已通过独立数值向量。仍缺多系统、真实原始电文样本、完整天空/CN0/在用策略与生产集成。统计回放不能称为精确轨道，收到导航电文不代表星历完整。
 - [ ] 在非零最少数量约束下验证分布和诊断；自动模式的实测分布验收与用户强制下限须分别评价。
 - [ ] 彻底整理旧模型配置键、旧偏好和 legacy UI，当前只保留兼容字段不再改变生产模型。
@@ -74,10 +74,20 @@ GPS LNAV 的纯 Kotlin 数学和本机采集解码已落地，生产输出仍使
 
 GPS 接收几何通过有界真空光程方程求发射时刻，再将发射 ECEF 坐标旋转到接收时刻的 ECEF 轴。拟合期检查针对实际发射时刻；接收时刻稍晚于拟合期末但发射仍有效的情况可以成立。该模型不含电离层、对流层、天线和接收机偏差，不能据此生成伪距或载波相位。ENU 仰角采用与 asin(up/range) 等价且数值稳定的 atan2；天顶/天底方位角明确未定义，不制造数值。
 
-后续 Galileo、北斗 MEO/IGSO/GEO、GLONASS 必须分别核对接口规范和系统时标；不以 GPS 代码通过代替其他系统验证。每个解码器、每个传播器分别提交，使用独立权威导航向量和可追溯数值结果，补单元/时间/地平线/过期/分页切换等边界测试后才接生产路径。
+Galileo、北斗 MEO/IGSO/GEO、GLONASS 必须分别核对接口规范和系统时标；不以 GPS 代码通过代替其他系统验证。每个解码器、每个传播器分别提交，使用独立权威导航向量和可追溯数值结果，补单元/时间/地平线/过期/分页切换等边界测试后才接生产路径。
+
+## Galileo 星历基础与缺口
+
+按 OS SIS ICD 2.2 实现独立完整 GST、GTRF 广播传播和双频参考钟差，I/NAV E1/E5b 与 F/NAV E1/E5a 参考显式区分。模型不把 GPS 与 GST 直接互换，不默认沿用 GPS 四小时有效期；调用方必须提供有依据的绝对有效区间。BGD 和逐信号 SHS/DVS 独立保留，不能将数学轨道可计算等同于信号可用。
+
+Android I/NAV 采用 228 位偶/奇页组合，CRC 覆盖前 196 位，末尾 SSP 不在覆盖范围内；F/NAV 采用 214 位信息和 24 位 CRC。解码前核对载荷长度、填充位、页类型和 CRC24Q。I/NAV words 1–5 与 F/NAV pages 1–4 分别要求身份、IOD、完整周号和发送时刻一致，拒绝 SISA 保留值与 NAPA。当前样本为真实 RINEX 参数独立重建的合成页，不是真机原始页。
+
+传播用四条同一 E24 卫星的真实记录，在两个钟差参考下对照 12 组固定 RTKLIB C 结果；覆盖范围不代表其他 Galileo 卫星已验收。CRC 用独立多项式长除法生成并经 RTKLIB C 校验；I/NAV 全参数另与 RTKLIB 解码器对照，F/NAV 参数按源 RINEX 和标准广播量化间隔核对，尚无独立 C 参数解码器对照。OSNMA 认证、有效期证据、GGTO、捕获组帧及生产天空输出仍待完成。
 
 ## 数学参考与验证
 
+- [Galileo OS SIS ICD 2.2 官方现行文档](https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo_OS_SIS_ICD_in_force.pdf)：Tables 30–33、38、42–46、67–68、91，核对页布局、CRC、轨道、钟差、BGD 与 SISA。
+- [固定版本 Galileo 混合 RINEX](https://github.com/geospace-code/georinex/blob/8d1210a0f1ada71ff7b8d0484cfaf22ff154a38e/src/georinex/tests/data/BRDC00IGS_R_20201360000_01D_MN.rnx)：`GalileoBroadcastPropagatorTest` 的 E24 真实输入；`GalileoNavigationPagesTest`、I/NAV 与 F/NAV 解码测试覆盖位破坏、身份/IOD/时刻不一致、缺页和信号状态。
 - [IS-GPS-200N 官方归档](https://archive.gps.gov/technical/icwg/IS-GPS-200N.pdf)：核对 20.3.3/20.3.4/20.3.5，Table 20-II/III/IV/XII/XIV，GPS 参数、拟合期、坐标系、飞行光程与逐字奇偶校验。
 - [固定版本 RTKLIB 导航输入](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/test/data/rinex/07590920.05n)、[eph2pos](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c)、[decode_frame](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c) 与 [decode_word](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rtkcmn.c)：三个真实 RINEX 轨道、9 个传播时刻和9组接收几何数值。90 个测试电文字由这些参数按 ICD 独立重建、经 C 实现解码对照；它们是合成字级测试样本，**不是真实接收机原始电文**。微米级数值一致性仅用于检查代码，不代表广播轨道精度。
 - `GpsLnavWordsTest` 覆盖每一位的单比特破坏；`GpsLnavEphemerisDecoderTest` 对照全部参数，覆盖 IOD、健康、时标、拟合期和非法字段；`GpsLnavAssemblerTest` 覆盖乱序、重复、冲突、缓存上限与完整周隔离；`GpsCaptureEphemeridesTest` 覆盖时钟证据缺失、不确定度和重置。

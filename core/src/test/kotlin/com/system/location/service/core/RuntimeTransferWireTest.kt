@@ -72,6 +72,12 @@ class RuntimeTransferWireTest {
             assertNull(result.state.sample)
             assertTrue(result.scenarios.isEmpty())
         }
+        val overflowing = sample.copy(elapsedNanos = Long.MAX_VALUE)
+        val rejected = transfer.copy(state = state.copy(sample = overflowing), scenarios = mapOf("route" to overflowing))
+            .atReception(Long.MAX_VALUE)
+        assertFalse(rejected.state.configuration.enabled)
+        assertNull(rejected.state.sample)
+        assertTrue(rejected.scenarios.isEmpty())
     }
 
     @Test fun malformedUnknownVersionAndOversizedPayloadsCannotBeDecoded() {

@@ -28,7 +28,8 @@ data class RuntimeTransfer(
     /** IPC latency does not renew samples. All peers use the original monotonic sample deadline. */
     fun atReception(nowNanos: Long, maxAgeNanos: Long = SampleStore.DEFAULT_MAX_AGE_NANOS): RuntimeTransfer {
         require(nowNanos >= 0L && maxAgeNanos > 0L)
-        fun fresh(sample: LocationSample) = sample.elapsedNanos <= nowNanos && nowNanos - sample.elapsedNanos < maxAgeNanos
+        fun fresh(sample: LocationSample) = sample.elapsedNanos <= Long.MAX_VALUE - maxAgeNanos &&
+            sample.elapsedNanos <= nowNanos && nowNanos - sample.elapsedNanos < maxAgeNanos
         val active = externallyDriven && fresh(state.sample!!)
         val received = if (externallyDriven && !active) state.copy(sample = null, provider = null,
             configuration = state.configuration.copy(enabled = false), hasBearings = false) else state

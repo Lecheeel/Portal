@@ -71,6 +71,25 @@ class ReceiverBroadcastSkyModelTest {
         }
     }
 
+    @Test fun mixedSkyDoesNotTruncateMeasuredIdentitiesAtTheMinimumSettingCeiling() {
+        val source = capture()
+        val others = listOf(Constellation.BEIDOU to 63, Constellation.GALILEO to 36,
+            Constellation.GLONASS to 25, Constellation.IRNSS to 14).flatMap { (system, count) ->
+            (1..count).map { id -> GnssSatellite(system, id, (id % 75 + 5).toFloat(),
+                (id * 11 % 360).toFloat(), 35f, true, true, true) }
+        }
+        val c = source.copy(frames = source.frames.map { frame ->
+            frame.copy(satellites = frame.satellites.filter { it.constellation == Constellation.GPS } + others)
+        })
+        val frame = ReceiverBroadcastSkyModel(c).frame(62000, point, 0.0,
+            elapsedRealtimeNanos = elapsed, currentBootCount = 42)!!
+        assertEquals(140, frame.satellites.size)
+        assertEquals(140, frame.availableSatelliteCapacity)
+        assertTrue(frame.satellites.any { it.constellation == Constellation.GPS && it.svid == 1 })
+        assertTrue(others.all { s -> frame.satellites.any { it.constellation == s.constellation && it.svid == s.svid } })
+        assertEquals(ReceiverGnssSource.HYBRID_BROADCAST_REPLAY, frame.source)
+    }
+
     @Test fun capturePreviewUsesTheProductionModelAndExposesItsSource() {
         val c = capture()
         val previewer = GnssCapturePreviewer(c)

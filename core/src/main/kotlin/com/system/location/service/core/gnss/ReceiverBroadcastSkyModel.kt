@@ -28,7 +28,6 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 "GPS 广播几何未启用：缺少同次开机的有效单调时间，当前明确使用统计回放")
         }
         val base = replay.selection(atMillis, 0) ?: return null
-        val localPool = replay.selection(atMillis, GnssFrame.MAX_SATELLITES) ?: return null
         val diagnostics = mutableListOf("GPS 方位/仰角来自广播轨道和真空光程；CN0、在用候选来自本次采集的经验校准，非实时接收状态")
         val broadcastIds = e.ephemerides.map { it.ephemeris.svid }.toSet()
         fun statistical(s: GnssSatellite) = s.constellation != Constellation.GPS || s.svid !in broadcastIds
@@ -63,8 +62,8 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         }.sortedBy { it.svid }
         // All genuinely observed, valid broadcast identities may contribute, including those
         // absent from the current statistical window. The remaining pool stays local empirical.
-        val pool = physical + localPool.satellites.filter(::statistical)
-        val selected = (physical + base.satellites.filter(::statistical)).take(GnssFrame.MAX_SATELLITES).toMutableList()
+        val pool = physical + base.evidencePool.filter(::statistical)
+        val selected = (physical + base.satellites.filter(::statistical)).toMutableList()
         while (selected.size < minimumSatellites) {
             val ids = selected.map { it.constellation to it.svid }.toSet()
             val next = pool.filter { (it.constellation to it.svid) !in ids }.maxByOrNull {
@@ -73,7 +72,6 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
             } ?: break
             selected += next
         }
-        if (pool.size > GnssFrame.MAX_SATELLITES) diagnostics += "输出受统一状态适配器容量限制：${GnssFrame.MAX_SATELLITES} 颗"
         if (selected.size < minimumSatellites)
             diagnostics += "卫星下限 $minimumSatellites 无法满足，当前有效池仅 ${pool.size} 颗"
         val usesReplay = selected.any(::statistical)
@@ -88,6 +86,6 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         }
         return ReceiverGnssFrame(atMillis, observer, altitudeMeters, output, geometry,
             if (usesReplay) ReceiverGnssSource.HYBRID_BROADCAST_REPLAY else ReceiverGnssSource.BROADCAST_EPHEMERIS,
-            diagnostics, minOf(pool.size, GnssFrame.MAX_SATELLITES), minimumSatellites)
+            diagnostics, pool.size, minimumSatellites)
     }
 }

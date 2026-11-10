@@ -1,6 +1,5 @@
 package com.system.location.service.core.gnss
 
-import com.system.location.service.core.geo.Wgs84
 import kotlinx.serialization.Serializable
 
 enum class Constellation { GPS, BEIDOU, GLONASS, GALILEO, QZSS, SBAS, IRNSS }
@@ -50,9 +49,4 @@ data class GnssFrame(
         const val MAX_SATELLITES = 128
         const val MAX_CN0_DB_HZ = 60f
     }
-}
-
-/** Single source for GnssStatus, NMEA and (later) raw measurements (ADR-006). */
-interface GnssSkyModel {
-    fun frame(atMillis: Long, observer: Wgs84, altitudeMeters: Double): GnssFrame
 }

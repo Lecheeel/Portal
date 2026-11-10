@@ -51,4 +51,12 @@ object ProxyCommand {
     /** Detach old-generation death recipients and pending replication after saving peers. */
     internal fun retireSubscriptions() = statePeers.clear()
 
+    @Synchronized internal fun publicationSequence(): Long = stateSequence
+
+    /** Existing peers retain their authenticated session and last accepted sequence on reload. */
+    @Synchronized internal fun restorePublicationSequence(sequence: Long) {
+        require(sequence >= 0)
+        stateSequence = maxOf(stateSequence, sequence)
+    }
+
 }

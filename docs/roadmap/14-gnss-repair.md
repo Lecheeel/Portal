@@ -245,12 +245,22 @@ az = [g − j(3−b)]z + az_luniSolar
 
 仍缺少真实逐条排程/时钟证据的采集关联、UTC 修正与 UTC(SU) 关联来源、独立轨道适用期来源、健康/钟差/逐信号服务检查、真实框架证据和生产天空接入。当前返回的数学几何不生成伪距、载波、CN0 或 usedInFix，不代表目标地点已有可用多系统物理天空。本阶段 Core/NMEA/Xposed/App arm64 JVM、App Kotlin 编译与模块规范检查通过；没有新增设备采集或完成真机验收，完整目标仍未完成。
 
+### GLONASS 时间、年历健康与钟关系
+
+按 ICD 5.1 §4.5/Tables 4.9/4.11 新增 GLONASS-M string 5 原始参数解析。调用方必须提供独立关联的 M=01 格式证据；完整 N4/NA 建立年历日历标签，拒绝未知年代和 2100 年非闰年造成的非法日号。τc 按符号幅值 32 位、2⁻³¹ 秒解析，τGPS 按 22 位、2⁻³⁰ 秒解析；§4.5 明确后者是 GPS−GLONASS 的秒数小数部分，Table 4.9 的印刷单位“day”不作为乘一天的依据。接收到零系数不证明转换可用；GPS 整数偏移、UTC(SU)−UTC、连续时钟域与适用区间仍需独立证据。
+
+年历健康解码保留广播者与被描述卫星的不同身份，按 §5.3/Table 5.1 保留 Cn=1 正常、Cn=0 不正常的原始极性。偶数字符串 6/8/10/12/14 才读取 nA/MnA/Cn；第五帧的 string 14（超帧 74）实际包含 UT1 B1/B2/KP，明确排除。nA=1..24 是该旧版接口规范的地址字段合法范围，不是生产星表或模拟数量设置；保留原始电文以支持未来消息格式。Cn 本身不是当前服务许可，还需即时 Bn/ln、年历时刻关联与有效性检查。
+
+`GlonassClockRelation` 严格使用 §3.3.3 的 `U = S + τc + τn − γn(S−tb)`，U 为 UTC(SU)+3h，S 为卫星钟读数。给定系统时刻时，解析求解 `S−U = [−τc−τn+γn(U−tb)]/(1−γn)`；不能将系统时刻直接代进卫星钟多项式而省略分母。反向接收已独立解析完整日期的 `S−tb`，不会将卫星钟读数标记成系统时刻或按日回绕。τc 必填，γn 已含广播的引力/相对论频率预测，不再次添加 GPS 轨道偏心率项。时钟适用区间由外部独立提供，跨域、过期、非有限数和超出广播字段范围的系数拒绝；这仍不证明卫星或信号健康。
+
+两套各 5 组明确合成载荷，分别实际经固定 RTKLIB C `test_glostr/getbitu/getbitg` 校验奇偶和原始字段；这是位提取对照，不是独立完整时间/年历解码器，也不是真实接收机电文。时钟关系另以 50 位十进制算术解仿射方程，对照系数正负组合、跨午夜、区间端点、不同域、非法值和双向往返。Core JVM 全套及模块规范检查通过；新组件尚未接入真实逐条排程、服务许可和生产天空，本阶段未更新设备包。
+
 ## 数学参考与验证
 
 - [Galileo OS SIS ICD 2.2 官方现行文档](https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo_OS_SIS_ICD_in_force.pdf)：§§4.1.2、5.1.9.2，Eq. 24，Tables 30–33、38、42–46、51、67–69、76、78、91，核对页布局、CRC、收页顺序、IOD 数据范围、轨道、钟差、BGD、GGTO 与 SISA。
 - [Galileo OS SDD 1.3 官方现行文档](https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo-OS-SDD_in_force.pdf)：第 17 页、Annex C.4.4.1 与脚注 22，星历年龄 `t−toe` 的非负要求与 4 小时上限；§1.6.5.1 坐标框架与参考框架转换责任。GGTO 不适用该星历年龄上限。
 - [北斗 B1I 3.0 官方地址](https://en.beidou.gov.cn/SYSTEMS/ICD/201902/P020190227702348791891.pdf)与[本次实际读取的固定提交镜像](https://github.com/yangboy/GNSS-PRN-Codes/blob/3b963f3690018d1738c61f77d8bc133a79851a48/ICD/BDS-2_B1I_ICD_Version_3.0.pdf)：官方站下载超时后读取镜像正文，核对 §§3.2/3.3、5.2.4.9/10/12、Table 5-11，包含 BDCS、BDT、钟差、TGD、GEO 倾转和 MEO/IGSO 方程。镜像没有替代真实接收机证据。
-- [GLONASS ICD 5.1 UNAVCO 英文镜像](https://www.unavco.org/help/glossary/docs/ICD_GLONASS_5.1_(2008)_en.pdf)：实际读取 §§3.3.3/3.3.4、Tables 4.5/4.6、A.3.1.1/2、Appendix 2；该正文使用 PZ-90.02。[IGS 2014 更新说明](https://lists.igs.org/pipermail/igsmail/2014/000730.html)指出同版本标题的更新正文可使用 PZ-90.11，不能仅凭“5.1 / 2008”判断框架。本次官方站证书/下载失败，没有声称已读到更新版正文。
+- [GLONASS ICD 5.1 UNAVCO 英文镜像](https://www.unavco.org/help/glossary/docs/ICD_GLONASS_5.1_(2008)_en.pdf)：实际读取 §§3.3.3/3.3.4、4.5、5.3，Tables 4.5/4.6/4.9/4.11/5.1、A.3.1.1/2、Appendix 2；该正文使用 PZ-90.02。[IGS 2014 更新说明](https://lists.igs.org/pipermail/igsmail/2014/000730.html)指出同版本标题的更新正文可使用 PZ-90.11，不能仅凭“5.1 / 2008”判断框架。本次官方站证书/下载失败，没有声称已读到更新版正文。
 - [卡塔尔民航局 QCAR 044 Volume 1](https://www.caa.gov.qa/sites/default/files/2021-10/Aeronautical%20Telecommunications.pdf)：实际下载并渲染核对 Appendix B §§3.2.2.3.2、3.2.3.1、3.2.5，印刷页 198–201，特别核对第 199 页公式；其 Y/Z 项存在与旧 ICD 相同的问题，修正推导见上文。
 - [固定版本 GLONASS 混合 RINEX](https://github.com/geospace-code/georinex/blob/8d1210a0f1ada71ff7b8d0484cfaf22ff154a38e/src/georinex/tests/data/BRDM00DLR_R_20130010000_01D_MN.rnx)与[RTKLIB GLONASS 积分](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c)：四条真实参数及三组网格的独立数值对照，不是原始电文、闰秒转换或生产接入验证。
 - [RTKLIB GLONASS 校验/解码](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c)与[Android HAL 导航消息格式](https://source.android.google.cn/reference/hal/struct_gnss_navigation_message)：独立 C 对照 `test_glostr/getbitg/decode_glostr`，实际同时读取本机 SDK 37 `GnssNavigationMessage.java` 的载荷、帧号、字符串号说明。生成脚本校验固定 `rcvraw.c` 的 SHA-256；输入均区分真实轨道参数与合成字符串。

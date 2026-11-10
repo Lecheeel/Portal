@@ -3,13 +3,12 @@ package com.system.location.service.android.widget
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.Point
 import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
+import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
@@ -17,6 +16,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import com.system.location.service.R
 import java.util.concurrent.atomic.AtomicBoolean
@@ -36,10 +36,10 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
     private var mAreaBackgroundPaint: Paint
     private var mRockerPaint: Paint
     private var mRockerPosition: Point
-    private var directionPaint = Paint()
+    private val directionPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val detailPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var mCenterPoint: Point
-    private val trianglePaint = Paint()
-    private val trianglePaint2 = Paint()
     private val lockPaint = Paint()
     private val lockBitmap: Bitmap
     private var handler = Handler(Looper.getMainLooper())
@@ -54,6 +54,10 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
     private var isAuto = AtomicBoolean(false)
     var listener: OnMoveListener? = null
     private var robotBitmap: Bitmap? = null
+    private val density = resources.displayMetrics.density
+    private val secondaryColor = ContextCompat.getColor(context, R.color.text_secondary)
+    private val borderColor = ContextCompat.getColor(context, R.color.card_border)
+    private val gripColor = ContextCompat.getColor(context, R.color.on_primary)
 
 
     init {
@@ -82,24 +86,18 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
         mRockerPaint = Paint()
         mRockerPaint.isAntiAlias = true
         mRockerPaint.color = mRockerColor
-        robotBitmap = resources.getDrawable(R.drawable.baseline_robot_24, null)?.toBitmap()
+        robotBitmap = ResourcesCompat.getDrawable(resources, R.drawable.baseline_robot_24, context.theme)
+            ?.mutate()?.apply { setTint(gripColor) }?.toBitmap()
 
         mCenterPoint = Point()
         mRockerPosition = Point()
 
-        val white = resources.getColor(R.color.white)
         directionPaint.textAlign = Paint.Align.CENTER
-        directionPaint.color = white
-
-        trianglePaint.color = resources.getColor(R.color.red500)
-        trianglePaint.style = Paint.Style.FILL
-        trianglePaint.isAntiAlias = true
-
-        trianglePaint2.color = white
-        trianglePaint2.style = Paint.Style.FILL
-        trianglePaint2.isAntiAlias = true
-
-        lockBitmap = ResourcesCompat.getDrawable(resources, R.drawable.baseline_lock_24, null)!!.toBitmap()
+        directionPaint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        ringPaint.style = Paint.Style.STROKE
+        ringPaint.strokeCap = Paint.Cap.ROUND
+        lockBitmap = ResourcesCompat.getDrawable(resources, R.drawable.baseline_lock_24, context.theme)!!
+            .mutate().apply { setTint(gripColor) }.toBitmap()
 
         lockPaint.isAntiAlias = true
     }
@@ -117,10 +115,11 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
         val paddingRight = paddingRight
         val paddingTop = paddingTop
         val paddingBottom = paddingBottom
-        val width = width - paddingLeft - paddingRight - DEFAULT_PADDING_SIZE
-        val height = height - paddingBottom - paddingTop - DEFAULT_PADDING_SIZE
-        val cx = width / 2 + paddingLeft + DEFAULT_PADDING_SIZE / 2
-        val cy = height / 2 + paddingTop + DEFAULT_PADDING_SIZE / 2
+        val inset = (DEFAULT_PADDING_SIZE * density).toInt()
+        val width = (width - paddingLeft - paddingRight - inset).coerceAtLeast(1)
+        val height = (height - paddingBottom - paddingTop - inset).coerceAtLeast(1)
+        val cx = width / 2 + paddingLeft + inset / 2
+        val cy = height / 2 + paddingTop + inset / 2
         mCenterPoint[cx] = cy
         mAreaRadius = (min(width.toDouble(), height.toDouble()) / 2).toFloat()
 
@@ -132,68 +131,66 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
         mAreaBackgroundPaint.color = mAreaColor
         canvas.drawCircle(mCenterPoint.x.toFloat(), mCenterPoint.y.toFloat(), mAreaRadius, mAreaBackgroundPaint)
 
+        ringPaint.color = borderColor
+        ringPaint.strokeWidth = density
+        canvas.drawCircle(cx.toFloat(), cy.toFloat(), mAreaRadius - density / 2, ringPaint)
+        ringPaint.alpha = 100
+        canvas.drawCircle(cx.toFloat(), cy.toFloat(), mAreaRadius * 0.45f, ringPaint)
+        ringPaint.alpha = 255
+
         drawDirection(canvas)
 
-        mRockerInnerCircleRadius = mAreaRadius * 0.2f
+        mRockerInnerCircleRadius = mAreaRadius * 0.24f
+        detailPaint.color = android.graphics.Color.argb(18, 0, 0, 0)
+        canvas.drawCircle(mRockerPosition.x.toFloat(), mRockerPosition.y + 2 * density,
+            mRockerInnerCircleRadius + density, detailPaint)
         canvas.drawCircle(
             mRockerPosition.x.toFloat(),
             mRockerPosition.y.toFloat(), mRockerInnerCircleRadius, mRockerPaint
         )
-        if (isAuto.get()) {
-            robotBitmap?.let {
-                canvas.drawBitmap(
-                    it,
-                    mRockerPosition.x.toFloat() - 30,
-                    mRockerPosition.y.toFloat() - 30,
-                    mRockerPaint
-                )
-            }
-        }
+        ringPaint.color = gripColor
+        ringPaint.alpha = 70
+        ringPaint.strokeWidth = density
+        canvas.drawCircle(mRockerPosition.x.toFloat(), mRockerPosition.y.toFloat(),
+            mRockerInnerCircleRadius - 2 * density, ringPaint)
+        ringPaint.alpha = 255
         if (isLocked.get()) {
             drawLock(canvas)
+        } else if (isAuto.get()) {
+            robotBitmap?.let {
+                val half = mRockerInnerCircleRadius * 0.55f
+                canvas.drawBitmap(it, null, RectF(mRockerPosition.x - half, mRockerPosition.y - half,
+                    mRockerPosition.x + half, mRockerPosition.y + half), lockPaint)
+            }
+        } else {
+            detailPaint.color = gripColor
+            for (offset in -1..1) {
+                canvas.drawCircle(mRockerPosition.x + offset * 4 * density,
+                    mRockerPosition.y.toFloat(), density, detailPaint)
+            }
         }
     }
 
     private fun drawDirection(canvas: Canvas, circleRadius: Float = mAreaRadius, circleX: Float = mCenterPoint.x.toFloat(), circleY: Float = mCenterPoint.y.toFloat()) {
-        val triangleBase = circleRadius / 8.0f
-        directionPaint.textSize = circleRadius / 8.0f
-
-        run {
-            canvas.drawText("N", circleX, circleY - circleRadius * 0.56f, directionPaint)
-            val trianglePath = Path()
-            trianglePath.moveTo(circleX, circleY - circleRadius * 0.8f)
-            trianglePath.lineTo(circleX - triangleBase / 2, circleY - circleRadius * 0.7f)
-            trianglePath.lineTo(circleX + triangleBase / 2, circleY - circleRadius * 0.7f)
-            trianglePath.close()
-            canvas.drawPath(trianglePath, trianglePaint)
+        ringPaint.strokeWidth = density
+        for (index in 0 until 24) {
+            val angle = Math.toRadians(index * 15.0 - 90.0)
+            val major = index % 6 == 0
+            val inner = circleRadius * if (major) 0.80f else 0.85f
+            val outer = circleRadius * 0.90f
+            ringPaint.color = if (index == 0) mRockerColor else secondaryColor
+            ringPaint.alpha = if (major) 220 else 80
+            canvas.drawLine(circleX + inner * cos(angle).toFloat(), circleY + inner * sin(angle).toFloat(),
+                circleX + outer * cos(angle).toFloat(), circleY + outer * sin(angle).toFloat(), ringPaint)
         }
-        run {
-            canvas.drawText("W", circleX - circleRadius * 0.56f, circleY + circleRadius * 0.05f, directionPaint)
-            val trianglePath = Path()
-            trianglePath.moveTo(circleX - circleRadius * 0.8f, circleY)
-            trianglePath.lineTo(circleX - circleRadius * 0.7f, circleY + triangleBase / 2)
-            trianglePath.lineTo(circleX - circleRadius * 0.7f, circleY - triangleBase / 2)
-            trianglePath.close()
-            canvas.drawPath(trianglePath, trianglePaint2)
-        }
-        run {
-            canvas.drawText("E", circleX + circleRadius * 0.56f, circleY + circleRadius * 0.05f, directionPaint)
-            val trianglePath = Path()
-            trianglePath.moveTo(circleX + circleRadius * 0.8f, circleY)
-            trianglePath.lineTo(circleX + circleRadius * 0.7f, circleY + triangleBase / 2)
-            trianglePath.lineTo(circleX + circleRadius * 0.7f, circleY - triangleBase / 2)
-            trianglePath.close()
-            canvas.drawPath(trianglePath, trianglePaint2)
-        }
-
-        run {
-            canvas.drawText("S", circleX, circleY + circleRadius * 0.6f, directionPaint)
-            val trianglePath = Path()
-            trianglePath.moveTo(circleX, circleY + circleRadius * 0.8f)
-            trianglePath.lineTo(circleX - triangleBase / 2, circleY + circleRadius * 0.7f)
-            trianglePath.lineTo(circleX + triangleBase / 2, circleY + circleRadius * 0.7f)
-            trianglePath.close()
-            canvas.drawPath(trianglePath, trianglePaint2)
+        ringPaint.alpha = 255
+        directionPaint.textSize = 10 * density
+        val baseline = -(directionPaint.ascent() + directionPaint.descent()) / 2
+        listOf("N", "E", "S", "W").forEachIndexed { index, label ->
+            val angle = Math.toRadians(index * 90.0 - 90.0)
+            directionPaint.color = if (index == 0) mRockerColor else secondaryColor
+            canvas.drawText(label, circleX + circleRadius * 0.64f * cos(angle).toFloat(),
+                circleY + circleRadius * 0.64f * sin(angle).toFloat() + baseline, directionPaint)
         }
     }
 
@@ -280,7 +277,6 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
         val lockSize = rockerRadius * 0.6f
         val rockerX = mRockerPosition.x.toFloat()
         val rockerY = mRockerPosition.y.toFloat()
-        //val rectF = RectF(rockerX - rockerRadius, rockerY - rockerRadius, rockerX + rockerRadius, rockerY + rockerRadius)
         val rectF = RectF(rockerX - lockSize, rockerY - lockSize, rockerX + lockSize, rockerY + lockSize)
         canvas.drawBitmap(lockBitmap, null, rectF, lockPaint)
     }
@@ -288,11 +284,12 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
     private fun getMySize(measureSpec: Int): Int {
         val result: Int
         val specMode = MeasureSpec.getMode(measureSpec)
+        val defaultSize = (DEFAULT_SIZE * density).toInt()
         val specSize = MeasureSpec.getSize(measureSpec)
         result = when (specMode) {
             MeasureSpec.EXACTLY -> specSize
-            MeasureSpec.AT_MOST -> DEFAULT_SIZE.coerceAtMost(specSize)
-            else -> DEFAULT_SIZE
+            MeasureSpec.AT_MOST -> defaultSize.coerceAtMost(specSize)
+            else -> defaultSize
         }
         return result
     }
@@ -360,8 +357,8 @@ class RockerView(context: Context, attributeSet: AttributeSet): View(context, at
     }
 
     companion object {
-        const val DEFAULT_SIZE: Int = 400
-        const val DEFAULT_PADDING_SIZE: Int = 80
+        const val DEFAULT_SIZE: Int = 144
+        const val DEFAULT_PADDING_SIZE: Int = 12
 
         interface OnMoveListener {
             fun onStarted() {}

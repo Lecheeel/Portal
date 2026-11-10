@@ -20,8 +20,6 @@ object NmeaListenerRouting {
     fun routeFor(listener: Any?, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? =
         registry.routeFor(listener, routing)
     fun clear() = registry.clear()
-    internal fun deliverOnce(listener: IInterface, key: String, action: () -> Boolean) =
-        registry.deliverOnce(listener, key, action)
     internal fun deliverBatch(listener: IInterface, key: String, itemCount: Int,
         allowed: () -> Boolean, action: (Int) -> Unit) =
         registry.deliverBatch(listener, key, itemCount, allowed, action)

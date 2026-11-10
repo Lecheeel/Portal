@@ -80,6 +80,19 @@ python scripts/compare_gnss_profiles.py receiver-capture.json detector-after.jso
 
 结果为描述性对照 `DESCRIPTIVE_ONLY`，不是来源真伪判定、统计等效性检验或自动验收 PASS。区间只描述这些窗口；包含零不能证明等效，多条边际区间也没有同时覆盖保证。正数卫星下限会主动改变分布，必须与自动模式分别评价。当前测试使用可解析的已知比例/计数/差异样本，尚无该设备的有效真实卫星窗口可据此完成分布验收。
 
+## 配置批次与读取一致性
+
+- [x] `put_config` 在 CAS 外复制、严格检查类型/范围、解码画像和 JSON，全部成功后一次发布；变换只合并本批字段，CAS 重试不覆盖新样本或其他控制状态。坏字段、坏画像、坏路由/环境/指纹拒绝整批，不再边写边校验或静默清空。
+- [x] 局部更新不携带的字段保留原值；显式 null 清除画像、路由、环境和指纹。App 全量同步从一次 `SharedPreferences.all` 与一次运行时回退快照构建，空值明确下发，远端接受后才原子更新 App 本地状态。采集文件读取失败拒绝同步，不按用户主动清除处理。
+- [x] Hook 策略和画像源归属不可变运行时快照；准备新画像不重配旧快照持有的源。各画像源共享生产序列，切换后不重复；序列/cache/evidence handle 不序列化。
+- [x] 样本生成在一次成功 CAS 中读取位置、精度、航向、间隔及其他状态，样本发布不再拥有配置版本写权限，避免并发样本回退版本。
+- [x] 每次 GNSS 投递固定一份配置、场景样本、路由和画像源，状态与 NMEA 共享路由 publication。raw 注册/raw 回调、真实状态/NMEA 抑制各自捕获一次上下文；Location 转换的 extras 和 mock 标记使用同一配置，批量结果及主动监听器投递复用上下文。
+- [x] 修复噪声同时间戳第二次读取退回无噪声原值、旧时间戳回退内部时钟的问题；重复读取复用漂移，延迟请求不改变后续随机步。删除无人调用的旧 NMEA 坐标改写器。
+- [ ] 初始跨进程 `sync_config` 的完整原子恢复，以及 start/stop/位置控制命令的批次原子性。现有认证命令转发顺序、代理启动与配置恢复仍须独立审查，不能将 `put_config` 的完成推广到全部命令。
+- [ ] 运行中停用、路由/画像切换、并发旧上下文、噪声 seed 切换与多个路由的实际框架回调验收；JVM 检查不能证明 Binder 调度、厂商适配及进程重载恢复已通过。
+
+`PreparedRuntimeConfigurationTest` 覆盖坏批次不发表、缺失/清除语义、完整解码、活动速度保留和合并最新样本；`ConfigCommandTest` 并发读取仅允许观察完整批次，`RuntimeSnapshotTest` 覆盖配置版本与样本并发。`SnapshotTest` 验证样本与一次发布的状态一致；`ProviderViewTest` 验证上下文、场景隔离和重复噪声视图。新增 ART 转换策略测试目前仅完成源码编译，尚未执行。
+
 ## GPS 星历实现与后续验收
 
 GPS LNAV 的纯 Kotlin 数学和本机采集解码已落地，生产输出仍使用统计回放。位序/字校验按 Table 20-XIV，组帧要求同一卫星、同一个 30 秒发送帧和完整 IOD；扩展拟合期按 Table 20-XII，保留区间拒绝。完整周号由明确可信的 GPS 时刻解析，不硬编码 GPS−UTC 秒数；接收机时间采用整数/十进制先减偏差再转秒，避免绝对纳秒转 Double 丢精度。
@@ -130,8 +143,8 @@ Android I/NAV 采用 228 位偶/奇页组合，CRC 覆盖前 196 位，末尾 SS
 - [NovAtel GSV](https://docs.novatel.com/OEM7/Content/Logs/GPGSV.htm) 与 [GSA](https://docs.novatel.com/OEM7/Content/Logs/GPGSA.htm)：核对 talker、卫星编号、可见/在用区别及 DOP 字段。
 - Android 本机 SDK 37 的 `GnssStatus.java`、`OnNmeaMessageListener.java` 用于核对公开 Builder、CN0 范围和 UTC 毫秒时间戳。
 
-raw/NMEA/最少卫星数实时策略字段已使用跨线程可见存储；配置批次的完整原子发布仍需后续审查。
+`put_config` 的原子发布和主要 GNSS/Location 读取上下文已落地；其余控制命令及初始跨进程同步的缺口见上，完整目标仍未完成。
 
 每组模型逻辑、每个 Hook 和文档分别提交，提交前执行最小相关验证。完整目标仍未完成，不发布 APK 或声称真机已通过。
 
-前阶段 Core/NMEA/Xposed/Detector JVM 全套、App Kotlin 与 arm64 仪器测试源码编译、Python 验证脚本及模块规范检查均已通过。本阶段新增组帧、GGTO 解码/转换和时间算术修复已通过 Core 全套及模块规范检查，其余模块未因这些纯 Core 新增逻辑重新运行。此前通过 ADB 启动 Portal 的操作被自动审批策略以 `blocked by policy` 拒绝，本阶段未继续安装或启动新采集，不能将先前空采集当作有效画像。
+前阶段 Core/NMEA/Xposed/Detector JVM 全套、App Kotlin 与 arm64 仪器测试源码编译、Python 验证脚本及模块规范检查均已通过。本阶段配置原子性和读取上下文改动后，Core/NMEA/Xposed/App arm64 JVM 全套、App Kotlin、arm64 仪器测试源码编译和模块规范检查通过；Detector 未因这些改动重跑。此前通过 ADB 启动 Portal 的操作被自动审批策略以 `blocked by policy` 拒绝，本阶段未继续安装或启动新采集，不能将先前空采集当作有效画像。

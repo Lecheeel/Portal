@@ -89,6 +89,17 @@ class PortalModule : XposedModule() {
                 // Share the drained platform monitor/counters so queued old interceptors see
                 // the successor generation. Copying them into a Bundle splits the gate.
                 param.setSavedInstanceState(arrayOf(state, gate.transferState()))
+                // The saved subscriptions contain framework Binders, not old module objects.
+                // Drop our old death recipients/mailboxes once the framework accepts the state;
+                // otherwise BinderProxy would keep every retired classloader alive. Complete
+                // all retirements even if one cleanup fails, without resuming a partial old table.
+                listOf<() -> Unit>(
+                    { LocationServiceHook.retireLocationSubscriptions() },
+                    { GnssListenerRouting.clear() },
+                    { NmeaListenerRouting.clear() },
+                    { RawGnssCallbacks.clear() },
+                    { ProxyCommand.retireSubscriptions() },
+                ).forEach { retire -> runCatching(retire).onFailure { HookRuntime.log(it) } }
                 android.util.Log.i("PortalModule", "hot reloading system_server")
         }, abort = {
             try { gate.resume() } finally {

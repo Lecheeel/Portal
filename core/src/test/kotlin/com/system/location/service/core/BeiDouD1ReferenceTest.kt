@@ -32,9 +32,8 @@ class BeiDouD1ReferenceTest {
                 "cic" to e.cicRad, "cis" to e.cisRad, "af0" to e.af0Seconds,
                 "af1" to e.af1SecondsPerSecond, "af2" to e.af2SecondsPerSecondSquared,
                 "tgd1" to decoded.tgd1Seconds, "tgd2" to decoded.tgd2Seconds)
-            // Pinned C uses rounded SC2RAD=3.1415926535898; Kotlin uses Math.PI.
             actual.forEach { (name, value) ->
-                assertEquals(name, n(name), value, maxOf(Math.ulp(n(name)) * 4, kotlin.math.abs(n(name)) * 3e-15))
+                assertEquals(name, n(name), value, Math.ulp(n(name)) * 4)
             }
             assertEquals(n("week").toInt(), e.toe.week)
             assertEquals(n("toe"), e.toe.secondsOfWeek, 0.0)

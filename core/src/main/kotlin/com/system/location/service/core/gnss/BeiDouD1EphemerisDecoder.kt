@@ -1,6 +1,5 @@
 package com.system.location.service.core.gnss
 
-import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.pow
 
@@ -22,7 +21,8 @@ data class BeiDouD1DecodeResult(val decoded: BeiDouD1Decoded?, val reason: Strin
  * AODC/AODE are ages, not issue identifiers or curve-fit durations. Health is returned as evidence.
  */
 object BeiDouD1EphemerisDecoder {
-    private const val SEMICIRCLE_TO_RADIANS = PI
+    // B1I 3.0 Table 5-11 supplies this value for broadcast semicircle conversion.
+    private const val SEMICIRCLE_TO_RADIANS = 3.1415926535898
     fun decode(subframes: Collection<BeiDouNavigationSubframe>, validFrom: BeiDouTime,
         validUntil: BeiDouTime, orbitType: BeiDouOrbitType,
         referenceAtSubframeOneCapture: BeiDouTime): BeiDouD1DecodeResult {

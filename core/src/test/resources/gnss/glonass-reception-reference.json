@@ -1,0 +1,282 @@
+{
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c",
+  "method": "C glorbit at 1s steps and fixed-point vacuum light-time, ecef2enu. 2013 RINEX orbital parameters; synthetic explicit PZ-90.02 receiver origins/normals. Not datum/time conversion or signal validity evidence.",
+  "cases": [
+    {
+      "recordIndex": 0,
+      "offsetSeconds": -600,
+      "latitudeDegrees": 0,
+      "longitudeDegrees": 0,
+      "receiverEcefMeters": [
+        6378136,
+        0,
+        0
+      ],
+      "expected": {
+        "propagationSeconds": 0.08138982862740048,
+        "xMeters": 7552891.014807059,
+        "yMeters": -17794960.833380926,
+        "zMeters": 16652990.436576776,
+        "rangeMeters": 24400056.780407153,
+        "eastMeters": -17794960.833380926,
+        "northMeters": 16652990.436576776,
+        "upMeters": 1174755.0148070594,
+        "elevationDegrees": 2.7596056667994437,
+        "azimuthDegrees": 313.10130562073573
+      }
+    },
+    {
+      "recordIndex": 0,
+      "offsetSeconds": 0,
+      "latitudeDegrees": 31.2,
+      "longitudeDegrees": 121.5,
+      "receiverEcefMeters": [
+        -2850000,
+        4650000,
+        3290000
+      ],
+      "expected": {
+        "propagationSeconds": 0.09521005533205613,
+        "xMeters": 8450232.00907865,
+        "yMeters": -18744628.528233826,
+        "zMeters": 15110050.973190445,
+        "rangeMeters": 28543256.514313117,
+        "eastMeters": 2588628.1506047696,
+        "northMeters": 23502252.83808615,
+        "upMeters": -15989390.491023917,
+        "elevationDegrees": -34.068317266554814,
+        "azimuthDegrees": 6.285440714656033
+      }
+    },
+    {
+      "recordIndex": 0,
+      "offsetSeconds": 600,
+      "latitudeDegrees": 90,
+      "longitudeDegrees": -179.9,
+      "receiverEcefMeters": [
+        0,
+        0,
+        6356750
+      ],
+      "expected": {
+        "propagationSeconds": 0.07611637486779074,
+        "xMeters": 9210036.882096019,
+        "yMeters": -19640854.185323745,
+        "zMeters": 13436586.309069997,
+        "rangeMeters": 22819115.11566441,
+        "eastMeters": 19656898.809221007,
+        "northMeters": 9175743.114471106,
+        "upMeters": 7079836.309069996,
+        "elevationDegrees": 18.074840969147278,
+        "azimuthDegrees": 64.97706632895449
+      }
+    },
+    {
+      "recordIndex": 1,
+      "offsetSeconds": -600,
+      "latitudeDegrees": 0,
+      "longitudeDegrees": 0,
+      "receiverEcefMeters": [
+        6378136,
+        0,
+        0
+      ],
+      "expected": {
+        "propagationSeconds": 0.07938744879721428,
+        "xMeters": 9832526.554912958,
+        "yMeters": -20465541.10488783,
+        "zMeters": 11647201.960887562,
+        "rangeMeters": 23799758.409266014,
+        "eastMeters": -20465541.10488783,
+        "northMeters": 11647201.960887562,
+        "upMeters": 3454390.5549129583,
+        "elevationDegrees": 8.345614153022467,
+        "azimuthDegrees": 299.6447594324886
+      }
+    },
+    {
+      "recordIndex": 1,
+      "offsetSeconds": 0,
+      "latitudeDegrees": 31.2,
+      "longitudeDegrees": 121.5,
+      "receiverEcefMeters": [
+        -2850000,
+        4650000,
+        3290000
+      ],
+      "expected": {
+        "propagationSeconds": 0.0991521193957529,
+        "xMeters": 10320570.357480561,
+        "yMeters": -21201278.69323174,
+        "zMeters": 9757342.196475212,
+        "rangeMeters": 29725057.589562237,
+        "eastMeters": 2277498.7390462104,
+        "northMeters": 20515057.85536074,
+        "upMeters": -21389821.163058758,
+        "elevationDegrees": -46.020548767960655,
+        "azimuthDegrees": 6.3348061326684615
+      }
+    },
+    {
+      "recordIndex": 1,
+      "offsetSeconds": 600,
+      "latitudeDegrees": 90,
+      "longitudeDegrees": -179.9,
+      "receiverEcefMeters": [
+        0,
+        0,
+        6356750
+      ],
+      "expected": {
+        "propagationSeconds": 0.08120803712314136,
+        "xMeters": 10679523.845508177,
+        "yMeters": -21831612.477444798,
+        "zMeters": 7783149.50808513,
+        "rangeMeters": 24345557.058501795,
+        "eastMeters": 21850218.50190778,
+        "northMeters": 10641404.247137131,
+        "upMeters": 1426399.508085129,
+        "elevationDegrees": 3.358867568575557,
+        "azimuthDegrees": 64.0331806190336
+      }
+    },
+    {
+      "recordIndex": 2,
+      "offsetSeconds": -600,
+      "latitudeDegrees": 0,
+      "longitudeDegrees": 0,
+      "receiverEcefMeters": [
+        6378136,
+        0,
+        0
+      ],
+      "expected": {
+        "propagationSeconds": 0.09439268947436494,
+        "xMeters": -8586354.731959276,
+        "yMeters": -7215098.052793935,
+        "zMeters": 22908413.920343883,
+        "rangeMeters": 28298216.39475059,
+        "eastMeters": -7215098.052793935,
+        "northMeters": 22908413.920343883,
+        "upMeters": -14964490.731959276,
+        "elevationDegrees": -31.92535113745024,
+        "azimuthDegrees": 342.5179670924966
+      }
+    },
+    {
+      "recordIndex": 2,
+      "offsetSeconds": 0,
+      "latitudeDegrees": 31.2,
+      "longitudeDegrees": 121.5,
+      "receiverEcefMeters": [
+        -2850000,
+        4650000,
+        3290000
+      ],
+      "expected": {
+        "propagationSeconds": 0.08022059426180603,
+        "xMeters": -7231497.734215286,
+        "yMeters": -8523297.120740563,
+        "zMeters": 22927886.14478416,
+        "rangeMeters": 24049529.135967523,
+        "eastMeters": 10618869.78638209,
+        "northMeters": 21430135.070925854,
+        "upMeters": 2523641.6075755106,
+        "elevationDegrees": 6.023431870085873,
+        "azimuthDegrees": 26.358925900945394
+      }
+    },
+    {
+      "recordIndex": 2,
+      "offsetSeconds": 600,
+      "latitudeDegrees": 90,
+      "longitudeDegrees": -179.9,
+      "receiverEcefMeters": [
+        0,
+        0,
+        6356750
+      ],
+      "expected": {
+        "propagationSeconds": 0.06686823825272939,
+        "xMeters": -5945070.174833637,
+        "yMeters": -9889765.694448223,
+        "zMeters": 22749266.17039963,
+        "rangeMeters": 20046593.50791537,
+        "eastMeters": 9879374.531864114,
+        "northMeters": -5962322.008574857,
+        "upMeters": 16392516.170399629,
+        "elevationDegrees": 54.85728209745066,
+        "azimuthDegrees": 121.11148917334742
+      }
+    },
+    {
+      "recordIndex": 3,
+      "offsetSeconds": -600,
+      "latitudeDegrees": 0,
+      "longitudeDegrees": 0,
+      "receiverEcefMeters": [
+        6378136,
+        0,
+        0
+      ],
+      "expected": {
+        "propagationSeconds": 0.09146474958145404,
+        "xMeters": -4740252.212547436,
+        "yMeters": -11298650.978659956,
+        "zMeters": 22374149.691847596,
+        "rangeMeters": 27420442.097378578,
+        "eastMeters": -11298650.978659956,
+        "northMeters": 22374149.691847596,
+        "upMeters": -11118388.212547436,
+        "elevationDegrees": -23.921089556468235,
+        "azimuthDegrees": 333.20682551993207
+      }
+    },
+    {
+      "recordIndex": 3,
+      "offsetSeconds": 0,
+      "latitudeDegrees": 31.2,
+      "longitudeDegrees": 121.5,
+      "receiverEcefMeters": [
+        -2850000,
+        4650000,
+        3290000
+      ],
+      "expected": {
+        "propagationSeconds": 0.08475474918497988,
+        "xMeters": -3627935.8618891374,
+        "yMeters": -12733050.376380589,
+        "zMeters": 21805756.81391666,
+        "rangeMeters": 25408834.585338615,
+        "eastMeters": 9745918.233181987,
+        "northMeters": 23305084.54637089,
+        "upMeters": -2738427.8452673126,
+        "elevationDegrees": -6.187048794874968,
+        "azimuthDegrees": 22.694120557977556
+      }
+    },
+    {
+      "recordIndex": 3,
+      "offsetSeconds": 600,
+      "latitudeDegrees": 90,
+      "longitudeDegrees": -179.9,
+      "receiverEcefMeters": [
+        0,
+        0,
+        6356750
+      ],
+      "expected": {
+        "propagationSeconds": 0.06865555404207489,
+        "xMeters": -2617104.600650039,
+        "yMeters": -14174764.214170752,
+        "zMeters": 21049017.522754002,
+        "rangeMeters": 20582417.301625468,
+        "eastMeters": 14170174.917879691,
+        "northMeters": -2641840.2326357085,
+        "upMeters": 14692267.522754002,
+        "elevationDegrees": 45.547079609965365,
+        "azimuthDegrees": 100.56078879545834
+      }
+    }
+  ]
+}

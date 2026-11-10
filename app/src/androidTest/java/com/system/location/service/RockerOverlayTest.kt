@@ -125,7 +125,16 @@ class RockerOverlayTest {
                 overlay(R.id.rocker).check(matches(isDisplayed()))
                 overlay(R.id.speed_slider).check(matches(withEffectiveVisibility(Visibility.GONE)))
                 captureUi("overlay-expanded")
-                overlay(R.id.speed_toggle).perform(click())
+                // Invoke the real click callback without injected tap timing: a stalled
+                // emulator can turn Espresso's down/up into a tooltip long press.
+                overlay(R.id.speed_toggle).perform(object : androidx.test.espresso.ViewAction {
+                    override fun getConstraints() = isDisplayed()
+                    override fun getDescription() = "Activate the speed panel click action"
+                    override fun perform(ui: androidx.test.espresso.UiController, view: android.view.View) {
+                        assertTrue(view.performClick())
+                        ui.loopMainThreadUntilIdle()
+                    }
+                })
                 overlay(R.id.speed_slider).check(matches(withContentDescription(R.string.rocker_speed)))
                 overlay(R.id.speed_slider).check(matches(isDisplayed()))
                 captureUi("overlay-speed-expanded")

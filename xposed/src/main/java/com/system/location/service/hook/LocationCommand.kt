@@ -2,13 +2,13 @@ package com.system.location.service.hook
 
 import android.os.Bundle
 import com.system.location.service.hook.hooks.LocationServiceHook
-import com.system.location.service.hook.security.SampleWire
+import com.system.location.service.core.runtime.RuntimeTransferWire
 import com.system.location.service.hook.utils.FakeLoc
 import kotlin.random.Random
 
 /** P5-08: update/broadcast/sync commands extracted from RemoteCommandHandler. */
 object LocationCommand {
-    /** Normalizes relative `move` into an absolute `update_location` before proxy forwarding. */
+    /** Normalizes relative `move` into an absolute `update_location` before applying the authoritative command. */
     fun normalizeMove(rely: Bundle, commandId: String): String? {
         if (commandId != "move") return commandId
         if (!FakeLoc.enable) return null
@@ -54,30 +54,9 @@ object LocationCommand {
         return true
     }
 
+    /** Diagnostic full snapshot only; live initialization uses atomic subscription instead. */
     fun sync(rely: Bundle): Boolean {
-        if (FakeLoc.enable && FakeLoc.externallyDriven) SampleWire.write(rely, FakeLoc.snapshot())
-        rely.putBoolean("enable", FakeLoc.enable)
-        val point = FakeLoc.coordinatePair()
-        rely.putDouble("latitude", point.first)
-        rely.putDouble("longitude", point.second)
-        rely.putLong("report_interval", FakeLoc.reportIntervalMs)
-        rely.putDouble("altitude", FakeLoc.altitude)
-        rely.putDouble("speed", FakeLoc.speed)
-        rely.putDouble("speed_amplitude", FakeLoc.speedAmplitude)
-        rely.putBoolean("has_bearings", FakeLoc.hasBearings)
-        rely.putDouble("bearing", FakeLoc.bearing)
-        rely.putParcelable("last_location", FakeLoc.lastLocation)
-        rely.putBoolean("enable_log", FakeLoc.enableLog)
-        rely.putBoolean("enable_debug_log", FakeLoc.enableDebugLog)
-        rely.putBoolean("disable_get_current_location", FakeLoc.disableGetCurrentLocation)
-        rely.putBoolean("disable_register_location_listener", FakeLoc.disableRegisterLocationListener)
-        rely.putBoolean("disable_fused_location", FakeLoc.disableFusedLocation)
-        rely.putBoolean("enable_agps", FakeLoc.allowPhysicalRawGnss)
-        rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
-        rely.putBoolean("hide_mock", FakeLoc.hideMock)
-        rely.putBoolean("hook_wifi", FakeLoc.hookWifi)
-        rely.putBoolean("enable_mock_wifi", FakeLoc.enableMockWifi)
-        rely.putBoolean("need_downgrade_to_2g", FakeLoc.needDowngradeToCdma)
+        rely.putByteArray(RuntimeSyncCommand.PAYLOAD, RuntimeTransferWire.encode(FakeLoc.captureTransfer()))
         return true
     }
 

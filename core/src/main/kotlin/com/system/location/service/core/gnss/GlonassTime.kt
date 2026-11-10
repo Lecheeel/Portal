@@ -51,14 +51,43 @@ class GlonassTimeDomain(val evidenceId: String, val from: GlonassCalendarCoordin
     init { require(evidenceId.isNotBlank() && evidenceId.length <= 256 && until.secondsSince(from) > 0) }
 
     fun at(coordinate: GlonassCalendarCoordinate): GlonassTime? =
-        if (coordinate.secondsSince(from) < 0 || until.secondsSince(coordinate) <= 0) null
-        else GlonassTime(this, coordinate)
+        atParts(coordinate.date, floor(coordinate.secondsOfDay).toInt(), coordinate.secondsOfDay % 1.0)
+
+    internal fun atParts(date: LocalDate, second: Int, fraction: Double): GlonassTime? {
+        val candidate = GlonassTime(this, date, second, fraction)
+        return candidate.takeIf { it.secondsSinceCoordinate(from) >= 0 && it.secondsSinceCoordinate(until) < 0 }
+    }
 }
 
 /** Full date and fractional seconds, tied to an explicit continuous correction/receiver domain. */
-class GlonassTime internal constructor(val domain: GlonassTimeDomain, val coordinate: GlonassCalendarCoordinate) {
-    fun secondsSince(other: GlonassTime): Double? =
-        if (domain !== other.domain) null else coordinate.secondsSince(other.coordinate)
+class GlonassTime internal constructor(val domain: GlonassTimeDomain, private val date: LocalDate,
+    private val secondOfDay: Int, private val fraction: Double) {
+    init { require(secondOfDay in 0..86399 && fraction.isFinite() && fraction >= 0 && fraction < 1) }
+    /** Calendar label for display/schedule use; near-day-sized Doubles round fractional precision. */
+    val coordinate: GlonassCalendarCoordinate get() {
+        // Avoid exposing an invalid 86400 label if the display Double rounds just below midnight up.
+        val displaySeconds = minOf(secondOfDay + fraction, Math.nextDown(86400.0))
+        return GlonassCalendarCoordinate(date, displaySeconds)
+    }
 
-    fun plusSeconds(seconds: Double): GlonassTime? = coordinate.plusSeconds(seconds)?.let(domain::at)
+    fun secondsSince(other: GlonassTime): Double? = if (domain !== other.domain) null else
+        (date.toEpochDay() - other.date.toEpochDay()) * 86400.0 + (secondOfDay - other.secondOfDay) + (fraction - other.fraction)
+
+    internal fun secondsSinceCoordinate(other: GlonassCalendarCoordinate): Double =
+        (date.toEpochDay() - other.date.toEpochDay()) * 86400.0 +
+            (secondOfDay - floor(other.secondsOfDay).toInt()) + (fraction - other.secondsOfDay % 1.0)
+
+    fun plusSeconds(seconds: Double): GlonassTime? {
+        if (!seconds.isFinite()) return null
+        val integer = floor(seconds)
+        if (integer < Long.MIN_VALUE.toDouble() || integer >= Long.MAX_VALUE.toDouble()) return null
+        val combinedFraction = fraction + (seconds - integer)
+        val carry = floor(combinedFraction).toLong()
+        val whole = try { Math.addExact(Math.addExact(integer.toLong(), secondOfDay.toLong()), carry) }
+        catch (_: ArithmeticException) { return null }
+        val days = Math.floorDiv(whole, 86400)
+        val nextDate = try { date.plusDays(days) } catch (_: DateTimeException) { return null }
+        catch (_: ArithmeticException) { return null }
+        return domain.atParts(nextDate, Math.floorMod(whole, 86400), combinedFraction - carry)
+    }
 }

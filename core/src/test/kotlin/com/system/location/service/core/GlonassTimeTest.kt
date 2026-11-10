@@ -45,4 +45,19 @@ class GlonassTimeTest {
         assertThrows(IllegalArgumentException::class.java) { GlonassTimeDomain("", before.from, before.until) }
         assertThrows(IllegalArgumentException::class.java) { GlonassTimeDomain("bad", before.until, before.from) }
     }
+
+    @Test fun repeatedSubnanosecondArithmeticKeepsFractionsInsteadOfRoundingDaySizedDoubles() {
+        val d = domain()
+        val t = d.at(c("2024-01-01", 86399.0))!!
+        val shifted = t.plusSeconds(0.083123456789123)!!
+        assertEquals(0.083123456789123, shifted.secondsSince(t)!!, 1e-16)
+        val restored = shifted.plusSeconds(-0.083123456789123)!!
+        assertEquals(0.0, restored.secondsSince(t)!!, 2e-16)
+        val picosecond = t.plusSeconds(1e-12)!!
+        assertEquals(1e-12, picosecond.secondsSince(t)!!, 1e-20)
+        assertEquals(1e-12, picosecond.plusSeconds(1.0)!!.secondsSince(t.plusSeconds(1.0)!!)!!, 1e-16)
+        assertEquals(LocalDate.parse("2024-01-01"), t.plusSeconds(1.0 - 1e-12)!!.coordinate.date)
+        assertNull(d.at(d.from)!!.plusSeconds(-1e-12))
+        assertNotNull(d.at(d.until.copy(secondsOfDay = 0.0, date = d.until.date.minusDays(1)))!!.plusSeconds(86400.0 - 1e-9))
+    }
 }

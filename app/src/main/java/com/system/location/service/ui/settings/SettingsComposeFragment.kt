@@ -584,8 +584,8 @@ private fun SettingsScreen(
                             onCheckedChange = hookAction { context.mockWifiEnabled = it },
                         )
                         PortalSwitchRow(
-                            title = "反定位拉回",
-                            subtitle = "按上报间隔持续发送固定位置。",
+                            title = "按设定间隔广播",
+                            subtitle = "仅 Xposed/Native：开启时采用设定间隔，关闭时广播间隔至少为 500 ms。",
                             checked = values.loopBroadcastlocation,
                             onCheckedChange = hookAction { context.loopBroadcastlocation = it },
                         )

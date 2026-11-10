@@ -2,12 +2,20 @@ package com.system.location.service.core.gnss
 
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class DecodedGpsLnav(
     val ephemeris: GpsLnavEphemeris,
     val uraIndex: Int,
     val frameTransmissionTime: GpsTime,
-)
+) {
+    init {
+        require(uraIndex in 0..14 && ephemeris.health == 0)
+        require(frameTransmissionTime.secondsSince(ephemeris.validFrom) >= 0 &&
+            ephemeris.validUntil.secondsSince(frameTransmissionTime) >= 0)
+    }
+}
 
 data class GpsLnavDecodeResult(val decoded: DecodedGpsLnav?, val reason: String? = null)
 

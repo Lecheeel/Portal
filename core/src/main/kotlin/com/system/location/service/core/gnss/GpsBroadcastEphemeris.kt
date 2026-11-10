@@ -1,6 +1,9 @@
 package com.system.location.service.core.gnss
 
+import kotlinx.serialization.Serializable
+
 /** Full GPS system time, not UTC, Android elapsed time, or a truncated broadcast week. */
+@Serializable
 data class GpsTime(val week: Int, val secondsOfWeek: Double) {
     init {
         require(week >= 0 && secondsOfWeek.isFinite() && secondsOfWeek >= 0 && secondsOfWeek < SECONDS_PER_WEEK)
@@ -27,6 +30,7 @@ data class GpsTime(val week: Int, val secondsOfWeek: Double) {
  * GnssStatus.hasEphemeris. This type does not represent Galileo, BDS GEO or GLONASS ephemerides.
  * IS-GPS-200N 20.3.3.4, Tables 20-II/III/IV.
  */
+@Serializable
 data class GpsLnavEphemeris(
     val svid: Int,
     val toe: GpsTime,

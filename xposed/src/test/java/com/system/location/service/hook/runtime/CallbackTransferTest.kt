@@ -20,7 +20,7 @@ class CallbackTransferTest {
         } as IBinder
         val old = object : IInterface { override fun asBinder() = binder }
         val replacement = object : IInterface { override fun asBinder() = binder }
-        val row = CallbackSubscription(old, 10272, "receiver", listOf("gps", "network")).encode()
+        val row = CallbackSubscription(old, 10272, "receiver", listOf("gps", "network"), "exact emitted frame").encode()
         assertSame(binder, row[0])
         assertFalse(row.any { it === old })
         val restored = CallbackSubscription.decode(row) { descriptor, transport ->
@@ -32,6 +32,8 @@ class CallbackTransferTest {
         assertEquals(10272, restored.uid)
         assertEquals("receiver", restored.packageName)
         assertEquals(listOf("gps", "network"), restored.providers)
+        assertEquals("exact emitted frame", restored.lastDeliveryKey)
+        assertNull(CallbackSubscription.decode(row.take(5).toTypedArray()) { _, _ -> replacement }!!.lastDeliveryKey)
         alive = false
         assertNull(CallbackSubscription.decode(row) { _, _ -> error("dead binder must not resolve") })
     }

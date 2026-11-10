@@ -9,6 +9,7 @@ internal data class CallbackSubscription(
     val uid: Int,
     val packageName: String? = null,
     val providers: List<String> = emptyList(),
+    val lastDeliveryKey: String? = null,
 ) {
     fun toBundle(): android.os.Bundle = android.os.Bundle().apply {
         putBinder("binder", listener.asBinder())
@@ -16,10 +17,11 @@ internal data class CallbackSubscription(
         putInt("uid", uid)
         putString("package", packageName)
         putStringArrayList("providers", ArrayList(providers))
+        putString("last_delivery", lastDeliveryKey)
     }
     fun encode(): Array<Any?> {
         val binder = listener.asBinder()
-        return arrayOf(binder, binder.interfaceDescriptor, uid, packageName, providers.toTypedArray())
+        return arrayOf(binder, binder.interfaceDescriptor, uid, packageName, providers.toTypedArray(), lastDeliveryKey)
     }
 
     companion object {
@@ -30,11 +32,11 @@ internal data class CallbackSubscription(
             val descriptor = bundle.getString("descriptor") ?: return null
             val providers = bundle.getStringArrayList("providers")?.toList().orEmpty()
             return decode(arrayOf(binder, descriptor, bundle.getInt("uid"),
-                bundle.getString("package"), providers.toTypedArray()), resolve)
+                bundle.getString("package"), providers.toTypedArray(), bundle.getString("last_delivery")), resolve)
         }
 
         fun decode(row: Array<*>, resolve: (String, IBinder) -> IInterface = ::frameworkCallback): CallbackSubscription? {
-            require(row.size == 5)
+            require(row.size in 5..6)
             val binder = row[0] as IBinder
             if (!binder.isBinderAlive) return null
             val descriptor = row[1] as String
@@ -46,7 +48,7 @@ internal data class CallbackSubscription(
             val callback = try { resolve(descriptor, binder) }
             catch (dead: android.os.DeadObjectException) { return null }
             check(callback.asBinder() == binder)
-            return CallbackSubscription(callback, uid, packageName, providers)
+            return CallbackSubscription(callback, uid, packageName, providers, row.getOrNull(5) as String?)
         }
 
         private fun frameworkCallback(descriptor: String, binder: IBinder): IInterface =

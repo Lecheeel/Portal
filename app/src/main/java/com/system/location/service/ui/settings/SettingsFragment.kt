@@ -33,7 +33,7 @@ import com.system.location.service.ext.debug
 import com.system.location.service.ext.disableFusedProvider
 import com.system.location.service.ext.disableGetCurrentLocation
 import com.system.location.service.ext.disableRegisterLocationListener
-import com.system.location.service.ext.disableWifiScan
+import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.ext.loopBroadcastlocation
 import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
@@ -425,9 +425,9 @@ class SettingsFragment : Fragment() {
             }
         }
 
-        binding.disableWlanScanSwitch.isChecked = requireContext().disableWifiScan
+        binding.disableWlanScanSwitch.isChecked = requireContext().mockWifiEnabled
         binding.disableWlanScanSwitch.setOnCheckedChangeListener { _, isChecked ->
-            requireContext().disableWifiScan = isChecked
+            requireContext().mockWifiEnabled = isChecked
             updateRemoteConfig()
         }
 

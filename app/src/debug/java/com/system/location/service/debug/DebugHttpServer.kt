@@ -16,7 +16,7 @@ import com.system.location.service.ext.altitude
 import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.environmentSourceMode
 import com.system.location.service.ext.enableNMEA
-import com.system.location.service.ext.disableWifiScan
+import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.reportDuration
@@ -270,7 +270,7 @@ object DebugHttpServer {
         obj["enable_nmea"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()
             ?.let { app.enableNMEA = it }
         obj["enable_mock_wifi"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()
-            ?.let { app.disableWifiScan = it }
+            ?.let { app.mockWifiEnabled = it }
         obj["sensor_cadence_scale"]?.jsonPrimitive?.doubleOrNull
             ?.let { app.sensorCadenceScale = it.coerceIn(0.5, 2.0) }
         obj["sensor_variation"]?.jsonPrimitive?.doubleOrNull
@@ -306,7 +306,7 @@ object DebugHttpServer {
                 put("gnss_orbital", app.gnssOrbital)
                 put("environment_source", app.environmentSourceMode)
                 put("enable_nmea", app.enableNMEA)
-                put("enable_mock_wifi", app.disableWifiScan)
+                put("enable_mock_wifi", app.mockWifiEnabled)
             })
         }.toString()
     }

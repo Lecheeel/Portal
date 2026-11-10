@@ -56,7 +56,7 @@ import com.system.location.service.ext.debug
 import com.system.location.service.ext.disableFusedProvider
 import com.system.location.service.ext.disableGetCurrentLocation
 import com.system.location.service.ext.disableRegisterLocationListener
-import com.system.location.service.ext.disableWifiScan
+import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.gmsMockEnabled
 import com.system.location.service.ext.loopBroadcastlocation
@@ -392,7 +392,7 @@ private data class SettingsValues(
     val disableRegisterLocationListener: Boolean,
     val disableFusedProvider: Boolean,
     val needDowngradeToCdma: Boolean,
-    val disableWifiScan: Boolean,
+    val mockWifiEnabled: Boolean,
     val loopBroadcastlocation: Boolean,
     val crashReporting: Boolean,
 )
@@ -444,7 +444,7 @@ private fun SettingsScreen(
             disableRegisterLocationListener = context.disableRegisterLocationListener,
             disableFusedProvider = context.disableFusedProvider,
             needDowngradeToCdma = context.needDowngradeToCdma,
-            disableWifiScan = context.disableWifiScan,
+            mockWifiEnabled = context.mockWifiEnabled,
             loopBroadcastlocation = context.loopBroadcastlocation,
             crashReporting = SdkPrivacy.crashReportingRequested,
         )
@@ -578,10 +578,10 @@ private fun SettingsScreen(
                         )
                         GnssCaptureStatus(captureModel, values.minSatelliteCount)
                         PortalSwitchRow(
-                            title = "禁用 Wi-Fi 扫描",
-                            subtitle = "尝试减少位置拉回（实验）。",
-                            checked = values.disableWifiScan,
-                            onCheckedChange = hookAction { context.disableWifiScan = it },
+                            title = "模拟 Wi-Fi 环境",
+                            subtitle = "向第三方应用提供模拟的扫描结果与连接信息。",
+                            checked = values.mockWifiEnabled,
+                            onCheckedChange = hookAction { context.mockWifiEnabled = it },
                         )
                         PortalSwitchRow(
                             title = "反定位拉回",

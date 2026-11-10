@@ -308,7 +308,8 @@ var Context.enableNMEA: Boolean
         FakeLoc.enableNMEA = value
     }
 
-var Context.disableWifiScan: Boolean
+/** Legacy key is retained; true has always meant replacing Wi-Fi results, not disabling scans. */
+var Context.mockWifiEnabled: Boolean
     get() = sharedPrefs.getBoolean("disableWifiScan", FakeLoc.enableMockWifi)
     set(value) = sharedPrefs.edit {
         putBoolean("disableWifiScan", value)

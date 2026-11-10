@@ -10,7 +10,7 @@ import android.os.SystemClock
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.performance.PerformanceProbe
-import com.system.location.service.ext.disableWifiScan
+import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
 
@@ -114,7 +114,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
         return checked(MockServiceHelper.putConfig(manager, context), "CONFIGURE", "检查系统服务连接")
     }
     override suspend fun start(): BackendResult {
-        if (context.disableWifiScan) MockServiceHelper.startWifiMock(manager)
+        if (context.mockWifiEnabled) MockServiceHelper.startWifiMock(manager)
         return BackendResult.Success
     }
     override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {

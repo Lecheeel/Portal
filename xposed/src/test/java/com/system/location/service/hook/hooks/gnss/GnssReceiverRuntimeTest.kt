@@ -9,6 +9,48 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssReceiverRuntimeTest {
+    @Test fun capturedBroadcastEvidenceReachesSharedStatusNmeaAndExtrasPublication() {
+        val now = System.currentTimeMillis() / 1000 * 1000
+        val point = Wgs84(10.0, 20.0)
+        val elapsed = 100_000_000_000L
+        val toe = GpsTime(2400, 100000.0)
+        // Synthetic circular-orbit integration fixture, never a production satellite catalog.
+        val e = GpsLnavEphemeris(1, toe, toe, toe.plusSeconds(-7200.0), toe.plusSeconds(7200.0),
+            1, 1, 1, 0, 5153.795, 0.0, 0.95,
+            GpsBroadcastPropagator.EARTH_ROTATION_RAD_PER_SECOND * toe.secondsOfWeek,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0)
+        val capture = GnssCapture(deviceModel = "test", osVersion = "test", startedAtMillis = now - 61000,
+            endedAtMillis = now - 1000, bootCount = 42,
+            gpsBroadcastEvidence = GpsBroadcastEvidence(GpsElapsedClockEvidence(42, toe.week, toe.secondsOfWeek,
+                elapsed, 1e-8, 1e-8), listOf(DecodedGpsLnav(e, 0, toe.plusSeconds(-30.0)))),
+            frames = (0..60).map { index -> GnssObservationFrame(now - 61000 + index * 1000, point,
+                satellites = listOf(GnssSatellite(Constellation.GPS, 1,
+                    if (index % 2 == 0) 0f else 90f, 0f, 35f, true, true, true))) })
+        try {
+            GnssReceiverRuntime.configure(GnssCaptureWire.encode(capture))
+            val sample = LocationSample(point, 25.0, 5f, 0f, 0f, now, elapsed)
+            val publication = GnssReceiverRuntime.frameForSample(sample, currentBootCount = 42)!!
+            assertEquals(ReceiverGnssSource.BROADCAST_EPHEMERIS, publication.frame.source)
+            val satellite = publication.frame.satellites.single()
+            val expected = GpsReceptionGeometry.observe(e, toe, point, 25.0).observation!!.lineOfSight
+            assertEquals(expected.elevationDegrees, satellite.elevationDeg.toDouble(), 1e-5)
+            assertNull(publication.frame.geometry.dop)
+            assertFalse(satellite.usedInFix)
+            val nmea = com.system.location.service.hook.hooks.nmea.NmeaBridge.generatedSentences(publication)
+            val extras = GnssLocationExtras.from(publication)
+            assertEquals(0, extras.satellites)
+            val same = GnssReceiverRuntime.frameForSample(sample.copy(timeMillis = now + 500,
+                elapsedNanos = elapsed + 500_000_000L), currentBootCount = 42)!!
+            assertSame(publication, same)
+            assertEquals(nmea, com.system.location.service.hook.hooks.nmea.NmeaBridge.generatedSentences(same))
+            assertEquals(extras, GnssLocationExtras.from(same))
+            val otherBoot = GnssReceiverRuntime.frameForSample(sample, currentBootCount = 43)!!
+            assertEquals(ReceiverGnssSource.STATISTICAL_REPLAY, otherBoot.frame.source)
+            assertNotEquals(publication.sequence, otherBoot.sequence)
+        } finally { GnssReceiverRuntime.configure(null) }
+    }
+
     @Test fun routeIdentitySurvivesMovementAndKeepsEachOutputOnTheSamePublication() {
         val now = System.currentTimeMillis() / 1000 * 1000
         val point = Wgs84(31.0, 121.0)

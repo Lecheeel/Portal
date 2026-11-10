@@ -1,10 +1,12 @@
 package com.system.location.service.hook.hooks.gnss
 
+import android.provider.Settings
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.CapturedGnssSource
 import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.core.gnss.PublishedGnssFrame
 import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.ProviderView
 import com.system.location.service.hook.utils.ProviderReadContext
 import com.system.location.service.core.location.LocationSample
@@ -52,6 +54,14 @@ object GnssReceiverRuntime {
 
     fun frameForSample(sample: LocationSample, route: GnssFrameRoute = GnssFrameRoute.Global,
         state: RuntimeSnapshot = FakeLoc.runtimeSnapshots.current(),
-        validationAtMillis: Long = System.currentTimeMillis()): PublishedGnssFrame? =
-        state.configuration.gnssSource?.frame(sample, state.configuration.minimumSatellites, route, validationAtMillis)
+        validationAtMillis: Long = System.currentTimeMillis(),
+        currentBootCount: Int? = if (state.configuration.gnssSource?.requiresBootIdentity == true)
+            readBootCount() else null): PublishedGnssFrame? =
+        state.configuration.gnssSource?.frame(sample, state.configuration.minimumSatellites, route,
+            validationAtMillis, currentBootCount)
+
+    private fun readBootCount(): Int? = runCatching {
+        val resolver = BinderUtils.getSystemContext()?.contentResolver ?: return null
+        Settings.Global.getInt(resolver, Settings.Global.BOOT_COUNT).takeIf { it >= 0 }
+    }.getOrNull()
 }

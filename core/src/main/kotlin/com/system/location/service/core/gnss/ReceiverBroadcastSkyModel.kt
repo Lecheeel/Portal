@@ -13,6 +13,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
     private val signal = GpsEmpiricalSignalModel(capture)
     private val evidence = if (capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
         GpsBroadcastEvidence.fromCapture(capture) else capture.gpsBroadcastEvidence
+    internal val broadcastBootCount: Int? get() = evidence?.clock?.bootCount
     private val ratios = capture.profile().constellations.associate { it.constellation to it.ratio }
 
     fun frame(atMillis: Long, observer: Wgs84, altitudeMeters: Double, minimumSatellites: Int = 0,

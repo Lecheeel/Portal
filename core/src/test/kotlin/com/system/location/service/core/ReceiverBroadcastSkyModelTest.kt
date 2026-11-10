@@ -2,6 +2,7 @@ package com.system.location.service.core
 
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
+import com.system.location.service.core.location.LocationSample
 import java.util.Base64
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
@@ -85,5 +86,32 @@ class ReceiverBroadcastSkyModelTest {
         val excluded = ReceiverBroadcastSkyModel(noCalibration).frame(62000, point, 0.0, 128, elapsed, 42)!!
         assertFalse(excluded.satellites.any { it.constellation == Constellation.GPS && it.svid == 1 })
         assertTrue(excluded.diagnostics.any { it.contains("未外推 CN0") })
+    }
+
+    @Test fun productionSourceSharesOneFrameButNeverReusesItAcrossBootOrElapsedSecond() {
+        val source = CapturedGnssSource.prepare(GnssCaptureWire.encode(capture()))!!
+        assertTrue(source.requiresBootIdentity)
+        val sample = LocationSample(point, 0.0, 5f, 0f, 0f, 62000, elapsed)
+        val first = source.frame(sample, 0, GnssFrameRoute.Global, 62000, 42)!!
+        assertEquals(ReceiverGnssSource.HYBRID_BROADCAST_REPLAY, first.frame.source)
+        assertSame(first, source.frame(sample.copy(timeMillis = 62900, elapsedNanos = elapsed + 900_000_000L),
+            0, GnssFrameRoute.Global, 62900, 42))
+        val next = source.frame(sample.copy(elapsedNanos = elapsed + 1_000_000_000L),
+            0, GnssFrameRoute.Global, 62000, 42)!!
+        assertNotEquals(first.sequence, next.sequence)
+        assertNotEquals(first.frame.satellites, next.frame.satellites)
+        val otherBoot = source.frame(sample, 0, GnssFrameRoute.Global, 62000, 43)!!
+        assertNotEquals(first.sequence, otherBoot.sequence)
+        assertEquals(ReceiverGnssSource.STATISTICAL_REPLAY, otherBoot.frame.source)
+        val missingBoot = source.frame(sample, 0, GnssFrameRoute.Global, 62000)!!
+        assertEquals(ReceiverGnssSource.STATISTICAL_REPLAY, missingBoot.frame.source)
+        // A frozen Location UTC timestamp cannot retain physical output indefinitely.
+        val expired = source.frame(sample.copy(elapsedNanos = elapsed + 1801_000_000_000L),
+            0, GnssFrameRoute.Global, 62000, 42)!!
+        assertEquals(ReceiverGnssSource.STATISTICAL_REPLAY, expired.frame.source)
+        assertNotEquals(first.sequence, expired.sequence)
+        val fixed = source.frame(sample, 0, GnssFrameRoute.FixedPoint(point), 62000, 42)!!
+        assertNotEquals(first.sequence, fixed.sequence)
+        assertSame(first, source.frame(sample, 0, GnssFrameRoute.Global, 62000, 42))
     }
 }

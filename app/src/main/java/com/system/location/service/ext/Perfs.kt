@@ -125,7 +125,7 @@ fun Context.movementProfile() = com.system.location.service.core.scenario.Moveme
     speed, altitude, accuracy.coerceAtLeast(0.1f), reportDuration.toLong(), smoothRouteMotion)
 
 var Context.minSatelliteCount: Int
-    get() = sharedPrefs.getInt("minSatelliteCount", 12)
+    get() = sharedPrefs.getInt("minSatelliteCount", 0)
     set(value) = sharedPrefs.edit {
         putInt("minSatelliteCount", value)
     }

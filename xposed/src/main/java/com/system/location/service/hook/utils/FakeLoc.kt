@@ -99,7 +99,7 @@ object FakeLoc {
     /**
      * 模拟最小卫星数量
      */
-    var minSatellites = 12
+    var minSatellites = 0
 
     /** 环境生成 seed；同一位置、同一 seed 必须生成同一组 AP/基站（ADR-022）。 */
     var environmentSeed: Long

@@ -92,6 +92,7 @@ class GpsBroadcastEvidenceTest {
         val compact = GnssCaptureWire.decode(GnssCaptureWire.encode(c))
         val observed = c.frames.single().satellites.single()
         for (invalid in listOf(observed.copy(elevationDeg = -0.1f), observed.copy(azimuthDeg = 360f),
+            observed.copy(cn0DbHz = 0f),
             observed.copy(carrierHz = Float.NaN), observed.copy(carrierHz = 0f))) {
             val frames = listOf(c.frames.single().copy(satellites = listOf(invalid)))
             assertNull(GpsBroadcastEvidence.fromCapture(c.copy(frames = frames)))

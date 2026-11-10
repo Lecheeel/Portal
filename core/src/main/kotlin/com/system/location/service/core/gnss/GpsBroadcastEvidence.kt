@@ -38,8 +38,7 @@ data class GpsBroadcastEvidence(
 
         internal fun visibleGpsIdentities(frames: List<GnssObservationFrame>): Set<Int> =
             frames.flatMap { it.satellites }.filter {
-                it.constellation == Constellation.GPS && it.elevationDeg >= 0f &&
-                    it.azimuthDeg in 0f..<360f && it.cn0DbHz in 0f..GnssFrame.MAX_CN0_DB_HZ &&
+                it.constellation == Constellation.GPS && GnssCaptureValidator.isUsableSatellite(it) &&
                     (it.carrierHz == null || it.carrierHz.isFinite() && it.carrierHz > 0f)
             }.map { it.svid }.toSet()
     }

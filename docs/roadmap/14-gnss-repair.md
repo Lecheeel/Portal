@@ -168,11 +168,34 @@ B1I 3.0 §5.2.4.10 的单频修正分别为 `Δtsv(B1I) = Δtsv − TGD1`、`Δt
 
 本阶段 Core/NMEA/Xposed/App arm64 JVM 全套、App arm64 Kotlin 编译与模块规范检查通过；这些代码尚未连到真实采集的 BDT/轨道类型/有效期来源，也没有生产天空集成。B1I 3.0 §§5.2.4.19–21 的系统间时间参数标注“Not broadcast temporarily”，不能把空字段或零值当作已得到真实 BGTO。真实多系统数据、跨来源设备验收和完整目标仍未完成。
 
+## GLONASS 状态向量传播与缺口
+
+新增 `GlonassBroadcastStateVector` 与 `GlonassBroadcastPropagator`，按 GLONASS FDMA 的位置、速度、日月摄动加速度在旋转 PZ-90 ECEF 中做 RK4 积分，不套用 GPS/北斗的 Kepler 元素。输入显式携带 PZ-90.02 或 PZ-90.11 框架标签；标签来自调用方的导航数据证据，不按槽号推断，也不执行框架转换。分量使用 SI 单位，检查符号幅值字段的可表示范围、有限数值及地球外初始位置。槽号按五位字段校验，未把历史 24 槽或某次实际接收到的数量写成生产星表。
+
+采用 ICD 5.1 A.3.1.2 的简化动力学常量 `μ=3.9860044×10¹⁴ m³/s²`、`ae=6378136 m`、`J₂=1.0826257×10⁻³`、`ω=7.292115×10⁻⁵ rad/s`；不混用 Table 3.2 的椭球重力场常量或 GPS 常量。设 `j=3J₂μae²/(2r⁵)`、`b=5z²/r²`、`g=−μ/r³`，三轴加速度为：
+
+```text
+ax = [g − j(1−b) + ω²]x + 2ωvy + ax_luniSolar
+ay = [g − j(1−b) + ω²]y − 2ωvx + ay_luniSolar
+az = [g − j(3−b)]z + az_luniSolar
+```
+
+实际读取的 UNAVCO ICD 镜像和 QCAR 044 原页均印成 Y 方向 `+2ωvx`、Z 方向 `j(1−b)`，不能照抄。修正来自旋转坐标恒等式 `a_rot=a_grav−2Ω×v−Ω×(Ω×r)+a_luniSolar` 和 J₂ 势函数梯度，与固定版本 RTKLIB 明确标注的两处修正一致。测试另外以正引力势 `U=μ/r·[1−J₂(ae/r)²P₂(z/r)]` 的中心差分梯度核对三轴引力，并独立核对科里奥利、离心和日月摄动项，避免只用两份相同错误的代码互相证明。
+
+积分步长最大 10 SI 秒，最后一步取剩余时间，支持正向与反向、非整步时距。当前按 ICD A.3.1.1 的严格 `|t−tb|<900s` 上限执行（QCAR 的对应段落写为 `≤15min`）；边界本身拒绝，不按日/周取模使陈旧数据复活。该上限只限定简化动力学的外推，不证明轨道、健康或服务状态可用。每个中间 RK 阶段检查数值及位置，地球相交轨迹拒绝输出。
+
+`scripts/generate_glonass_reference.py` 已用本机 C 编译器实际重建：输入是固定版本混合 RINEX 中 2013 年的全部 4 条 GLONASS 记录（两个槽、各两个时刻，属于 PZ-90.02），不是生产卫星集合。输入文件与远端固定版本逐字节比对相同，脚本校验 RINEX 与 `ephemeris.c` 的 SHA-256。独立 C `glorbit` 在 60/10/1 秒三组步长上输出 28 个时距的坐标和速度，Kotlin 对照 10 秒结果及 1 秒收敛结果；这些样本的最大坐标分量差分别约为 0.507 毫米（60 对 1）与 0.399 微米（10 对 1）。这是离散积分数值对照，不是广播轨道精度、现代 PZ-90.11 实测验证或当前星座分布证据。
+
+当前接口只接受外部已解析的 `tb` 起算连续 SI 时距，**尚未**实现 GLONASS 原始字符串校验/解码、绝对日历与闰秒关联、健康/钟差/逐信号服务检查、接收光程、真实框架证据或生产天空接入。不能直接相减有歧义的 UTC/GPS/民用日标签来填充时距，也不能将返回的数学轨道当作可用观测、伪距或 usedInFix。本阶段 Core/NMEA/Xposed/App arm64 JVM、App Kotlin 编译与模块规范检查通过；完整目标仍未完成。
+
 ## 数学参考与验证
 
 - [Galileo OS SIS ICD 2.2 官方现行文档](https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo_OS_SIS_ICD_in_force.pdf)：§§4.1.2、5.1.9.2，Eq. 24，Tables 30–33、38、42–46、51、67–69、76、78、91，核对页布局、CRC、收页顺序、IOD 数据范围、轨道、钟差、BGD、GGTO 与 SISA。
 - [Galileo OS SDD 1.3 官方现行文档](https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo-OS-SDD_in_force.pdf)：第 17 页、Annex C.4.4.1 与脚注 22，星历年龄 `t−toe` 的非负要求与 4 小时上限；§1.6.5.1 坐标框架与参考框架转换责任。GGTO 不适用该星历年龄上限。
 - [北斗 B1I 3.0 官方地址](https://en.beidou.gov.cn/SYSTEMS/ICD/201902/P020190227702348791891.pdf)与[本次实际读取的固定提交镜像](https://github.com/yangboy/GNSS-PRN-Codes/blob/3b963f3690018d1738c61f77d8bc133a79851a48/ICD/BDS-2_B1I_ICD_Version_3.0.pdf)：官方站下载超时后读取镜像正文，核对 §§3.2/3.3、5.2.4.9/10/12、Table 5-11，包含 BDCS、BDT、钟差、TGD、GEO 倾转和 MEO/IGSO 方程。镜像没有替代真实接收机证据。
+- [GLONASS ICD 5.1 UNAVCO 英文镜像](https://www.unavco.org/help/glossary/docs/ICD_GLONASS_5.1_(2008)_en.pdf)：实际读取 §§3.3.3/3.3.4、Tables 4.5/4.6、A.3.1.1/2、Appendix 2；该正文使用 PZ-90.02。[IGS 2014 更新说明](https://lists.igs.org/pipermail/igsmail/2014/000730.html)指出同版本标题的更新正文可使用 PZ-90.11，不能仅凭“5.1 / 2008”判断框架。本次官方站证书/下载失败，没有声称已读到更新版正文。
+- [卡塔尔民航局 QCAR 044 Volume 1](https://www.caa.gov.qa/sites/default/files/2021-10/Aeronautical%20Telecommunications.pdf)：实际下载并渲染核对 Appendix B §§3.2.2.3.2、3.2.3.1、3.2.5，印刷页 198–201，特别核对第 199 页公式；其 Y/Z 项存在与旧 ICD 相同的问题，修正推导见上文。
+- [固定版本 GLONASS 混合 RINEX](https://github.com/geospace-code/georinex/blob/8d1210a0f1ada71ff7b8d0484cfaf22ff154a38e/src/georinex/tests/data/BRDM00DLR_R_20130010000_01D_MN.rnx)与[RTKLIB GLONASS 积分](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c)：四条真实参数及三组网格的独立数值对照，不是原始电文、闰秒转换或生产接入验证。
 - [固定版本 Galileo 混合 RINEX](https://github.com/geospace-code/georinex/blob/8d1210a0f1ada71ff7b8d0484cfaf22ff154a38e/src/georinex/tests/data/BRDC00IGS_R_20201360000_01D_MN.rnx)：`GalileoBroadcastPropagatorTest` 的 E24 真实输入；`GalileoNavigationPagesTest`、I/NAV 与 F/NAV 解码测试覆盖位破坏、身份/IOD/时刻不一致、缺页和信号状态。
 - [IS-GPS-200N 官方归档](https://archive.gps.gov/technical/icwg/IS-GPS-200N.pdf)：核对 20.3.3/20.3.4/20.3.5，Table 20-II/III/IV/XII/XIV，GPS 参数、拟合期、坐标系、飞行光程与逐字奇偶校验。
 - [固定版本 RTKLIB 导航输入](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/test/data/rinex/07590920.05n)、[eph2pos](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c)、[decode_frame](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c) 与 [decode_word](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rtkcmn.c)：三个真实 RINEX 轨道、9 个传播时刻和9组接收几何数值。90 个测试电文字由这些参数按 ICD 独立重建、经 C 实现解码对照；它们是合成字级测试样本，**不是真实接收机原始电文**。微米级数值一致性仅用于检查代码，不代表广播轨道精度。

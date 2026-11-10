@@ -65,4 +65,21 @@ class ReceiverGnssSkyModelTest {
         val sparse = capture().copy(frames = capture().frames.take(1))
         assertNull(ReceiverGnssSkyModel(sparse).frame(62000, observer, 0.0))
     }
+
+    @Test fun visibleCapacityComesFromEvidenceAndIsNotTheMinimumSettingCeiling() {
+        val identities = listOf(Constellation.GPS to 32, Constellation.BEIDOU to 63, Constellation.GALILEO to 36)
+            .flatMap { (system, count) -> (1..count).map { id ->
+                GnssSatellite(system, id, (id % 80 + 5).toFloat(), (id * 13 % 360).toFloat(), 30f,
+                    true, true, true)
+            } }
+        val source = capture().copy(frames = capture().frames.map { it.copy(satellites = identities) })
+        val model = ReceiverGnssSkyModel(source)
+        val automatic = model.frame(62000, observer, 0.0)!!
+        assertEquals(131, automatic.satellites.size)
+        assertEquals(131, automatic.availableSatelliteCapacity)
+        assertEquals(identities.map { it.constellation to it.svid }.toSet(),
+            automatic.satellites.map { it.constellation to it.svid }.toSet())
+        // A lower bound of 128 must not act as an upper bound on a larger measured sky.
+        assertEquals(automatic.satellites, model.frame(62000, observer, 0.0, 128)!!.satellites)
+    }
 }

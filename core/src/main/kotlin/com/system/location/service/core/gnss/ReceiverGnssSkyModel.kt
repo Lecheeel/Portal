@@ -10,6 +10,8 @@ internal data class ReceiverGnssSelection(
     val satellites: List<GnssSatellite>,
     val diagnostics: List<String>,
     val capacity: Int,
+    /** Complete local empirical pool; requesting a lower bound must not truncate evidence. */
+    val evidencePool: List<GnssSatellite>,
 )
 
 data class ReceiverGnssFrame(
@@ -25,7 +27,8 @@ data class ReceiverGnssFrame(
 ) {
     init {
         require(generatedAtMillis >= 0 && altitudeMeters.isFinite())
-        require(availableSatelliteCapacity in satellites.size..GnssFrame.MAX_SATELLITES)
+        // The legacy minimum-setting range is not a ceiling on a measured visible sky.
+        require(availableSatelliteCapacity >= satellites.size)
         require(requestedMinimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         require(satellites.all { it.elevationDeg >= 0f && it.azimuthDeg < 360f })
         require(satellites.map { it.constellation to it.svid }.distinct().size == satellites.size)
@@ -88,7 +91,7 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
             .sortedBy { abs(it.capturedAtMillis - replayAt) }
             .flatMap { it.satellites }).filter { it.elevationDeg >= 0f }
             .distinctBy { it.constellation to it.svid }
-        val capacity = minOf(pool.size, GnssFrame.MAX_SATELLITES)
+        val capacity = pool.size
         if (selected.size < minimumSatellites) {
             // Only reuse genuinely observed identities. Never lift a below-horizon observation.
             while (selected.size < minimumSatellites) {
@@ -102,7 +105,7 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
             if (selected.size < minimumSatellites) diagnostics += "卫星下限 $minimumSatellites 无法满足，当前实测池仅 ${selected.size} 颗"
         }
         val ordered = selected.sortedWith(compareBy({ it.constellation.ordinal }, { it.svid }))
-        return ReceiverGnssSelection(ordered, diagnostics, capacity)
+        return ReceiverGnssSelection(ordered, diagnostics, capacity, pool)
     }
 
     private companion object { const val POOL_WINDOW_MILLIS = 10_000L }

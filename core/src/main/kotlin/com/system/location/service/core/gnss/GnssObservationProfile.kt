@@ -15,11 +15,33 @@ data class GnssObservationFrame(
     val navigationMessagesAvailable: Boolean = false,
     /** Original per-signal status records. Empty means legacy evidence was not captured. */
     val signalObservations: List<GnssSignalObservation> = emptyList(),
+    /** Status callback arrival on the capture device's Android elapsed realtime clock. */
+    val capturedElapsedRealtimeNanos: Long? = null,
+    /** Epoch of the actual Location used as observer; never the status callback arrival. */
+    val observerElapsedRealtimeNanos: Long? = null,
+    val observerElapsedRealtimeUncertaintyNanos: Double? = null,
+    /** Android's reported horizontal/vertical accuracy, not a deterministic error bound. */
+    val observerHorizontalAccuracyMeters: Double? = null,
+    val observerVerticalAccuracyMeters: Double? = null,
 ) {
     init {
         require(signalObservations.size <= 512) { "too many signal observations" }
         require(capturedAtMillis >= 0L) { "capturedAtMillis must be non-negative" }
         require(altitudeMeters == null || altitudeMeters.isFinite()) { "invalid altitude" }
+        require(capturedElapsedRealtimeNanos == null || capturedElapsedRealtimeNanos >= 0)
+        if (observerElapsedRealtimeNanos != null) {
+            require(observer != null && capturedElapsedRealtimeNanos != null &&
+                observerElapsedRealtimeNanos in 0..capturedElapsedRealtimeNanos) {
+                "observer epoch must precede status arrival on the same elapsed clock"
+            }
+        }
+        require(listOf(observerElapsedRealtimeUncertaintyNanos, observerHorizontalAccuracyMeters,
+            observerVerticalAccuracyMeters).all { it == null || it.isFinite() && it >= 0 }) {
+            "invalid observer uncertainty/accuracy"
+        }
+        require(observerElapsedRealtimeUncertaintyNanos == null || observerElapsedRealtimeNanos != null)
+        require(observerHorizontalAccuracyMeters == null || observer != null)
+        require(observerVerticalAccuracyMeters == null || observer != null && altitudeMeters != null)
         require(satellites.map { it.constellation to it.svid }.distinct().size == satellites.size) {
             "duplicate constellation/svid"
         }

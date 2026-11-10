@@ -1,273 +1,179 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:background="@android:color/transparent"
-    android:padding="4dp"
-    android:orientation="vertical">
+    android:padding="6dp">
 
-    <ImageButton
+    <androidx.appcompat.widget.AppCompatImageButton
         android:id="@+id/rocker_minimized"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:background="@drawable/rocker_bubble"
-        android:src="@drawable/baseline_control_camera_24"
-        app:tint="@android:color/white"
-        android:padding="12dp"
-        android:contentDescription="展开摇杆，拖动可移动悬浮窗" />
+        android:contentDescription="@string/overlay_expand"
+        android:elevation="4dp"
+        android:padding="13dp"
+        app:srcCompat="@drawable/ic_home_rocker"
+        app:tint="@color/primary" />
 
     <LinearLayout
         android:id="@+id/rocker_panel"
-        android:layout_width="wrap_content"
+        android:layout_width="176dp"
         android:layout_height="wrap_content"
+        android:background="@drawable/rocker_panel"
+        android:clipToOutline="true"
+        android:elevation="6dp"
         android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:paddingBottom="8dp"
         android:visibility="gone">
 
-    <TextView
-        android:id="@+id/rocker_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:gravity="center"
-        android:text="未在模拟"
-        android:textColor="@android:color/white"
-        android:background="@drawable/rocker_bubble" />
-
-    <com.system.location.service.android.widget.RockerView
-        android:id="@+id/rocker"
-        android:layout_width="180dp"
-        android:layout_height="180dp"
-        app:areaBackground="#EE172133"
-        app:rockerBackground="#FFFFFF" />
-
-    <androidx.cardview.widget.CardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp"
-        android:layout_marginBottom="8dp"
-        app:contentPadding="4dp"
-        app:cardCornerRadius="12dp"
-        app:cardBackgroundColor="@color/card_surface"
-        app:cardElevation="0dp">
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
+            <FrameLayout
+                android:id="@+id/move"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:background="@drawable/rocker_tool"
+                android:contentDescription="@string/overlay_drag"
+                android:focusable="true">
 
                 <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/move"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:padding="12dp"
-                    android:contentDescription="拖动悬浮窗"
-                    android:src="@drawable/baseline_adjust_24"
-                    app:tint="@color/text_primary"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="10sp"
-                    android:text="@string/app_name"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
                     android:layout_gravity="center"
-                    android:gravity="center"
-                    android:visibility="gone"
-                    app:layout_constraintStart_toEndOf="@id/move"
-                    app:layout_constraintTop_toTopOf="parent"
-                    tools:ignore="SmallSp" />
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/auto"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:padding="12dp"
                     android:importantForAccessibility="no"
-                    android:contentDescription="@string/app_name"
-                    android:src="@drawable/baseline_robot_24"
-                    app:tint="@color/text_primary"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    app:srcCompat="@drawable/rocker_grip"
+                    app:tint="@color/text_secondary" />
 
+                <View
+                    android:id="@+id/rocker_state_dot"
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
+                    android:layout_gravity="center_vertical|end"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/rocker_state_dot"
+                    android:importantForAccessibility="no" />
+            </FrameLayout>
 
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/expand_menu"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:padding="12dp"
-                    android:contentDescription="最小化摇杆"
-                    android:src="@drawable/rocker_minimize"
-                    app:tint="@color/text_primary"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/auto"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/rocker_tool"
+                android:contentDescription="@string/overlay_auto"
+                android:padding="14dp"
+                android:tooltipText="@string/overlay_auto"
+                app:srcCompat="@drawable/baseline_robot_24"
+                app:tint="@color/text_secondary" />
 
-            </androidx.constraintlayout.widget.ConstraintLayout>
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/expand_menu"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/rocker_tool"
+                android:contentDescription="@string/overlay_minimize"
+                android:padding="14dp"
+                android:tooltipText="@string/overlay_minimize"
+                app:srcCompat="@drawable/rocker_minimize"
+                app:tint="@color/text_secondary" />
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
 
-    <androidx.cardview.widget.CardView
-        android:id="@+id/auto_card"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp"
-        android:layout_marginBottom="8dp"
-        app:contentPadding="4dp"
-        app:cardCornerRadius="12dp"
-        app:cardBackgroundColor="@color/card_surface"
-        android:layout_gravity="center"
-        app:cardElevation="0dp">
+        <com.system.location.service.android.widget.RockerView
+            android:id="@+id/rocker"
+            android:layout_width="144dp"
+            android:layout_height="144dp"
+            android:layout_gravity="center_horizontal"
+            android:contentDescription="@string/overlay_joystick"
+            app:areaBackground="@color/surface_variant"
+            app:rockerBackground="@color/primary" />
+
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="48dp"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/speed_down"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/rocker_tool"
+                android:contentDescription="@string/overlay_speed_decrease"
+                android:padding="15dp"
+                app:srcCompat="@drawable/rocker_minimize"
+                app:tint="@color/text_secondary" />
+
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
 
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/auto_play"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:importantForAccessibility="no"
-                    android:contentDescription="@string/app_name"
-                    android:src="@drawable/baseline_play_24"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="10sp"
-                    android:text="@string/app_name"
-                    android:layout_gravity="center"
-                    android:gravity="center"
-                    android:visibility="gone"
-                    app:layout_constraintStart_toEndOf="@id/auto_play"
-                    app:layout_constraintTop_toTopOf="parent"
-                    tools:ignore="SmallSp" />
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/auto_status"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:importantForAccessibility="no"
-                    android:contentDescription="@string/app_name"
-                    android:src="@drawable/baseline_settings_24"
-                    app:tint="@color/text_primary"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="10sp"
-                    android:text="@string/app_name"
-                    android:layout_gravity="center"
-                    android:gravity="center"
-                    android:visibility="gone"
-                    app:layout_constraintStart_toEndOf="@id/auto_status"
-                    app:layout_constraintTop_toTopOf="parent"
-                    tools:ignore="SmallSp" />
-
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/auto_lock"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:importantForAccessibility="no"
-                    android:contentDescription="@string/app_name"
-                    android:background="@drawable/baseline_lock_24"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
-
-    <androidx.cardview.widget.CardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginLeft="1dp"
-        android:layout_marginRight="1dp"
-        android:layout_marginBottom="8dp"
-        app:contentPadding="4dp"
-        app:cardCornerRadius="16dp"
-        app:cardBackgroundColor="@color/card_surface"
-        app:cardElevation="0dp">
-
-        <LinearLayout
-            android:id="@+id/expand_menu_layout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/speed_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/rocker_speed"
-                    android:textSize="14sp"
-                    android:gravity="center"
-                    android:textColor="@color/text_primary" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:id="@+id/speed_down"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:padding="0dp"
-                    android:text="−"
-                    android:contentDescription="@string/overlay_speed_decrease" />
-                <TextView
+                <androidx.appcompat.widget.AppCompatTextView
                     android:id="@+id/speed"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:text="@string/default_speed"
-                    android:layout_weight="1"
-                    android:textSize="12sp"
-                    android:gravity="center"
-                    android:textColor="@color/text_primary" />
-                <com.google.android.material.button.MaterialButton
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:id="@+id/speed_up"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:padding="0dp"
-                    android:text="+"
-                    android:contentDescription="@string/overlay_speed_increase" />
-                </LinearLayout>
-
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/speed_slider"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:contentDescription="@string/rocker_speed"
-                    android:valueFrom="0.0"
-                    android:valueTo="50.0"
-                    app:tickVisible="false"
-                    app:trackHeight="4dp" />
-                <com.google.android.material.button.MaterialButton style="@style/Widget.Material3.Button.OutlinedButton" android:id="@+id/speed_presets" android:layout_width="match_parent" android:layout_height="48dp" android:text="@string/speed_presets" />
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:text="0.00"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    app:autoSizeMaxTextSize="18sp"
+                    app:autoSizeMinTextSize="11sp"
+                    app:autoSizeStepGranularity="1sp"
+                    app:autoSizeTextType="uniform" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:importantForAccessibility="no"
+                    android:text="m/s"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/speed_up"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/rocker_tool"
+                android:contentDescription="@string/overlay_speed_increase"
+                android:padding="15dp"
+                app:srcCompat="@drawable/rocker_plus"
+                app:tint="@color/text_secondary" />
+        </LinearLayout>
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/speed_slider"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:contentDescription="@string/rocker_speed"
+            android:valueFrom="0.0"
+            android:valueTo="50.0"
+            app:haloRadius="18dp"
+            app:labelBehavior="gone"
+            app:thumbColor="@color/primary"
+            app:thumbRadius="7dp"
+            app:tickVisible="false"
+            app:trackColorActive="@color/primary"
+            app:trackColorInactive="@color/surface_container_highest"
+            app:trackHeight="3dp" />
+
+        <TextView
+            android:id="@+id/speed_kmh"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp" />
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

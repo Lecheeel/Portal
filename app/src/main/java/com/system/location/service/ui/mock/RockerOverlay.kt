@@ -147,12 +147,7 @@ object RockerOverlay {
 
     private fun updatePlaybackState() {
         val state = ScenarioRuntime.state.value
-        val phase = state.phase
-        rocker?.setPlaybackState(phase == RuntimePhase.RUNNING && state.routeId == null, when (phase) {
-            RuntimePhase.RUNNING -> if (state.routeId == null) "模拟中 · 拖动摇杆移动" else "路线播放中"
-            RuntimePhase.PAUSED -> "模拟已暂停"
-            else -> "未在模拟 · 请在主页启动"
-        })
+        rocker?.setPlaybackState(state.phase, state.routeId != null)
     }
 
     private fun updateSpeedState() {

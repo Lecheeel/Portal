@@ -2,6 +2,7 @@ package com.system.location.service.ui.mock
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.PixelFormat
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -10,10 +11,12 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.TextView
+import android.widget.ImageView
+import androidx.core.content.ContextCompat
 import com.google.android.material.slider.Slider
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.system.location.service.R
 import com.system.location.service.android.widget.RockerView
+import com.system.location.service.core.runtime.RuntimePhase
 import com.system.location.service.ext.rockerCoords
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -42,12 +45,10 @@ class Rocker(private val context: Context) {
     var isMinimized = true
         private set
     private var autoStatus = false
-    private var autoCardVisible = false
     private val speedSlider = root.findViewById<Slider>(R.id.speed_slider)
     private val speedText = root.findViewById<TextView>(R.id.speed)
     private var displayedSpeed = 0.0
     private var draggingSpeed = false
-    private var presetsDialog: androidx.appcompat.app.AlertDialog? = null
     var onSpeedChanged: ((Double) -> Unit)? = null
 
     init {
@@ -61,36 +62,20 @@ class Rocker(private val context: Context) {
         })
         root.findViewById<View>(R.id.speed_down).setOnClickListener { changeSpeed(displayedSpeed - 0.1) }
         root.findViewById<View>(R.id.speed_up).setOnClickListener { changeSpeed(displayedSpeed + 0.1) }
-        root.findViewById<View>(R.id.speed_presets).setOnClickListener {
-            presetsDialog?.dismiss()
-            presetsDialog = MaterialAlertDialogBuilder(context).setTitle(R.string.speed_presets)
-                .setItems(context.resources.getStringArray(R.array.speed_preset_names)) { _, index ->
-                    changeSpeed(doubleArrayOf(1.4, 2.8, 5.5, 13.9)[index])
-                }.create().apply {
-                    window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-                    show()
-                }
-        }
         compact.setOnClickListener { minimize(false) }
         root.findViewById<View>(R.id.expand_menu).setOnClickListener { minimize(true) }
         attachDrag(compact)
         attachDrag(root.findViewById(R.id.move))
-        attachDrag(root.findViewById(R.id.rocker_status))
-        root.findViewById<View>(R.id.auto_card).visibility = View.GONE
         root.findViewById<View>(R.id.auto).setOnClickListener {
-            autoCardVisible = !autoCardVisible
-            root.findViewById<View>(R.id.auto_card).visibility = if (autoCardVisible) View.VISIBLE else View.GONE
-        }
-        root.findViewById<View>(R.id.auto_play).setOnClickListener {
             autoStatus = !autoStatus
             rockerView.auto(autoStatus)
-            root.findViewById<View>(R.id.auto_play).setBackgroundResource(
-                if (autoStatus) R.drawable.baseline_stop_24 else R.drawable.baseline_play_24)
+            renderAutoState()
             if (!autoStatus) {
                 resetMovement()
                 rockerView.listener?.onFinished()
             }
         }
+        renderAutoState()
         root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> clampPosition() }
     }
 
@@ -103,8 +88,6 @@ class Rocker(private val context: Context) {
     }
 
     fun hide() {
-        presetsDialog?.dismiss()
-        presetsDialog = null
         resetMovement()
         if (isStart) windowManager.removeViewImmediate(root)
         isStart = false
@@ -117,12 +100,29 @@ class Rocker(private val context: Context) {
         if (isStart) windowManager.updateViewLayout(root, layoutParams)
     }
 
-    fun setPlaybackState(canMove: Boolean, status: String) {
+    fun setPlaybackState(phase: RuntimePhase, route: Boolean) {
+        val canMove = phase == RuntimePhase.RUNNING && !route
+        val status = context.getString(when (phase) {
+            RuntimePhase.RUNNING -> if (route) R.string.overlay_route_running else R.string.overlay_running
+            RuntimePhase.PAUSED -> R.string.overlay_paused
+            else -> R.string.overlay_idle
+        })
         rockerView.isEnabled = canMove
-        rockerView.alpha = if (canMove) 1f else 0.5f
-        root.findViewById<View>(R.id.auto).isEnabled = canMove
-        root.findViewById<View>(R.id.auto_play).isEnabled = canMove
-        root.findViewById<TextView>(R.id.rocker_status).text = status
+        rockerView.alpha = if (canMove) 1f else 0.55f
+        rockerView.stateDescription = status
+        compact.stateDescription = status
+        root.findViewById<View>(R.id.move).stateDescription = status
+        root.findViewById<View>(R.id.rocker_state_dot).backgroundTintList = ColorStateList.valueOf(
+            ContextCompat.getColor(context, when (phase) {
+                RuntimePhase.RUNNING -> R.color.green500
+                RuntimePhase.PAUSED -> R.color.yellow500
+                RuntimePhase.ERROR -> R.color.red500
+                else -> R.color.text_tertiary
+            }))
+        root.findViewById<View>(R.id.auto).apply {
+            isEnabled = canMove
+            alpha = if (canMove) 1f else 0.4f
+        }
         if (!canMove) resetMovement()
     }
 
@@ -130,7 +130,16 @@ class Rocker(private val context: Context) {
         autoStatus = false
         rockerView.auto(false)
         rockerView.reset()
-        root.findViewById<View>(R.id.auto_play).setBackgroundResource(R.drawable.baseline_play_24)
+        renderAutoState()
+    }
+
+    private fun renderAutoState() {
+        root.findViewById<ImageView>(R.id.auto).apply {
+            isSelected = autoStatus
+            imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context,
+                if (autoStatus) R.color.primary else R.color.text_secondary))
+            stateDescription = context.getString(if (autoStatus) R.string.overlay_auto_on else R.string.overlay_auto_off)
+        }
     }
 
     fun setRockerListener(listener: RockerView.Companion.OnMoveListener) {
@@ -139,7 +148,6 @@ class Rocker(private val context: Context) {
 
     fun setSpeedState(route: Boolean, speed: Double) {
         val title = context.getString(if (route) R.string.overlay_route_speed else R.string.rocker_speed)
-        root.findViewById<TextView>(R.id.speed_title).text = title
         speedSlider.contentDescription = title
         if (!draggingSpeed) renderSpeed(speed)
     }
@@ -152,14 +160,22 @@ class Rocker(private val context: Context) {
 
     private fun renderSpeed(speed: Double) {
         displayedSpeed = speed.coerceIn(0.0, 1000.0)
-        speedText.text = context.getString(R.string.overlay_speed_value, displayedSpeed) + "\n" + context.getString(R.string.speed_kmh, displayedSpeed * 3.6)
+        speedText.text = context.getString(R.string.overlay_speed_number, displayedSpeed)
+        speedText.contentDescription = context.getString(R.string.overlay_speed_value, displayedSpeed)
+        root.findViewById<TextView>(R.id.speed_kmh).text = context.getString(R.string.speed_kmh, displayedSpeed * 3.6)
         // Keep a useful range for walking/driving without truncating a faster saved scenario.
         val upper = maxOf(50.0, ceil(displayedSpeed / 10.0) * 10.0).toFloat()
         if (speedSlider.value > upper) speedSlider.value = upper
         speedSlider.valueTo = upper
         if (!draggingSpeed) speedSlider.value = displayedSpeed.toFloat()
-        root.findViewById<View>(R.id.speed_down).isEnabled = displayedSpeed > 0
-        root.findViewById<View>(R.id.speed_up).isEnabled = displayedSpeed < 1000
+        root.findViewById<View>(R.id.speed_down).apply {
+            isEnabled = displayedSpeed > 0
+            alpha = if (isEnabled) 1f else 0.35f
+        }
+        root.findViewById<View>(R.id.speed_up).apply {
+            isEnabled = displayedSpeed < 1000
+            alpha = if (isEnabled) 1f else 0.35f
+        }
     }
 
     private fun attachDrag(handle: View) {

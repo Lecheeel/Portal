@@ -34,7 +34,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.hamcrest.Matchers.containsString
 import java.util.concurrent.atomic.AtomicReference
 
 /** Integration test for overlay ownership and the user's persisted visibility choice. */
@@ -124,20 +123,19 @@ class RockerOverlayTest {
                 captureUi("overlay-minimized")
                 overlay(R.id.rocker_minimized).perform(click())
                 overlay(R.id.rocker).check(matches(isDisplayed()))
-                overlay(R.id.speed_title).check(matches(withText(R.string.rocker_speed)))
+                overlay(R.id.speed_slider).check(matches(withContentDescription(R.string.rocker_speed)))
                 overlay(R.id.speed_slider).check(matches(isDisplayed()))
                 captureUi("overlay-expanded")
                 overlay(R.id.speed_up).perform(click())
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.15) > 0.001) delay(10) } }
-                overlay(R.id.speed).check(matches(withText(containsString(context.getString(R.string.overlay_speed_value, context.speed)))))
-                overlay(R.id.speed_presets).perform(click())
-                onView(withText("步行 · 1.4 m/s")).inRoot(
-                    withDecorView(hasDescendant(withText("步行 · 1.4 m/s")))).perform(click())
-                runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 1.4) > 0.001) delay(10) } }
+                overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_number, context.speed))))
+                overlay(R.id.speed_down).perform(click())
+                runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.05) > 0.001) delay(10) } }
+                overlay(R.id.speed_kmh).check(matches(withText(context.getString(R.string.speed_kmh, context.speed * 3.6))))
                 overlay(R.id.expand_menu).perform(click())
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
                 overlay(R.id.rocker_minimized).perform(click())
-                overlay(R.id.speed).check(matches(withText(containsString(context.getString(R.string.overlay_speed_value, context.speed)))))
+                overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_number, context.speed))))
                 overlay(R.id.expand_menu).perform(click())
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
                 scenario.recreate()

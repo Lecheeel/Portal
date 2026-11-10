@@ -4,4 +4,16 @@
     <string name="overlay_speed_decrease">速度降低 0.1 米/秒</string>
     <string name="overlay_speed_increase">速度增加 0.1 米/秒</string>
     <string name="overlay_speed_failed">场景状态已变化或调速失败，请重试</string>
+    <string name="overlay_expand">展开摇杆，拖动可移动悬浮窗</string>
+    <string name="overlay_minimize">最小化摇杆</string>
+    <string name="overlay_drag">拖动悬浮窗</string>
+    <string name="overlay_auto">自动模式</string>
+    <string name="overlay_auto_on">已开启</string>
+    <string name="overlay_auto_off">已关闭</string>
+    <string name="overlay_joystick">方向摇杆</string>
+    <string name="overlay_running">模拟中</string>
+    <string name="overlay_route_running">路线播放中</string>
+    <string name="overlay_paused">已暂停</string>
+    <string name="overlay_idle">未运行</string>
+    <string name="overlay_speed_number">%1$.2f</string>
 </resources>

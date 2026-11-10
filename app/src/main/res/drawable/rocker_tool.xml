@@ -1,0 +1,18 @@
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="@color/theme_focused_touch">
+    <item>
+        <selector>
+            <item android:state_selected="true">
+                <shape>
+                    <solid android:color="@color/theme_focused_touch" />
+                    <corners android:radius="16dp" />
+                </shape>
+            </item>
+            <item>
+                <shape>
+                    <solid android:color="@android:color/transparent" />
+                    <corners android:radius="16dp" />
+                </shape>
+            </item>
+        </selector>
+    </item>
+</ripple>

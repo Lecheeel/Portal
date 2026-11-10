@@ -4,4 +4,16 @@
     <string name="overlay_speed_decrease">速度を 0.1 m/s 下げる</string>
     <string name="overlay_speed_increase">速度を 0.1 m/s 上げる</string>
     <string name="overlay_speed_failed">シーンの状態が変わったか、速度変更に失敗しました。再試行してください</string>
+    <string name="overlay_expand">ジョイスティックを展開。ドラッグして移動</string>
+    <string name="overlay_minimize">ジョイスティックを最小化</string>
+    <string name="overlay_drag">フローティングパネルを移動</string>
+    <string name="overlay_auto">自動モード</string>
+    <string name="overlay_auto_on">オン</string>
+    <string name="overlay_auto_off">オフ</string>
+    <string name="overlay_joystick">方向ジョイスティック</string>
+    <string name="overlay_running">シミュレーション中</string>
+    <string name="overlay_route_running">ルート再生中</string>
+    <string name="overlay_paused">一時停止中</string>
+    <string name="overlay_idle">停止中</string>
+    <string name="overlay_speed_number">%1$.2f</string>
 </resources>

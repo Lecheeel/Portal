@@ -3,6 +3,7 @@ package com.system.location.service.hook.hooks.gnss
 import android.os.IInterface
 import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.core.gnss.PublishedGnssFrame
+import com.system.location.service.core.runtime.RuntimeSnapshot
 import com.system.location.service.hook.hooks.nmea.NmeaBridge
 import com.system.location.service.hook.hooks.nmea.NmeaListenerRouting
 import com.system.location.service.hook.runtime.HookRuntime
@@ -46,6 +47,7 @@ object GnssSignalInjection {
                     it.name == "onSvStatusChanged" && ReceiverGnssStatusAdapter.supports(it)
                 } ?: error("unsupported GNSS status callback signature")
                 GnssListenerRouting.deliverOnce(listener, publication.frame.toString()) {
+                    if (!receiverDeliveryAllowed(context.state, FakeLoc.runtimeSnapshots.current())) return@deliverOnce false
                     HookRuntime.invokeOriginalMethod(method, listener, ReceiverGnssStatusAdapter.arguments(method, publication))
                     true
                 }
@@ -63,14 +65,11 @@ object GnssSignalInjection {
                 val sentences = NmeaBridge.generatedSentences(publication)
                 // Compare the exact emitted epoch/text, without rounded-time windows or hashes.
                 val key = "${publication.frame.generatedAtMillis}:${sentences.joinToString("")}"
-                NmeaListenerRouting.deliverOnce(listener, key) nmeaBatch@{
-                    sentences.forEach { sentence ->
-                        if (Thread.currentThread().isInterrupted) return@nmeaBatch false
-                        // Android OnNmeaMessageListener timestamps are UTC milliseconds, not elapsed nanos.
-                        HookRuntime.invokeOriginalMethod(method, listener,
-                            arrayOf(publication.frame.generatedAtMillis, sentence))
-                    }
-                    true
+                NmeaListenerRouting.deliverBatch(listener, key, sentences.size,
+                    allowed = { receiverDeliveryAllowed(context.state, FakeLoc.runtimeSnapshots.current(), nmea = true) }) { index ->
+                    // Android OnNmeaMessageListener timestamps are UTC milliseconds, not elapsed nanos.
+                    HookRuntime.invokeOriginalMethod(method, listener,
+                        arrayOf(publication.frame.generatedAtMillis, sentences[index]))
                 }
             }
         }
@@ -90,6 +89,12 @@ object GnssSignalInjection {
             HookRuntime.log("GNSS delivery failed [$key]: ${error.javaClass.simpleName}: ${error.message}")
     }
 }
+
+/** Stop/configuration/routing changes invalidate a captured batch; sample renewal does not. */
+internal fun receiverDeliveryAllowed(captured: RuntimeSnapshot, current: RuntimeSnapshot,
+    nmea: Boolean = false): Boolean = current.configuration.enabled && current.configuration.gnssEnabled &&
+    (!nmea || current.configuration.nmeaEnabled) && current.configRevision == captured.configRevision &&
+    current.configuration == captured.configuration && current.routing == captured.routing
 
 /** Freeze each route once per delivery tick, even if provider samples advance during callbacks. */
 internal class ReceiverTickFrames(private val source: (GnssFrameRoute) -> PublishedGnssFrame?) {

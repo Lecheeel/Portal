@@ -87,8 +87,12 @@ data class BroadcastSignalCalibration(val curves: List<BroadcastSignalCurve>) {
                 key?.let { it to sample }
             }
             return BroadcastSignalCalibration(keyed.groupBy({ it.first }, { it.second }).map { (key, records) ->
+                // Unknown carrier does not prove L1. Preserve a legacy unknown-only fit, but
+                // never dilute identified L1 evidence with samples from an unidentified band.
+                val retained = if (key.first == Constellation.GLONASS && records.any { it.carrierHz != null })
+                    records.filter { it.carrierHz != null } else records
                 BroadcastSignalCurve(key.first, key.second, key.third,
-                    records.groupBy { it.elevationDeg }.toSortedMap().map { (elevation, bandSamples) ->
+                    retained.groupBy { it.elevationDeg }.toSortedMap().map { (elevation, bandSamples) ->
                         BroadcastSignalKnot(elevation.toDouble(), BroadcastEmpiricalSignal(
                             bandSamples.map { it.cn0DbHz.toDouble() }.average(),
                             bandSamples.count { it.usedInFix }.toDouble() / bandSamples.size,

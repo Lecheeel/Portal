@@ -45,12 +45,16 @@ class BroadcastSignalCalibrationTest {
     @Test fun glonassRetainsSlotCarrierEvidenceAndDoesNotMixL2OrBorrowAnotherSlot() {
         val fitted = BroadcastSignalCalibration.fit(capture(listOf(
             signal(Constellation.GLONASS, 20f, 25f, 1_602_000_000f),
+            signal(Constellation.GLONASS, 20f, 61f, null),
             signal(Constellation.GLONASS, 20f, 63f, 1_246_000_000f),
-            signal(Constellation.GLONASS, 20f, 45f, 1_602_562_500f, id = 2))))
+            signal(Constellation.GLONASS, 20f, 45f, 1_602_562_500f, id = 2),
+            signal(Constellation.GLONASS, 20f, 32f, null, id = 3))))
         assertEquals(25.0, fitted.at(Constellation.GLONASS, 20.0, svid = 1)!!.cn0, 0.0)
         assertEquals(1_602_000_000f, fitted.at(Constellation.GLONASS, 20.0, svid = 1)!!.carrier)
         assertEquals(45.0, fitted.at(Constellation.GLONASS, 20.0, svid = 2)!!.cn0, 0.0)
-        assertNull(fitted.at(Constellation.GLONASS, 20.0, svid = 3))
+        assertEquals(32.0, fitted.at(Constellation.GLONASS, 20.0, svid = 3)!!.cn0, 0.0)
+        assertNull(fitted.at(Constellation.GLONASS, 20.0, svid = 3)!!.carrier)
+        assertNull(fitted.at(Constellation.GLONASS, 20.0, svid = 4))
     }
 
     @Test fun compactTransportRetainsUnprojectedBandsAndIsStableWhenReencoded() {

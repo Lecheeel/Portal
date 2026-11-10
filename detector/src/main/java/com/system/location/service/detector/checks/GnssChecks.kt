@@ -14,19 +14,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.sqrt
 
-/**
- * C06 · GnssStatus 卫星统计。
- *
- * 期望：多星座（不只 BEIDOU）、卫星集合秒级稳定、CN0 随仰角合理、usedInFix 非随机；
- * 每次回调 shuffle 或全部同一星座均判 FAIL。
- *
- * 少于 [MIN_FRAMES] 帧时无法构成时间序列，返回 UNKNOWN（未回调/权限不足）。
- * 其余规则分四组，任一命中即 FAIL：
- * 1. 卫星数异常（0 或超过 [MAX_SATELLITES] 颗）、星座少于 [MIN_CONSTELLATIONS] 个；
- * 2. 相邻帧卫星集合（星座+svid）Jaccard 低于 [SHUFFLE_JACCARD]；
- * 3. CN0 为常数、全部 usedInFix=false；
- * 4. CN0 与仰角显著负相关/完全不相关（高仰角组不应低于低仰角组）。
- */
+/** C06: validate observed fields; environmental/statistical anomalies are inconclusive evidence. */
 class GnssStatusCheck : Check {
     override val id = CheckIds.GNSS_STATUS
     override val title = "GnssStatus 卫星"
@@ -34,23 +22,21 @@ class GnssStatusCheck : Check {
     override fun run(context: CheckContext): CheckResult {
         val snapshot = context.snapshot
         val frames = snapshot.gnssFrames
-        if (frames.size < MIN_FRAMES) return insufficientFrames(snapshot, frames)
-
         val analysis = analyze(frames)
         val evidence = buildEvidence(snapshot, analysis)
-        if (analysis.issues.isEmpty()) {
-            return pass(
-                buildString {
-                    append("GnssStatus 正常：${frames.size} 帧、")
-                    append("${analysis.knownConstellations.size} 个星座、")
-                    append("卫星集合 Jaccard 最低 ${formatRatio(analysis.jaccardMin)}、")
-                    append("CN0 ${formatDb(analysis.cn0Min)}–${formatDb(analysis.cn0Max)} dB-Hz、")
-                    append("usedInFix ${analysis.usedInFixTotal}/${analysis.satelliteSamples}")
-                },
-                evidence,
-            )
-        }
-        return fail(analysis.issues.joinToString("；"), evidence)
+        if (analysis.issues.isNotEmpty()) return fail(analysis.issues.joinToString("；"), evidence)
+        if (frames.size < MIN_FRAMES) return insufficientFrames(snapshot, frames)
+        if (analysis.observations.isNotEmpty()) return unknown(analysis.observations.joinToString("；"), evidence)
+        return pass(
+            buildString {
+                append("GnssStatus 已采集字段未见矛盾：${frames.size} 帧、")
+                append("${analysis.knownConstellations.size} 个星座、")
+                append("卫星集合 Jaccard 最低 ${formatRatio(analysis.jaccardMin)}、")
+                append("CN0 ${formatDb(analysis.cn0Min)}–${formatDb(analysis.cn0Max)} dB-Hz、")
+                append("usedInFix ${analysis.usedInFixTotal}/${analysis.satelliteSamples}；不据此证明定位来源真实")
+            },
+            evidence,
+        )
     }
 
     private fun insufficientFrames(
@@ -73,21 +59,25 @@ class GnssStatusCheck : Check {
         return unknown(reason, evidence.filter { it.isNotEmpty() }.map { it.take(MAX_EVIDENCE_CHARS) })
     }
 
-    private fun analyze(frames: List<GnssFrameSnapshot>): GnssAnalysis {
+    internal fun analyze(frames: List<GnssFrameSnapshot>): GnssAnalysis {
         val issues = mutableListOf<String>()
+        val observations = mutableListOf<String>()
         val satellitesPerFrame = frames.map { it.satellites.size }
         val constellationsPerFrame = frames.map { frame ->
             frame.satellites.map { it.constellation }.filter { it != GnssStatus.CONSTELLATION_UNKNOWN }.distinct().size
         }
 
-        val abnormalFrames = frames.withIndex()
-            .filter { (_, frame) -> frame.satellites.isEmpty() || frame.satellites.size > MAX_SATELLITES }
-        if (abnormalFrames.isNotEmpty()) {
-            val detail = abnormalFrames.take(4).joinToString("，") { (index, frame) ->
-                "第 ${index + 1} 帧 ${frame.satellites.size} 颗"
-            }
-            val suffix = if (abnormalFrames.size > 4) " 等 ${abnormalFrames.size} 帧" else ""
-            issues += "卫星数异常：$detail$suffix（正常每帧 1–$MAX_SATELLITES 颗）"
+        frames.forEachIndexed { index, frame ->
+            if (frame.satellites.isEmpty()) observations += "第 ${index + 1} 帧没有可见卫星，无法判断三维定位"
+            val invalidElevation = frame.satellites.count { !it.elevationDegrees.isFinite() || it.elevationDegrees !in 0f..90f }
+            val invalidAzimuth = frame.satellites.count { !it.azimuthDegrees.isFinite() || it.azimuthDegrees < 0f || it.azimuthDegrees >= 360f }
+            val invalidCn0 = frame.satellites.count { !it.cn0DbHz.isFinite() || it.cn0DbHz !in 0f..63f }
+            if (invalidElevation > 0) issues += "第 ${index + 1} 帧 $invalidElevation 个仰角无效或低于地平线"
+            if (invalidAzimuth > 0) issues += "第 ${index + 1} 帧 $invalidAzimuth 个方位角不在 [0,360)"
+            if (invalidCn0 > 0) issues += "第 ${index + 1} 帧 $invalidCn0 个 CN0 不在 Android 0–63 dB-Hz 范围"
+            // Multiband receivers can report the same SVID more than once; geometry needs unique identities.
+            val used = frame.satellites.filter { it.usedInFix }.map { it.constellation to it.svid }.distinct().size
+            if (used in 1..3) observations += "第 ${index + 1} 帧仅 $used 颗独立卫星在用，不足以确认三维定位；需对照 GGA/GSA 定位类型"
         }
 
         val constellationHistogram = linkedMapOf<Int, Int>()
@@ -99,23 +89,11 @@ class GnssStatusCheck : Check {
         }
         val knownConstellations = constellationHistogram.keys
             .filter { it != GnssStatus.CONSTELLATION_UNKNOWN }
-        if (knownConstellations.size < MIN_CONSTELLATIONS) {
-            val names = if (knownConstellations.isEmpty()) {
-                "无"
-            } else {
-                knownConstellations.joinToString("/") { constellationName(it) }
-            }
-            val beidouOnly = knownConstellations.size == 1 &&
-                knownConstellations.first() == GnssStatus.CONSTELLATION_BEIDOU
-            issues += "星座数 ${knownConstellations.size}（$names${if (beidouOnly) "，全部为 BEIDOU" else ""}），" +
-                "少于 $MIN_CONSTELLATIONS 个"
-        }
-
         val usedInFixPerFrame = frames.map { frame -> frame.satellites.count { it.usedInFix } }
         val usedInFixTotal = usedInFixPerFrame.sum()
         val satelliteSamples = satellitesPerFrame.sum()
         if (satelliteSamples > 0 && usedInFixTotal == 0) {
-            issues += "全部 $satelliteSamples 个卫星样本 usedInFix=false"
+            observations += "全部 $satelliteSamples 个卫星样本未参与定位，当前无法验证三维解"
         }
 
         val cn0Values = frames.flatMap { frame -> frame.satellites.map { it.cn0DbHz } }
@@ -125,11 +103,11 @@ class GnssStatusCheck : Check {
         val cn0Max = cn0Positive.maxOrNull()
         val cn0Distinct = cn0Values.distinct().size
         if (cn0Values.size >= 2 && cn0Distinct == 1) {
-            issues += "所有卫星 CN0 完全相同（${formatDb(cn0Values.first())} dB-Hz）"
+            observations += "所有卫星 CN0 完全相同（${formatDb(cn0Values.first())} dB-Hz）"
         } else if (cn0Positive.size >= MIN_CONSTANT_CN0_SAMPLES &&
             cn0Min != null && cn0Max != null && cn0Max - cn0Min <= CN0_CONSTANT_RANGE_DB
         ) {
-            issues += "CN0 几乎为常数（${formatDb(cn0Min)}–${formatDb(cn0Max)} dB-Hz，" +
+            observations += "CN0 几乎为常数（${formatDb(cn0Min)}–${formatDb(cn0Max)} dB-Hz，" +
                 "${cn0Positive.size} 个样本）"
         }
 
@@ -144,12 +122,12 @@ class GnssStatusCheck : Check {
         val jaccardMin = jaccardValues.minOrNull()
         val jaccardAvg = if (jaccardValues.isEmpty()) null else jaccardValues.average()
         if (jaccardMin != null && jaccardMin < SHUFFLE_JACCARD) {
-            issues += "相邻帧卫星集合 Jaccard 最低 ${formatRatio(jaccardMin)}" +
+            observations += "相邻帧卫星集合 Jaccard 最低 ${formatRatio(jaccardMin)}" +
                 "（< ${formatRatio(SHUFFLE_JACCARD)}），疑似每帧 shuffle"
         }
 
         val correlation = correlate(frames)
-        correlation.verdict?.let { issues += it }
+        correlation.verdict?.let { observations += "$it；环境遮挡与多径也可能导致该现象，不能据此认定伪造" }
 
         return GnssAnalysis(
             frames = frames,
@@ -169,6 +147,7 @@ class GnssStatusCheck : Check {
             jaccardPairs = jaccardValues.size,
             correlation = correlation,
             issues = issues,
+            observations = observations,
         )
     }
 
@@ -292,11 +271,6 @@ class GnssStatusCheck : Check {
         /** 少于 3 帧无法判断时间稳定性，按文档给 UNKNOWN。 */
         private const val MIN_FRAMES = 3
 
-        /** GnssStatus 正常不会单帧超过 64 颗；超过按伪造处理。 */
-        private const val MAX_SATELLITES = 64
-
-        private const val MIN_CONSTELLATIONS = 2
-
         /** 相邻帧卫星集合 Jaccard 低于该值视为 shuffle。 */
         private const val SHUFFLE_JACCARD = 0.5
 
@@ -319,7 +293,7 @@ class GnssStatusCheck : Check {
     }
 }
 
-private data class CorrelationStats(
+internal data class CorrelationStats(
     val samples: Int,
     val elevationSpread: Float,
     val pearson: Float?,
@@ -328,7 +302,7 @@ private data class CorrelationStats(
     val verdict: String?,
 )
 
-private data class GnssAnalysis(
+internal data class GnssAnalysis(
     val frames: List<GnssFrameSnapshot>,
     val satellitesPerFrame: List<Int>,
     val constellationsPerFrame: List<Int>,
@@ -346,6 +320,7 @@ private data class GnssAnalysis(
     val jaccardPairs: Int,
     val correlation: CorrelationStats,
     val issues: List<String>,
+    val observations: List<String>,
 )
 
 private fun constellationName(constellation: Int): String = when (constellation) {

@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.Settings
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import com.system.location.service.runtime.ScenarioRuntime
@@ -178,7 +179,9 @@ class GnssReceiverCollector(
                 }
                 GnssCapture(deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}", osVersion = "${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}",
                     startedAtMillis = started, endedAtMillis = System.currentTimeMillis(), frames = frames.toList(),
-                    measurements = measurements.toList(), navigation = navigation.toList(), notes = notes.toList())
+                    measurements = measurements.toList(), navigation = navigation.toList(), notes = notes.toList(),
+                    bootCount = runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT) }
+                        .getOrNull()?.takeIf { it >= 0 })
             } finally {
                 accepting = false
                 if (statusRegistered) runCatching { manager.unregisterGnssStatusCallback(statusCallback) }

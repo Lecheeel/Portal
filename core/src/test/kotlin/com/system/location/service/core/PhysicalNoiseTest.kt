@@ -70,6 +70,25 @@ class PhysicalNoiseTest {
         assertEquals(before, after)
     }
 
+    @Test fun repeatedReadersOfOneTimestampReceiveTheSameDrift() {
+        val noise = PhysicalNoise(NoiseProfile(seed = 42))
+        assertEquals(sample, noise.apply(sample, 1_000_000_000))
+        assertEquals(sample, noise.apply(sample, 1_000_000_000))
+        val output = noise.apply(sample, 2_000_000_000)
+        assertNotEquals(sample.coordinate, output.coordinate)
+        repeat(10) { assertEquals(output, noise.apply(sample, 2_000_000_000)) }
+    }
+
+    @Test fun delayedReaderCannotChangeTheNextNoiseStep() {
+        val first = PhysicalNoise(NoiseProfile(seed = 42))
+        val reference = PhysicalNoise(NoiseProfile(seed = 42))
+        for (time in listOf(1_000_000_000L, 2_000_000_000L)) {
+            assertEquals(reference.apply(sample, time), first.apply(sample, time))
+        }
+        assertEquals(sample, first.apply(sample, 1_000_000_000))
+        assertEquals(reference.apply(sample, 3_000_000_000), first.apply(sample, 3_000_000_000))
+    }
+
     private fun timestamps(seconds: Int = 60): List<Long> =
         (1..seconds).map { it * 1_000_000_000L }
 }

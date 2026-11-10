@@ -47,12 +47,14 @@ class PhysicalNoise(
     private var x = 0.0
     private var y = 0.0
     private var altitude = 0.0
+    private var stepped = false
 
     fun reset() {
         lastNanos = null
         x = 0.0
         y = 0.0
         altitude = 0.0
+        stepped = false
         random = SplitMix64(seed)
     }
 
@@ -60,14 +62,21 @@ class PhysicalNoise(
         if (!profile.enabled) return sample
         if (elapsedRealtimeNanos < 0L) return sample
         val previous = lastNanos
-        lastNanos = elapsedRealtimeNanos
-        if (previous == null) return sample
+        if (previous == null) {
+            lastNanos = elapsedRealtimeNanos
+            return sample
+        }
+        // A delayed reader cannot rewind the process clock or consume a second random step.
+        if (elapsedRealtimeNanos < previous) return sample
         val dt = (elapsedRealtimeNanos - previous) / 1_000_000_000.0
-        if (dt <= 0.0) return sample
-
-        x = update(x, dt, profile.ouAlphaPerSec, profile.ouSigmaMeters, profile.maxOffsetMeters)
-        y = update(y, dt, profile.ouAlphaPerSec, profile.ouSigmaMeters, profile.maxOffsetMeters)
-        altitude = update(altitude, dt, profile.altitudeAlpha, profile.altitudeSigmaMeters, profile.maxOffsetMeters)
+        if (dt > 0.0) {
+            lastNanos = elapsedRealtimeNanos
+            x = update(x, dt, profile.ouAlphaPerSec, profile.ouSigmaMeters, profile.maxOffsetMeters)
+            y = update(y, dt, profile.ouAlphaPerSec, profile.ouSigmaMeters, profile.maxOffsetMeters)
+            altitude = update(altitude, dt, profile.altitudeAlpha, profile.altitudeSigmaMeters, profile.maxOffsetMeters)
+            stepped = true
+        }
+        if (!stepped) return sample
         if (!x.isFinite() || !y.isFinite() || !altitude.isFinite()) {
             reset()
             return sample

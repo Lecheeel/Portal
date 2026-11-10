@@ -70,7 +70,10 @@ class GlonassBroadcastEvidenceTest {
             service = GlonassServiceEvidence(coordinate(10_700.0), coordinate(9_901.0), coordinate(11_699.0), 1))
         val transform = GlonassEcefTransform(List(9) { index -> if (index % 4 == 0) 1.0 else 0.0 },
             GlonassCartesianVector(0.0, 0.0, 0.0), 0.0, 0.0)
-        val evidence = GlonassBroadcastEvidence(clock, GlonassReferenceFrame.PZ_90_02, transform, listOf(eph))
+        val datum = GnssReceiverDatumTransform("synthetic WGS84/PZ90 fixture", 3, 0L, 10_000_000_000L,
+            List(9) { index -> if (index % 4 == 0) 1.0 else 0.0 }, listOf(0.0, 0.0, 0.0), 1.0,
+            6378137.0, 298.257223563)
+        val evidence = GlonassBroadcastEvidence(clock, GlonassReferenceFrame.PZ_90_02, transform, listOf(eph), datum)
         val frames = (0..30).map { second ->
             GnssObservationFrame(second * 1000L, observer, 0.0,
                 listOf(GnssSatellite(Constellation.GLONASS, 2, 10f, 180f, 35f, true, true, true)))
@@ -84,9 +87,20 @@ class GlonassBroadcastEvidenceTest {
         assertTrue(result != null)
         assertTrue(result!!.diagnostics.joinToString("; "), result.source != ReceiverGnssSource.STATISTICAL_REPLAY)
         assertTrue(result.satellites.any { it.constellation == Constellation.GLONASS && it.hasEphemeris })
-        fun frame(candidate: GlonassBroadcastEphemerisEvidence) = ReceiverBroadcastSkyModel(capture.copy(
-            glonassBroadcastEvidence = evidence.copy(ephemerides = listOf(candidate))))
+        fun frame(candidate: GlonassBroadcastEphemerisEvidence, receiverDatum: GnssReceiverDatumTransform? = datum) = ReceiverBroadcastSkyModel(capture.copy(
+            glonassBroadcastEvidence = evidence.copy(ephemerides = listOf(candidate), datumTransform = receiverDatum)))
             .frame(30_000, observer, 0.0, 128, elapsedRealtimeNanos = 0L, currentBootCount = 3)!!
+        assertTrue(frame(eph, null).satellites.isEmpty())
+        assertTrue(frame(eph, datum.copy(validFromElapsedNanos = 1L)).satellites.isEmpty())
+        val shifted = datum.copy(translationMeters = listOf(100_000.0, -200_000.0, 300_000.0))
+        val shiftedReceiver = shifted.receiver(observer, 0.0, 0L, 3)!!
+        val expected = GlonassReceptionGeometry.observe(eph.resolve(clock.domain())!!, clock.at(0L, 3)!!,
+            GlonassReceiver(GlonassReferenceFrame.PZ_90_02, shiftedReceiver.position, shiftedReceiver.orientation))
+            .observation!!.lineOfSight
+        val shiftedSky = frame(eph, shifted).satellites.single()
+        assertEquals(expected.elevationDegrees, shiftedSky.elevationDeg.toDouble(), 1e-5)
+        assertEquals(expected.azimuthDegrees!!, shiftedSky.azimuthDeg.toDouble(), 1e-5)
+        assertTrue(shiftedSky.elevationDeg != result.satellites.single().elevationDeg)
         // Every Bn combination: reserved low bits must not mark a healthy satellite unhealthy.
         for (bn in 0..7) {
             val output = frame(eph.copy(healthBn = bn))

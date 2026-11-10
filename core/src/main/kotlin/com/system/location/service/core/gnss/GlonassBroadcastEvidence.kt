@@ -165,10 +165,13 @@ data class GlonassBroadcastEphemerisEvidence(
 data class GlonassBroadcastEvidence(
     val clock: GlonassElapsedClockEvidence,
     val receiverFrame: GlonassReferenceFrame,
-    val receiverTransform: GlonassEcefTransform,
+    /** Legacy archive field: constant latitude offsets cannot resolve a moving route's normal. */
+    val receiverTransform: GlonassEcefTransform? = null,
     val ephemerides: List<GlonassBroadcastEphemerisEvidence>,
+    val datumTransform: GnssReceiverDatumTransform? = null,
 ) {
     init {
+        require(datumTransform == null || datumTransform.bootCount == clock.bootCount)
         require(ephemerides.isNotEmpty() && ephemerides.size <= 31)
         require(ephemerides.map { it.orbit.slot }.distinct().size == ephemerides.size)
         val domain = clock.domain()

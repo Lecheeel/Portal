@@ -173,43 +173,37 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         } else emptyList()
         if (beiDouEvidence != null && beiDouEvidence.receiverFrame != BeiDouReceiverFrame.BDCS)
             diagnostics += "北斗广播证据坐标系不受支持，未输出物理几何"
-        val physicalGlonass = if (glonassEvidence != null && glonassTime != null) {
-            val transform = glonassEvidence.receiverTransform
-            val wgsPosition = GnssObserverGeometry.ecef(observer, altitudeMeters)
-            val pzPosition = transform.apply(wgsPosition)
-            val latitude = observer.latitude + transform.latitudeOffsetDegrees
-            val longitude = observer.longitude + transform.longitudeOffsetDegrees
-            if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) {
-                diagnostics += "GLONASS 接收机坐标变换产生非法椭球方向，未输出物理几何"
-                emptyList()
-            } else {
-                val receiver = GlonassReceiver(glonassEvidence.receiverFrame, pzPosition,
-                    GeodeticOrientation(latitude, longitude))
-                val domain = glonassDomain!!
-                glonassEvidence.ephemerides.mapNotNull { encoded ->
-                    val ephemeris = encoded.resolve(domain)
-                    if (ephemeris == null) {
-                        diagnostics += "GLONASS ${encoded.orbit.slot}：广播有效期不在独立时钟覆盖内"
-                        return@mapNotNull null
-                    }
-                    val result = GlonassReceptionGeometry.observe(ephemeris, glonassTime, receiver)
-                    result.observation?.let { observation ->
-                        encoded.serviceRejection(observation.transmissionTime)?.let { reason ->
-                            diagnostics += "GLONASS ${encoded.orbit.slot}：$reason，未回退同身份统计几何"
-                            return@mapNotNull null
-                        }
-                    }
-                    val los = result.observation?.lineOfSight
-                    if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
-                        diagnostics += "GLONASS ${encoded.orbit.slot}：${result.reason ?: "地平线以下或方位未定义"}"
-                        return@mapNotNull null
-                    }
-                    val calibration = empirical(Constellation.GLONASS, los.elevationDegrees)
-                        ?: run { diagnostics += "GLONASS ${encoded.orbit.slot}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
-                    GnssSatellite(Constellation.GLONASS, encoded.orbit.slot, los.elevationDegrees.toFloat(),
-                        los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
-                        true, calibration.almanac, calibration.carrier)
+        val glonassReceiver = glonassEvidence?.datumTransform
+            ?.receiver(observer, altitudeMeters, elapsedRealtimeNanos, currentBootCount)
+        if (glonassEvidence != null && glonassReceiver == null)
+            diagnostics += "GLONASS 广播几何未启用：缺少适用的 WGS 84 → PZ-90 接收机变换，未回退同身份统计几何"
+        val physicalGlonass = if (glonassEvidence != null && glonassTime != null && glonassReceiver != null) {
+            val receiver = GlonassReceiver(glonassEvidence.receiverFrame, glonassReceiver.position,
+                glonassReceiver.orientation)
+            val domain = glonassDomain!!
+            glonassEvidence.ephemerides.mapNotNull { encoded ->
+                val ephemeris = encoded.resolve(domain)
+                if (ephemeris == null) {
+                    diagnostics += "GLONASS ${encoded.orbit.slot}：广播有效期不在独立时钟覆盖内"
+                    return@mapNotNull null
                 }
+                val result = GlonassReceptionGeometry.observe(ephemeris, glonassTime, receiver)
+                result.observation?.let { observation ->
+                    encoded.serviceRejection(observation.transmissionTime)?.let { reason ->
+                        diagnostics += "GLONASS ${encoded.orbit.slot}：$reason，未回退同身份统计几何"
+                        return@mapNotNull null
+                    }
+                }
+                val los = result.observation?.lineOfSight
+                if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
+                    diagnostics += "GLONASS ${encoded.orbit.slot}：${result.reason ?: "地平线以下或方位未定义"}"
+                    return@mapNotNull null
+                }
+                val calibration = empirical(Constellation.GLONASS, los.elevationDegrees)
+                    ?: run { diagnostics += "GLONASS ${encoded.orbit.slot}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
+                GnssSatellite(Constellation.GLONASS, encoded.orbit.slot, los.elevationDegrees.toFloat(),
+                    los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    true, calibration.almanac, calibration.carrier)
             }
         } else emptyList()
         if (glonassEvidence != null && glonassTime == null)

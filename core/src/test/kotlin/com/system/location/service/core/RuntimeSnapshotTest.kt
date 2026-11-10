@@ -93,4 +93,36 @@ class RuntimeSnapshotTest {
         assertEquals(true, snapshot.physicalNoise)
         assertEquals(42L, snapshot.physicalNoiseSeed)
     }
+
+    @Test fun simulationObservationRetainsRapidTransitionsAcrossFullSnapshotRestoration() {
+        val store = RuntimeSnapshotStore()
+        val before = store.observation()
+        store.update { it.copy(configuration = it.configuration.copy(enabled = true)) }
+        assertEquals(1L, store.observation().simulationGeneration)
+        store.publishSample(sample)
+        assertEquals(1L, store.observation().simulationGeneration)
+        store.set(before.state)
+        val after = store.observation()
+        assertEquals(false, after.state.configuration.enabled)
+        assertEquals(2L, after.simulationGeneration)
+        store.set(before.state)
+        assertEquals(2L, store.observation().simulationGeneration)
+        org.junit.Assert.assertNotEquals(store.instanceId, RuntimeSnapshotStore().instanceId)
+    }
+
+    @Test fun simulationGenerationAndEnabledFlagAreOneAtomicObservation() {
+        val store = RuntimeSnapshotStore()
+        val writer = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            val future = writer.submit {
+                repeat(10_000) { store.update { it.copy(configuration = it.configuration.copy(enabled = !it.configuration.enabled)) } }
+            }
+            repeat(10_000) {
+                val observed = store.observation()
+                assertEquals(observed.simulationGeneration % 2 == 1L, observed.state.configuration.enabled)
+            }
+            future.get(10, java.util.concurrent.TimeUnit.SECONDS)
+            assertEquals(10_000L, store.observation().simulationGeneration)
+        } finally { writer.shutdownNow() }
+    }
 }

@@ -8,6 +8,7 @@ import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.providers.ProviderKind
 import com.system.location.service.core.routing.RoutingConfig
 import java.util.concurrent.atomic.AtomicReference
+import java.util.UUID
 import kotlinx.serialization.Serializable
 
 /** P5-07: immutable hand-off between config/sample/environment producers and hook readers. */
@@ -51,21 +52,29 @@ data class RuntimeSnapshot(
     }
 }
 
-/**
- * Atomic snapshot holder. Readers never observe a half-updated sample/config/environment; the
- * mutable [com.system.location.service.hook.utils.FakeLoc] can be migrated to this incrementally.
- */
-class RuntimeSnapshotStore(initial: RuntimeSnapshot = RuntimeSnapshot.EMPTY) {
-    private val ref = AtomicReference(initial)
+/** Coherent process-local evidence; simulationGeneration is never restored from a peer snapshot. */
+data class RuntimeSnapshotObservation(val state: RuntimeSnapshot, val simulationGeneration: Long)
 
-    fun current(): RuntimeSnapshot = ref.get()
+/** Atomic snapshot and simulation-transition holder; readers observe both from the same CAS. */
+class RuntimeSnapshotStore(initial: RuntimeSnapshot = RuntimeSnapshot.EMPTY) {
+    val instanceId: String = UUID.randomUUID().toString()
+    private val ref = AtomicReference(RuntimeSnapshotObservation(initial, 0))
+
+    fun current(): RuntimeSnapshot = ref.get().state
+
+    fun observation(): RuntimeSnapshotObservation = ref.get()
 
     fun set(snapshot: RuntimeSnapshot) {
-        ref.set(snapshot)
+        update { snapshot }
     }
 
     fun update(transform: (RuntimeSnapshot) -> RuntimeSnapshot): RuntimeSnapshot =
-        ref.updateAndGet(transform)
+        ref.updateAndGet { previous ->
+            val next = transform(previous.state)
+            val generation = if (previous.state.configuration.enabled != next.configuration.enabled)
+                Math.addExact(previous.simulationGeneration, 1) else previous.simulationGeneration
+            RuntimeSnapshotObservation(next, generation)
+        }.state
 
     fun publishSample(
         sample: LocationSample,

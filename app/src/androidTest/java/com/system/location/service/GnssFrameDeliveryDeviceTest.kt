@@ -25,6 +25,7 @@ import com.system.location.service.hook.security.CommandClient
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.runtime.ScenarioRuntime
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.*
 import org.junit.Assert.*
@@ -69,6 +70,7 @@ class GnssFrameDeliveryDeviceTest {
         val statuses = ConcurrentLinkedQueue<Status>()
         val sentences = ConcurrentLinkedQueue<Sentence>()
         val locations = ConcurrentLinkedQueue<Location>()
+        val sampleWallOverride = AtomicLong(0L)
         val existingRaw = object : GnssMeasurementsEvent.Callback() {}
         val blockedRaw = object : GnssMeasurementsEvent.Callback() {}
         assumeTrue("Preserve existing raw registrations", rawRegistrations(context.packageName) == 0)
@@ -125,7 +127,8 @@ class GnssFrameDeliveryDeviceTest {
             fun publish() {
                 command("publish_sample") {
                     SampleWire.write(this, LocationSample(observer, altitude = 42.0, accuracy = 5f,
-                        speed = 0f, bearing = 73f, timeMillis = System.currentTimeMillis(), elapsedNanos = SystemClock.elapsedRealtimeNanos()))
+                        speed = 0f, bearing = 73f, timeMillis = sampleWallOverride.get().takeIf { it > 0L }
+                            ?: System.currentTimeMillis(), elapsedNanos = SystemClock.elapsedRealtimeNanos()))
                 }
             }
             publish()
@@ -190,11 +193,25 @@ class GnssFrameDeliveryDeviceTest {
                 assertEquals(33.5f, extras.getFloat("meanCn0", -1f), 0.001f)
                 assertEquals(35f, extras.getFloat("maxCn0", -1f), 0.001f)
             }
-            // A requested lower bound cannot invent identities beyond the fixture.
-            command("put_config") { putInt("min_satellites", 128) }
-            statuses.clear()
-            withTimeout(5_000L) { while (statuses.size < 2) delay(100L) }
-            assertTrue(statuses.all { it.satellites.size == satellites.size })
+            // Freeze only this fixture's display clock to revisit one sparse empirical frame.
+            // The elapsed publication lease remains current; no system clock/settings are changed.
+            val sparse = satellites.take(satellites.size / 2)
+            assertNotNull(GnssGeometry.solve(sparse).dop)
+            val variable = fixture.copy(frames = fixture.frames.mapIndexed { index, frame ->
+                if (index == fixture.frames.lastIndex) frame.copy(satellites = sparse) else frame
+            })
+            sampleWallOverride.set(fixture.endedAtMillis)
+            command("put_config") { putString("gnss_capture", GnssCaptureWire.encode(variable)) }
+            for ((minimum, expectedCount) in listOf(0 to sparse.size, 20 to 20, 128 to satellites.size, 0 to sparse.size)) {
+                command("put_config") { putInt("min_satellites", minimum) }
+                publish()
+                statuses.clear()
+                withTimeout(5_000L) {
+                    while (statuses.size < 2 || statuses.toList().takeLast(2).any { it.satellites.size != expectedCount }) delay(100L)
+                }
+                val latest = statuses.toList().takeLast(2)
+                assertTrue(latest.all { it.satellites.all { satellite -> satellite.constellation to satellite.svid in expectedIds } })
+            }
         } finally {
             renewal?.cancelAndJoin()
             try {

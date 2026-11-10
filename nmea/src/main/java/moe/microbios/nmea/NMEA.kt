@@ -127,7 +127,11 @@ data class NMEA(
                     val totalMessages = sequences[1].toInt()
                     val messageNumber = sequences[2].toInt()
                     val totalSatellitesInView = sequences[3].toInt()
-                    val satellites = sequences.subList(4, sequences.size - 1).chunked(4).map {
+                    val remaining = sequences.size - 4
+                    require(remaining % 4 in 0..1) { "incomplete GSV satellite fields" }
+                    val hasInfoId = remaining % 4 == 1
+                    val satelliteEnd = sequences.size - if (hasInfoId) 1 else 0
+                    val satellites = sequences.subList(4, satelliteEnd).chunked(4).map {
                         NmeaValue.GSV.Satellite(
                             prn = it[0].toInt(),
                             elevation = it[1].toInt(),
@@ -135,9 +139,7 @@ data class NMEA(
                             snr = it[3].toIntOrNull()
                         )
                     }
-                    val infoId = if((sequences.size - 4) % 4 != 0) {
-                        sequences.last()
-                    } else "0"
+                    val infoId = if (hasInfoId) sequences.last() else null
                     return NMEA(talkerId, NmeaValue.GSV(totalMessages, messageNumber, totalSatellitesInView, satellites, infoId))
                 }
                 "RMC" -> {

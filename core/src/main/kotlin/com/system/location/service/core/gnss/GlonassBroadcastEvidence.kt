@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GlonassCoordinateEvidence(val epochDay: Long, val secondsOfDay: Double) {
     init {
+        LocalDate.ofEpochDay(epochDay)
         require(secondsOfDay.isFinite() && secondsOfDay >= 0.0 && secondsOfDay < 86400.0)
     }
 
@@ -107,8 +108,9 @@ data class GlonassBroadcastEphemerisEvidence(
         val reference = referenceTime.coordinate()
         val from = validFrom.coordinate()
         val until = validUntil.coordinate()
-        require(from.secondsSince(reference) in -900.0..0.0)
-        require(until.secondsSince(reference) in 0.0..900.0 && until.secondsSince(from) > 0.0)
+        require(from.secondsSince(reference) > -900.0 && from.secondsSince(reference) <= 0.0)
+        require(until.secondsSince(reference) >= 0.0 && until.secondsSince(reference) < 900.0 &&
+            until.secondsSince(from) > 0.0)
     }
 
     fun resolve(domain: GlonassTimeDomain): GlonassOrbitalEphemeris? = runCatching {

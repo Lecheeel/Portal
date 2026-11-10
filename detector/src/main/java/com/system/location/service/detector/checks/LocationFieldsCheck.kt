@@ -54,23 +54,24 @@ class LocationFieldsCheck : Check {
         val maxCn0 = extras?.getFloat("maxCn0", -1f) ?: -1f
         lines += "extras: keys=${extras?.keySet()?.sorted() ?: "null"} satellites=$satellites meanCn0=$meanCn0 maxCn0=$maxCn0"
         val optional = linkedMapOf<String, Double>()
-        fun supplied(name: String, present: Boolean, value: Double) {
-            if (present) optional[name] = value
+        fun supplied(name: String, present: Boolean, value: () -> Double) {
+            if (present) optional[name] = value()
         }
-        supplied("satellites", extras?.containsKey("satellites") == true, satellites.toDouble())
-        supplied("meanCn0", extras?.containsKey("meanCn0") == true, meanCn0.toDouble())
-        supplied("maxCn0", extras?.containsKey("maxCn0") == true, maxCn0.toDouble())
-        supplied("accuracy", location.hasAccuracy(), location.accuracy.toDouble())
-        supplied("altitude", location.hasAltitude(), location.altitude)
-        supplied("verticalAccuracy", location.hasVerticalAccuracy(), location.verticalAccuracyMeters.toDouble())
-        supplied("speed", location.hasSpeed(), location.speed.toDouble())
-        supplied("speedAccuracy", location.hasSpeedAccuracy(), location.speedAccuracyMetersPerSecond.toDouble())
-        supplied("bearing", location.hasBearing(), location.bearing.toDouble())
-        supplied("bearingAccuracy", location.hasBearingAccuracy(), location.bearingAccuracyDegrees.toDouble())
-        supplied("elapsedUncertainty", location.hasElapsedRealtimeUncertaintyNanos(), location.elapsedRealtimeUncertaintyNanos)
+        supplied("satellites", extras?.containsKey("satellites") == true) { satellites.toDouble() }
+        supplied("meanCn0", extras?.containsKey("meanCn0") == true) { meanCn0.toDouble() }
+        supplied("maxCn0", extras?.containsKey("maxCn0") == true) { maxCn0.toDouble() }
+        supplied("accuracy", location.hasAccuracy()) { location.accuracy.toDouble() }
+        supplied("altitude", location.hasAltitude()) { location.altitude }
+        supplied("verticalAccuracy", location.hasVerticalAccuracy()) { location.verticalAccuracyMeters.toDouble() }
+        supplied("speed", location.hasSpeed()) { location.speed.toDouble() }
+        supplied("speedAccuracy", location.hasSpeedAccuracy()) { location.speedAccuracyMetersPerSecond.toDouble() }
+        supplied("bearing", location.hasBearing()) { location.bearing.toDouble() }
+        supplied("bearingAccuracy", location.hasBearingAccuracy()) { location.bearingAccuracyDegrees.toDouble() }
+        supplied("elapsedUncertainty", location.hasElapsedRealtimeUncertaintyNanos()) { location.elapsedRealtimeUncertaintyNanos }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            supplied("mslAltitude", location.hasMslAltitude(), location.mslAltitudeMeters)
-            supplied("mslAccuracy", location.hasMslAltitudeAccuracy(), location.mslAltitudeAccuracyMeters.toDouble())
+            // API 34 getters throw when absent. Test presence before evaluating any optional getter.
+            supplied("mslAltitude", location.hasMslAltitude()) { location.mslAltitudeMeters }
+            supplied("mslAccuracy", location.hasMslAltitudeAccuracy()) { location.mslAltitudeAccuracyMeters.toDouble() }
         }
         issues += LocationFieldValidation.issues(location.latitude, location.longitude, optional)
         lines += "已提供可选字段：$optional；未提供的字段不作为异常"

@@ -72,9 +72,14 @@ class GnssFrameDeliveryDeviceTest {
         val location = LocationListener { locations += Location(it) }
         val now = System.currentTimeMillis()
         val observer = Wgs84(31.230416, 121.473701)
-        val satellites = listOf(Constellation.GPS, Constellation.BEIDOU, Constellation.GALILEO, Constellation.GLONASS)
+        val satellites = Constellation.entries
             .flatMap { constellation -> (0..3).map { index ->
-                GnssSatellite(constellation, index + 1, if (index == 3) 75f else 20f,
+                val svid = when (constellation) {
+                    Constellation.QZSS -> 193 + index
+                    Constellation.SBAS -> 120 + index
+                    else -> index + 1
+                }
+                GnssSatellite(constellation, svid, if (index == 3) 75f else 20f,
                     index * 90f, 32f + index, true, true, true)
             } }
         val fixture = GnssCapture(deviceModel = "SYNTHETIC DEVICE TEST", osVersion = "transport fixture",
@@ -124,19 +129,23 @@ class GnssFrameDeliveryDeviceTest {
                 assertEquals(expectedDop.hdop, gga[8].toDouble(), 0.051)
                 assertEquals("One GGA per frame", 1, batch.count { type(it.text) == "GGA" })
                 val gsv = batch.filter { type(it.text) == "GSV" }
-                assertEquals(setOf("GP", "BD", "GA", "GL"), gsv.map { it.text.substring(1, 3) }.toSet())
-                assertEquals(4, gsv.size)
-                for (sentence in gsv) {
-                    val fields = sentence.text.substringBefore('*').split(',')
-                    assertEquals(4, fields[3].toInt())
-                    val expected = when (sentence.text.substring(1, 3)) {
+                assertEquals(setOf("GP", "BD", "GA", "GL", "GQ", "GI"), gsv.map { it.text.substring(1, 3) }.toSet())
+                assertEquals(7, gsv.size) // GPS and SBAS share GP, requiring two GSV pages.
+                for ((talker, pages) in gsv.groupBy { it.text.substring(1, 3) }) {
+                    val expected = when (talker) {
+                        "GP" -> listOf(1, 2, 3, 4, 33, 34, 35, 36)
                         "GL" -> listOf(65, 66, 67, 68)
                         else -> listOf(1, 2, 3, 4)
                     }
-                    assertEquals(expected, (4 until fields.size step 4).map { fields[it].toInt() })
+                    val ids = pages.sortedBy { it.text.substringBefore('*').split(',')[2].toInt() }.flatMap { sentence ->
+                        val fields = sentence.text.substringBefore('*').split(',')
+                        assertEquals(expected.size, fields[3].toInt())
+                        (4 until fields.size step 4).map { fields[it].toInt() }
+                    }
+                    assertEquals(expected, ids)
                 }
                 val gsa = batch.filter { type(it.text) == "GSA" }.map { it.text.substringBefore('*').split(',') }
-                assertEquals(setOf("1", "2", "3", "4"), gsa.map { it.last() }.toSet())
+                assertEquals(setOf("1", "2", "3", "4", "5", "6"), gsa.map { it.last() }.toSet())
                 assertEquals(satellites.size, gsa.sumOf { fields -> fields.subList(3, 15).count { it.isNotBlank() } })
             }
             for (fix in locations) {
@@ -145,7 +154,7 @@ class GnssFrameDeliveryDeviceTest {
                 assertEquals(33.5f, extras.getFloat("meanCn0", -1f), 0.001f)
                 assertEquals(35f, extras.getFloat("maxCn0", -1f), 0.001f)
             }
-            // A requested lower bound cannot invent identities beyond the sixteen-item fixture.
+            // A requested lower bound cannot invent identities beyond the fixture.
             command("put_config") { putInt("min_satellites", 128) }
             statuses.clear()
             withTimeout(5_000L) { while (statuses.size < 2) delay(100L) }

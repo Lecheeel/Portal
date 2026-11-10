@@ -48,13 +48,16 @@ data class GnssWindowProfile(
             val bins = mutableMapOf<Int, Int>()
             var used = 0
             frames.forEach { frame ->
-                val identities = frame.satellites.groupBy { it.constellation to it.svid }
+                // Android reports CN0=0 for placeholder rows. Keep those rows in the
+                // raw evidence, but never treat them as received signals in a profile.
+                val identities = frame.satellites.filter(::isUsableSignal)
+                    .groupBy { it.constellation to it.svid }
                 counts.increment(identities.size)
                 identities.forEach { (identity, signals) ->
                     systems.increment(identity.first)
                     if (signals.any { it.usedInFix }) used++
                 }
-                frame.satellites.forEach { s ->
+                frame.satellites.filter(::isUsableSignal).forEach { s ->
                     val elevation = minOf(17, (s.elevationDegrees / 5).toInt())
                     val cn0 = (s.cn0DbHz / 5).toInt()
                     bins.increment((s.constellation * 18 + elevation) * 13 + cn0)
@@ -66,6 +69,10 @@ data class GnssWindowProfile(
         }
 
         private fun MutableMap<Int, Int>.increment(key: Int) { this[key] = (this[key] ?: 0) + 1 }
+
+        private fun isUsableSignal(satellite: GnssSatelliteSnapshot): Boolean =
+            satellite.cn0DbHz > 0f && satellite.elevationDegrees in 0f..90f &&
+                satellite.azimuthDegrees in 0f..<360f
     }
 }
 

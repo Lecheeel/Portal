@@ -93,11 +93,12 @@ class GnssStatusCheckTest {
             GnssFrameSnapshot(1000L + index * 1000,
                 (1..8).map { satellite(it + index * 8, false).copy(cn0DbHz = 0f) })
         })
-        assertEquals(0.0, result.jaccardMin!!, 0.0)
-        assertEquals(0.0, result.jaccardAvg!!, 0.0)
-        assertEquals(2, result.jaccardPairs)
+        assertEquals(listOf(0, 0, 0), result.satellitesPerFrame)
+        assertNull(result.jaccardMin)
+        assertNull(result.jaccardAvg)
+        assertEquals(0, result.jaccardPairs)
         assertTrue(result.issues.isEmpty())
-        assertTrue(result.observations.any { it.contains("未参与定位") })
+        assertTrue(result.observations.any { it.contains("没有可用信号") })
         assertFalse(result.observations.any { it.contains("shuffle") || it.contains("Jaccard") })
     }
 }

@@ -52,6 +52,13 @@ class GnssProfileComparisonTest {
         assertFalse(profile(listOf(s(1)), (0L..30L).map { it * 3000 }).adequate)
     }
 
+    @Test fun zeroCn0RowsRemainRawEvidenceButAreExcludedFromProfileStatistics() {
+        val p = profile(listOf(s(1, cn0 = 0f), s(2, system = 6, cn0 = 30f)))
+        assertEquals(mapOf(6 to 31), p.constellationCounts)
+        assertEquals(31, p.signalBins.values.sum())
+        assertEquals(1.0, p.meanVisible, 0.0)
+    }
+
     @Test fun invalidEvidenceAndClockRollbackAreRejectedInsteadOfFiltered() {
         val invalid = listOf(s(1).copy(cn0DbHz = Float.NaN), s(1).copy(elevationDegrees = -1f),
             s(1).copy(azimuthDegrees = 360f), s(0), s(1, 8))

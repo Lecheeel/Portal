@@ -54,7 +54,7 @@ class GnssStatusCheck : Check {
         evidence += "GnssStatus 帧数=${frames.size}（至少需要 $MIN_FRAMES 帧）"
         if (frames.isNotEmpty()) {
             evidence += "已收到帧的独立卫星数：${sampleValues(frames.map { frame ->
-                frame.satellites.map { it.constellation to it.svid }.distinct().size.toString()
+                frame.satellites.filter(::isUsableSignal).map { it.constellation to it.svid }.distinct().size.toString()
             })}"
         }
         evidence += "位置样本=${snapshot.locations.size}，NMEA 句数=${snapshot.nmeaSentences.size}"
@@ -71,14 +71,22 @@ class GnssStatusCheck : Check {
     internal fun analyze(frames: List<GnssFrameSnapshot>): GnssAnalysis {
         val issues = mutableListOf<String>()
         val observations = mutableListOf<String>()
-        val identitiesPerFrame = frames.map { frame -> frame.satellites.groupBy { it.constellation to it.svid } }
+        // Keep raw rows for field validation, but exclude CN0=0/invalid geometry
+        // placeholders from signal counts, constellation ratios and stability metrics.
+        val identitiesPerFrame = frames.map { frame ->
+            frame.satellites.filter(::isUsableSignal).groupBy { it.constellation to it.svid }
+        }
         val satellitesPerFrame = identitiesPerFrame.map { it.size }
-        val constellationsPerFrame = frames.map { frame ->
-            frame.satellites.map { it.constellation }.filter { it != GnssStatus.CONSTELLATION_UNKNOWN }.distinct().size
+        val constellationsPerFrame = identitiesPerFrame.map { identities ->
+            identities.keys.map { it.first }.filter { it != GnssStatus.CONSTELLATION_UNKNOWN }.distinct().size
         }
 
         frames.forEachIndexed { index, frame ->
-            if (frame.satellites.isEmpty()) observations += "第 ${index + 1} 帧没有可见卫星，无法判断三维定位"
+            if (frame.satellites.isEmpty()) {
+                observations += "第 ${index + 1} 帧没有可见卫星，无法判断三维定位"
+            } else if (identitiesPerFrame[index].isEmpty()) {
+                observations += "第 ${index + 1} 帧没有可用信号（CN0=0 可能是 Android 占位值）"
+            }
             val invalidElevation = frame.satellites.count { !it.elevationDegrees.isFinite() || it.elevationDegrees !in 0f..90f }
             val invalidAzimuth = frame.satellites.count { !it.azimuthDegrees.isFinite() || it.azimuthDegrees < 0f || it.azimuthDegrees >= 360f }
             val invalidCn0 = frame.satellites.count { !it.cn0DbHz.isFinite() || it.cn0DbHz !in 0f..63f }
@@ -108,9 +116,9 @@ class GnssStatusCheck : Check {
             observations += "全部 $satelliteSamples 个卫星样本未参与定位，当前无法验证三维解"
         }
 
-        val cn0Values = frames.flatMap { frame -> frame.satellites.map { it.cn0DbHz } }
-            .filter { it.isFinite() }
-        val cn0Positive = cn0Values.filter { it > 0f }
+        val cn0Positive = frames.flatMap { frame -> frame.satellites.map { it.cn0DbHz } }
+            .filter { it.isFinite() && it > 0f }
+        val cn0Values = cn0Positive
         val cn0Min = cn0Positive.minOrNull()
         val cn0Max = cn0Positive.maxOrNull()
         val cn0Distinct = cn0Values.distinct().size
@@ -123,9 +131,7 @@ class GnssStatusCheck : Check {
                 "${cn0Positive.size} 个样本）"
         }
 
-        val keySets = frames.map { frame ->
-            frame.satellites.map { it.constellation to it.svid }.toSet()
-        }
+        val keySets = identitiesPerFrame.map { identities -> identities.keys }
         val jaccardValues = (0 until frames.size - 1).mapNotNull { index ->
             val previous = keySets[index]
             val next = keySets[index + 1]
@@ -380,6 +386,10 @@ private fun cn0ElevationPair(satellite: GnssSatelliteSnapshot): Pair<Float, Floa
     if (!cn0.isFinite() || cn0 <= 0f) return null
     return elevation to cn0
 }
+
+private fun isUsableSignal(satellite: GnssSatelliteSnapshot): Boolean =
+    satellite.cn0DbHz > 0f && satellite.elevationDegrees in 0f..90f &&
+        satellite.azimuthDegrees in 0f..<360f
 
 private fun pearsonCoefficient(pairs: List<Pair<Float, Float>>): Float? {
     if (pairs.size < 2) return null

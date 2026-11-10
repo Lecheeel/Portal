@@ -47,7 +47,9 @@ class GnssStatusCheck : Check {
         evidence += sampleWindowLine(snapshot)
         evidence += "GnssStatus 帧数=${frames.size}（至少需要 $MIN_FRAMES 帧）"
         if (frames.isNotEmpty()) {
-            evidence += "已收到帧的卫星数：${sampleValues(frames.map { it.satellites.size.toString() })}"
+            evidence += "已收到帧的独立卫星数：${sampleValues(frames.map { frame ->
+                frame.satellites.map { it.constellation to it.svid }.distinct().size.toString()
+            })}"
         }
         evidence += "位置样本=${snapshot.locations.size}，NMEA 句数=${snapshot.nmeaSentences.size}"
         evidence += relevantNotes(snapshot)
@@ -62,7 +64,8 @@ class GnssStatusCheck : Check {
     internal fun analyze(frames: List<GnssFrameSnapshot>): GnssAnalysis {
         val issues = mutableListOf<String>()
         val observations = mutableListOf<String>()
-        val satellitesPerFrame = frames.map { it.satellites.size }
+        val identitiesPerFrame = frames.map { frame -> frame.satellites.groupBy { it.constellation to it.svid } }
+        val satellitesPerFrame = identitiesPerFrame.map { it.size }
         val constellationsPerFrame = frames.map { frame ->
             frame.satellites.map { it.constellation }.filter { it != GnssStatus.CONSTELLATION_UNKNOWN }.distinct().size
         }
@@ -81,15 +84,17 @@ class GnssStatusCheck : Check {
         }
 
         val constellationHistogram = linkedMapOf<Int, Int>()
-        frames.forEach { frame ->
-            frame.satellites.forEach { satellite ->
-                constellationHistogram[satellite.constellation] =
-                    (constellationHistogram[satellite.constellation] ?: 0) + 1
+        identitiesPerFrame.forEach { identities ->
+            identities.keys.forEach { (constellation, _) ->
+                constellationHistogram[constellation] =
+                    (constellationHistogram[constellation] ?: 0) + 1
             }
         }
         val knownConstellations = constellationHistogram.keys
             .filter { it != GnssStatus.CONSTELLATION_UNKNOWN }
-        val usedInFixPerFrame = frames.map { frame -> frame.satellites.count { it.usedInFix } }
+        val usedInFixPerFrame = identitiesPerFrame.map { identities ->
+            identities.values.count { signals -> signals.any { it.usedInFix } }
+        }
         val usedInFixTotal = usedInFixPerFrame.sum()
         val satelliteSamples = satellitesPerFrame.sum()
         if (satelliteSamples > 0 && usedInFixTotal == 0) {
@@ -211,14 +216,14 @@ class GnssStatusCheck : Check {
     private fun buildEvidence(snapshot: SampleSnapshot, analysis: GnssAnalysis): List<String> {
         val evidence = mutableListOf<String>()
         evidence += sampleWindowLine(snapshot)
-        evidence += "每帧卫星数：${sampleValues(analysis.satellitesPerFrame.map { it.toString() })}" +
+        evidence += "每帧独立卫星数：${sampleValues(analysis.satellitesPerFrame.map { it.toString() })}" +
             "（min=${analysis.satellitesPerFrame.minOrNull() ?: 0}，" +
             "max=${analysis.satellitesPerFrame.maxOrNull() ?: 0}）"
         evidence += "星座直方图：${constellationHistogramLine(analysis.constellationHistogram)}"
         evidence += "每帧星座数：${sampleValues(analysis.constellationsPerFrame.map { it.toString() })}"
         evidence += "usedInFix：每帧 ${sampleValues(analysis.usedInFixPerFrame.map { it.toString() })}；" +
             "合计 ${analysis.usedInFixTotal}/${analysis.satelliteSamples}"
-        evidence += "CN0 dB-Hz：min=${formatDb(analysis.cn0Min)}，max=${formatDb(analysis.cn0Max)}，" +
+        evidence += "逐信号 CN0 dB-Hz：min=${formatDb(analysis.cn0Min)}，max=${formatDb(analysis.cn0Max)}，" +
             "不同值=${analysis.cn0Distinct}，有效样本=${analysis.cn0Samples}"
         evidence += "卫星集合 Jaccard：min=${formatRatio(analysis.jaccardMin)}，" +
             "avg=${formatRatio(analysis.jaccardAvg)}（相邻 ${analysis.jaccardPairs} 对）"

@@ -46,8 +46,23 @@ class GnssStatusCheckTest {
     @Test fun multibandCountsAbove64AndRepeatedSvidDoNotImplyInvalidStatus() {
         val dualBand = (1..40).flatMap { listOf(satellite(it), satellite(it).copy(cn0DbHz = 42f)) }
         assertEquals(80, dualBand.size)
-        assertTrue(analyze(dualBand).issues.isEmpty())
+        val result = analyze(dualBand)
+        assertTrue(result.issues.isEmpty())
+        assertEquals(listOf(40, 40, 40), result.satellitesPerFrame)
+        assertEquals(listOf(40, 40, 40), result.usedInFixPerFrame)
+        assertEquals(mapOf(1 to 120), result.constellationHistogram)
+        assertEquals(120, result.satelliteSamples)
+        assertEquals(240, result.cn0Samples)
         val oneIdentity = analyze(List(8) { satellite(1) })
         assertTrue(oneIdentity.observations.any { it.contains("仅 1 颗独立卫星") })
+    }
+
+    @Test fun constellationRatiosCountIdentitiesAndAnyUsedSignalMarksItsSatelliteInUse() {
+        val signals = listOf(satellite(1, false), satellite(1, true), satellite(2, false).copy(constellation = 6))
+        val result = analyze(signals)
+        assertEquals(mapOf(1 to 3, 6 to 3), result.constellationHistogram)
+        assertEquals(listOf(2, 2, 2), result.satellitesPerFrame)
+        assertEquals(listOf(1, 1, 1), result.usedInFixPerFrame)
+        assertEquals(3, result.usedInFixTotal)
     }
 }

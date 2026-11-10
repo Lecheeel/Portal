@@ -160,24 +160,9 @@ internal object GnssProviderHooks {
                             },
                     )
 
-                    cGnssLocationProvider.onceHookMethod(
-                        "setRefLocation",
-                        Int::class.java,
-                        CellIdentity::class.java,
-                        callback =
-                            XposedInterface.Hooker intercept55@{ chain ->
-                                val args = chain.args.toTypedArray()
-
-                                if (!FakeLoc.enable) return@intercept55 chain.proceed(args)
-                                if (FakeLoc.enableDebugLog) {
-                                    Logger.debug("GnssLocationProvider.setRefLocation: injected!")
-                                }
-
-                                args[0] = 114514 // disable AGPS
-
-                                chain.proceed(args)
-                            },
-                    )
+                    // setRefLocation carries AGPS reference-cell data. The raw-GNSS
+                    // preference does not control AGPS, so leave this framework call
+                    // untouched instead of writing an invalid sentinel flag.
                 }
             }
             .onFailure { Logger.warn("Failed to hook GnssLocationProvider", it) }

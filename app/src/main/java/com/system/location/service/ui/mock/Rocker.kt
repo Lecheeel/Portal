@@ -45,6 +45,7 @@ class Rocker(private val context: Context) {
     var isMinimized = true
         private set
     private var autoStatus = false
+    private var speedExpanded = false
     private val speedSlider = root.findViewById<Slider>(R.id.speed_slider)
     private val speedText = root.findViewById<TextView>(R.id.speed)
     private var displayedSpeed = 0.0
@@ -62,6 +63,8 @@ class Rocker(private val context: Context) {
         })
         root.findViewById<View>(R.id.speed_down).setOnClickListener { changeSpeed(displayedSpeed - 0.1) }
         root.findViewById<View>(R.id.speed_up).setOnClickListener { changeSpeed(displayedSpeed + 0.1) }
+        root.findViewById<View>(R.id.speed_toggle).setOnClickListener { expandSpeed(!speedExpanded) }
+        expandSpeed(false)
         compact.setOnClickListener { minimize(false) }
         root.findViewById<View>(R.id.expand_menu).setOnClickListener { minimize(true) }
         attachDrag(compact)
@@ -94,9 +97,20 @@ class Rocker(private val context: Context) {
     }
 
     fun minimize(value: Boolean) {
+        if (value) expandSpeed(false)
         isMinimized = value
         compact.visibility = if (value) View.VISIBLE else View.GONE
         panel.visibility = if (value) View.GONE else View.VISIBLE
+        if (isStart) windowManager.updateViewLayout(root, layoutParams)
+    }
+
+    private fun expandSpeed(expanded: Boolean) {
+        speedExpanded = expanded
+        root.findViewById<View>(R.id.speed_controls).visibility = if (expanded) View.VISIBLE else View.GONE
+        root.findViewById<View>(R.id.speed_expand_icon).rotation = if (expanded) 180f else 0f
+        root.findViewById<View>(R.id.speed_toggle).stateDescription = context.getString(
+            if (expanded) R.string.overlay_expanded else R.string.overlay_collapsed)
+        if (!expanded) draggingSpeed = false
         if (isStart) windowManager.updateViewLayout(root, layoutParams)
     }
 
@@ -149,6 +163,7 @@ class Rocker(private val context: Context) {
     fun setSpeedState(route: Boolean, speed: Double) {
         val title = context.getString(if (route) R.string.overlay_route_speed else R.string.rocker_speed)
         speedSlider.contentDescription = title
+        root.findViewById<View>(R.id.speed_toggle).tooltipText = title
         if (!draggingSpeed) renderSpeed(speed)
     }
 
@@ -160,6 +175,7 @@ class Rocker(private val context: Context) {
 
     private fun renderSpeed(speed: Double) {
         displayedSpeed = speed.coerceIn(0.0, 1000.0)
+        root.findViewById<TextView>(R.id.speed_summary).text = context.getString(R.string.overlay_speed_value, displayedSpeed)
         speedText.text = context.getString(R.string.overlay_speed_number, displayedSpeed)
         speedText.contentDescription = context.getString(R.string.overlay_speed_value, displayedSpeed)
         root.findViewById<TextView>(R.id.speed_kmh).text = context.getString(R.string.speed_kmh, displayedSpeed * 3.6)

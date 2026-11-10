@@ -16,4 +16,7 @@
     <string name="overlay_paused">已暂停</string>
     <string name="overlay_idle">未运行</string>
     <string name="overlay_speed_number">%1$.2f</string>
+    <string name="overlay_speed_toggle">速度调节</string>
+    <string name="overlay_expanded">已展开</string>
+    <string name="overlay_collapsed">已收起</string>
 </resources>

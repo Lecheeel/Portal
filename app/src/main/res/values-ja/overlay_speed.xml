@@ -16,4 +16,7 @@
     <string name="overlay_paused">一時停止中</string>
     <string name="overlay_idle">停止中</string>
     <string name="overlay_speed_number">%1$.2f</string>
+    <string name="overlay_speed_toggle">速度調整</string>
+    <string name="overlay_expanded">展開中</string>
+    <string name="overlay_collapsed">折りたたみ中</string>
 </resources>

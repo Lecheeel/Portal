@@ -123,9 +123,12 @@ class RockerOverlayTest {
                 captureUi("overlay-minimized")
                 overlay(R.id.rocker_minimized).perform(click())
                 overlay(R.id.rocker).check(matches(isDisplayed()))
+                overlay(R.id.speed_slider).check(matches(withEffectiveVisibility(Visibility.GONE)))
+                captureUi("overlay-expanded")
+                overlay(R.id.speed_toggle).perform(click())
                 overlay(R.id.speed_slider).check(matches(withContentDescription(R.string.rocker_speed)))
                 overlay(R.id.speed_slider).check(matches(isDisplayed()))
-                captureUi("overlay-expanded")
+                captureUi("overlay-speed-expanded")
                 overlay(R.id.speed_up).perform(click())
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.15) > 0.001) delay(10) } }
                 overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_number, context.speed))))
@@ -135,7 +138,8 @@ class RockerOverlayTest {
                 overlay(R.id.expand_menu).perform(click())
                 overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
                 overlay(R.id.rocker_minimized).perform(click())
-                overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_number, context.speed))))
+                overlay(R.id.speed_slider).check(matches(withEffectiveVisibility(Visibility.GONE)))
+                overlay(R.id.speed_summary).check(matches(withText(context.getString(R.string.overlay_speed_value, context.speed))))
                 overlay(R.id.expand_menu).perform(click())
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
                 scenario.recreate()

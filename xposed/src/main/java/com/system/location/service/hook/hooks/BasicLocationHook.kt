@@ -8,7 +8,7 @@ import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.toClassOrThrow
-import com.system.location.service.hook.utils.toLocation
+import com.system.location.service.hook.utils.ProviderView
 import io.github.libxposed.api.XposedInterface
 
 object BasicLocationHook : BaseLocationHook() {
@@ -28,7 +28,8 @@ object BasicLocationHook : BaseLocationHook() {
                         if (!FakeLoc.enable) return@intercept1 result
 
                         val locations = result as List<*>
-                        result = locations.map { injectLocation(it as Location) }
+                        val context = ProviderView.capture()
+                        result = locations.map { injectLocation(it as Location, context = context) }
 
                         result
                     },
@@ -57,10 +58,10 @@ object BasicLocationHook : BaseLocationHook() {
                                 ?: return@intercept2 chain.proceed(args)
                         if (locations.isEmpty() || locations.any { it !is Location })
                             return@intercept2 chain.proceed(args)
-                        val sample = FakeLoc.snapshot()
+                        val context = ProviderView.capture()
                         mLocationsField.set(
                             locationResult,
-                            locations.map { sample.toLocation((it as Location).provider) },
+                            locations.map { injectLocation(it as Location, context = context) },
                         )
 
                         chain.proceed(args)

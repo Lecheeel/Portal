@@ -72,11 +72,13 @@ object FakeLoc {
     var disableGetFromLocation = false
 
     /** Legacy enable_agps key now controls only real raw GNSS data access. */
+    @Volatile
     var allowPhysicalRawGnss = false
 
     /**
      * 是否允许NMEA模块
      */
+    @Volatile
     var enableNMEA = true
 
     /**
@@ -98,6 +100,7 @@ object FakeLoc {
     /**
      * 模拟最小卫星数量
      */
+    @Volatile
     var minSatellites = 0
 
     /** 环境生成 seed；同一位置、同一 seed 必须生成同一组 AP/基站（ADR-022）。 */

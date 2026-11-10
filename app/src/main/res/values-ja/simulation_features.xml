@@ -25,5 +25,5 @@
     <string name="platform_fused_channel">システム Fused（実験的）</string>
     <string name="platform_fused_channel_desc">初期状態では無効です。システムの fused モック Provider を追加します。Google の経路とは独立しており、ROM により互換性が異なります。失敗時も GPS／Network を継続します。</string>
     <string name="startup_burst">開始直後の集中送信</string>
-    <string name="startup_burst_desc">標準モードの開始後、目標間隔80ミリ秒で5回追加送信し、その後は設定間隔に戻ります。システムにより遅延する場合があります。一時停止、停止、シナリオ変更で残りの集中送信を取り消します。</string>
+    <string name="startup_burst_desc">シナリオ開始後、目標間隔80ミリ秒で5回追加送信し、その後は設定間隔に戻ります。システムにより遅延する場合があります。一時停止、停止、シナリオ変更で残りの集中送信を取り消します。</string>
 </resources>

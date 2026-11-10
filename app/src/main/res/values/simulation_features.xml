@@ -27,5 +27,5 @@
     <string name="platform_fused_channel">系统 Fused 通道（实验性）</string>
     <string name="platform_fused_channel_desc">默认关闭；额外注册系统 fused 模拟 Provider，与 Google 通道独立，兼容性取决于 ROM。失败时继续使用 GPS／Network。</string>
     <string name="startup_burst">启动时密集提交</string>
-    <string name="startup_burst_desc">标准模式启动后额外提交5次，目标间隔80毫秒，然后恢复设定间隔。后台调度可能延迟；暂停、停止或切换场景取消本次密集提交。</string>
+    <string name="startup_burst_desc">启动场景后额外提交5次，目标间隔80毫秒，然后恢复设定间隔。后台调度可能延迟；暂停、停止或切换场景取消本次密集提交。</string>
 </resources>

@@ -642,6 +642,9 @@ internal object LocationServiceHook : BaseLocationHook() {
 
     fun locationSubscriptions(): List<CallbackSubscription> = listeners.subscriptions()
 
+    /** Release this generation's death links after its subscriptions have been saved. */
+    internal fun retireLocationSubscriptions() = listeners.clear()
+
     private fun hookILocationListener(listener: Any) {
         val classListener = listener.javaClass
         if (FakeLoc.enableDebugLog)

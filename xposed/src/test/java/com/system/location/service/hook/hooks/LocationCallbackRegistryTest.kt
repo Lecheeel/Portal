@@ -7,6 +7,26 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LocationCallbackRegistryTest {
+    @Test fun retirementReleasesOldDeathLinkWhileSavedProvidersRestoreInSuccessor() {
+        val transport = Transport()
+        val old = LocationCallbackRegistry()
+        val successor = LocationCallbackRegistry()
+        old.register("gps", transport.listener(), 10001)
+        old.register("network", transport.listener(), 10001)
+        val saved = old.subscriptions()
+        val oldDeath = transport.death!!
+        old.clear()
+        assertEquals(1, transport.unlinks)
+        assertTrue(old.listeners().isEmpty())
+        assertTrue(successor.restore(saved.single()))
+        assertEquals(2, transport.links)
+        oldDeath.binderDied()
+        assertEquals(listOf("gps", "network"), successor.listeners().map { it.first })
+        assertEquals(10001, successor.subscriptions().single().uid)
+        successor.clear()
+        assertEquals(transport.links, transport.unlinks)
+    }
+
     @Test fun duplicateProviderSubscriptionsShareOneDeathRecipientAndPreserveOtherProviders() {
         val transport = Transport()
         var added = 0

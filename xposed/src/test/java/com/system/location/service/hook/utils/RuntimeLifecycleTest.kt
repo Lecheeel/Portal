@@ -129,4 +129,26 @@ class RuntimeLifecycleTest {
             assertEquals(20, stopped.configuration.minimumSatellites)
         } finally { FakeLoc.runtimeSnapshots.set(saved) }
     }
+
+    @Test fun stopClearsExternalOwnershipAndScenariosSoReenableCannotResurrectOldFix() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot())
+            val sample = LocationSample(Wgs84(31.0, 121.0), 10.0, 5f, 8f, 90f, 1000, 1000)
+            FakeLoc.acceptSample(sample, "route")
+            val stopped = FakeLoc.stopRuntime()
+            assertNull(stopped.sample)
+            assertFalse(FakeLoc.externallyDriven)
+            assertTrue(FakeLoc.scenarioSamples.scenarioIds().isEmpty())
+            FakeLoc.enable = true
+            val restored = FakeLoc.snapshot(true, 2000, 2000)
+            assertNotSame(sample, restored)
+            assertEquals(2000L, restored.timeMillis)
+            assertEquals(0f, restored.speed)
+            assertFalse(FakeLoc.captureTransfer(2000).externallyDriven)
+        } finally {
+            FakeLoc.stopRuntime()
+            FakeLoc.runtimeSnapshots.set(saved)
+        }
+    }
 }

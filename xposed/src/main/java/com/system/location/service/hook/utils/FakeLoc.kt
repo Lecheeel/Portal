@@ -281,9 +281,15 @@ object FakeLoc {
     }
 
     @Synchronized
-    fun stopRuntime(): RuntimeSnapshot = runtimeSnapshots.update {
-        it.copy(configuration = it.configuration.copy(enabled = false), hasBearings = false,
-            configRevision = Math.addExact(it.configRevision, 1L))
+    fun stopRuntime(): RuntimeSnapshot {
+        val stopped = runtimeSnapshots.update {
+            it.copy(configuration = it.configuration.copy(enabled = false), hasBearings = false, sample = null, provider = null,
+                configRevision = Math.addExact(it.configRevision, 1L))
+        }
+        externallyDriven = false
+        movementSpeed = 0f
+        scenarioSamples.replace(emptyMap())
+        return stopped
     }
 
     @Synchronized

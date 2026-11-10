@@ -3,18 +3,21 @@ package com.system.location.service.hook.hooks
 import android.os.IBinder
 import android.os.IInterface
 import android.os.RemoteException
+import com.system.location.service.hook.runtime.CallbackSubscription
+import com.system.location.service.hook.utils.BinderUtils
 
 /** One Binder/death recipient per transport, with distinct provider subscriptions beneath it. */
 internal class LocationCallbackRegistry(
     private val added: (IInterface) -> Unit = {},
     private val removed: (IBinder) -> Unit = {},
 ) {
-    private class Entry(val listener: IInterface, val death: IBinder.DeathRecipient,
+    private class Entry(val listener: IInterface, val uid: Int, val death: IBinder.DeathRecipient,
         val token: Any, val providers: MutableSet<String> = linkedSetOf())
     private val entries = LinkedHashMap<IBinder, Entry>()
 
     @Synchronized
-    fun register(provider: String, listener: IInterface): Boolean {
+    fun register(provider: String, listener: IInterface,
+        callerUid: Int = runCatching { BinderUtils.getCallerUid() }.getOrDefault(-1)): Boolean {
         val binder = listener.asBinder()
         if (!binder.isBinderAlive) {
             unregisterBinder(binder)
@@ -24,7 +27,7 @@ internal class LocationCallbackRegistry(
         val token = Any()
         // Implement the original zero-argument callback; newer Binder APIs delegate to it too.
         val death = IBinder.DeathRecipient { unregisterBinder(binder, token) }
-        val entry = Entry(listener, death, token).apply { providers += provider }
+        val entry = Entry(listener, callerUid, death, token).apply { providers += provider }
         entries[binder] = entry
         try {
             binder.linkToDeath(death, 0)
@@ -45,6 +48,31 @@ internal class LocationCallbackRegistry(
     }
 
     fun unregister(listener: IInterface) = unregisterBinder(listener.asBinder())
+
+    @Synchronized
+    fun subscriptions(): List<CallbackSubscription> = entries.values.map {
+        CallbackSubscription(it.listener, it.uid, providers = it.providers.toList())
+    }
+
+    /** Re-links a Binder owned by the framework without invoking old-generation callbacks. */
+    @Synchronized
+    fun restore(subscription: CallbackSubscription): Boolean {
+        val binder = subscription.listener.asBinder()
+        if (!binder.isBinderAlive || entries.containsKey(binder)) return false
+        val token = Any()
+        val death = IBinder.DeathRecipient { unregisterBinder(binder, token) }
+        val entry = Entry(subscription.listener, subscription.uid, death, token).apply {
+            providers += subscription.providers
+        }
+        entries[binder] = entry
+        return try {
+            binder.linkToDeath(death, 0)
+            if (!binder.isBinderAlive) { unregisterBinder(binder, token); false } else true
+        } catch (_: RemoteException) {
+            unregisterBinder(binder, token)
+            false
+        }
+    }
 
     @Synchronized
     private fun unregisterBinder(binder: IBinder, expectedToken: Any? = null) {

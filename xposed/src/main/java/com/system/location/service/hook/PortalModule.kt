@@ -5,6 +5,15 @@ import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.scope.HookStatusRegistry
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
+import com.system.location.service.core.runtime.RuntimeTransferWire
+import com.system.location.service.hook.runtime.ReloadExecutionGate
+import com.system.location.service.hook.hooks.LocationServiceHook
+import com.system.location.service.hook.hooks.gnss.GnssListenerRouting
+import com.system.location.service.hook.hooks.gnss.RawGnssCallbacks
+import com.system.location.service.hook.hooks.nmea.NmeaListenerRouting
+import com.system.location.service.hook.hooks.nmea.installNmeaCallback
+import com.system.location.service.hook.runtime.CallbackSubscription
+import com.system.location.service.hook.utils.FakeLoc
 
 /** System hooks wait for the framework's system-server classloader. */
 class PortalModule : XposedModule() {
@@ -57,27 +66,62 @@ class PortalModule : XposedModule() {
             android.util.Log.i("PortalModule", "hot reload rejected: system=${isSystemProcess()} native=${NativeCommand.isLoaded} process=${currentProcessName()}")
             return false
         }
-        LocationTicker.stop()
-        com.system.location.service.hook.hooks.gnss.GnssSignalInjection.stop()
-        param.setSavedInstanceState(Bundle().apply {
-            putString("process", "system_server")
-            putString("package", "android")
-            putInt("uid", 1000)
-            putInt("flags", 0)
-        })
+        val gate = HookRuntime.executionGate
+        if (!runCatching { gate.freeze(2000) }.getOrElse { HookRuntime.log(it); false }) return false
+        val paused = LocationTicker.stop() && com.system.location.service.hook.hooks.gnss.GnssSignalInjection.pause()
+        if (!paused) { gate.resume(); return false }
+        try {
+            val state = Bundle().apply {
+                putBundle("gate", gate.transferBundle())
+                putByteArray("runtime", RuntimeTransferWire.encode(FakeLoc.captureTransfer()))
+                putParcelableArrayList("location", ArrayList(LocationServiceHook.locationSubscriptions().map { it.toBundle() }))
+                putParcelableArrayList("gnss", ArrayList(GnssListenerRouting.subscriptions().map { it.toBundle() }))
+                putParcelableArrayList("nmea", ArrayList(NmeaListenerRouting.subscriptions().map { it.toBundle() }))
+                putParcelableArrayList("raw", ArrayList(RawGnssCallbacks.subscriptions().map { it.toBundle() }))
+                putString("process", "system_server")
+                putString("package", "android")
+                putInt("uid", 1000)
+                putInt("flags", 0)
+            }
+            param.setSavedInstanceState(state)
+        } catch (error: Throwable) {
+            gate.resume()
+            throw error
+        }
         android.util.Log.i("PortalModule", "hot reloading system_server")
         return true
     }
 
     override fun onHotReloaded(param: XposedModuleInterface.HotReloadedParam) {
         if (!param.isSystemServer && !isSystemProcess()) return
+        val saved = param.getSavedInstanceState() as? Bundle
+        val gateBundle = saved?.getBundle("gate")
+        if (gateBundle != null) HookRuntime.executionGate = ReloadExecutionGate.adopt(gateBundle)
         param.oldHookHandles.forEach { runCatching { it.unhook() } }
         HookRuntime.attach(this)
         HookRuntime.clearHooks()
         HookStatusRegistry.reset()
         val loader = ClassLoader.getSystemClassLoader()
         android.util.Log.i("PortalModule", "hot reloaded system_server loader=${loader.javaClass.name}")
+        saved?.getByteArray("runtime")?.let {
+            val restored = FakeLoc.restoreRuntime(RuntimeTransferWire.decode(it), android.os.SystemClock.elapsedRealtimeNanos())
+            SampleCommand.restoreLease(restored.state.sample, android.os.SystemClock.elapsedRealtimeNanos())
+        }
         lifecycle.systemServerStarting(loader)
+        restoreCallbacks(saved)
+        if (FakeLoc.runtimeSnapshots.current().configuration.enabled) LocationTicker.start()
+        if (FakeLoc.runtimeSnapshots.current().configuration.gnssEnabled) com.system.location.service.hook.hooks.gnss.GnssSignalInjection.ensureStarted()
+        HookRuntime.executionGate.resume()
+    }
+
+    private fun restoreCallbacks(saved: Bundle?) {
+        fun rows(key: String) = saved?.getParcelableArrayList<Bundle>(key).orEmpty().mapNotNull {
+            runCatching { CallbackSubscription.fromBundle(it) }.getOrNull()
+        }
+        rows("location").let(LocationServiceHook::restoreLocationSubscriptions)
+        rows("gnss").forEach { if (GnssListenerRouting.restore(it)) LocationServiceHook.installGnssStatusCallback(it.listener) }
+        rows("nmea").forEach { if (NmeaListenerRouting.restore(it)) installNmeaCallback(it.listener) }
+        rows("raw").forEach { if (RawGnssCallbacks.restore(it)) RawGnssCallbacks.installRestored(it.listener) }
     }
 }
 

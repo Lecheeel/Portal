@@ -8,6 +8,7 @@ import com.system.location.service.core.routing.RoutingTable
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.hook.runtime.CallbackSubscription
 
 /** Strong callbacks are bounded by Binder lifetime, explicit unregister and module teardown. */
 internal class GnssCallbackRegistry(
@@ -36,6 +37,27 @@ internal class GnssCallbackRegistry(
     }
 
     fun unregister(listener: IInterface) = unregisterBinder(listener.asBinder())
+
+    @Synchronized
+    fun subscriptions(): List<CallbackSubscription> = entries.values.map {
+        CallbackSubscription(it.listener, it.uid, it.packageName)
+    }
+
+    @Synchronized
+    fun restore(subscription: CallbackSubscription): Boolean {
+        val binder = subscription.listener.asBinder()
+        if (!binder.isBinderAlive || entries.containsKey(binder)) return false
+        val death = IBinder.DeathRecipient { unregisterBinder(binder) }
+        val entry = Entry(subscription.listener, subscription.packageName, subscription.uid, death)
+        entries[binder] = entry
+        return try {
+            binder.linkToDeath(death, 0)
+            if (!binder.isBinderAlive) { unregisterBinder(binder); false } else true
+        } catch (_: android.os.RemoteException) {
+            unregisterBinder(binder)
+            false
+        }
+    }
 
     @Synchronized
     private fun unregisterBinder(binder: IBinder) {

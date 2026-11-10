@@ -30,6 +30,7 @@ import com.system.location.service.hook.utils.ProviderView
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
+import com.system.location.service.hook.runtime.CallbackSubscription
 import kotlin.uuid.ExperimentalUuidApi
 
 internal object LocationServiceHook : BaseLocationHook() {
@@ -365,21 +366,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                 val result = chain.proceed()
                 if (result == false) return@registration result
                 val callback = args.firstOrNull() as? IInterface ?: return@registration result
-                // Install while simulation is stopped too, so an existing listener follows live toggles.
-                callback.javaClass.onceHookAllMethod(
-                    "onSvStatusChanged",
-                    XposedInterface.Hooker status@{ event ->
-                        val method = event.executable as? Method
-                        if (method == null || !ReceiverGnssStatusAdapter.supports(method))
-                            return@status event.proceed()
-                        val context = GnssReceiverRuntime.activeContext() ?: return@status event.proceed()
-                        val route = GnssListenerRouting.routeFor(event.thisObject, context.state.routing)
-                        if (route == null || GnssReceiverRuntime.frameForRoute(route, context) == null)
-                            return@status event.proceed()
-                        // The managed worker owns simulated delivery and invokes ORIGIN.
-                        null
-                    },
-                )
+                installGnssStatusCallback(callback)
                 GnssListenerRouting.register(callback, args.getOrNull(1) as? String)
                 result
             },
@@ -629,6 +616,31 @@ internal object LocationServiceHook : BaseLocationHook() {
             },
         )
     }
+
+    internal fun installGnssStatusCallback(callback: IInterface) {
+        callback.javaClass.onceHookAllMethod(
+            "onSvStatusChanged",
+            XposedInterface.Hooker status@{ event ->
+                val method = event.executable as? Method
+                if (method == null || !ReceiverGnssStatusAdapter.supports(method)) return@status event.proceed()
+                val context = GnssReceiverRuntime.activeContext() ?: return@status event.proceed()
+                val route = GnssListenerRouting.routeFor(event.thisObject, context.state.routing)
+                if (route == null || GnssReceiverRuntime.frameForRoute(route, context) == null) return@status event.proceed()
+                null
+            },
+        )
+    }
+
+    internal fun restoreLocationSubscriptions(subscriptions: List<CallbackSubscription>) {
+        subscriptions.forEach { subscription ->
+            if (listeners.restore(subscription)) {
+                hookILocationListener(subscription.listener)
+                ListenerRouting.register(subscription.listener, subscription.uid)
+            }
+        }
+    }
+
+    fun locationSubscriptions(): List<CallbackSubscription> = listeners.subscriptions()
 
     private fun hookILocationListener(listener: Any) {
         val classListener = listener.javaClass

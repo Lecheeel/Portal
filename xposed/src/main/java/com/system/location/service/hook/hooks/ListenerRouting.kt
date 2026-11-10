@@ -25,7 +25,10 @@ object ListenerRouting {
     private var cachedRouter: CallerRouter? = null
 
     fun register(listener: android.os.IInterface) {
-        val uid = BinderUtils.getCallerUid()
+        register(listener, BinderUtils.getCallerUid())
+    }
+
+    fun register(listener: android.os.IInterface, uid: Int) {
         if (uid > 0) callerUids[listener.asBinder()] = uid
     }
 

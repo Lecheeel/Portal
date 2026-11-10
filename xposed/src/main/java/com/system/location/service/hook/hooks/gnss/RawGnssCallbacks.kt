@@ -43,6 +43,12 @@ internal object RawGnssCallbacks {
     }
 
     fun clear() = registry.clear()
+    internal fun subscriptions() = registry.subscriptions()
+    internal fun restore(subscription: com.system.location.service.hook.runtime.CallbackSubscription): Boolean =
+        registry.restore(subscription)
+    internal fun installRestored(listener: IInterface) {
+        for (name in RAW_CALLBACKS) listener.javaClass.onceHookAllMethod(name, rawGnssCallbackHook())
+    }
 }
 
 private val RAW_PAYLOADS = setOf("onGnssMeasurementsReceived", "onGnssNavigationMessageReceived", "onGnssAntennaInfoReceived")

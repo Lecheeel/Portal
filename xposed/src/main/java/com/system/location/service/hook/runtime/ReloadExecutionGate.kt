@@ -2,6 +2,8 @@ package com.system.location.service.hook.runtime
 
 import java.util.IdentityHashMap
 import java.util.concurrent.TimeUnit
+import android.os.Binder
+import android.os.Bundle
 
 /**
  * Drains a generation without retaining its code in the successor. Only platform objects cross
@@ -71,6 +73,15 @@ internal class ReloadExecutionGate private constructor(private val shared: Array
         shared
     }
 
+    /** Bundle form used by the framework: Binder and primitive arrays are classloader-neutral. */
+    fun transferBundle(): Bundle = synchronized(monitor) {
+        check(counters[FROZEN] == 1L && counters[ACTIVE] == 0L && readers.isEmpty())
+        Bundle().apply {
+            putBinder("monitor", Binder())
+            putLongArray("counters", counters.copyOf())
+        }
+    }
+
     fun resume() = synchronized(monitor) {
         check(counters[GENERATION] == generation) { "A retired generation cannot resume delivery" }
         thaw()
@@ -97,6 +108,19 @@ internal class ReloadExecutionGate private constructor(private val shared: Array
                     (shared[2] as Map<*, *>).isEmpty())
                 counters[GENERATION] = Math.addExact(counters[GENERATION], 1L)
                 ReloadExecutionGate(shared, counters[GENERATION]).also {
+                    it.transitionOwner = Thread.currentThread()
+                }
+            }
+        }
+
+        fun adopt(bundle: Bundle): ReloadExecutionGate {
+            @Suppress("DEPRECATION")
+            val monitor = bundle.getBinder("monitor") ?: error("Missing reload monitor")
+            val counters = bundle.getLongArray("counters") ?: error("Missing reload counters")
+            return synchronized(monitor) {
+                require(counters.size == 3 && counters[1] == 1L && counters[0] == 0L)
+                counters[2] = Math.addExact(counters[2], 1L)
+                ReloadExecutionGate(arrayOf(monitor, counters, IdentityHashMap<Thread, Int>()), counters[2]).also {
                     it.transitionOwner = Thread.currentThread()
                 }
             }

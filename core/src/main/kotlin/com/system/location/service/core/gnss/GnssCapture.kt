@@ -15,9 +15,12 @@ data class GnssCapture(
     val measurements: List<GnssMeasurementBatch> = emptyList(),
     val navigation: List<GnssNavigationObservation> = emptyList(),
     val notes: List<String> = emptyList(),
+    /** Android BOOT_COUNT; missing in legacy captures. Elapsed-time evidence cannot cross boots. */
+    val bootCount: Int? = null,
 ) {
     init {
         require(schemaVersion == 1) { "unsupported GNSS capture version" }
+        require(bootCount == null || bootCount >= 0) { "invalid capture boot count" }
         require(deviceModel.isNotBlank() && osVersion.isNotBlank()) { "missing device metadata" }
         require(startedAtMillis >= 0 && endedAtMillis >= startedAtMillis) { "invalid capture interval" }
         require(frames.isNotEmpty() && frames.size <= MAX_FRAMES) { "invalid frame count" }

@@ -4,6 +4,7 @@ import com.system.location.service.core.gnss.*
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import com.system.location.service.core.geo.Wgs84
 import org.junit.Test
 
@@ -25,15 +26,22 @@ class GalileoBroadcastEvidenceTest {
         val offset = GalileoGpsTimeOffset(100, 2, 0, 0, time.plusSeconds(-600.0), time.plusSeconds(600.0))
         fun output(inav: DecodedGalileoInav? = decoded, fn: DecodedGalileoFnav? = null,
             carrier: Float? = 1_575_420_000f, transform: GnssReceiverDatumTransform? = datum(),
-            elapsed: Long = 0L): ReceiverGnssFrame {
+            elapsed: Long = 0L, services: List<GalileoServiceValidity>? = null): ReceiverGnssFrame {
+            val applicability = services ?: listOfNotNull(
+                inav?.let { GalileoServiceValidity(1, GalileoClockReference.INAV_E1_E5B, it.transmissionTimeOfWordFive,
+                    time.plusSeconds(-600.0), time.plusSeconds(600.0)) },
+                fn?.let { GalileoServiceValidity(1, GalileoClockReference.FNAV_E1_E5A, it.transmissionTimeOfPageOne,
+                    time.plusSeconds(-600.0), time.plusSeconds(600.0)) })
             val capture = GnssCapture(deviceModel = "synthetic health fixture", osVersion = "test", startedAtMillis = 0,
                 endedAtMillis = 60_000, bootCount = 7,
                 frames = (0..60).map { second -> GnssObservationFrame(second * 1000L, observer,
                     satellites = listOf(GnssSatellite(Constellation.GALILEO, 1, second * 1.5f, 0f, 35f,
                         true, true, true, carrier))) },
                 galileoBroadcastEvidence = GalileoBroadcastEvidence(clock, offset, GalileoReceiverFrame.GTRF,
-                    listOfNotNull(inav), listOfNotNull(fn), transform))
-            return ReceiverBroadcastSkyModel(capture).frame(60_000, observer, 0.0, 128, elapsed, 7)!!
+                    listOfNotNull(inav), listOfNotNull(fn), transform, applicability))
+            val transported = GnssCaptureWire.decode(GnssCaptureWire.encode(capture))
+            assertEquals(applicability, transported.galileoBroadcastEvidence!!.serviceValidity)
+            return ReceiverBroadcastSkyModel(transported).frame(60_000, observer, 0.0, 128, elapsed, 7)!!
         }
         val healthy = output()
         assertEquals(healthy.diagnostics.joinToString(), 1, healthy.satellites.size)
@@ -59,6 +67,20 @@ class GalileoBroadcastEvidenceTest {
         assertEquals(expected.elevationDegrees, actual.elevationDeg.toDouble(), 1e-5)
         assertEquals(expected.azimuthDegrees!!, actual.azimuthDeg.toDouble(), 1e-5)
         assertTrue(actual.elevationDeg != healthy.satellites.single().elevationDeg)
+        assertTrue(output(services = emptyList()).satellites.isEmpty())
+        assertTrue(output(null, fnav, 1_176_450_000f, services = emptyList()).satellites.isEmpty())
+        // Reception is inside [time,time+1), but light-time places emission before time.
+        val receptionOnly = GalileoServiceValidity(1, GalileoClockReference.INAV_E1_E5B, time, time, time.plusSeconds(1.0))
+        val rejected = output(services = listOf(receptionOnly))
+        assertTrue(rejected.satellites.isEmpty())
+        assertTrue(rejected.diagnostics.any { it.contains("发射时刻超出") })
+        assertThrows(IllegalArgumentException::class.java) {
+            output(services = listOf(receptionOnly.copy(broadcastAt = time.plusSeconds(0.1))))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            output(services = listOf(receptionOnly.copy(format = GalileoClockReference.FNAV_E1_E5A)))
+        }
+        assertThrows(IllegalArgumentException::class.java) { output(services = listOf(receptionOnly, receptionOnly)) }
     }
 
     @Test fun missingIndependentGgtoDoesNotCreateEvidence() {

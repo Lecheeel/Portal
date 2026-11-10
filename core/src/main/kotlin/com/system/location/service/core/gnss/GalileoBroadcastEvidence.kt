@@ -20,6 +20,7 @@ data class GalileoBroadcastEvidence(
     val fnav: List<DecodedGalileoFnav> = emptyList(),
     /** Frame names alone cannot convert a WGS 84 route into GTRF. */
     val receiverTransform: GnssReceiverDatumTransform? = null,
+    val serviceValidity: List<GalileoServiceValidity> = emptyList(),
 ) {
     init {
         require(receiverTransform == null || receiverTransform.bootCount == clock.bootCount)
@@ -29,10 +30,29 @@ data class GalileoBroadcastEvidence(
         require((inav.map { it.ephemeris.svid } + fnav.map { it.ephemeris.svid }).all { it in 1..36 }) {
             "invalid Galileo evidence SVID"
         }
+        require(serviceValidity.size <= 72)
+        require(serviceValidity.map { it.svid to it.format }.distinct().size == serviceValidity.size)
+        require(serviceValidity.all { service ->
+            when (service.format) {
+                GalileoClockReference.INAV_E1_E5B -> inav.any {
+                    it.ephemeris.svid == service.svid && it.transmissionTimeOfWordFive == service.broadcastAt
+                }
+                GalileoClockReference.FNAV_E1_E5A -> fnav.any {
+                    it.ephemeris.svid == service.svid && it.transmissionTimeOfPageOne == service.broadcastAt
+                }
+            }
+        }) { "Galileo service applicability is not bound to the decoded status snapshot" }
     }
 
     val identities: Set<Int>
         get() = (inav.map { it.ephemeris.svid } + fnav.map { it.ephemeris.svid }).toSet()
+
+    fun serviceRejection(svid: Int, format: GalileoClockReference, broadcastAt: GalileoTime,
+        transmission: GalileoTime): String? {
+        val service = serviceValidity.singleOrNull { it.svid == svid && it.format == format && it.broadcastAt == broadcastAt }
+            ?: return "缺少与当前健康广播绑定的独立服务适用期"
+        return if (service.contains(transmission)) null else "发射时刻超出独立服务适用期"
+    }
 
     companion object {
         /**
@@ -41,7 +61,8 @@ data class GalileoBroadcastEvidence(
          */
         fun fromCapture(capture: GnssCapture, gpsToGst: GalileoGpsTimeOffset?,
             receiverFrame: GalileoReceiverFrame? = null,
-            receiverTransform: GnssReceiverDatumTransform? = null): GalileoBroadcastEvidence? {
+            receiverTransform: GnssReceiverDatumTransform? = null,
+            serviceValidity: List<GalileoServiceValidity> = emptyList()): GalileoBroadcastEvidence? {
             val offset = gpsToGst ?: return null
             val frame = receiverFrame ?: return null
             val clock = GpsElapsedClockEvidence.fromCapture(capture) ?: return null
@@ -54,7 +75,7 @@ data class GalileoBroadcastEvidence(
             val inav = decoded.inav.filter { it.ephemeris.svid in visible }
             val fnav = decoded.fnav.filter { it.ephemeris.svid in visible }
             return if (inav.isEmpty() && fnav.isEmpty()) null
-                else GalileoBroadcastEvidence(clock, offset, frame, inav, fnav, receiverTransform)
+                else GalileoBroadcastEvidence(clock, offset, frame, inav, fnav, receiverTransform, serviceValidity)
         }
     }
 }

@@ -103,6 +103,11 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     diagnostics += "Galileo ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
                     return@mapNotNull null
                 }
+                galileoEvidence.serviceRejection(decoded.ephemeris.svid, GalileoClockReference.INAV_E1_E5B,
+                    decoded.transmissionTimeOfWordFive, result.observation.transmissionTime)?.let { reason ->
+                    diagnostics += "Galileo ${decoded.ephemeris.svid}：$reason，未回退同身份统计几何"
+                    return@mapNotNull null
+                }
                 val calibration = listOf(GalileoOpenServiceSignal.E1 to 1_575_420_000.0,
                     GalileoOpenServiceSignal.E5B to 1_207_140_000.0).firstNotNullOfOrNull { (band, frequency) ->
                     if (GalileoSignalClock.correction(decoded, result.observation.transmissionTime, band).correctionSeconds == null)
@@ -120,6 +125,11 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 val los = result.observation?.lineOfSight
                 if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
                     diagnostics += "Galileo ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
+                    return@mapNotNull null
+                }
+                galileoEvidence.serviceRejection(decoded.ephemeris.svid, GalileoClockReference.FNAV_E1_E5A,
+                    decoded.transmissionTimeOfPageOne, result.observation.transmissionTime)?.let { reason ->
+                    diagnostics += "Galileo ${decoded.ephemeris.svid}：$reason，未回退同身份统计几何"
                     return@mapNotNull null
                 }
                 val correction = GalileoSignalClock.correction(decoded, result.observation.transmissionTime,

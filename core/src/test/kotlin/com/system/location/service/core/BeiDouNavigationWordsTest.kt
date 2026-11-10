@@ -46,7 +46,8 @@ class BeiDouNavigationWordsTest {
         val subframes = (1..3).map { id ->
             BeiDouNavigationWords.decode(observation(BeiDouNavigationFormat.D1, id, 432000 + (id - 1) * 6)).subframe!!
         }
-        val result = BeiDouD1EphemerisDecoder.decode(subframes, BeiDouTime(700, 431000.0), BeiDouTime(700, 433000.0), BeiDouOrbitType.MEO)
+        val result = BeiDouD1EphemerisDecoder.decode(subframes, BeiDouTime(700, 431000.0), BeiDouTime(700, 433000.0),
+            BeiDouOrbitType.MEO, BeiDouTime(700, 432006.0))
         assertNotNull(result.reason, result.decoded)
         val decoded = result.decoded!!
         assertEquals(24, decoded.ephemeris.svid)
@@ -61,39 +62,68 @@ class BeiDouNavigationWordsTest {
         assertEquals(5, decoded.uraIndex)
         assertEquals(432000.0, decoded.transmissionTime.secondsOfWeek, 0.0)
         assertNull(BeiDouD1EphemerisDecoder.decode(subframes, BeiDouTime(700, 432001.0),
-            BeiDouTime(700, 432002.0), BeiDouOrbitType.MEO).decoded)
+            BeiDouTime(700, 432002.0), BeiDouOrbitType.MEO, BeiDouTime(700, 432006.0)).decoded)
         val inconsistent = subframes.toMutableList()
         inconsistent[2] = BeiDouNavigationWords.decode(observation(BeiDouNavigationFormat.D1, 3, 432042)).subframe!!
         assertNull(BeiDouD1EphemerisDecoder.decode(inconsistent, BeiDouTime(700, 431000.0),
-            BeiDouTime(700, 433000.0), BeiDouOrbitType.MEO).decoded)
+            BeiDouTime(700, 433000.0), BeiDouOrbitType.MEO, BeiDouTime(700, 432006.0)).decoded)
     }
 
-    private fun observation(format: BeiDouNavigationFormat, id: Int = 3, sow: Int = if (format == BeiDouNavigationFormat.D1) 432012 else 432000): GnssNavigationObservation {
+    @Test fun resolvesReferenceWeeksAndEpochsAndRejectsMissingOrAmbiguousTimingEvidence() {
+        fun frames(week: Int = 700, toe: Int = 432000, toc: Int = 432008, captureGap: Long = 0) = (1..3).map { id ->
+            val message = observation(BeiDouNavigationFormat.D1, id, week = week, toe = toe, toc = toc)
+                .copy(capturedAtMillis = 1 + captureGap * (id - 1))
+            BeiDouNavigationWords.decode(message).subframe!!
+        }
+        fun decode(frames: List<BeiDouNavigationSubframe>, ref: BeiDouTime = BeiDouTime(700, 432006.0),
+            type: BeiDouOrbitType = BeiDouOrbitType.MEO) = BeiDouD1EphemerisDecoder.decode(frames,
+                ref.plusSeconds(-1000.0), ref.plusSeconds(1000.0), type, ref)
+        assertNull(decode(frames(), type = BeiDouOrbitType.GEO).decoded)
+        assertNull(decode(frames(), ref = BeiDouTime(701, 432006.0)).decoded)
+        assertNull(decode(frames(captureGap = 30_001)).decoded)
+        assertNull(decode(frames(toe = 604800)).decoded)
+        assertNull(decode(frames(toc = 604800)).decoded)
+        assertNull(decode(frames(toe = 129600)).decoded) // exactly half a week from transmission
+        val resolved = decode(frames(), ref = BeiDouTime(8892, 432006.0)).decoded!!
+        assertEquals(8892, resolved.ephemeris.toe.week)
+        assertEquals(8892, resolved.transmissionTime.week)
+        // toe/toc close to the start of next week belong to that week, not transmission's week.
+        val nextWeek = decode(frames(toe = 0, toc = 8)).decoded!!
+        assertEquals(701, nextWeek.ephemeris.toe.week)
+        assertEquals(701, nextWeek.ephemeris.toc.week)
+        assertThrows(IllegalArgumentException::class.java) { frames()[0].rawUnsigned(25, 3) }
+    }
+
+    private fun observation(format: BeiDouNavigationFormat, id: Int = 3,
+        sow: Int = if (format == BeiDouNavigationFormat.D1) 432000 + (id - 1) * 6 else 432000,
+        week: Int = 700, toe: Int = 432000, toc: Int = 432008): GnssNavigationObservation {
         val information = BooleanArray(224)
         fun infoIndex(raw: Int): Int {
             val word = raw / 30; val within = raw % 30
             return if (word == 0) within else 26 + (word - 1) * 22 + within
         }
-        fun setRaw(start: Int, length: Int, value: Int) = repeat(length) { bit ->
-            information[infoIndex(start + bit)] = value ushr (length - bit - 1) and 1 != 0
+        fun setRaw(start: Int, length: Int, value: Long) = repeat(length) { bit ->
+            information[infoIndex(start + bit)] = value ushr (length - bit - 1) and 1L != 0L
         }
-        fun setParts(a: Int, al: Int, b: Int, bl: Int, value: Int) {
-            setRaw(a, al, value ushr bl); setRaw(b, bl, value and ((1 shl bl) - 1))
+        fun setParts(a: Int, al: Int, b: Int, bl: Int, value: Long) {
+            setRaw(a, al, value ushr bl); setRaw(b, bl, value and ((1L shl bl) - 1))
         }
         setRaw(0, 11, 0b11100010010)
-        setRaw(15, 3, id)
-        setParts(18, 8, 30, 12, sow)
+        setRaw(15, 3, id.toLong())
+        setParts(18, 8, 30, 12, sow.toLong())
         setRaw(42, 1, 0); setRaw(48, 4, 5)
         if (id == 1) {
-            setRaw(43, 5, 3); setRaw(60, 13, 700); setParts(73, 9, 90, 8, 432008 / 8)
+            setRaw(43, 5, 3); setRaw(60, 13, week.toLong()); setParts(73, 9, 90, 8, toc / 8L)
             setRaw(98, 10, 2); setParts(108, 4, 120, 6, 3); setRaw(214, 11, 0)
             setParts(225, 7, 240, 17, 1000); setParts(257, 5, 270, 17, 2000); setRaw(287, 5, 4)
         } else if (id == 2) {
             setParts(42, 10, 60, 6, 2); setParts(66, 16, 90, 2, 3); setParts(92, 20, 120, 12, 4)
             setParts(132, 10, 150, 22, 5000); setRaw(180, 18, 6); setParts(198, 4, 210, 14, 7)
-            setParts(224, 8, 240, 10, 8); setParts(250, 12, 270, 20, 5440 * 524288); setRaw(290, 2, 1)
+            setParts(224, 8, 240, 10, 8); setParts(250, 12, 270, 20, 5440L * 524288)
+            setRaw(290, 2, toe.toLong() / 8 ushr 15)
         } else {
-            setParts(42, 10, 60, 5, 21232); setParts(65, 17, 90, 15, 515396); setParts(105, 7, 120, 11, 2)
+            setParts(42, 10, 60, 5, toe.toLong() / 8 and 0x7fff); setParts(65, 17, 90, 15, 515396)
+            setParts(105, 7, 120, 11, 2)
             setParts(131, 11, 150, 13, 3); setParts(163, 9, 180, 9, 4); setParts(189, 13, 210, 1, 5)
             setParts(211, 21, 240, 11, 6); setParts(251, 11, 270, 21, 7)
         }

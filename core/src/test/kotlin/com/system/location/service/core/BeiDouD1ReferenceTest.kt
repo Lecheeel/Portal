@@ -18,7 +18,7 @@ class BeiDouD1ReferenceTest {
                 result.subframe!!
             }
             val result = BeiDouD1EphemerisDecoder.decode(subframes, BeiDouTime(700, 431000.0),
-                BeiDouTime(700, 433000.0), BeiDouOrbitType.IGSO)
+                BeiDouTime(700, 433000.0), BeiDouOrbitType.IGSO, BeiDouTime(700, 432006.0))
             assertNotNull(result.reason, result.decoded)
             val decoded = result.decoded!!
             val e = decoded.ephemeris
@@ -40,6 +40,8 @@ class BeiDouD1ReferenceTest {
             assertEquals(n("toe"), e.toe.secondsOfWeek, 0.0)
             assertEquals(n("health").toInt(), decoded.health)
             assertEquals(n("ura").toInt(), decoded.uraIndex)
+            assertEquals(n("aodc").toInt(), decoded.ageOfDataClock)
+            assertEquals(n("aode").toInt(), decoded.ageOfDataEphemeris)
             assertEquals(BeiDouOrbitType.IGSO, e.orbitType)
         }
     }

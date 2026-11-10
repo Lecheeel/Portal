@@ -74,7 +74,6 @@ class PortalModule : XposedModule() {
             pauseGnss = { com.system.location.service.hook.hooks.gnss.GnssSignalInjection.pause() },
             save = {
                 val state = Bundle().apply {
-                    putBundle("gate", gate.transferBundle())
                     putByteArray("runtime", RuntimeTransferWire.encode(FakeLoc.captureTransfer()))
                     putParcelableArrayList("location", ArrayList(LocationServiceHook.locationSubscriptions().map { it.toBundle() }))
                     putParcelableArrayList("gnss", ArrayList(GnssListenerRouting.subscriptions().map { it.toBundle() }))
@@ -86,7 +85,10 @@ class PortalModule : XposedModule() {
                     putInt("uid", 1000)
                     putInt("flags", 0)
                 }
-                param.setSavedInstanceState(state)
+                // This API transfers objects within this process; it does not parcel them.
+                // Share the drained platform monitor/counters so queued old interceptors see
+                // the successor generation. Copying them into a Bundle splits the gate.
+                param.setSavedInstanceState(arrayOf(state, gate.transferState()))
                 android.util.Log.i("PortalModule", "hot reloading system_server")
         }, abort = {
             try { gate.resume() } finally {
@@ -102,11 +104,14 @@ class PortalModule : XposedModule() {
 
     override fun onHotReloaded(param: XposedModuleInterface.HotReloadedParam) {
         if (!param.isSystemServer && !isSystemProcess()) return
-        val saved = param.getSavedInstanceState() as? Bundle
-        val gateBundle = saved?.getBundle("gate")
-        val retiredGate = HookRuntime.executionGate
+        val transferred = param.getSavedInstanceState()
+        val handoff = transferred as? Array<*>
+        // Preserve configuration/subscriptions when upgrading from the previous Bundle format.
+        val saved = handoff?.getOrNull(0) as? Bundle ?: transferred as? Bundle
+        @Suppress("UNCHECKED_CAST")
+        val gateState = handoff?.getOrNull(1) as? Array<Any>
         try {
-            if (gateBundle != null) HookRuntime.executionGate = ReloadExecutionGate.adopt(gateBundle)
+            if (gateState != null) HookRuntime.executionGate = ReloadExecutionGate.adopt(gateState)
             param.oldHookHandles.forEach { runCatching { it.unhook() } }
             HookRuntime.attach(this)
             HookRuntime.clearHooks()
@@ -125,7 +130,6 @@ class PortalModule : XposedModule() {
         } finally {
             // A restore error must not leave every old-snapshot call blocked forever.
             runCatching { HookRuntime.executionGate.resume() }
-            if (HookRuntime.executionGate !== retiredGate) runCatching { retiredGate.resume() }
         }
     }
 

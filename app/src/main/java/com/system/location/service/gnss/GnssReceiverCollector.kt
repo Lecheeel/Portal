@@ -16,7 +16,9 @@ import android.os.SystemClock
 import android.provider.Settings
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
+import com.system.location.service.core.backend.BackendType
 import com.system.location.service.runtime.ScenarioRuntime
+import com.system.location.service.service.MockServiceHelper
 import java.util.Base64
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
@@ -34,12 +36,19 @@ class GnssReceiverCollector(
     suspend fun capture(durationMillis: Long = 60_000L, onProgress: (Int) -> Unit = {}): GnssCapture =
         withContext(Dispatchers.Main.immediate) {
             require(durationMillis in 30_000L..300_000L) { "采集窗口必须为 30–300 秒" }
+            ScenarioRuntime.awaitInitialized()
             check(!simulationActive()) { "请先停止模拟，再采集真实卫星" }
             check(context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 "真实卫星采集需要精确位置权限"
             }
             val manager = checkNotNull(context.getSystemService(LocationManager::class.java)) { "定位服务不可用" }
             check(manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) { "请先开启系统定位" }
+            val localGeneration = ScenarioRuntime.controller.startGeneration
+            val systemState = readSystemState(manager, initialize = true)
+            fun localActive() = ScenarioRuntime.state.value.isActive || simulationActive()
+            val session = GnssCaptureSessionGuard(localGeneration, localActive(),
+                ScenarioRuntime.state.value.backend != BackendType.MOCK_PROVIDER, systemState)
+            session.checkLocal(ScenarioRuntime.controller.startGeneration, localActive())
             check(capturing.compareAndSet(false, true)) { "已有卫星采集任务" }
 
             val frames = mutableListOf<GnssObservationFrame>()
@@ -57,7 +66,7 @@ class GnssReceiverCollector(
             var navigationRegistered = false
             var locationRegistered = false
             fun accepts(): Boolean {
-                if (simulationActive()) contaminated = true
+                if (localActive() || ScenarioRuntime.controller.startGeneration != localGeneration) contaminated = true
                 return accepting && !contaminated
             }
             val locationListener = LocationListener { sample ->
@@ -197,10 +206,21 @@ class GnssReceiverCollector(
                 }.onFailure { notes += "导航电文不可用：${it.javaClass.simpleName}" }.getOrDefault(false)
                 manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, locationListener, Looper.getMainLooper())
                 locationRegistered = true
+                var lastSystemCheck = SystemClock.elapsedRealtime()
                 while (SystemClock.elapsedRealtime() - elapsedStart < durationMillis) {
                     delay(250L)
                     check(accepts()) { "采集期间启动了模拟，已废弃本次采集" }
+                    if (SystemClock.elapsedRealtime() - lastSystemCheck >= 1_000L) {
+                        session.checkSystem(readSystemState(manager, initialize = false))
+                        lastSystemCheck = SystemClock.elapsedRealtime()
+                    }
                 }
+                // Freeze the buffer before the final Binder round trip. A start after the final
+                // observation cannot introduce any further callbacks into the accepted window.
+                accepting = false
+                session.checkSystem(readSystemState(manager, initialize = systemState == null))
+                session.checkLocal(ScenarioRuntime.controller.startGeneration, localActive())
+                check(!contaminated) { "采集期间收到模拟定位，已废弃本次采集" }
                 check(frames.any { it.satellites.isNotEmpty() }) {
                     "未收到有效卫星（状态帧 ${frames.size}、测量批次 ${measurements.size}、导航电文 ${navigation.size}）；" +
                         "${notes.joinToString("；")}" + "。请检查接收环境和系统定位后重新采集"
@@ -222,6 +242,27 @@ class GnssReceiverCollector(
                 if (locationRegistered) runCatching { manager.removeUpdates(locationListener) }
                 capturing.set(false)
             }
+        }
+
+    @Suppress("DEPRECATION")
+    private suspend fun readSystemState(manager: LocationManager, initialize: Boolean): GnssCaptureSystemState? =
+        withContext(Dispatchers.IO) {
+            if (initialize && !MockServiceHelper.isServiceInit()) MockServiceHelper.tryInitService(manager)
+            var reply = runCatching { MockServiceHelper.runtimeStatus(manager) }.getOrNull()
+            if (initialize && reply == null && MockServiceHelper.isServiceInit()) {
+                // A stale token may be refreshed before collecting any receiver evidence.
+                MockServiceHelper.tryInitService(manager)
+                reply = runCatching { MockServiceHelper.runtimeStatus(manager) }.getOrNull()
+            }
+            val status = reply ?: return@withContext null
+            val instance = status.get("runtime_instance")
+            val generation = status.get("simulation_generation")
+            val active = status.get("is_start")
+            check(status.getString("hook_scope") == "SYSTEM_SERVER" && instance is String &&
+                instance.isNotBlank() && instance.length <= 256 && generation is Long && generation >= 0 && active is Boolean) {
+                "系统未提供可核对的模拟状态，请更新并重新加载模块后采集"
+            }
+            GnssCaptureSystemState(instance, generation, active)
         }
 
     companion object {

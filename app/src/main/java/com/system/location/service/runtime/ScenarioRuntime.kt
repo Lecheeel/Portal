@@ -136,6 +136,9 @@ object ScenarioRuntime {
 
     fun initialize() { initialized.start() }
 
+    /** Consumers of backend policy must not observe the temporary pre-restoration default. */
+    suspend fun awaitInitialized() { initialized.await() }
+
     /** Restore and start the last successfully persisted config; never auto-starts on boot. */
     suspend fun restoreLastConfig(): Boolean = command {
         if (state.value.phase !in setOf(RuntimePhase.IDLE, RuntimePhase.STOPPED)) return@command false

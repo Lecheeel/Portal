@@ -30,11 +30,12 @@ object DetectorRunner {
         if (!running.compareAndSet(false, true)) return null
         return try {
             val appContext = context.applicationContext
+            val reference = GnssReferenceStore.load(appContext)
             val sampler = CheckSampler(appContext, settings)
             val snapshot = runCatching { sampler.collect { } }.getOrElse { error ->
                 SampleSnapshot(notes = listOf("采样失败：${error.javaClass.simpleName}: ${error.message}"))
             }
-            val checkContext = CheckContext(appContext, settings, snapshot)
+            val checkContext = CheckContext(appContext, settings, snapshot, reference.reference, reference.note)
             val results = CheckRunner.runAll(checkContext, AllChecks.list()) { _, _, _ -> }
             val report = DetectorReport(
                 generatedAtMillis = System.currentTimeMillis(),

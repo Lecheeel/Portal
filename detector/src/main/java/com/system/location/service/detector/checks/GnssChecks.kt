@@ -7,6 +7,10 @@ import com.system.location.service.detector.model.CheckIds
 import com.system.location.service.detector.model.CheckResult
 import com.system.location.service.detector.model.GnssFrameSnapshot
 import com.system.location.service.detector.model.GnssSatelliteSnapshot
+import com.system.location.service.detector.model.GnssEvidenceSnapshot
+import com.system.location.service.detector.model.GnssReference
+import com.system.location.service.detector.model.GnssWindowProfile
+import com.system.location.service.detector.model.GnssProfileComparison
 import com.system.location.service.detector.model.SampleSnapshot
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -23,9 +27,10 @@ class GnssStatusCheck : Check {
         val snapshot = context.snapshot
         val frames = snapshot.gnssFrames
         val analysis = analyze(frames)
-        val evidence = buildEvidence(snapshot, analysis)
+        val profileLines = profileEvidence(snapshot, context.gnssReference, context.gnssReferenceNote)
+        val evidence = buildEvidence(snapshot, analysis, profileLines)
         if (analysis.issues.isNotEmpty()) return fail(analysis.issues.joinToString("；"), evidence)
-        if (frames.size < MIN_FRAMES) return insufficientFrames(snapshot, frames)
+        if (frames.size < MIN_FRAMES) return insufficientFrames(snapshot, frames, profileLines)
         if (analysis.observations.isNotEmpty()) return unknown(analysis.observations.joinToString("；"), evidence)
         return pass(
             buildString {
@@ -42,6 +47,7 @@ class GnssStatusCheck : Check {
     private fun insufficientFrames(
         snapshot: SampleSnapshot,
         frames: List<GnssFrameSnapshot>,
+        profileLines: List<String>,
     ): CheckResult {
         val evidence = mutableListOf<String>()
         evidence += sampleWindowLine(snapshot)
@@ -53,6 +59,7 @@ class GnssStatusCheck : Check {
         }
         evidence += "位置样本=${snapshot.locations.size}，NMEA 句数=${snapshot.nmeaSentences.size}"
         evidence += relevantNotes(snapshot)
+        evidence += profileLines
         val reason = if (frames.isEmpty()) {
             "未收到 GnssStatus 回调（0 帧，少于 $MIN_FRAMES 帧）：可能缺少定位权限、GnssStatus 注册失败或采样窗口内无卫星状态更新"
         } else {
@@ -213,7 +220,37 @@ class GnssStatusCheck : Check {
         )
     }
 
-    private fun buildEvidence(snapshot: SampleSnapshot, analysis: GnssAnalysis): List<String> {
+    internal fun profileEvidence(snapshot: SampleSnapshot, reference: GnssReference?, note: String): List<String> {
+        if (reference == null) return listOf("画像比较：$note")
+        return runCatching {
+            val a = reference.profile()
+            val b = GnssWindowProfile.from(GnssEvidenceSnapshot(snapshot.startedAtMillis,
+                snapshot.endedAtMillis, snapshot.gnssFrames))
+            val delta = GnssProfileComparison.compare(a, b)
+            val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(reference.savedAtMillis))
+            fun decimal(value: Double?) = value?.let { String.format(Locale.US, "%.3f", it) } ?: "未定义"
+            fun ratios(profile: GnssWindowProfile): String = if (profile.satelliteCount == 0) "无可见卫星" else
+                profile.constellationCounts.toSortedMap().entries.joinToString("，") { (c, n) ->
+                    "${constellationName(c)}=${decimal(n.toDouble() / profile.satelliteCount)}"
+                }
+            buildList {
+                add("画像参考：用户于 $stamp 保存；环境记录：${reference.environment.replace('\n', ' ').replace('\r', ' ')}")
+                add("画像窗口：参考 ${a.receiverSeconds} 个接收秒/${a.endedAtMillis - a.startedAtMillis}ms；" +
+                    "当前 ${b.receiverSeconds} 个接收秒/${b.endedAtMillis - b.startedAtMillis}ms；每 UTC 秒仅取最后帧")
+                add("平均可见数：${decimal(a.meanVisible)} → ${decimal(b.meanVisible)}；" +
+                    "在用比例：${decimal(a.usedFraction)} → ${decimal(b.usedFraction)}（独立卫星，任一信号在用）")
+                add("参考星座比例：${ratios(a)}")
+                add("当前星座比例：${ratios(b)}")
+                add("经验分布总变差 TV：卫星数量=${decimal(delta.visibleCountTotalVariation)}；" +
+                    "星座=${decimal(delta.constellationTotalVariation)}；" +
+                    "逐信号星座/仰角/CN0 联合=${decimal(delta.signalJointTotalVariation)}（5°/5 dB-Hz 分箱）")
+                if (!delta.adequateWindows) add("画像覆盖不足：至少需 20 个接收秒、跨度 30 秒、间隔≤2秒且存在可见卫星；不提供置信结论")
+                add("画像仅描述两个窗口的差异，不设伪造阈值、不证明同分布；地点、遮挡、时间及卫星下限设置需另行对照，参考真实性需独立确认")
+            }
+        }.getOrElse { listOf("画像比较不可用：${it.message ?: it.javaClass.simpleName}") }
+    }
+
+    private fun buildEvidence(snapshot: SampleSnapshot, analysis: GnssAnalysis, profileLines: List<String>): List<String> {
         val evidence = mutableListOf<String>()
         evidence += sampleWindowLine(snapshot)
         evidence += "每帧独立卫星数：${sampleValues(analysis.satellitesPerFrame.map { it.toString() })}" +
@@ -228,6 +265,7 @@ class GnssStatusCheck : Check {
         evidence += "卫星集合 Jaccard：min=${formatRatio(analysis.jaccardMin)}，" +
             "avg=${formatRatio(analysis.jaccardAvg)}（相邻 ${analysis.jaccardPairs} 对）"
         evidence += "CN0/仰角：${correlationLine(analysis.correlation)}"
+        evidence += profileLines
         evidence += relevantNotes(snapshot)
         return evidence.filter { it.isNotEmpty() }
             .take(MAX_EVIDENCE_LINES)

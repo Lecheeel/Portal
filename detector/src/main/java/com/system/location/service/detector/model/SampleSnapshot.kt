@@ -75,6 +75,8 @@ data class CheckContext(
     val context: Context,
     val settings: DetectorSettings,
     val snapshot: SampleSnapshot,
+    val gnssReference: GnssReference? = null,
+    val gnssReferenceNote: String = "未保存参考窗口，画像比较跳过",
 ) {
     val locationManager: LocationManager? get() = context.getSystemService(LocationManager::class.java)
 }

@@ -2,6 +2,9 @@ package com.system.location.service.detector.checks
 
 import com.system.location.service.detector.model.GnssFrameSnapshot
 import com.system.location.service.detector.model.GnssSatelliteSnapshot
+import com.system.location.service.detector.model.GnssReference
+import com.system.location.service.detector.model.GnssEvidenceSnapshot
+import com.system.location.service.detector.model.SampleSnapshot
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -11,6 +14,25 @@ class GnssStatusCheckTest {
         1, id, 20f + id % 20, 10f + id % 70, id * 17f % 360, used, true, true, false)
     private fun analyze(satellites: List<GnssSatelliteSnapshot>) = check.analyze(
         (0..2).map { GnssFrameSnapshot(1000L + it * 1000, satellites) })
+
+    @Test fun referenceComparisonIsVisibleAndDescriptiveWithoutAnInventedForgeryThreshold() {
+        val frames = (0L..30L).map { GnssFrameSnapshot(it * 1000, listOf(satellite(1), satellite(2))) }
+        val reference = GnssReference("device", "室外", 40_000, GnssEvidenceSnapshot(0, 30_000, frames))
+        val snapshot = SampleSnapshot(0, 30_000, gnssFrames = frames.map { f ->
+            f.copy(satellites = f.satellites.map { it.copy(constellation = 6) })
+        })
+        val lines = check.profileEvidence(snapshot, reference, "")
+        assertTrue(lines.any { it.contains("星座=1.000") })
+        assertTrue(lines.any { it.contains("GPS=1.000") })
+        assertTrue(lines.any { it.contains("GALILEO=1.000") })
+        assertTrue(lines.any { it.contains("不设伪造阈值") })
+        assertFalse(lines.any { it.contains("覆盖不足") })
+        assertTrue(check.profileEvidence(snapshot.copy(gnssFrames = frames.take(3)), reference, "")
+            .any { it.contains("覆盖不足") })
+        assertEquals(listOf("画像比较：文件损坏"), check.profileEvidence(snapshot, null, "文件损坏"))
+        assertTrue(check.profileEvidence(snapshot.copy(gnssFrames = emptyList()), reference, "")
+            .single().startsWith("画像比较不可用"))
+    }
 
     @Test fun negativeElevationAndInvalidAnglesCannotBeDiscardedByCorrelationFiltering() {
         for (elevation in listOf(-1f, 91f, Float.NaN)) {

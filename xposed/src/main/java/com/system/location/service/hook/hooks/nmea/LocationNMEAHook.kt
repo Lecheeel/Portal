@@ -15,35 +15,42 @@ object LocationNMEAHook : BaseLocationHook() {
 
         val rawRegistration = rawGnssRegistrationHook()
 
+        // Preserve explicit unsupported results from void raw-GNSS registration methods.
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "addGnssMeasurementsListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "removeGnssMeasurementsListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "addGnssNavigationMessageListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "removeGnssNavigationMessageListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "addGnssAntennaInfoListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             classILocationManager,
             "removeGnssAntennaInfoListener",
             rawRegistration,
+            exceptionMode = XposedInterface.ExceptionMode.PASSTHROUGH,
         )
     }
 

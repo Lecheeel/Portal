@@ -6,7 +6,7 @@ import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.performance.PerformanceProbe
 import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.hook.security.PublicationLease
-import com.system.location.service.hook.security.SampleWire
+import com.system.location.service.core.runtime.ScenarioSampleStore
 import com.system.location.service.hook.utils.FakeLoc
 
 /** P5-08: publication lease/sample command extracted from RemoteCommandHandler. */
@@ -45,11 +45,18 @@ object SampleCommand {
         }
     }
 
+    internal fun scenarioId(value: Any?): String? {
+        if (value == null) return null
+        require(value is String && value.isNotBlank() && value.length <= ScenarioSampleStore.MAX_ID_LENGTH)
+        return value
+    }
+
+    @Suppress("DEPRECATION")
     private fun publishInternal(fix: LocationSample, rely: Bundle): Boolean {
+        val scenario = scenarioId(rely.get("scenario_id"))
         if (!lease.renew(fix.elapsedNanos, SystemClock.elapsedRealtimeNanos())) return false
         val needsTicker = !FakeLoc.enable || !FakeLoc.externallyDriven
-        FakeLoc.acceptSample(fix)
-        rely.getString("scenario_id")?.takeIf { it.isNotBlank() }?.let { FakeLoc.acceptScenarioSample(it, fix) }
+        FakeLoc.acceptSample(fix, scenario)
         if (FakeLoc.isSystemServerProcess) {
             sensorModel.tuning = com.system.location.service.core.sensors.SensorTuning(
                 cadenceScale = FakeLoc.sensorCadenceScale,
@@ -61,7 +68,6 @@ object SampleCommand {
             )
             NativeCommand.setSensorFrame(frame, fix.elapsedNanos)
         }
-        FakeLoc.enable = true
         lastPublishMillis = fix.timeMillis
         if (needsTicker) LocationTicker.start()
         if (FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
@@ -76,13 +82,4 @@ object SampleCommand {
         return true
     }
 
-    fun restore(rely: Bundle) {
-        val fix = SampleWire.read(rely) ?: return
-        if (!lease.renew(fix.elapsedNanos, SystemClock.elapsedRealtimeNanos())) {
-            FakeLoc.enable = false
-            return
-        }
-        FakeLoc.acceptSample(fix)
-        LocationTicker.start()
-    }
 }

@@ -1,6 +1,8 @@
 package com.system.location.service.hook.hooks.gnss
 
 import android.os.IInterface
+import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.gnss.PublishedGnssFrame
 import com.system.location.service.hook.hooks.nmea.NmeaBridge
 import com.system.location.service.hook.hooks.nmea.NmeaListenerRouting
 import com.system.location.service.hook.runtime.HookRuntime
@@ -22,10 +24,11 @@ object GnssSignalInjection {
 
     private fun tick() {
         if (!FakeLoc.enable || !FakeLoc.enableMockGnss) return
+        val frames = ReceiverTickFrames(GnssReceiverRuntime::currentFrame)
         GnssListenerRouting.listeners().forEach { listener ->
             deliver(listener, { GnssListenerRouting.unregister(listener) }) {
                 if (!GnssListenerRouting.shouldDeliver(listener)) return@deliver
-                val publication = GnssReceiverRuntime.currentFrame(GnssListenerRouting.fixedPointFor(listener))
+                val publication = frames.forPoint(GnssListenerRouting.fixedPointFor(listener))
                     ?: return@deliver
                 val method = listener.javaClass.methods.firstOrNull {
                     it.name == "onSvStatusChanged" && ReceiverGnssStatusAdapter.supports(it)
@@ -37,7 +40,7 @@ object GnssSignalInjection {
         NmeaListenerRouting.listeners().forEach { listener ->
             deliver(listener, { NmeaListenerRouting.unregister(listener) }) {
                 if (!NmeaListenerRouting.shouldDeliver(listener)) return@deliver
-                val publication = GnssReceiverRuntime.currentFrame(NmeaListenerRouting.fixedPointFor(listener))
+                val publication = frames.forPoint(NmeaListenerRouting.fixedPointFor(listener))
                     ?: return@deliver
                 val method = listener.javaClass.methods.firstOrNull {
                     it.name == "onNmeaReceived" && it.parameterTypes.toList() ==
@@ -92,5 +95,14 @@ internal class ReceiverDeliveryWorker(private val tick: () -> Unit, private val 
     fun stop() {
         val current = synchronized(this) { worker?.also { it.interrupt() } } ?: return
         if (current !== Thread.currentThread()) current.join(2000)
+    }
+}
+
+/** Freeze each route once per delivery tick, even if provider samples advance during callbacks. */
+internal class ReceiverTickFrames(private val source: (Wgs84?) -> PublishedGnssFrame?) {
+    private val frames = mutableMapOf<Wgs84?, PublishedGnssFrame?>()
+    fun forPoint(point: Wgs84?): PublishedGnssFrame? {
+        if (!frames.containsKey(point)) frames[point] = source(point)
+        return frames[point]
     }
 }

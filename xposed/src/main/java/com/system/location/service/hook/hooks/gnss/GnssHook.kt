@@ -100,11 +100,12 @@ object GnssHook : BaseLocationHook() {
                 XposedInterface.Hooker intercept38@{ chain ->
                     val args = chain.args.toTypedArray()
 
-                    if (FakeLoc.enable && args.size > 1 && args[0] is Array<*>) {
-                        val locations = args[0] as Array<Location>
-                        locations.forEachIndexed { index, location ->
-                            locations[index] = injectLocation(location)
-                        }
+                    val locations = args.firstOrNull() as? Array<*>
+                    if (FakeLoc.enable && locations != null &&
+                        locations.javaClass.componentType == Location::class.java && locations.all { it is Location }) {
+                        // The framework API takes a single Location[] argument. Copy the array:
+                        // mutating the provider-owned batch can also affect other consumers.
+                        args[0] = locations.map { injectLocation(it as Location) }.toTypedArray()
                     }
 
                     chain.proceed(args)

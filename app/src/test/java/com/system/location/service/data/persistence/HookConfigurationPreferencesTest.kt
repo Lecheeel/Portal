@@ -44,4 +44,12 @@ class HookConfigurationPreferencesTest {
         assertEquals(true, wire["disable_fused_location"])
         assertFalse(wire.containsKey("enable"))
     }
+
+    @Test fun canonicalWifiPreferenceTakesPrecedenceOverLegacyAlias() {
+        val wire = HookConfigurationPreferences.read(mapOf(
+            "enableMockWifi" to true,
+            "disableWifiScan" to false,
+        ), RuntimeSnapshot())
+        assertEquals(true, wire["enable_mock_wifi"])
+    }
 }

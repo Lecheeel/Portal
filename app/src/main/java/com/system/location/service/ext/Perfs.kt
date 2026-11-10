@@ -302,10 +302,19 @@ var Context.enableNMEA: Boolean
         FakeLoc.enableNMEA = value
     }
 
-/** Legacy key is retained; true has always meant replacing Wi-Fi results, not disabling scans. */
+/**
+ * Whether the hook should replace Wi-Fi results. The old key was named
+ * `disableWifiScan` even though true enabled replacement; keep it as a
+ * migration fallback but persist the unambiguous key for new writes.
+ */
 var Context.mockWifiEnabled: Boolean
-    get() = sharedPrefs.getBoolean("disableWifiScan", FakeLoc.enableMockWifi)
+    get() = when {
+        sharedPrefs.contains("enableMockWifi") -> sharedPrefs.getBoolean("enableMockWifi", FakeLoc.enableMockWifi)
+        else -> sharedPrefs.getBoolean("disableWifiScan", FakeLoc.enableMockWifi)
+    }
     set(value) = sharedPrefs.edit {
+        putBoolean("enableMockWifi", value)
+        // Keep older module revisions synchronized during the migration.
         putBoolean("disableWifiScan", value)
         FakeLoc.enableMockWifi = value
     }

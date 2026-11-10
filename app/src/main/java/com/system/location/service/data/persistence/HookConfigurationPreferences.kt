@@ -18,7 +18,11 @@ object HookConfigurationPreferences {
             "speed" to number("speed", fallback.speedMps.toFloat()).toDouble(),
             "accuracy" to number("accuracy", LocationSanitizer.FALLBACK_HORIZONTAL_ACCURACY),
             "report_interval" to if (flag("loopBroadcastLocation", false)) interval else maxOf(500L, interval),
-            "enable_mock_wifi" to flag("disableWifiScan", policy.wifiEnabled),
+            // `disableWifiScan` is a legacy key whose historical true value
+            // actually enabled replacement. Prefer the canonical key when it
+            // exists, while preserving upgrades from older installations.
+            "enable_mock_wifi" to (preferences["enableMockWifi"] as? Boolean
+                ?: flag("disableWifiScan", policy.wifiEnabled)),
             "enable_debug_log" to flag("debug", policy.debugLog),
             "disable_get_current_location" to flag("disableGetCurrentLocation", policy.disableGetCurrentLocation),
             "disable_register_location_listener" to flag("disableRegitserLocationListener", policy.disableRegisterLocationListener),

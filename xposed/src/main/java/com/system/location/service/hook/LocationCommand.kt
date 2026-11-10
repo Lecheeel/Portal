@@ -5,47 +5,70 @@ import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.core.runtime.RuntimeTransferWire
 import com.system.location.service.hook.utils.FakeLoc
 import kotlin.random.Random
+import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.runtime.RuntimeSnapshot
+import com.system.location.service.core.runtime.RuntimePositionUpdate
 
 /** P5-08: update/broadcast/sync commands extracted from RemoteCommandHandler. */
 object LocationCommand {
-    /** Normalizes relative `move` into an absolute `update_location` before applying the authoritative command. */
+    private val positionKeys = setOf("mode", "lat", "lon", "moving_speed", "bearing")
+
+    private fun number(values: Map<String, Any?>, key: String): Double =
+        (values[key] as? Double)?.also { require(it.isFinite()) } ?: error("Missing numeric field: $key")
+
+    internal fun prepareMove(values: Map<String, Any?>, state: RuntimeSnapshot): RuntimePositionUpdate {
+        require(state.configuration.enabled)
+        val distance = number(values, "n").also { require(it >= 0) }
+        val bearing = number(values, "bearing")
+        val point = FakeLoc.moveLocation(state.latitude, state.longitude, distance, bearing)
+        return RuntimePositionUpdate(Wgs84(point.first, point.second),
+            if (distance > 0) state.speedMps.toFloat() else 0f, bearing)
+    }
+
+    @Suppress("DEPRECATION")
     fun normalizeMove(rely: Bundle, commandId: String): String? {
         if (commandId != "move") return commandId
-        if (!FakeLoc.enable) return null
-        val distance = rely.getDouble("n")
-        val bearing = rely.getDouble("bearing")
-        if (!distance.isFinite() || distance < 0 || !bearing.isFinite()) return null
-        val origin = FakeLoc.coordinatePair()
-        val point = FakeLoc.moveLocation(origin.first, origin.second, distance, bearing)
+        val state = FakeLoc.runtimeSnapshots.current()
+        if (!state.configuration.enabled) return null
+        val update = prepareMove(setOf("n", "bearing").associateWith { rely.get(it) }, state)
         rely.putString("command_id", "update_location")
         rely.putString("mode", "=")
-        rely.putDouble("lat", point.first)
-        rely.putDouble("lon", point.second)
-        rely.putFloat("moving_speed", if (distance > 0) FakeLoc.speed.toFloat() else 0f)
+        rely.putDouble("lat", update.coordinate.latitude)
+        rely.putDouble("lon", update.coordinate.longitude)
+        rely.putFloat("moving_speed", update.movementSpeedMps)
         return "update_location"
     }
 
-    fun update(rely: Bundle): Boolean {
-        val mode = rely.getString("mode")
-        var newLat = rely.getDouble("lat", 0.0)
-        var newLon = rely.getDouble("lon", 0.0)
-        when (mode) {
-            "+" -> return updateCoordinate(newLat + FakeLoc.latitude, newLon + FakeLoc.longitude)
-            "-" -> return updateCoordinate(FakeLoc.latitude - newLat, FakeLoc.longitude - newLon)
-            "*" -> return updateCoordinate(newLat * FakeLoc.latitude, newLon * FakeLoc.longitude)
-            "/" -> {
-                if (newLat == 0.0 || newLon == 0.0) return false
-                return updateCoordinate(newLat / FakeLoc.latitude, newLon / FakeLoc.longitude)
-            }
-            "=" -> {
-                if (rely.containsKey("bearing")) {
-                    FakeLoc.bearing = rely.getDouble("bearing")
-                    FakeLoc.hasBearings = true
+    internal fun prepareUpdate(values: Map<String, Any?>, state: RuntimeSnapshot): RuntimePositionUpdate {
+        val mode = values["mode"] as? String ?: error("Missing position mode")
+        val bearing = if ("bearing" in values) number(values, "bearing") else null
+        val speed = if ("moving_speed" in values) values["moving_speed"] as? Float
+            ?: error("Invalid movement speed") else 0f
+        val point = if (mode == "random") Wgs84(Random.nextDouble(-90.0, 90.0), Random.nextDouble(-180.0, 180.0)) else {
+            val lat = number(values, "lat")
+            val lon = number(values, "lon")
+            when (mode) {
+                "=" -> Wgs84(lat, lon)
+                "+" -> Wgs84(state.latitude + lat, state.longitude + lon)
+                "-" -> Wgs84(state.latitude - lat, state.longitude - lon)
+                "*" -> Wgs84(state.latitude * lat, state.longitude * lon)
+                "/" -> {
+                    require(lat != 0.0 && lon != 0.0)
+                    Wgs84(state.latitude / lat, state.longitude / lon)
                 }
-                return updateCoordinate(newLat, newLon, rely.getFloat("moving_speed", 0f))
+                else -> error("Unknown position mode")
             }
-            "random" -> return updateCoordinate(Random.nextDouble(-90.0, 90.0), Random.nextDouble(-180.0, 180.0))
         }
+        return RuntimePositionUpdate(point, speed, bearing)
+    }
+
+    @Suppress("DEPRECATION")
+    fun update(rely: Bundle): Boolean {
+        val update = prepareUpdate(positionKeys.filter(rely::containsKey).associateWith { rely.get(it) },
+            FakeLoc.runtimeSnapshots.current())
+        FakeLoc.updateCoordinates(update.coordinate.latitude, update.coordinate.longitude, update.movementSpeedMps,
+            bearingDeg = update.bearingDeg)
+        if (FakeLoc.enable && FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
         return true
     }
 
@@ -60,12 +83,4 @@ object LocationCommand {
         return true
     }
 
-    private fun updateCoordinate(newLat: Double, newLon: Double, movingSpeed: Float = 0f): Boolean {
-        if (newLat in -90.0..90.0 && newLon in -180.0..180.0) {
-            FakeLoc.updateCoordinates(newLat, newLon, movingSpeed)
-            if (FakeLoc.enable && FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
-            return true
-        }
-        return false
-    }
 }

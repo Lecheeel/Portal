@@ -20,7 +20,7 @@ class ScenarioSampleStore(private val maxScenarios: Int = MAX_SCENARIOS) {
     fun publish(scenarioId: String, sample: LocationSample, elapsedRealtimeNanos: Long): Long {
         require(scenarioId.isNotBlank() && scenarioId.length <= MAX_ID_LENGTH) { "Invalid scenarioId" }
         require(elapsedRealtimeNanos >= 0L) { "elapsedRealtimeNanos must be non-negative" }
-        sequence += 1L
+        sequence = Math.addExact(sequence, 1L)
         entries.remove(scenarioId)
         entries[scenarioId] = StoredSample(sequence, sample, elapsedRealtimeNanos)
         while (entries.size > maxScenarios) {
@@ -38,7 +38,7 @@ class ScenarioSampleStore(private val maxScenarios: Int = MAX_SCENARIOS) {
         require(maxAgeNanos >= 0L) { "maxAgeNanos must be non-negative" }
         val entry = entries[scenarioId] ?: return null
         if (nowElapsedNanos < entry.storedAtElapsedNanos) return null
-        return entry.takeIf { nowElapsedNanos - it.storedAtElapsedNanos <= maxAgeNanos }
+        return entry.takeIf { nowElapsedNanos - it.storedAtElapsedNanos < maxAgeNanos }
     }
 
     @Synchronized
@@ -54,7 +54,7 @@ class ScenarioSampleStore(private val maxScenarios: Int = MAX_SCENARIOS) {
     fun snapshot(nowElapsedNanos: Long, maxAgeNanos: Long = SampleStore.DEFAULT_MAX_AGE_NANOS): Map<String, LocationSample> {
         require(maxAgeNanos >= 0L) { "maxAgeNanos must be non-negative" }
         return entries.filterValues {
-            nowElapsedNanos >= it.storedAtElapsedNanos && nowElapsedNanos - it.storedAtElapsedNanos <= maxAgeNanos
+            nowElapsedNanos >= it.storedAtElapsedNanos && nowElapsedNanos - it.storedAtElapsedNanos < maxAgeNanos
         }.mapValues { it.value.sample }
     }
 

@@ -43,6 +43,9 @@ class ScenarioSampleStoreTest {
         assertNull(store.latest("a", 2_000, maxAgeNanos = 500))
         assertNull(store.latest("a", 999))
         assertTrue(store.latest("a", 1_500, maxAgeNanos = 1_000) != null)
+        assertNull(store.latest("a", 2_000, maxAgeNanos = 1_000))
+        assertTrue(store.snapshot(2_000, 1_000).isEmpty())
+        assertNull(store.latest("a", 1_000, maxAgeNanos = 0))
     }
 
     @Test fun oldestScenarioIsEvictedAtCapacity() {
@@ -69,7 +72,7 @@ class ScenarioSampleStoreTest {
         store.publish("stale", sample(30.0), 100)
         store.publish("current", sample(31.0), 1_000)
         store.publish("future", sample(32.0), 2_000)
-        val captured = store.snapshot(1_500, 500)
+        val captured = store.snapshot(1_499, 500)
         assertEquals(setOf("current"), captured.keys)
         store.publish("current", sample(33.0), 1_500)
         store.clear("current")

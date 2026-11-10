@@ -157,12 +157,15 @@ object GnssObservationProfileBuilder {
         val last = ordered.last().capturedAtMillis
         val constellations = Constellation.values().mapNotNull { constellation ->
             val observations = ordered.map { frame ->
-                frame.satellites.filter { it.constellation == constellation }
+                frame.satellites.filter(GnssCaptureValidator::isUsableSatellite)
+                    .filter { it.constellation == constellation }
             }
             if (observations.all { it.isEmpty() }) return@mapNotNull null
             val satellites = observations.flatten()
             val totalSatelliteSamples = satellites.size
-            val totalSamples = ordered.sumOf { it.satellites.size }
+            val totalSamples = ordered.sumOf { frame ->
+                frame.satellites.count(GnssCaptureValidator::isUsableSatellite)
+            }
             val ratio = if (totalSamples == 0) 0.0 else totalSatelliteSamples.toDouble() / totalSamples
             val interval = blockBootstrapInterval(ordered, constellation, ratio)
             GnssConstellationProfile(
@@ -214,8 +217,10 @@ object GnssObservationProfileBuilder {
         // This describes this capture only; it is not a confidence claim about other regions.
         val start = frames.first().capturedAtMillis
         val blocks = frames.groupBy { (it.capturedAtMillis - start) / 10_000L }.values.map { block ->
-            block.sumOf { frame -> frame.satellites.count { it.constellation == constellation } } to
-                block.sumOf { it.satellites.size }
+            block.sumOf { frame -> frame.satellites.count {
+                GnssCaptureValidator.isUsableSatellite(it) && it.constellation == constellation
+            } } to
+                block.sumOf { frame -> frame.satellites.count(GnssCaptureValidator::isUsableSatellite) }
         }
         if (blocks.size < 3) return 0.0 to 1.0
         val random = Random(0)

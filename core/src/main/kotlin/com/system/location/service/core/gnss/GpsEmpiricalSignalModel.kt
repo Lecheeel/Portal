@@ -69,6 +69,7 @@ class GpsEmpiricalSignalModel(capture: GnssCapture) {
         if (frame.signalObservations.isNotEmpty()) frame.signalObservations.map { it.satellite } else frame.satellites
     }.filter {
         it.constellation == Constellation.GPS && it.elevationDeg >= 0f && it.azimuthDeg < 360f &&
+            it.cn0DbHz > 0f &&
             (it.carrierHz == null || abs(it.carrierHz.toDouble() - GPS_L1_HZ) <= GPS_CARRIER_TOLERANCE_HZ)
     }.groupBy { it.elevationDeg }.toSortedMap().map { (elevation, samples) ->
         GpsEmpiricalSignalKnot(elevation.toDouble(), GpsEmpiricalSignal(samples.map { it.cn0DbHz.toDouble() }.average(),

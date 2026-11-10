@@ -44,7 +44,7 @@ data class ReceiverGnssFrame(
 class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: Long = 0) {
     private val ratios = capture.profile().constellations.associate { it.constellation to it.ratio }
     private val frames = capture.frames.map { frame -> frame.copy(satellites = frame.satellites.filter {
-        GnssSatelliteIds.nmeaId(it.constellation, it.svid) != null
+        GnssCaptureValidator.isUsableSatellite(it) && GnssSatelliteIds.nmeaId(it.constellation, it.svid) != null
     }) }
     private val excluded = capture.frames.flatMap { it.satellites }.filter {
         GnssSatelliteIds.nmeaId(it.constellation, it.svid) == null

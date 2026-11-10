@@ -52,6 +52,16 @@ class GnssObservationProfileTest {
     }
 
     @Test
+    fun zeroCn0PlaceholdersDoNotChangeObservedDistribution() {
+        val valid = satellite(Constellation.GPS, 1, 30f, 35f, true)
+        val placeholder = valid.copy(svid = 2, cn0DbHz = 0f)
+        val profile = GnssObservationProfileBuilder.build(
+            listOf(frame(1_000L, listOf(valid, placeholder))), "device", "os")
+        assertEquals(1, profile.totalSatelliteSamples)
+        assertEquals(listOf(1), profile.profileFor(Constellation.GPS)!!.identities.map { it.svid })
+    }
+
+    @Test
     fun emptyCaptureIsRejected() {
         try {
             GnssObservationProfileBuilder.build(emptyList(), "device", "os")

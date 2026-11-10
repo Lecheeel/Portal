@@ -15,7 +15,8 @@ internal class GnssCallbackRegistry(
     private val callerDecision: (String?, Int, RoutingConfig?) -> RoutingDecision = ::gnssCallerDecision,
 ) {
     private data class Entry(val listener: IInterface, val packageName: String?, val uid: Int,
-        val death: IBinder.DeathRecipient, val token: Any, var lastDeliveryKey: String? = null)
+        val death: IBinder.DeathRecipient, val token: Any, var lastDeliveryKey: String? = null,
+        var pendingDeliveryKey: String? = null, var nextDeliveryIndex: Int = 0)
     private val entries = LinkedHashMap<IBinder, Entry>()
 
     @Synchronized
@@ -41,7 +42,8 @@ internal class GnssCallbackRegistry(
 
     @Synchronized
     fun subscriptions(): List<CallbackSubscription> = entries.values.map {
-        CallbackSubscription(it.listener, it.uid, it.packageName, lastDeliveryKey = it.lastDeliveryKey)
+        CallbackSubscription(it.listener, it.uid, it.packageName, lastDeliveryKey = it.lastDeliveryKey,
+            pendingDeliveryKey = it.pendingDeliveryKey, nextDeliveryIndex = it.nextDeliveryIndex)
     }
 
     @Synchronized
@@ -51,7 +53,7 @@ internal class GnssCallbackRegistry(
         val token = Any()
         val death = IBinder.DeathRecipient { unregisterBinder(binder, token) }
         val entry = Entry(subscription.listener, subscription.packageName, subscription.uid, death, token,
-            subscription.lastDeliveryKey)
+            subscription.lastDeliveryKey, subscription.pendingDeliveryKey, subscription.nextDeliveryIndex)
         entries[binder] = entry
         return try {
             binder.linkToDeath(death, 0)
@@ -85,6 +87,43 @@ internal class GnssCallbackRegistry(
         val entry = synchronized(this) { entries[binder]?.takeUnless { it.lastDeliveryKey == key } } ?: return
         if (!action()) return
         synchronized(this) { if (entries[binder] === entry) entry.lastDeliveryKey = key }
+    }
+
+    /**
+     * One producer per registry. Commit each successful Binder submission, outside the registry
+     * lock, so a paused batch can resume without replaying its prefix. Unregister invalidates the
+     * captured entry, including when the same Binder is immediately registered again.
+     */
+    fun deliverBatch(listener: IInterface, key: String, itemCount: Int,
+        allowed: () -> Boolean, action: (Int) -> Unit) {
+        require(itemCount > 0)
+        val binder = listener.asBinder()
+        val entry = synchronized(this) {
+            entries[binder]?.takeUnless { it.lastDeliveryKey == key }?.also {
+                if (it.pendingDeliveryKey != key) {
+                    it.pendingDeliveryKey = key
+                    it.nextDeliveryIndex = 0
+                }
+                require(it.nextDeliveryIndex <= itemCount) { "Batch progress exceeds its exact content" }
+            }
+        } ?: return
+        val start = synchronized(this) { entry.nextDeliveryIndex }
+        for (index in start until itemCount) {
+            if (Thread.currentThread().isInterrupted || !allowed()) return
+            if (synchronized(this) { entries[binder] !== entry }) return
+            action(index)
+            synchronized(this) {
+                if (entries[binder] !== entry) return
+                entry.nextDeliveryIndex = index + 1
+            }
+        }
+        synchronized(this) {
+            if (entries[binder] === entry) {
+                entry.lastDeliveryKey = key
+                entry.pendingDeliveryKey = null
+                entry.nextDeliveryIndex = 0
+            }
+        }
     }
 
     fun routeFor(listener: Any?, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? {

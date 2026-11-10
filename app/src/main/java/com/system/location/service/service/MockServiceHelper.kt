@@ -24,7 +24,6 @@ import com.system.location.service.ext.routingJson
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.sensorCadenceScale
 import com.system.location.service.ext.sensorVariation
-import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.cellMode
 import com.system.location.service.ext.environmentSourceMode
@@ -359,7 +358,6 @@ object MockServiceHelper {
         rely.putBoolean("disable_get_from_location", FakeLoc.disableGetFromLocation)
         rely.putBoolean("enable_physical_noise", context.physicalNoise)
         rely.putBoolean("sim_ready", context.simReady)
-        rely.putString("gnss_model", if (context.gnssOrbital) "ORBITAL" else "ANALYTIC")
         rely.putInt("environment_ap_count", context.environmentApCount)
         rely.putString("cell_mode", context.cellMode)
         rely.putString("environment_source", context.environmentSourceMode)

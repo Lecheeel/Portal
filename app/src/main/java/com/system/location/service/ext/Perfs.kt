@@ -228,12 +228,6 @@ var Context.simReady: Boolean
         putBoolean("simReady", value)
     }
 
-var Context.gnssOrbital: Boolean
-    get() = sharedPrefs.getBoolean("gnssOrbital", true)
-    set(value) = sharedPrefs.edit {
-        putBoolean("gnssOrbital", value)
-    }
-
 var Context.environmentApCount: Int
     get() = sharedPrefs.getInt("environmentApCount", 4).coerceIn(EnvironmentConfig.MIN_AP_PER_CELL, EnvironmentConfig.MAX_AP_PER_CELL)
     set(value) = sharedPrefs.edit {

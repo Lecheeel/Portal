@@ -17,7 +17,6 @@ import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.environmentSourceMode
 import com.system.location.service.ext.enableNMEA
 import com.system.location.service.ext.mockWifiEnabled
-import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.sensorCadenceScale
@@ -262,6 +261,8 @@ object DebugHttpServer {
         val obj = parseObject(body)
         val app = context ?: return 500 to """{"ok":false,"error":"server not ready"}"""
         if (obj.isEmpty()) return 400 to """{"ok":false,"error":"empty config"}"""
+        if ("gnss_orbital" in obj || "gnss_model" in obj)
+            return 400 to """{"ok":false,"error":"obsolete GNSS model selector; use receiver capture"}"""
         obj["backend"]?.jsonPrimitive?.content?.let { name ->
             val backend = runCatching { BackendType.valueOf(name.uppercase()) }.getOrNull()
                 ?: return 400 to """{"ok":false,"error":"unknown backend"}"""
@@ -287,7 +288,6 @@ object DebugHttpServer {
         obj["wifi_fingerprint_enabled"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()
             ?.let { app.wifiFingerprintEnabled = it }
         obj["sim_ready"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()?.let { app.simReady = it }
-        obj["gnss_orbital"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()?.let { app.gnssOrbital = it }
         obj["environment_source"]?.jsonPrimitive?.content?.let { app.environmentSourceMode = it }
         val applied = runBlocking { ScenarioRuntime.applyConfigNow() }
         return 200 to buildJsonObject {
@@ -303,7 +303,6 @@ object DebugHttpServer {
                 put("physical_noise", app.physicalNoise)
                 put("wifi_fingerprint_enabled", app.wifiFingerprintEnabled)
                 put("sim_ready", app.simReady)
-                put("gnss_orbital", app.gnssOrbital)
                 put("environment_source", app.environmentSourceMode)
                 put("enable_nmea", app.enableNMEA)
                 put("enable_mock_wifi", app.mockWifiEnabled)

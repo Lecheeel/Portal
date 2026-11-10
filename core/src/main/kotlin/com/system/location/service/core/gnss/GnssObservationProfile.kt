@@ -2,8 +2,7 @@ package com.system.location.service.core.gnss
 
 import com.system.location.service.core.geo.Wgs84
 import kotlinx.serialization.Serializable
-import kotlin.math.max
-import kotlin.math.sqrt
+import kotlin.random.Random
 
 /** One receiver status frame captured before synthetic GNSS is enabled. */
 @Serializable
@@ -140,7 +139,7 @@ object GnssObservationProfileBuilder {
             val totalSatelliteSamples = satellites.size
             val totalSamples = ordered.sumOf { it.satellites.size }
             val ratio = if (totalSamples == 0) 0.0 else totalSatelliteSamples.toDouble() / totalSamples
-            val interval = wilsonInterval(totalSatelliteSamples, totalSamples)
+            val interval = blockBootstrapInterval(ordered, constellation, ratio)
             GnssConstellationProfile(
                 constellation = constellation,
                 frameCount = ordered.size,
@@ -182,15 +181,29 @@ object GnssObservationProfileBuilder {
         )
     }
 
-    private fun wilsonInterval(successes: Int, total: Int): Pair<Double, Double> {
-        if (total == 0) return 0.0 to 0.0
-        // 95% Wilson interval; it remains bounded for small captures.
-        val z = 1.959963984540054
-        val n = total.toDouble()
-        val p = successes / n
-        val denominator = 1.0 + z * z / n
-        val centre = (p + z * z / (2.0 * n)) / denominator
-        val radius = z * sqrt((p * (1.0 - p) + z * z / (4.0 * n)) / n) / denominator
-        return max(0.0, centre - radius) to minOf(1.0, centre + radius)
+    private fun blockBootstrapInterval(
+        frames: List<GnssObservationFrame>, constellation: Constellation, ratio: Double,
+    ): Pair<Double, Double> {
+        // Satellite observations in adjacent frames are correlated. Resample whole ten-second
+        // temporal blocks rather than treating every tracked satellite as a Bernoulli trial.
+        // This describes this capture only; it is not a confidence claim about other regions.
+        val start = frames.first().capturedAtMillis
+        val blocks = frames.groupBy { (it.capturedAtMillis - start) / 10_000L }.values.map { block ->
+            block.sumOf { frame -> frame.satellites.count { it.constellation == constellation } } to
+                block.sumOf { it.satellites.size }
+        }
+        if (blocks.size < 3) return 0.0 to 1.0
+        val random = Random(0)
+        val ratios = DoubleArray(1000) {
+            var selected = 0L
+            var total = 0L
+            repeat(blocks.size) {
+                val block = blocks[random.nextInt(blocks.size)]
+                selected += block.first
+                total += block.second
+            }
+            if (total == 0L) 0.0 else selected.toDouble() / total
+        }.sorted()
+        return minOf(ratio, ratios[24]) to maxOf(ratio, ratios[974])
     }
 }

@@ -77,6 +77,7 @@ import kotlinx.coroutines.launch
  */
 class GnssComposeFragment : Fragment() {
     private val model by viewModels<GnssViewModel>()
+    private val captureModel by viewModels<com.system.location.service.ui.viewmodel.GnssCaptureViewModel>()
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -85,14 +86,14 @@ class GnssComposeFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             PortalTheme {
-                GnssScreen(model)
+                GnssScreen(model, captureModel)
             }
         }
     }
 }
 
 @Composable
-private fun GnssScreen(model: GnssViewModel) {
+private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.service.ui.viewmodel.GnssCaptureViewModel) {
     val context = LocalContext.current
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val locationManager = remember(context) { context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager }
@@ -198,6 +199,7 @@ private fun GnssScreen(model: GnssViewModel) {
                     Text("GPS: $gps   GLONASS: $glonass   北斗: $beidou", style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            item(key = "capture") { GnssCaptureCard(captureModel, runtime.isActive) }
             item(key = "control") {
                 PortalCard(modifier = Modifier.animateContentSize()) {
                     PortalSectionTitle("GNSS 控制")

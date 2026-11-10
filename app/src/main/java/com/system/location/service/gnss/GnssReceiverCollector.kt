@@ -221,9 +221,15 @@ class GnssReceiverCollector(
                 session.checkSystem(readSystemState(manager, initialize = systemState == null))
                 session.checkLocal(ScenarioRuntime.controller.startGeneration, localActive())
                 check(!contaminated) { "采集期间收到模拟定位，已废弃本次采集" }
-                check(frames.any { it.satellites.any(GnssCaptureValidator::isUsableSatellite) }) {
-                    "未收到有效卫星（状态帧 ${frames.size}、测量批次 ${measurements.size}、导航电文 ${navigation.size}）；" +
+                check(frames.isNotEmpty()) {
+                    "未收到卫星状态帧（测量批次 ${measurements.size}、导航电文 ${navigation.size}）；" +
                         "${notes.joinToString("；")}" + "。请检查接收环境和系统定位后重新采集"
+                }
+                // A nonempty acquisition window can contain only zero-CN0 rows. Return
+                // that evidence so the repository can archive it without promoting it
+                // to a playback profile. Quality gating belongs at that boundary.
+                if (frames.none { it.satellites.any(GnssCaptureValidator::isUsableSatellite) }) {
+                    notes += "未收到正 CN0 且几何有效的信号；本窗口仅供诊断，不可用于画像回放"
                 }
                 check(System.currentTimeMillis() >= frames.last().capturedAtMillis &&
                     frames.zipWithNext().all { (a, b) -> a.capturedAtMillis <= b.capturedAtMillis }) {

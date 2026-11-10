@@ -37,6 +37,14 @@ class GnssCaptureRepositoryDeviceTest {
             assertArrayEquals(original, active.readBytes())
             assertEquals(accepted, repository.load())
             assertEquals(rejected, GnssCaptureStore(directory.resolve("gnss/latest-rejected-capture.json")).load())
+            val zeroCn0 = accepted.copy(frames = accepted.frames.map { frame ->
+                frame.copy(satellites = frame.satellites.map { it.copy(cn0DbHz = 0f, usedInFix = false) })
+            })
+            val zeroFailure = runCatching { repository.save(zeroCn0) }.exceptionOrNull()
+            assertTrue(zeroFailure is IllegalStateException)
+            assertTrue(zeroFailure?.message.orEmpty().contains("有效帧不足"))
+            assertArrayEquals(original, active.readBytes())
+            assertEquals(zeroCn0, GnssCaptureStore(directory.resolve("gnss/latest-rejected-capture.json")).load())
         } finally { directory.deleteRecursively() }
     }
 }

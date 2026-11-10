@@ -57,7 +57,6 @@ import com.system.location.service.ext.disableRegisterLocationListener
 import com.system.location.service.ext.disableWifiScan
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.gmsMockEnabled
-import com.system.location.service.ext.gnssOrbital
 import com.system.location.service.ext.loopBroadcastlocation
 import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
@@ -383,7 +382,6 @@ private data class SettingsValues(
     val platformFusedEnabled: Boolean,
     val startupBurstEnabled: Boolean,
     val experimentalClearMockFlag: Boolean,
-    val gnssOrbital: Boolean,
     val simReady: Boolean,
     val debug: Boolean,
     val disableGetCurrentLocation: Boolean,
@@ -435,7 +433,6 @@ private fun SettingsScreen(
             platformFusedEnabled = context.platformFusedEnabled,
             startupBurstEnabled = context.startupBurstEnabled,
             experimentalClearMockFlag = context.experimentalClearMockFlag,
-            gnssOrbital = context.gnssOrbital,
             simReady = context.simReady,
             debug = context.debug,
             disableGetCurrentLocation = context.disableGetCurrentLocation,
@@ -536,11 +533,6 @@ private fun SettingsScreen(
                 item(key = "hooks") {
                     PortalCard {
                         PortalSectionTitle("系统 Hook", "仅 Xposed/Native 后端有效")
-                        PortalSwitchRow(
-                            title = "轨道 GNSS 模型（实验）",
-                            checked = values.gnssOrbital,
-                            onCheckedChange = hookAction { context.gnssOrbital = it },
-                        )
                         PortalSwitchRow(
                             title = "SIM 就绪",
                             subtitle = "关闭时模拟无 SIM / 仅 Wi-Fi。",

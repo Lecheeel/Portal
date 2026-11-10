@@ -1,0 +1,167 @@
+{
+  "revision": "71db0ffa0d9735697c6adfd06fdf766d0e5ce807",
+  "records": [
+    {
+      "prn": 1,
+      "week": 1316,
+      "toe": 525600.0,
+      "tocWeek": 1316,
+      "tocSeconds": 525600.0,
+      "iode": 140,
+      "iodc": 396,
+      "health": 0,
+      "fitHours": 4,
+      "sqrtA": 5153.63647842,
+      "e": 0.00595761800651,
+      "i0": 0.983391914449,
+      "omega0": -2.49318481774,
+      "omega": -1.65049681327,
+      "m0": 2.87153499034,
+      "deltaN": 4.02659638965e-09,
+      "omegaDot": -7.88997134293e-09,
+      "iDot": -8.5717856424e-12,
+      "crc": 309.375,
+      "crs": -52.1875,
+      "cuc": -2.67662107944e-06,
+      "cus": 4.17418777943e-06,
+      "cic": 1.06170773506e-07,
+      "cis": -9.31322574615e-08,
+      "af0": 0.000396659597754,
+      "af1": 1.70530256582e-12,
+      "af2": 0.0,
+      "tgd": -3.25962901115e-09,
+      "expected": [
+        {
+          "offsetSeconds": -900.0,
+          "xMeters": -11074726.778484793,
+          "yMeters": -14153351.514778187,
+          "zMeters": 19753974.712586302,
+          "clockBiasSeconds": 0.00039665276329354837
+        },
+        {
+          "offsetSeconds": 0.0,
+          "xMeters": -8791578.493899545,
+          "yMeters": -14103783.477602782,
+          "zMeters": 20912590.55849014,
+          "clockBiasSeconds": 0.0003966559793118661
+        },
+        {
+          "offsetSeconds": 900.0,
+          "xMeters": -6399322.162474725,
+          "yMeters": -14183315.632170487,
+          "zMeters": 21717460.669161864,
+          "clockBiasSeconds": 0.00039665925654290486
+        }
+      ]
+    },
+    {
+      "prn": 3,
+      "week": 1316,
+      "toe": 518400.0,
+      "tocWeek": 1316,
+      "tocSeconds": 518400.0,
+      "iode": 83,
+      "iodc": 595,
+      "health": 0,
+      "fitHours": 4,
+      "sqrtA": 5153.73074913,
+      "e": 0.00673579110298,
+      "i0": 0.927433799889,
+      "omega0": 0.535493192938,
+      "omega": 0.603898968759,
+      "m0": 2.47111681993,
+      "deltaN": 5.37665245659e-09,
+      "omegaDot": -8.27891621924e-09,
+      "iDot": -1.52506354767e-10,
+      "crc": 215.875,
+      "crs": 19.6875,
+      "cuc": 1.01886689663e-06,
+      "cus": 7.56420195103e-06,
+      "cic": -1.00582838058e-07,
+      "cis": -6.51925802231e-08,
+      "af0": 9.67308878899e-05,
+      "af1": 3.06954461848e-12,
+      "af2": 0.0,
+      "tgd": -4.19095158577e-09,
+      "expected": [
+        {
+          "offsetSeconds": -900.0,
+          "xMeters": -24462450.819875218,
+          "yMeters": -9888352.538421687,
+          "zMeters": 3995111.895181999,
+          "clockBiasSeconds": 9.671709461134224e-05
+        },
+        {
+          "offsetSeconds": 0.0,
+          "xMeters": -24595184.70336541,
+          "yMeters": -10320622.836612765,
+          "zMeters": 1243964.1466769655,
+          "clockBiasSeconds": 9.672135508805104e-05
+        },
+        {
+          "offsetSeconds": 900.0,
+          "xMeters": -24464798.58504831,
+          "yMeters": -10622103.264052061,
+          "zMeters": -1528268.2510752433,
+          "clockBiasSeconds": 9.672577703031836e-05
+        }
+      ]
+    },
+    {
+      "prn": 4,
+      "week": 1316,
+      "toe": 525600.0,
+      "tocWeek": 1316,
+      "tocSeconds": 525600.0,
+      "iode": 149,
+      "iodc": 149,
+      "health": 0,
+      "fitHours": 4,
+      "sqrtA": 5153.5952034,
+      "e": 0.00703935802449,
+      "i0": 0.954985854788,
+      "omega0": 1.68627783503,
+      "omega": 0.0385429101526,
+      "m0": 0.571263794333,
+      "deltaN": 4.45375691882e-09,
+      "omegaDot": -8.02569122271e-09,
+      "iDot": -2.27509483475e-10,
+      "crc": 220.0625,
+      "crs": 85.15625,
+      "cuc": 4.49270009995e-06,
+      "cus": 8.03358852863e-06,
+      "cic": 1.19209289551e-07,
+      "cis": 3.91155481339e-08,
+      "af0": 0.000306834001094,
+      "af1": -2.27373675443e-11,
+      "af2": 0.0,
+      "tgd": -6.053596735e-09,
+      "expected": [
+        {
+          "offsetSeconds": -900.0,
+          "xMeters": 3693983.629082687,
+          "yMeters": 24127118.347247273,
+          "zMeters": 10035548.268243466,
+          "clockBiasSeconds": 0.0003068475558394969
+        },
+        {
+          "offsetSeconds": 0.0,
+          "xMeters": 2866581.9726601914,
+          "yMeters": 23090512.696274128,
+          "zMeters": 12478751.424075311,
+          "clockBiasSeconds": 0.00030682523452011816
+        },
+        {
+          "offsetSeconds": 900.0,
+          "xMeters": 1852824.867856795,
+          "yMeters": 21869230.774766207,
+          "zMeters": 14703350.482207464,
+          "clockBiasSeconds": 0.00030680306675712974
+        }
+      ]
+    }
+  ],
+  "source": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/test/data/rinex/07590920.05n",
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c",
+  "method": "RTKLIB eph2pos and var_uraeph compiled verbatim with rtkcmn.c; input GPS RINEX records; clock includes relativity and excludes TGD. No Kotlin production code used to compute expected results."
+}

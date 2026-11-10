@@ -64,6 +64,36 @@ class NmeaCheckTest {
         assertEquals(result.detail, CheckStatus.PASS, result.status)
     }
 
+    @Test fun multiSignalGsvCountsUniqueSatellitesInsteadOfAddingSignalCounts() {
+        val base = fixture()
+        val signalOne = base.filter { it.sentence.contains("GSV") }.map {
+            sentence(it.sentence.substringAfter('$').substringBefore('*') + ",1")
+        }
+        val signalFive = base.filter { it.sentence.contains("GSV") }.map {
+            sentence(it.sentence.substringAfter('$').substringBefore('*') + ",5")
+        }
+        val result = evaluate(base.filterNot { it.sentence.contains("GSV") } + signalOne + signalFive)
+        assertEquals(result.detail, CheckStatus.PASS, result.status)
+        assertTrue(result.evidence.joinToString().contains("最新合计=8"))
+        assertTrue(result.evidence.joinToString().contains("1 组 burst"))
+    }
+
+    @Test fun multiSignalGsvDoesNotMaskTooManyUsedSpacecraft() {
+        val base = fixture(used = 9)
+        val gsv = base.filter { it.sentence.contains("GSV") }
+        val signals = listOf(1, 5).flatMap { signal -> gsv.map {
+            sentence(it.sentence.substringAfter('$').substringBefore('*') + ",$signal")
+        } }
+        val result = evaluate(base.filterNot { it.sentence.contains("GSV") } + signals)
+        assertTrue(result.detail, result.detail.contains("在用数超过"))
+    }
+
+    @Test fun invalidGsvHeaderAtWindowBoundaryIsStillAnError() {
+        val result = evaluate(fixture().filterNot { it.sentence.contains("GSV") } + sentence("GPGSV,0,1,-1"))
+        assertEquals(CheckStatus.FAIL, result.status)
+        assertTrue(result.detail.contains("GSV 头"))
+    }
+
     @Test fun checksumFailureRemainsAnError() {
         val lines = fixture().toMutableList()
         lines[0] = lines[0].copy(sentence = lines[0].sentence.dropLast(2) + "ZZ")

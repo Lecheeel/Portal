@@ -157,7 +157,7 @@ class NmeaCheck : Check {
         var matchedFrameCount: Int? = null
         if (matchedFrame != null) {
             // A talker may report only some constellations/signals. Compare only represented systems.
-            val represented = latestBurst.byTalker.keys.flatMap { TALKER_CONSTELLATIONS[it].orEmpty() }.toSet()
+            val represented = latestBurst.sentences.flatMap { TALKER_CONSTELLATIONS[it.talker].orEmpty() }.toSet()
             val statusCount = matchedFrame.satellites.filter { it.constellation in represented }
                 .map { it.constellation to it.svid }.distinct().size
             matchedFrameCount = statusCount
@@ -364,29 +364,22 @@ private class GsvBurst(
     val anchorMillis: Long,
     val firstSequence: Int,
     val sentences: MutableList<ParsedNmea> = mutableListOf(),
-    val byTalker: MutableMap<String, MutableList<ParsedNmea>> = linkedMapOf(),
+    val bySignal: MutableMap<String, MutableList<ParsedNmea>> = linkedMapOf(),
 ) {
-    /** 各星座 GSV 头 totalSatellitesInView 之和；只有 GN 组合 talker 时退化为该值。 */
+    /** Count unique spacecraft across signals; GN-only numbering is not safely resolvable. */
     fun satelliteTotal(): Int? {
-        var constellationTotal = 0
-        var constellationTalkers = 0
-        var combinedTotal: Int? = null
-        byTalker.forEach { (talker, talkerSentences) ->
-            val declared = talkerSentences.firstOrNull()?.fields?.getOrNull(2)?.trim()?.toIntOrNull()
-                ?: return@forEach
-            if (talker == "GN") {
-                combinedTotal = declared
-            } else {
-                constellationTotal += declared
-                constellationTalkers++
+        val identities = sentences.flatMap { sentence ->
+            gsvSatelliteGroups(sentence).mapNotNull { group ->
+                val prn = group.firstOrNull()?.toIntOrNull() ?: return@mapNotNull null
+                gsvIdentity(sentence.talker, prn) ?: return null
             }
         }
-        return if (constellationTalkers > 0) constellationTotal else combinedTotal
+        return identities.toSet().size
     }
 
     fun isComplete(): Boolean {
-        if (byTalker.isEmpty()) return false
-        byTalker.forEach { (_, talkerSentences) ->
+        if (bySignal.isEmpty()) return false
+        bySignal.forEach { (_, talkerSentences) ->
             val header = talkerSentences.firstOrNull() ?: return false
             val totalMessages = header.fields.getOrNull(0)?.trim()?.toIntOrNull() ?: return false
             val declaredTotal = header.fields.getOrNull(2)?.trim()?.toIntOrNull() ?: return false
@@ -493,11 +486,13 @@ private fun groupGsvBursts(sentences: List<ParsedNmea>): List<GsvBurst> {
             "GGA", "RMC" -> epochMarkerSeen = true
             "GSV" -> {
                 val number = sentence.fields.getOrNull(1)?.trim()?.toIntOrNull()
-                val previousNumber = current?.byTalker?.get(sentence.talker)
+                val signalKey = gsvSignalKey(sentence)
+                val previousNumber = current?.bySignal?.get(signalKey)
                     ?.lastOrNull()?.fields?.getOrNull(1)?.trim()?.toIntOrNull()
                 val restart = previousNumber != null &&
                     (number == 1 || (number != null && number <= previousNumber))
-                val startNew = current == null || epochMarkerSeen || restart
+                val startNew = current == null || epochMarkerSeen || restart ||
+                    abs(sentence.timestampMillis - current.anchorMillis) > 1000L
                 val burst = if (startNew) {
                     GsvBurst(bursts.size, sentence.timestampMillis, sentence.sequence).also {
                         bursts += it
@@ -508,7 +503,7 @@ private fun groupGsvBursts(sentences: List<ParsedNmea>): List<GsvBurst> {
                 }
                 if (startNew) epochMarkerSeen = false
                 burst.sentences += sentence
-                burst.byTalker.getOrPut(sentence.talker) { mutableListOf() } += sentence
+                burst.bySignal.getOrPut(signalKey) { mutableListOf() } += sentence
             }
             else -> Unit
         }
@@ -525,11 +520,17 @@ private fun validateGsvBursts(bursts: List<GsvBurst>): GsvValidation {
     val samples = mutableListOf<String>()
     bursts.forEachIndexed { index, burst ->
         // 采样开始/结束时可能截断一整组 GSV，不当作生成器错误。
-        if (!burst.isComplete() && (index == 0 || index == bursts.lastIndex)) {
+        val validHeaders = burst.sentences.all {
+            val messages = it.fields.getOrNull(0)?.toIntOrNull()
+            val number = it.fields.getOrNull(1)?.toIntOrNull()
+            messages != null && messages > 0 && number != null && number in 1..messages &&
+                (it.fields.getOrNull(2)?.toIntOrNull() ?: -1) >= 0
+        }
+        if (validHeaders && !burst.isComplete() && (index == 0 || index == bursts.lastIndex)) {
             boundaryBursts++
             return@forEachIndexed
         }
-        burst.byTalker.forEach { (talker, talkerSentences) ->
+        burst.bySignal.forEach { (talker, talkerSentences) ->
             val header = talkerSentences.firstOrNull() ?: return@forEach
             val totalMessages = header.fields.getOrNull(0)?.trim()?.toIntOrNull()
             val declaredTotal = header.fields.getOrNull(2)?.trim()?.toIntOrNull()
@@ -581,6 +582,29 @@ private fun nearestBurst(bursts: List<GsvBurst>, gga: ParsedNmea): GsvBurst? {
     return bursts.filter { it.isComplete() && it.anchorMillis > 0 && abs(it.anchorMillis - gga.timestampMillis) <= 1000L }
         .minByOrNull { abs(it.anchorMillis - gga.timestampMillis) }
 
+}
+
+/** Optional NMEA 4.x signal ID belongs to a separate message sequence. */
+private fun gsvSignalKey(sentence: ParsedNmea): String {
+    val payload = sentence.fields.drop(3)
+    val signal = if (payload.size % 4 == 1) payload.last() else ""
+    return "${sentence.talker}:$signal"
+}
+
+private fun gsvIdentity(talker: String, prn: Int): Pair<String, Int>? = when (talker) {
+    "GP" -> when (prn) {
+        in 1..32 -> "GPS" to prn
+        in 33..64 -> "SBAS" to prn + 87
+        in 120..158 -> "SBAS" to prn
+        in 193..202 -> "QZSS" to prn
+        else -> null
+    }
+    "BD", "GB" -> "BDS" to if (prn >= 201) prn - 200 else prn
+    "GA" -> "GAL" to if (prn >= 301) prn - 300 else prn
+    "GL" -> "GLO" to if (prn >= 65) prn - 64 else prn
+    "GQ" -> "QZSS" to if (prn < 193) prn + 192 else prn
+    "GI" -> "IRNSS" to prn
+    else -> null // Mixed GN numbering depends on receiver version; don't invent a mapping.
 }
 
 private fun gsvSatelliteGroups(sentence: ParsedNmea): List<List<String>> {

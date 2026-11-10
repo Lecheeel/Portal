@@ -74,7 +74,8 @@ internal fun installNmeaCallback(callback: IInterface) {
     })
 }
 
-internal fun ownsNmeaDelivery(listener: Any?): Boolean =
-    FakeLoc.enable && FakeLoc.enableMockGnss && FakeLoc.enableNMEA &&
-        NmeaListenerRouting.shouldDeliver(listener) &&
-        GnssReceiverRuntime.currentFrame(NmeaListenerRouting.fixedPointFor(listener)) != null
+internal fun ownsNmeaDelivery(listener: Any?): Boolean {
+    if (!FakeLoc.enable || !FakeLoc.enableMockGnss || !FakeLoc.enableNMEA) return false
+    val route = NmeaListenerRouting.routeFor(listener) ?: return false
+    return GnssReceiverRuntime.frameForRoute(route) != null
+}

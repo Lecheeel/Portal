@@ -72,8 +72,7 @@ import java.util.Locale
 /**
  * Compose replacement for the environment tools leaf screen.
  *
- * The old EnvironmentFragment remains in the tree as a fallback while this page is validated;
- * SAF launchers stay in the Fragment and Compose owns only presentation/state.
+ * SAF launchers stay in the Fragment and Compose owns presentation/state.
  */
 class EnvironmentComposeFragment : Fragment() {
     private val names = MutableStateFlow<List<String>>(emptyList())

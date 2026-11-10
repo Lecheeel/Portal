@@ -17,7 +17,7 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
         data class Exact(val observer: Wgs84, val altitude: Double, val speed: Double,
             val bearing: Double) : ObserverIdentity
     }
-    private data class Key(val epochMillis: Long, val identity: ObserverIdentity, val minimum: Int,
+    private data class Key(val utcEpochMillis: Long?, val identity: ObserverIdentity, val minimum: Int,
         val receiverSecond: Long?, val bootCount: Int?)
     private var capture: GnssCapture? = null
     private var model: ReceiverBroadcastSkyModel? = null
@@ -51,11 +51,15 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
         // A frozen/adjusted wall clock cannot keep a physical frame alive after elapsed evidence
         // expires. Missing or changed boot identity must not reuse a physically propagated frame.
         val hasBroadcast = model?.broadcastBootCount != null
-        val key = Key(atMillis / 1000 * 1000, identity, minimumSatellites,
-            if (hasBroadcast) elapsedRealtimeNanos?.div(1_000_000_000L) else null,
+        val utcEpochMillis = atMillis / 1000 * 1000
+        val receiverSecond = if (hasBroadcast) elapsedRealtimeNanos?.div(1_000_000_000L) else null
+        // Choose one clock boundary: intersecting UTC and elapsed seconds would publish twice
+        // per receiver second when their boundaries differ. UTC remains the first sample's label.
+        val key = Key(if (receiverSecond == null) utcEpochMillis else null, identity, minimumSatellites,
+            receiverSecond,
             if (hasBroadcast) currentBootCount else null)
         if (cache.containsKey(key)) return cache[key]
-        val frame = model?.frame(key.epochMillis, observer, altitudeMeters, minimumSatellites,
+        val frame = model?.frame(utcEpochMillis, observer, altitudeMeters, minimumSatellites,
             elapsedRealtimeNanos, currentBootCount)
         val published = frame?.let { PublishedGnssFrame(sequence.incrementAndGet(), it, speedMps, bearing) }
         cache[key] = published

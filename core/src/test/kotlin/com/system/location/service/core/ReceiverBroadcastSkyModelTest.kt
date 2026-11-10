@@ -96,6 +96,9 @@ class ReceiverBroadcastSkyModelTest {
         assertEquals(ReceiverGnssSource.HYBRID_BROADCAST_REPLAY, first.frame.source)
         assertSame(first, source.frame(sample.copy(timeMillis = 62900, elapsedNanos = elapsed + 900_000_000L),
             0, GnssFrameRoute.Global, 62900, 42))
+        // Crossing UTC's boundary inside one elapsed second must not publish an extra frame.
+        assertSame(first, source.frame(sample.copy(timeMillis = 63000, elapsedNanos = elapsed + 950_000_000L),
+            0, GnssFrameRoute.Global, 63000, 42))
         val next = source.frame(sample.copy(elapsedNanos = elapsed + 1_000_000_000L),
             0, GnssFrameRoute.Global, 62000, 42)!!
         assertNotEquals(first.sequence, next.sequence)

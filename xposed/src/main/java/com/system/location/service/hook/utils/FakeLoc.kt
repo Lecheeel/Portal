@@ -253,7 +253,7 @@ object FakeLoc {
         val state = runtimeSnapshots.current()
         val external = externallyDriven && state.configuration.enabled && state.sample != null
         return RuntimeTransfer(if (external) state else state.copy(sample = null, provider = null),
-            external, scenarioSamples.snapshot(now))
+            external, scenarioSamples.snapshot(now), movementSpeed, lastMovementNanos)
     }
 
     /** Caller must order authenticated full restores against forwarded commands. */
@@ -263,8 +263,8 @@ object FakeLoc {
         scenarioSamples.replace(received.scenarios)
         runtimeSnapshots.set(received.state)
         externallyDriven = received.externallyDriven
-        movementSpeed = 0f
-        lastMovementNanos = now
+        movementSpeed = received.movementSpeedMps
+        lastMovementNanos = received.lastMovementNanos
         lastSampleNanos = maxOf(lastSampleNanos, received.state.sample?.elapsedNanos ?: 0L)
         return received
     }
@@ -289,6 +289,7 @@ object FakeLoc {
     @Synchronized
     fun updateCoordinates(lat: Double, lon: Double, movingSpeed: Float = 0f, nowNanos: Long = SystemClock.elapsedRealtimeNanos()) {
         require(lat in -90.0..90.0 && lon in -180.0..180.0)
+        require(movingSpeed.isFinite() && movingSpeed >= 0f && nowNanos >= 0L)
         runtimeSnapshots.update { it.copy(latitude = lat, longitude = lon, sample = null, provider = null) }
         movementSpeed = movingSpeed.coerceAtLeast(0f)
         lastMovementNanos = nowNanos
@@ -327,7 +328,7 @@ object FakeLoc {
                 state
             } else state.copy(sample = LocationSample(
                 Wgs84(state.latitude, state.longitude), state.altitudeMeters, state.accuracyMeters,
-                if (now - lastMovementNanos <= maxOf(500L, interval * 2) * 1_000_000) movementSpeed else 0f,
+                if (now >= lastMovementNanos && now - lastMovementNanos <= maxOf(500L, interval * 2) * 1_000_000) movementSpeed else 0f,
                 ((state.bearingDeg % 360 + 360) % 360).toFloat().coerceAtMost(359.99997f),
                 timeMillis, nextSampleNanos,
             ))

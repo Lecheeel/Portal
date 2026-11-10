@@ -7,6 +7,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RuntimeLifecycleTest {
+    @Test fun restoringMovementDoesNotRestartItsActivityWindow() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot(configuration = HookConfiguration(enabled = true)))
+            FakeLoc.updateCoordinates(31.0, 121.0, 4f, 1_000_000_000)
+            val transfer = FakeLoc.captureTransfer(1_100_000_000)
+            FakeLoc.restoreRuntime(transfer, 1_200_000_000)
+            assertEquals(4f, FakeLoc.snapshot(true, 1_200_000_000, 1000).speed)
+            FakeLoc.restoreRuntime(transfer, 2_000_000_000)
+            assertEquals(0f, FakeLoc.snapshot(true, 2_000_000_000, 2000).speed)
+            FakeLoc.restoreRuntime(transfer, 999_999_999)
+            assertEquals(0f, FakeLoc.snapshot(true, 999_999_999, 2000).speed)
+        } finally {
+            FakeLoc.updateCoordinates(0.0, 0.0, nowNanos = 0)
+            FakeLoc.runtimeSnapshots.set(saved)
+        }
+    }
+
     @Test fun fullRestoreReplacesPolicyAndScenariosTogetherAndDoesNotReviveStaleSamples() {
         val saved = FakeLoc.runtimeSnapshots.current()
         try {

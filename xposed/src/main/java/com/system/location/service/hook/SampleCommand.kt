@@ -28,6 +28,14 @@ object SampleCommand {
         lease.clear()
     }
 
+    /** Used only by ordered full-state replication; this does not publish or start native injection. */
+    fun restoreLease(fix: LocationSample?, nowNanos: Long): Boolean {
+        if (fix != null && !lease.restore(fix.elapsedNanos, nowNanos)) return false
+        if (fix == null) lease.clear()
+        lastPublishMillis = fix?.timeMillis ?: 0L
+        return true
+    }
+
     fun publish(fix: LocationSample, rely: Bundle): Boolean {
         val started = SystemClock.elapsedRealtimeNanos()
         return try {
@@ -62,8 +70,7 @@ object SampleCommand {
 
     fun expire(nowNanos: Long): Boolean {
         if (!FakeLoc.externallyDriven || !lease.expired(nowNanos)) return false
-        FakeLoc.enable = false
-        FakeLoc.hasBearings = false
+        FakeLoc.stopRuntime()
         lease.clear()
         NativeCommand.disable()
         return true

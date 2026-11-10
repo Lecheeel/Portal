@@ -48,10 +48,27 @@ data class GnssMeasurementBatch(
     val biasNanos: Double?,
     val hardwareClockDiscontinuityCount: Int,
     val measurements: List<GnssMeasurementObservation>,
+    val timeUncertaintyNanos: Double? = null,
+    val biasUncertaintyNanos: Double? = null,
+    val driftNanosPerSecond: Double? = null,
+    val driftUncertaintyNanosPerSecond: Double? = null,
+    val leapSecond: Int? = null,
+    /** Receiver event's epoch on Android's elapsed realtime clock, API 29+. */
+    val elapsedRealtimeNanos: Long? = null,
+    val elapsedRealtimeUncertaintyNanos: Double? = null,
+    /** Callback arrival time, distinct from the receiver event epoch. */
+    val capturedElapsedRealtimeNanos: Long? = null,
 ) {
     init {
         require(capturedAtMillis >= 0 && measurements.size <= 512) { "invalid measurement batch" }
         require(biasNanos == null || biasNanos.isFinite()) { "invalid clock bias" }
+        require(listOf(timeUncertaintyNanos, biasUncertaintyNanos, driftUncertaintyNanosPerSecond,
+            elapsedRealtimeUncertaintyNanos).all { it == null || it.isFinite() && it >= 0 }) {
+            "invalid clock uncertainty"
+        }
+        require(driftNanosPerSecond == null || driftNanosPerSecond.isFinite()) { "invalid clock drift" }
+        require(elapsedRealtimeNanos == null || elapsedRealtimeNanos >= 0)
+        require(capturedElapsedRealtimeNanos == null || capturedElapsedRealtimeNanos >= 0)
     }
 }
 
@@ -90,10 +107,12 @@ data class GnssNavigationObservation(
     val messageId: Int,
     val submessageId: Int,
     val dataBase64: String,
+    val capturedElapsedRealtimeNanos: Long? = null,
 ) {
     init {
         require(capturedAtMillis >= 0 && svid in 1..999) { "invalid navigation metadata" }
         require(dataBase64.length <= 8192) { "navigation payload too large" }
         require(Base64.getDecoder().decode(dataBase64).isNotEmpty()) { "empty navigation payload" }
+        require(capturedElapsedRealtimeNanos == null || capturedElapsedRealtimeNanos >= 0)
     }
 }

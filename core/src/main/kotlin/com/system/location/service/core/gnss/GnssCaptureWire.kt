@@ -17,6 +17,7 @@ object GnssCaptureWire {
             GpsBroadcastEvidence.fromCapture(capture) else capture.gpsBroadcastEvidence
         val compact = capture.copy(measurements = emptyList(), navigation = emptyList(),
             gpsBroadcastEvidence = evidence,
+            gpsSignalCalibration = GpsEmpiricalSignalModel(capture).calibration,
             frames = capture.frames.map { it.copy(signalObservations = emptyList()) })
         val data = GnssCaptureCodec.encode(compact).toByteArray(Charsets.UTF_8)
         require(data.size <= GnssCaptureCodec.MAX_BYTES) { "GNSS compact capture too large" }

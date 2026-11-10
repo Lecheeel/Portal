@@ -19,6 +19,8 @@ data class GnssCapture(
     val bootCount: Int? = null,
     /** Decoded compact evidence; populated at the authenticated transport boundary. */
     val gpsBroadcastEvidence: GpsBroadcastEvidence? = null,
+    /** Per-signal GPS L1/unknown-carrier calibration retained when raw status signals leave IPC. */
+    val gpsSignalCalibration: GpsSignalCalibration? = null,
 ) {
     init {
         require(schemaVersion == 1) { "unsupported GNSS capture version" }

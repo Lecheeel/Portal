@@ -210,34 +210,31 @@ class NmeaCheck : Check {
             ?: bursts.lastOrNull()?.satelliteTotal()
         var gsvVsGnssDiff: Int? = null
         val latestBurst = bursts.lastOrNull { it.isComplete() }
-        val matchedFrame = latestBurst?.let { burst -> snapshot.gnssFrames.minByOrNull {
-            abs(it.capturedAtMillis - burst.anchorMillis)
-        }?.takeIf { abs(it.capturedAtMillis - burst.anchorMillis) <= 1000L } }
         var matchedFrameCount: Int? = null
-        if (matchedFrame != null) {
+        var gsvStatusPairs = 0
+        var gsvIdentityDifferences = 0
+        var maxGsvStatusCountDifference = 0
+        bursts.filter { it.isComplete() }.forEach { burst ->
+            val frame = LocationGnssReconciliation.nearestFrame(burst.anchorMillis, snapshot.gnssFrames)
+                ?: return@forEach
             // A talker may report only some constellations/signals. Compare only represented systems.
-            val represented = latestBurst.sentences.flatMap { TALKER_CONSTELLATIONS[it.talker].orEmpty() }.toSet()
-            val statusCount = matchedFrame.satellites.filter { it.constellation in represented }
-                .map { it.constellation to it.svid }.distinct().size
-            matchedFrameCount = statusCount
-            val reported = latestBurst.satelliteTotal()
-            gsvVsGnssDiff = reported?.let { abs(statusCount - it) }
-        }
-
-        // 只校验真正报告了卫星的 talker：部分设备会为当前不可见星座输出 0 星 GSV。
-        val gsvTalkers = latestBurst?.sentences.orEmpty()
-            .filter { sentence -> gsvSatelliteCount(sentence) > 0 }
-            .map { it.talker }
-            .distinct()
-        if (matchedFrame != null && matchedFrame.satellites.isNotEmpty()) {
-            val frameConstellations = matchedFrame.satellites.map { it.constellation }.toSet()
-            val unmatched = gsvTalkers.filter { talker ->
-                TALKER_CONSTELLATIONS[talker]?.let { systems -> systems.none { it in frameConstellations } } == true
-            }
-            if (unmatched.isNotEmpty()) {
-                sourceConcerns += "GSV talker ${unmatched.joinToString("/")} 对应星座不在同时间窗 GnssStatus 中"
+            val identities = burst.identities() ?: return@forEach // GN-only IDs remain ambiguous.
+            val represented = burst.sentences.flatMap { TALKER_CONSTELLATIONS[it.talker].orEmpty() }
+                .mapNotNull { STATUS_SYSTEM_NAMES[it] }.toSet() + identities.map { it.first }
+            val statusIdentities = frame.satellites.mapNotNull { satellite ->
+                STATUS_SYSTEM_NAMES[satellite.constellation]?.takeIf { it in represented }?.let { it to satellite.svid }
+            }.toSet()
+            val difference = abs(statusIdentities.size - identities.size)
+            gsvStatusPairs++
+            maxGsvStatusCountDifference = maxOf(maxGsvStatusCountDifference, difference)
+            if (statusIdentities != identities) gsvIdentityDifferences++
+            if (burst === latestBurst) {
+                matchedFrameCount = statusIdentities.size
+                gsvVsGnssDiff = difference
             }
         }
+        if (gsvIdentityDifferences > 0) sourceConcerns +=
+            "完整 GSV 与同时间窗 GnssStatus 可见身份存在差异：$gsvIdentityDifferences/$gsvStatusPairs 组，最大数量差 $maxGsvStatusCountDifference"
 
         val gsaMismatches = gsaList.mapNotNull { gsa ->
             val systemId = gsa.fields.getOrNull(17)?.trim()?.toIntOrNull() ?: return@mapNotNull null
@@ -288,6 +285,9 @@ class NmeaCheck : Check {
             latestGsvTotal = latestGsvTotal,
             latestFrameCount = matchedFrameCount,
             gsvVsGnssDiff = gsvVsGnssDiff,
+            gsvStatusPairs = gsvStatusPairs,
+            gsvIdentityDifferences = gsvIdentityDifferences,
+            maxGsvStatusCountDifference = maxGsvStatusCountDifference,
             issues = issues,
             sourceConcerns = sourceConcerns,
         )
@@ -336,6 +336,8 @@ class NmeaCheck : Check {
             (analysis.gsvVsGnssDiff?.let { "，差=$it" } ?: "")
         evidence += "NMEA UTC：GGA ${analysis.firstGgaUtc ?: "无"} → ${analysis.lastGgaUtc ?: "无"}；" +
             "RMC 最新 ${analysis.latestRmcDateTime ?: "无"}"
+        evidence += "GSV↔GnssStatus：${analysis.gsvStatusPairs} 组完成同时间窗身份对账；" +
+            "身份差异=${analysis.gsvIdentityDifferences} 组，最大数量差=${analysis.maxGsvStatusCountDifference}"
         return evidence.filter { it.isNotEmpty() }
             .take(MAX_EVIDENCE_LINES)
             .map { it.take(MAX_EVIDENCE_CHARS) }
@@ -415,6 +417,9 @@ private data class NmeaAnalysis(
     val latestGsvTotal: Int?,
     val latestFrameCount: Int?,
     val gsvVsGnssDiff: Int?,
+    val gsvStatusPairs: Int,
+    val gsvIdentityDifferences: Int,
+    val maxGsvStatusCountDifference: Int,
     val issues: List<String>,
     val sourceConcerns: List<String>,
 )
@@ -428,15 +433,17 @@ private class GsvBurst(
     val bySignal: MutableMap<String, MutableList<ParsedNmea>> = linkedMapOf(),
 ) {
     /** Count unique spacecraft across signals; GN-only numbering is not safely resolvable. */
-    fun satelliteTotal(): Int? {
+    fun identities(): Set<Pair<String, Int>>? {
         val identities = sentences.flatMap { sentence ->
             gsvSatelliteGroups(sentence).mapNotNull { group ->
                 val prn = group.firstOrNull()?.toIntOrNull() ?: return@mapNotNull null
                 gsvIdentity(sentence.talker, prn) ?: return null
             }
         }
-        return identities.toSet().size
+        return identities.toSet()
     }
+
+    fun satelliteTotal(): Int? = identities()?.size
 
     fun isComplete(): Boolean {
         if (bySignal.isEmpty()) return false

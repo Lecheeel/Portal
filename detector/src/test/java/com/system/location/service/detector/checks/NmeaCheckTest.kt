@@ -132,6 +132,30 @@ class NmeaCheckTest {
         assertTrue(result.detail.contains("GnssStatus"))
     }
 
+    private fun visibleStatus(ids: List<Int>, at: Long): GnssFrameSnapshot = GnssFrameSnapshot(at,
+        ids.map { id -> GnssSatelliteSnapshot(1, id, 30f, 30f, 30f, id <= 4, true, true, false) })
+
+    @Test fun laterMatchingEpochCannotHideEarlierVisibleCountDifference() {
+        val lines = fixture() + fixture().map { it.copy(timestampMillis = 20000) }
+        val result = NmeaCheck().evaluate(SampleSnapshot(nmeaSentences = lines, gnssFrames = listOf(
+            visibleStatus((1..9).toList(), 10000), visibleStatus((1..8).toList(), 20000))))
+        assertEquals(result.detail, CheckStatus.UNKNOWN, result.status)
+    }
+
+    @Test fun equalCountsCannotHideDifferentUnusedVisibleIdentitiesInEarlierEpoch() {
+        val lines = fixture() + fixture().map { it.copy(timestampMillis = 20000) }
+        val result = NmeaCheck().evaluate(SampleSnapshot(nmeaSentences = lines, gnssFrames = listOf(
+            visibleStatus((1..7).toList() + 9, 10000), visibleStatus((1..8).toList(), 20000))))
+        assertEquals(result.detail, CheckStatus.UNKNOWN, result.status)
+    }
+
+    @Test fun repeatedSignalRecordsDoNotCreateCrossSourceIdentityDifferences() {
+        val status = visibleStatus((1..8).toList(), 10000)
+        val result = NmeaCheck().evaluate(SampleSnapshot(nmeaSentences = fixture(), gnssFrames = listOf(
+            status.copy(satellites = status.satellites + status.satellites.map { it.copy(cn0DbHz = 25f) }))))
+        assertEquals(result.detail, CheckStatus.PASS, result.status)
+    }
+
     @Test fun checksumFailureRemainsAnError() {
         val lines = fixture().toMutableList()
         lines[0] = lines[0].copy(sentence = lines[0].sentence.dropLast(2) + "ZZ")

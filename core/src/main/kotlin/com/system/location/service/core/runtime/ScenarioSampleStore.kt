@@ -18,7 +18,7 @@ class ScenarioSampleStore(private val maxScenarios: Int = MAX_SCENARIOS) {
 
     @Synchronized
     fun publish(scenarioId: String, sample: LocationSample, elapsedRealtimeNanos: Long): Long {
-        require(scenarioId.isNotBlank()) { "scenarioId must not be blank" }
+        require(scenarioId.isNotBlank() && scenarioId.length <= MAX_ID_LENGTH) { "Invalid scenarioId" }
         require(elapsedRealtimeNanos >= 0L) { "elapsedRealtimeNanos must be non-negative" }
         sequence += 1L
         entries.remove(scenarioId)
@@ -60,5 +60,6 @@ class ScenarioSampleStore(private val maxScenarios: Int = MAX_SCENARIOS) {
 
     companion object {
         const val MAX_SCENARIOS = 64
+        const val MAX_ID_LENGTH = 255
     }
 }

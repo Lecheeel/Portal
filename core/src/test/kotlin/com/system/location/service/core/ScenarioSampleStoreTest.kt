@@ -60,6 +60,7 @@ class ScenarioSampleStoreTest {
         store.clear("a")
         assertTrue(store.scenarioIds().isEmpty())
         assertThrows(IllegalArgumentException::class.java) { store.publish("", sample(31.0), 100) }
+        assertThrows(IllegalArgumentException::class.java) { store.publish("s".repeat(256), sample(31.0), 100) }
         assertThrows(IllegalArgumentException::class.java) { ScenarioSampleStore(0) }
     }
 

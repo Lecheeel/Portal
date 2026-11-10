@@ -256,7 +256,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept15@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.disableRequestGeofence && !FakeLoc.enableAGPS) {
+                if (FakeLoc.enable && FakeLoc.disableRequestGeofence) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("requestGeofence: injected!")
                     }
@@ -272,7 +272,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept16@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.disableGetFromLocation && !FakeLoc.enableAGPS) {
+                if (FakeLoc.enable && FakeLoc.disableGetFromLocation) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("getFromLocation: injected!")
                     }
@@ -288,7 +288,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept17@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.disableGetFromLocation && !FakeLoc.enableAGPS) {
+                if (FakeLoc.enable && FakeLoc.disableGetFromLocation) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("getFromLocationName: injected!")
                     }
@@ -304,7 +304,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept18@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.enable && !FakeLoc.enableAGPS) {
+                if (FakeLoc.enable) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("addTestProvider: injected!")
                     }
@@ -320,7 +320,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept19@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.enable && !FakeLoc.enableAGPS) {
+                if (FakeLoc.enable) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("removeTestProvider: injected!")
                     }
@@ -336,7 +336,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept20@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.enable && !FakeLoc.enableAGPS) {
+                if (FakeLoc.enable) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("setTestProviderLocation: injected!")
                     }
@@ -352,7 +352,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept21@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.enable && !FakeLoc.enableAGPS) {
+                if (FakeLoc.enable) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("setTestProviderEnabled: injected!")
                     }
@@ -405,7 +405,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                     Logger.debug("startGnssBatch: injected!")
                 }
 
-                if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
+                if (FakeLoc.enable && args.size >= 2) {
                     val listener =
                         args.filterIsInstance<IInterface>().firstOrNull()
                             ?: run {
@@ -427,7 +427,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept25@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
+                if (FakeLoc.enable && args.size >= 2) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("stopGnssBatch: injected!")
                     }
@@ -442,7 +442,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             XposedInterface.Hooker intercept26@{ chain ->
                 val args = chain.args.toTypedArray()
 
-                if (FakeLoc.enable && !FakeLoc.enableAGPS && args.size >= 2) {
+                if (FakeLoc.enable && args.size >= 2) {
                     if (FakeLoc.enableDebugLog) {
                         Logger.debug("requestListenerFlush: injected!")
                     }

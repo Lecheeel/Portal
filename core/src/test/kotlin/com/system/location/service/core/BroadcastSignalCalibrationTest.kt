@@ -52,4 +52,30 @@ class BroadcastSignalCalibrationTest {
         assertEquals(45.0, fitted.at(Constellation.GLONASS, 20.0, svid = 2)!!.cn0, 0.0)
         assertNull(fitted.at(Constellation.GLONASS, 20.0, svid = 3))
     }
+
+    @Test fun compactTransportRetainsUnprojectedBandsAndIsStableWhenReencoded() {
+        val source = capture(listOf(signal(Constellation.GALILEO, 10f, 20f, 1_575_420_000f, used = false),
+            signal(Constellation.GALILEO, 30f, 40f, 1_575_420_000f),
+            signal(Constellation.GALILEO, 20f, 55f, 1_207_140_000f)))
+        val fit = BroadcastSignalCalibration.fit(source)
+        val wire = GnssCaptureWire.decode(GnssCaptureWire.encode(source))
+        assertTrue(wire.frames.all { it.signalObservations.isEmpty() })
+        assertEquals(fit, wire.broadcastSignalCalibration)
+        assertEquals(30.0, wire.broadcastSignalCalibration!!.at(Constellation.GALILEO, 20.0, 1_575_420_000.0)!!.cn0, 1e-12)
+        assertEquals(fit, GnssCaptureWire.decode(GnssCaptureWire.encode(wire)).broadcastSignalCalibration)
+    }
+
+    @Test fun freshUnsupportedSignalEvidenceReplacesStaleCalibrationWithExplicitEmptyFit() {
+        val supported = capture(listOf(signal(Constellation.BEIDOU, 20f, 30f, 1_561_098_000f)))
+        val stale = BroadcastSignalCalibration.fit(supported)
+        val source = supported.copy(broadcastSignalCalibration = stale, frames = supported.frames.map {
+            // Raw B1C cannot support the B1I service, even if a legacy projected row says B1I.
+            it.copy(signalObservations = listOf(GnssSignalObservation(
+                signal(Constellation.BEIDOU, 20f, 60f, 1_575_420_000f))))
+        })
+        val wire = GnssCaptureWire.decode(GnssCaptureWire.encode(source))
+        assertEquals(emptyList<BroadcastSignalCurve>(), wire.broadcastSignalCalibration!!.curves)
+        assertEquals(wire.broadcastSignalCalibration,
+            GnssCaptureWire.decode(GnssCaptureWire.encode(wire)).broadcastSignalCalibration)
+    }
 }

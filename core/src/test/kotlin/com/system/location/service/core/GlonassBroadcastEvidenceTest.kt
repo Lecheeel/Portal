@@ -76,7 +76,7 @@ class GlonassBroadcastEvidenceTest {
         val evidence = GlonassBroadcastEvidence(clock, GlonassReferenceFrame.PZ_90_02, transform, listOf(eph), datum)
         val frames = (0..30).map { second ->
             GnssObservationFrame(second * 1000L, observer, 0.0,
-                listOf(GnssSatellite(Constellation.GLONASS, 2, 10f, 180f, 35f, true, true, true)))
+                listOf(GnssSatellite(Constellation.GLONASS, 2, second * 3f, 180f, 35f, true, true, true)))
         }
         val capture = GnssCapture(deviceModel = "receiver", osVersion = "os", startedAtMillis = 0,
             endedAtMillis = 30_000, frames = frames, bootCount = 3,

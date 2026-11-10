@@ -11,6 +11,8 @@ import com.system.location.service.core.geo.Wgs84
 class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0) {
     private val replay = ReceiverGnssSkyModel(capture, seed)
     private val signal = GpsEmpiricalSignalModel(capture)
+    private val broadcastSignal = if (capture.frames.none { it.signalObservations.isNotEmpty() } &&
+        capture.broadcastSignalCalibration != null) capture.broadcastSignalCalibration else BroadcastSignalCalibration.fit(capture)
     private val evidence = if (capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
         GpsBroadcastEvidence.fromCapture(capture) else capture.gpsBroadcastEvidence
     private val galileoEvidence = capture.galileoBroadcastEvidence
@@ -104,7 +106,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 val calibration = listOf(GalileoOpenServiceSignal.E1 to 1_575_420_000.0,
                     GalileoOpenServiceSignal.E5B to 1_207_140_000.0).firstNotNullOfOrNull { (band, frequency) ->
                     if (GalileoSignalClock.correction(decoded, result.observation.transmissionTime, band).correctionSeconds == null)
-                        null else empirical(Constellation.GALILEO, los.elevationDegrees, frequency)
+                        null else broadcastSignal.at(Constellation.GALILEO, los.elevationDegrees, frequency)
                 } ?: run {
                     diagnostics += "Galileo ${decoded.ephemeris.svid}：没有健康、数据有效且具备同频实测校准的 I/NAV 信号"
                     return@mapNotNull null
@@ -126,7 +128,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     diagnostics += "Galileo ${decoded.ephemeris.svid}：${correction.reason}"
                     return@mapNotNull null
                 }
-                val calibration = empirical(Constellation.GALILEO, los.elevationDegrees, 1_176_450_000.0)
+                val calibration = broadcastSignal.at(Constellation.GALILEO, los.elevationDegrees, 1_176_450_000.0)
                     ?: run { diagnostics += "Galileo ${decoded.ephemeris.svid}：缺少 E5a 同频实测校准"; return@mapNotNull null }
                 GnssSatellite(Constellation.GALILEO, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
                     los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
@@ -151,7 +153,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     diagnostics += "北斗 ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
                     return@mapNotNull null
                 }
-                val calibration = empirical(Constellation.BEIDOU, los.elevationDegrees)
+                val calibration = broadcastSignal.at(Constellation.BEIDOU, los.elevationDegrees, 1_561_098_000.0)
                     ?: run { diagnostics += "北斗 ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
                 GnssSatellite(Constellation.BEIDOU, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
                     los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
@@ -164,7 +166,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     diagnostics += "北斗 ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
                     return@mapNotNull null
                 }
-                val calibration = empirical(Constellation.BEIDOU, los.elevationDegrees)
+                val calibration = broadcastSignal.at(Constellation.BEIDOU, los.elevationDegrees, 1_561_098_000.0)
                     ?: run { diagnostics += "北斗 ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
                 GnssSatellite(Constellation.BEIDOU, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
                     los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
@@ -199,7 +201,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     diagnostics += "GLONASS ${encoded.orbit.slot}：${result.reason ?: "地平线以下或方位未定义"}"
                     return@mapNotNull null
                 }
-                val calibration = empirical(Constellation.GLONASS, los.elevationDegrees)
+                val calibration = broadcastSignal.at(Constellation.GLONASS, los.elevationDegrees, svid = encoded.orbit.slot)
                     ?: run { diagnostics += "GLONASS ${encoded.orbit.slot}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
                 GnssSatellite(Constellation.GLONASS, encoded.orbit.slot, los.elevationDegrees.toFloat(),
                     los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
@@ -244,23 +246,4 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
             diagnostics, pool.size, minimumSatellites)
     }
 
-    private data class Empirical(val cn0: Double, val used: Double, val carrier: Float?, val almanac: Boolean)
-
-    private fun empirical(constellation: Constellation, elevation: Double, signalCarrierHz: Double? = null): Empirical? {
-        val samples = capture.frames.flatMap { frame ->
-            if (signalCarrierHz != null && frame.signalObservations.isNotEmpty())
-                frame.signalObservations.map { it.satellite } else frame.satellites
-        }.filter {
-            it.constellation == constellation && GnssCaptureValidator.isUsableSatellite(it) &&
-                (signalCarrierHz == null || it.carrierHz?.let { carrier ->
-                    kotlin.math.abs(carrier.toDouble() - signalCarrierHz) <= 100_000.0
-                } == true)
-        }
-        if (samples.isEmpty()) return null
-        val nearest = samples.sortedBy { kotlin.math.abs(it.elevationDeg - elevation.toFloat()) }.take(8)
-        if (kotlin.math.abs(nearest.first().elevationDeg - elevation.toFloat()) > 30f) return null
-        return Empirical(nearest.map { it.cn0DbHz.toDouble() }.average(),
-            nearest.count { it.usedInFix }.toDouble() / nearest.size,
-            nearest.mapNotNull { it.carrierHz }.firstOrNull(), nearest.any { it.hasAlmanac })
-    }
 }

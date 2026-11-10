@@ -19,9 +19,12 @@ object GnssCaptureWire {
         // Preserve explicit empty fits from raw signals too: empty is not permission to refit L5.
         val calibration = if (capture.gpsSignalCalibration != null || capture.frames.any { it.signalObservations.isNotEmpty() })
             GpsEmpiricalSignalModel(capture).calibration else null
+        val broadcastCalibration = if (capture.frames.any { it.signalObservations.isNotEmpty() })
+            BroadcastSignalCalibration.fit(capture) else capture.broadcastSignalCalibration
         val compact = capture.copy(measurements = emptyList(), navigation = emptyList(),
             gpsBroadcastEvidence = evidence,
             gpsSignalCalibration = calibration,
+            broadcastSignalCalibration = broadcastCalibration,
             frames = capture.frames.map { it.copy(signalObservations = emptyList()) })
         val data = GnssCaptureCodec.encode(compact).toByteArray(Charsets.UTF_8)
         require(data.size <= GnssCaptureCodec.MAX_BYTES) { "GNSS compact capture too large" }

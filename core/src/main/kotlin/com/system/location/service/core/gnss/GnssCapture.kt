@@ -27,6 +27,8 @@ data class GnssCapture(
     val beiDouBroadcastEvidence: BeiDouBroadcastEvidence? = null,
     /** Optional GLONASS evidence; UTC(SU)+3h, PZ-90 and receiver datum are explicit. */
     val glonassBroadcastEvidence: GlonassBroadcastEvidence? = null,
+    /** Per-band conditional signal fits survive removal of raw multi-frequency status in IPC. */
+    val broadcastSignalCalibration: BroadcastSignalCalibration? = null,
 ) {
     init {
         require(schemaVersion == 1) { "unsupported GNSS capture version" }

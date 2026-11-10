@@ -2,7 +2,6 @@ package com.system.location.service.hook.hooks.gnss
 
 import android.os.IInterface
 import com.system.location.service.hook.utils.BinderUtils
-import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.onceHookAllMethod
 import io.github.libxposed.api.XposedInterface
 
@@ -37,9 +36,10 @@ internal object RawGnssCallbacks {
     }
 
     fun blocked(listener: Any?): Boolean {
-        if (!FakeLoc.enable || !FakeLoc.enableMockGnss || FakeLoc.allowPhysicalRawGnss) return false
-        val route = registry.routeFor(listener) ?: return false
-        return GnssReceiverRuntime.frameForRoute(route) != null
+        val context = GnssReceiverRuntime.activeContext() ?: return false
+        if (context.state.configuration.allowPhysicalRawGnss) return false
+        val route = registry.routeFor(listener, context.state.routing) ?: return false
+        return GnssReceiverRuntime.frameForRoute(route, context) != null
     }
 
     fun clear() = registry.clear()

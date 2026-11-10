@@ -97,23 +97,29 @@ class PortalModule : XposedModule() {
         if (!param.isSystemServer && !isSystemProcess()) return
         val saved = param.getSavedInstanceState() as? Bundle
         val gateBundle = saved?.getBundle("gate")
-        if (gateBundle != null) HookRuntime.executionGate = ReloadExecutionGate.adopt(gateBundle)
-        param.oldHookHandles.forEach { runCatching { it.unhook() } }
-        HookRuntime.attach(this)
-        HookRuntime.clearHooks()
-        HookStatusRegistry.reset()
-        val loader = ClassLoader.getSystemClassLoader()
-        android.util.Log.i("PortalModule", "hot reloaded system_server loader=${loader.javaClass.name}")
-        saved?.getByteArray("runtime")?.let {
-            val restored = FakeLoc.restoreRuntime(RuntimeTransferWire.decode(it), android.os.SystemClock.elapsedRealtimeNanos())
-            SampleCommand.restoreLease(restored.state.sample, android.os.SystemClock.elapsedRealtimeNanos())
+        val retiredGate = HookRuntime.executionGate
+        try {
+            if (gateBundle != null) HookRuntime.executionGate = ReloadExecutionGate.adopt(gateBundle)
+            param.oldHookHandles.forEach { runCatching { it.unhook() } }
+            HookRuntime.attach(this)
+            HookRuntime.clearHooks()
+            HookStatusRegistry.reset()
+            val loader = ClassLoader.getSystemClassLoader()
+            android.util.Log.i("PortalModule", "hot reloaded system_server loader=${loader.javaClass.name}")
+            saved?.getByteArray("runtime")?.let {
+                val restored = FakeLoc.restoreRuntime(RuntimeTransferWire.decode(it), android.os.SystemClock.elapsedRealtimeNanos())
+                SampleCommand.restoreLease(restored.state.sample, android.os.SystemClock.elapsedRealtimeNanos())
+            }
+            lifecycle.systemServerStarting(loader)
+            restoreCallbacks(saved)
+            restorePeers(saved)
+            if (FakeLoc.runtimeSnapshots.current().configuration.enabled) LocationTicker.start()
+            if (FakeLoc.runtimeSnapshots.current().configuration.gnssEnabled) com.system.location.service.hook.hooks.gnss.GnssSignalInjection.ensureStarted()
+        } finally {
+            // A restore error must not leave every old-snapshot call blocked forever.
+            runCatching { HookRuntime.executionGate.resume() }
+            if (HookRuntime.executionGate !== retiredGate) runCatching { retiredGate.resume() }
         }
-        lifecycle.systemServerStarting(loader)
-        restoreCallbacks(saved)
-        restorePeers(saved)
-        if (FakeLoc.runtimeSnapshots.current().configuration.enabled) LocationTicker.start()
-        if (FakeLoc.runtimeSnapshots.current().configuration.gnssEnabled) com.system.location.service.hook.hooks.gnss.GnssSignalInjection.ensureStarted()
-        HookRuntime.executionGate.resume()
     }
 
     private fun restoreCallbacks(saved: Bundle?) {

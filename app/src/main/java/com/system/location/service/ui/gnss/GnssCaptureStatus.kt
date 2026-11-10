@@ -31,8 +31,8 @@ internal fun GnssCaptureStatus(model: GnssCaptureViewModel, minimumSatellites: I
             GnssCapturePlaybackState.READY -> current.frame?.let { frame ->
                 val sourceLabel = when (frame.source) {
                     ReceiverGnssSource.STATISTICAL_REPLAY -> "统计回放"
-                    ReceiverGnssSource.BROADCAST_EPHEMERIS -> "GPS 广播几何"
-                    ReceiverGnssSource.HYBRID_BROADCAST_REPLAY -> "GPS 广播几何 + 统计回放"
+                    ReceiverGnssSource.BROADCAST_EPHEMERIS -> "广播星历几何"
+                    ReceiverGnssSource.HYBRID_BROADCAST_REPLAY -> "广播星历几何 + 统计回放"
                 }
                 Text("采集地点预览（$sourceLabel）：当前有效池 ${frame.availableSatelliteCapacity} 颗，可见 ${frame.satellites.size} 颗。",
                     style = MaterialTheme.typography.bodySmall)

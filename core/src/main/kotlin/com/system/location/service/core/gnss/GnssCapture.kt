@@ -1,0 +1,99 @@
+package com.system.location.service.core.gnss
+
+import java.util.Base64
+import kotlinx.serialization.Serializable
+
+/** Receiver evidence is retained separately from statistics so correlations can be replayed. */
+@Serializable
+data class GnssCapture(
+    val schemaVersion: Int = 1,
+    val deviceModel: String,
+    val osVersion: String,
+    val startedAtMillis: Long,
+    val endedAtMillis: Long,
+    val frames: List<GnssObservationFrame>,
+    val measurements: List<GnssMeasurementBatch> = emptyList(),
+    val navigation: List<GnssNavigationObservation> = emptyList(),
+    val notes: List<String> = emptyList(),
+) {
+    init {
+        require(schemaVersion == 1) { "unsupported GNSS capture version" }
+        require(deviceModel.isNotBlank() && osVersion.isNotBlank()) { "missing device metadata" }
+        require(startedAtMillis >= 0 && endedAtMillis >= startedAtMillis) { "invalid capture interval" }
+        require(frames.isNotEmpty() && frames.size <= MAX_FRAMES) { "invalid frame count" }
+        require(frames.all { it.capturedAtMillis in startedAtMillis..endedAtMillis }) {
+            "observation outside capture interval"
+        }
+        require(frames.zipWithNext().all { (a, b) -> a.capturedAtMillis <= b.capturedAtMillis }) {
+            "frames must be chronological"
+        }
+        require(measurements.size <= MAX_FRAMES && navigation.size <= MAX_NAVIGATION_MESSAGES) {
+            "capture exceeds raw data limit"
+        }
+    }
+
+    fun profile(): GnssObservationProfile = GnssObservationProfileBuilder.build(frames, deviceModel, osVersion)
+
+    companion object {
+        const val MAX_FRAMES = 600
+        const val MAX_NAVIGATION_MESSAGES = 4096
+    }
+}
+
+@Serializable
+data class GnssMeasurementBatch(
+    val capturedAtMillis: Long,
+    val timeNanos: Long,
+    val fullBiasNanos: Long?,
+    val biasNanos: Double?,
+    val hardwareClockDiscontinuityCount: Int,
+    val measurements: List<GnssMeasurementObservation>,
+) {
+    init {
+        require(capturedAtMillis >= 0 && measurements.size <= 512) { "invalid measurement batch" }
+        require(biasNanos == null || biasNanos.isFinite()) { "invalid clock bias" }
+    }
+}
+
+@Serializable
+data class GnssMeasurementObservation(
+    val constellation: Constellation,
+    val svid: Int,
+    val state: Int,
+    val timeOffsetNanos: Double,
+    val receivedSvTimeNanos: Long,
+    val receivedSvTimeUncertaintyNanos: Long,
+    val cn0DbHz: Double,
+    val pseudorangeRateMetersPerSecond: Double,
+    val pseudorangeRateUncertaintyMetersPerSecond: Double,
+    val accumulatedDeltaRangeState: Int,
+    val accumulatedDeltaRangeMeters: Double,
+    val accumulatedDeltaRangeUncertaintyMeters: Double,
+    val carrierHz: Double? = null,
+    val codeType: String? = null,
+) {
+    init {
+        require(svid in 1..999) { "invalid measurement SVID" }
+        require(listOf(timeOffsetNanos, cn0DbHz, pseudorangeRateMetersPerSecond,
+            pseudorangeRateUncertaintyMetersPerSecond, accumulatedDeltaRangeMeters,
+            accumulatedDeltaRangeUncertaintyMeters).all { it.isFinite() }) { "non-finite measurement" }
+        require(carrierHz == null || carrierHz.isFinite() && carrierHz > 0) { "invalid carrier" }
+    }
+}
+
+@Serializable
+data class GnssNavigationObservation(
+    val capturedAtMillis: Long,
+    val type: Int,
+    val svid: Int,
+    val status: Int,
+    val messageId: Int,
+    val submessageId: Int,
+    val dataBase64: String,
+) {
+    init {
+        require(capturedAtMillis >= 0 && svid in 1..999) { "invalid navigation metadata" }
+        require(dataBase64.length <= 8192) { "navigation payload too large" }
+        require(Base64.getDecoder().decode(dataBase64).isNotEmpty()) { "empty navigation payload" }
+    }
+}

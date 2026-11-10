@@ -120,4 +120,47 @@ class NmeaCheckTest {
         assertEquals(CheckStatus.FAIL, result.status)
         assertTrue(result.detail.contains("校验和"))
     }
+
+    private fun gsa(talker: String, ids: List<String>, system: String? = null): NmeaSentenceSnapshot {
+        val fields = listOf("A", "3") + ids + List(12 - ids.size) { "" } + listOf("1.2", "1.0", "0.7") + listOfNotNull(system)
+        return sentence(talker + "GSA," + fields.joinToString(","))
+    }
+
+    @Test fun gsaChecksUniquePhysicalIdentityAndRejectsInvalidFields() {
+        val base = fixture().filterNot { it.sentence.contains("GSA") }
+        for (ids in listOf(listOf("01", "01", "02", "03"), listOf("NaN"), listOf("301"), listOf("-1"))) {
+            val result = evaluate(base + gsa("GP", ids))
+            assertEquals(result.detail, CheckStatus.FAIL, result.status)
+            assertTrue(result.detail, result.detail.contains("GSA"))
+        }
+    }
+
+    @Test fun missingGsaIdentityInGsvNeedsReviewEvenWhenCountsMatch() {
+        val base = fixture().filterNot { it.sentence.contains("GSA") }
+        val result = evaluate(base + gsa("GP", listOf("01", "02", "03", "09")))
+        assertEquals(result.detail, CheckStatus.UNKNOWN, result.status)
+        assertTrue(result.evidence.joinToString().contains("在用身份"))
+    }
+
+    @Test fun mixedGnGsaUsesExplicitSystemIdAndAmbiguousNumberingCannotPass() {
+        val base = fixture().filterNot { it.sentence.contains("GSA") }
+        val ambiguous = evaluate(base + gsa("GN", listOf("01", "02", "03", "04")))
+        assertEquals(CheckStatus.UNKNOWN, ambiguous.status)
+        val known = evaluate(base + gsa("GN", listOf("01", "02", "03", "04"), "1"))
+        assertEquals(known.detail, CheckStatus.PASS, known.status)
+        val bds = evaluate(base + gsa("GN", listOf("01", "02", "03", "04"), "4"))
+        assertEquals(bds.detail, CheckStatus.UNKNOWN, bds.status)
+    }
+
+    @Test fun gsaAndStatusMustAgreeOnUsedIdentityWithinTheComparisonWindow() {
+        val satellites = (1..8).map { id -> GnssSatelliteSnapshot(1, id, 30f, 30f, 30f,
+            id in 5..8, true, true, false) }
+        val result = NmeaCheck().evaluate(SampleSnapshot(startedAtMillis = 10000, endedAtMillis = 20000,
+            nmeaSentences = fixture(), gnssFrames = listOf(GnssFrameSnapshot(10000, satellites))))
+        assertEquals(result.detail, CheckStatus.UNKNOWN, result.status)
+        assertTrue(result.evidence.joinToString().contains("usedInFix"))
+        val stale = NmeaCheck().evaluate(SampleSnapshot(startedAtMillis = 10000, endedAtMillis = 20000,
+            nmeaSentences = fixture(), gnssFrames = listOf(GnssFrameSnapshot(5000, satellites))))
+        assertEquals(stale.detail, CheckStatus.PASS, stale.status)
+    }
 }

@@ -143,6 +143,41 @@ class NmeaCheck : Check {
         issues += validation.issues
         val burstTotals = bursts.mapNotNull { it.satelliteTotal() }
 
+        gsaList.forEach { gsa ->
+            val slots = gsa.fields.drop(2).take(12).filter(String::isNotBlank)
+            if (slots.isEmpty()) return@forEach
+            val systemTalker = if (gsa.talker == "GN") SYSTEM_ID_TALKERS[gsa.fields.getOrNull(17)?.toIntOrNull()]
+                else gsa.talker.takeIf { it in TALKER_PRN_RANGES }
+            if (systemTalker == null) {
+                sourceConcerns += "GSA 卫星编号缺少可确定的星座信息，未猜测 GN 混合编号"
+                return@forEach
+            }
+            val ranges = TALKER_PRN_RANGES.getValue(systemTalker)
+            val numbers = slots.map { it.toIntOrNull() }
+            if (numbers.any { number -> number == null || ranges.none { number in it } }) {
+                issues += "GSA 在用卫星编号与星座不匹配或不是整数"
+                return@forEach
+            }
+            val identities = numbers.mapNotNull { gsvIdentity(systemTalker, it!!) }
+            if (identities.distinct().size != identities.size) issues += "单条 GSA 重复声明同一在用卫星"
+            val burst = nearestBurst(bursts, gsa)
+            if (burst != null) {
+                val visible = burst.sentences.flatMap { sentence -> gsvSatelliteGroups(sentence).mapNotNull { group ->
+                    group.firstOrNull()?.toIntOrNull()?.let { gsvIdentity(sentence.talker, it) }
+                } }.toSet()
+                val missing = identities.filter { it !in visible }
+                if (missing.isNotEmpty()) sourceConcerns += "GSA 在用身份未见于同时间窗完整 GSV：${missing.take(3)}"
+            }
+            val status = snapshot.gnssFrames.minByOrNull { abs(it.capturedAtMillis - gsa.timestampMillis) }
+                ?.takeIf { gsa.timestampMillis > 0 && abs(it.capturedAtMillis - gsa.timestampMillis) <= 1000 }
+            if (status != null) {
+                val used = status.satellites.filter { it.usedInFix }.mapNotNull { satellite ->
+                    STATUS_SYSTEM_NAMES[satellite.constellation]?.let { it to satellite.svid }
+                }.toSet()
+                if (identities.any { it !in used }) sourceConcerns += "GSA 在用身份与同时间窗 GnssStatus 的 usedInFix 不一致"
+            }
+        }
+
         val comparisons = ggaList.mapNotNull { gga ->
             val ggaCount = gga.fields.getOrNull(6)?.trim()?.toIntOrNull() ?: return@mapNotNull null
             val burst = nearestBurst(bursts, gga) ?: return@mapNotNull null
@@ -438,6 +473,14 @@ private val TALKER_SYSTEM_IDS = mapOf(
     "GQ" to 5,
     "GB" to 4,
     "GI" to 6,
+)
+
+private val SYSTEM_ID_TALKERS = mapOf(1 to "GP", 2 to "GL", 3 to "GA", 4 to "GB", 5 to "GQ", 6 to "GI")
+private val STATUS_SYSTEM_NAMES = mapOf(
+    GnssStatus.CONSTELLATION_GPS to "GPS", GnssStatus.CONSTELLATION_SBAS to "SBAS",
+    GnssStatus.CONSTELLATION_GLONASS to "GLO", GnssStatus.CONSTELLATION_GALILEO to "GAL",
+    GnssStatus.CONSTELLATION_BEIDOU to "BDS", GnssStatus.CONSTELLATION_QZSS to "QZSS",
+    GnssStatus.CONSTELLATION_IRNSS to "IRNSS",
 )
 
 /**

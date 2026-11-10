@@ -58,6 +58,20 @@ class ScenarioSampleStore(private val maxScenarios: Int = MAX_SCENARIOS) {
         }.mapValues { it.value.sample }
     }
 
+    /** Full authenticated restore. Preserve original sample deadlines, never receipt time. */
+    @Synchronized
+    fun replace(samples: Map<String, LocationSample>) {
+        require(samples.size <= maxScenarios)
+        require(samples.keys.all { it.isNotBlank() && it.length <= MAX_ID_LENGTH })
+        var nextSequence = sequence
+        val prepared = samples.mapValues { (_, sample) ->
+            StoredSample(Math.addExact(nextSequence, 1L).also { nextSequence = it }, sample, sample.elapsedNanos)
+        }
+        entries.clear()
+        entries.putAll(prepared)
+        sequence = nextSequence
+    }
+
     companion object {
         const val MAX_SCENARIOS = 64
         const val MAX_ID_LENGTH = 255

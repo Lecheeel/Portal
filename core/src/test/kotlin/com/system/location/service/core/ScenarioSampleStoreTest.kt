@@ -76,4 +76,18 @@ class ScenarioSampleStoreTest {
         assertEquals(31.0, captured.getValue("current").latitude, 0.0)
         assertThrows(IllegalArgumentException::class.java) { store.snapshot(1_500, -1) }
     }
+
+    @Test fun fullRestoreReplacesAllEntriesWithoutRenewingDeadlinesAndRejectsInvalidBatch() {
+        val store = ScenarioSampleStore(maxScenarios = 2)
+        store.publish("old", sample(30.0), 100)
+        val restored = sample(31.0, elapsed = 1_000)
+        store.replace(mapOf("new" to restored))
+        assertEquals(setOf("new"), store.scenarioIds())
+        assertEquals(2L, store.latest("new", 1_000)!!.sequence)
+        assertNull(store.latest("new", 2_000, maxAgeNanos = 500))
+        assertThrows(IllegalArgumentException::class.java) { store.replace(mapOf("" to restored)) }
+        assertEquals(setOf("new"), store.scenarioIds())
+        store.replace(emptyMap())
+        assertTrue(store.scenarioIds().isEmpty())
+    }
 }

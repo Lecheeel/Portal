@@ -1,0 +1,46 @@
+{
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c",
+  "method": "Synthetic Android GLONASS almanac payloads; independent C parity and raw unsigned field extraction only. Not full almanac decoding or current service evidence.",
+  "records": [
+    {
+      "frameId": 1,
+      "stringId": 6,
+      "targetSlot": 24,
+      "satelliteTypeBits": 1,
+      "healthCn": 1,
+      "androidBase64": "BrgVms7+3LqYdgs="
+    },
+    {
+      "frameId": 2,
+      "stringId": 8,
+      "targetSlot": 1,
+      "satelliteTypeBits": 0,
+      "healthCn": 0,
+      "androidBase64": "CAEVms7+3LqYdhY="
+    },
+    {
+      "frameId": 3,
+      "stringId": 10,
+      "targetSlot": 7,
+      "satelliteTypeBits": 1,
+      "healthCn": 0,
+      "androidBase64": "CicVms7+3LqYdok="
+    },
+    {
+      "frameId": 5,
+      "stringId": 12,
+      "targetSlot": 23,
+      "satelliteTypeBits": 0,
+      "healthCn": 1,
+      "androidBase64": "DJcVms7+3LqYdkQ="
+    },
+    {
+      "frameId": 4,
+      "stringId": 14,
+      "targetSlot": 19,
+      "satelliteTypeBits": 1,
+      "healthCn": 1,
+      "androidBase64": "DrMVms7+3LqYdpI="
+    }
+  ]
+}

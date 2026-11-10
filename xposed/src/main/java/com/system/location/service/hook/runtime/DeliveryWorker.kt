@@ -1,5 +1,7 @@
 package com.system.location.service.hook.runtime
 
+import java.util.concurrent.TimeUnit
+
 /** A replacement starts only after the previous callback has returned, including after timeout. */
 internal class DeliveryWorker(
     private val name: String,
@@ -11,6 +13,8 @@ internal class DeliveryWorker(
     private class Run {
         @Volatile var stopping = false
         lateinit var thread: Thread
+        val wakeup = Object()
+        var requested = false // guarded by wakeup; multiple publications coalesce
     }
 
     private var current: Run? = null
@@ -23,6 +27,15 @@ internal class DeliveryWorker(
             return
         }
         launch()
+    }
+
+    /** Wake the existing producer without running callbacks on the publishing thread. */
+    fun requestTick() {
+        val run = synchronized(this) { current?.takeUnless { it.stopping } } ?: return
+        synchronized(run.wakeup) {
+            run.requested = true
+            run.wakeup.notifyAll()
+        }
     }
 
     /** Returns true only when the stopped thread has exited. Never waits for itself. */
@@ -42,12 +55,12 @@ internal class DeliveryWorker(
         val run = Run()
         run.thread = Thread({
             try {
-                if (delayFirstTick) pause()
+                if (delayFirstTick) pause(run)
                 while (!run.stopping && !Thread.currentThread().isInterrupted) {
                     try { tick() }
                     catch (interrupted: InterruptedException) { throw interrupted }
                     catch (error: Exception) { failure(error) }
-                    if (!run.stopping) pause()
+                    if (!run.stopping) pause(run)
                 }
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
@@ -66,5 +79,16 @@ internal class DeliveryWorker(
         run.thread.start()
     }
 
-    private fun pause() = Thread.sleep(intervalMillis().also { require(it > 0) })
+    private fun pause(run: Run) {
+        val duration = TimeUnit.MILLISECONDS.toNanos(intervalMillis().also { require(it > 0) })
+        val deadline = System.nanoTime() + duration
+        synchronized(run.wakeup) {
+            var remaining = duration
+            while (!run.requested && !run.stopping && remaining > 0) {
+                TimeUnit.NANOSECONDS.timedWait(run.wakeup, remaining)
+                remaining = deadline - System.nanoTime()
+            }
+            run.requested = false
+        }
+    }
 }

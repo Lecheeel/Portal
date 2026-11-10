@@ -7,6 +7,47 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DeliveryWorkerTest {
+    @Test fun publicationDuringBlockedTickIsCoalescedAndDeliveredWithoutWaitingForTimer() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val next = CountDownLatch(1)
+        val calls = AtomicInteger()
+        val worker = worker {
+            if (calls.incrementAndGet() == 1) {
+                entered.countDown()
+                check(release.await(2, TimeUnit.SECONDS))
+            } else next.countDown()
+        }
+        try {
+            worker.requestTick() // A publication must not create an unregistered producer.
+            assertEquals(0, calls.get())
+            worker.start()
+            assertTrue(entered.await(2, TimeUnit.SECONDS))
+            repeat(100) { worker.requestTick() }
+            release.countDown()
+            assertTrue("Must not wait for the 60 second fallback timer", next.await(2, TimeUnit.SECONDS))
+            assertTrue(worker.stop())
+            assertEquals(2, calls.get())
+        } finally { release.countDown(); worker.stop() }
+    }
+
+    @Test fun publicationWakesASleepingProducerAndStopStillCancelsItsWait() {
+        val sleeping = CountDownLatch(1)
+        val delivered = CountDownLatch(1)
+        val worker = DeliveryWorker("PublicationWakeup", {
+            sleeping.countDown()
+            60_000
+        }, delayFirstTick = true, tick = { delivered.countDown() }, failure = { throw AssertionError(it) })
+        try {
+            worker.start()
+            assertTrue(sleeping.await(2, TimeUnit.SECONDS))
+            worker.requestTick()
+            assertTrue(delivered.await(2, TimeUnit.SECONDS))
+            assertTrue(worker.stop())
+            worker.requestTick()
+        } finally { worker.stop() }
+    }
+
     @Test fun repeatedStartAndConfirmedStop() {
         val calls = AtomicInteger()
         val first = CountDownLatch(1)

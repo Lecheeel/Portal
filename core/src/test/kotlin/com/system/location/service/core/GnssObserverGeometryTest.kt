@@ -6,6 +6,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssObserverGeometryTest {
+    @Test fun explicitFrameProjectionIsTranslationInvariantAndUsesLocalNormal() {
+        // At lat=0, lon=90: east=-x, north=z, up=y. Origin is intentionally not WGS84.
+        val origin = EcefPosition(100.0, 200.0, 300.0)
+        val orientation = GeodeticOrientation(0.0, 90.0)
+        val target = EcefPosition(97.0, 212.0, 304.0)
+        val los = GnssObserverGeometry.lineOfSight(origin, orientation, target)!!
+        assertEquals(3.0, los.eastMeters, 1e-12)
+        assertEquals(4.0, los.northMeters, 1e-12)
+        assertEquals(12.0, los.upMeters, 1e-12)
+        assertEquals(13.0, los.rangeMeters, 1e-12)
+        val translated = GnssObserverGeometry.lineOfSight(EcefPosition(1100.0, -800.0, 2300.0),
+            orientation, EcefPosition(1097.0, -788.0, 2304.0))!!
+        assertEquals(los, translated)
+        assertNull(GnssObserverGeometry.lineOfSight(origin, orientation, origin))
+        assertThrows(IllegalArgumentException::class.java) { GeodeticOrientation(90.1, 0.0) }
+        assertThrows(IllegalArgumentException::class.java) { GeodeticOrientation(0.0, Double.NaN) }
+    }
+
     @Test fun geodeticCoordinatesMatchAnalyticEquatorPolesAndEllipsoidHeight() {
         val a = 6378137.0
         val b = 6356752.314245179 // WGS 84 semi-minor axis.

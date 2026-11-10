@@ -7,6 +7,14 @@ data class EcefPosition(val xMeters: Double, val yMeters: Double, val zMeters: D
     init { require(listOf(xMeters, yMeters, zMeters).all(Double::isFinite)) }
 }
 
+/** Local ellipsoid-normal orientation in the supplied ECEF frame, not geocentric latitude. */
+data class GeodeticOrientation(val latitudeDegrees: Double, val longitudeDegrees: Double) {
+    init {
+        require(latitudeDegrees.isFinite() && latitudeDegrees in -90.0..90.0)
+        require(longitudeDegrees.isFinite() && longitudeDegrees in -180.0..180.0)
+    }
+}
+
 data class GnssLineOfSight(
     val eastMeters: Double,
     val northMeters: Double,
@@ -40,8 +48,18 @@ object GnssObserverGeometry {
     /** Both positions must use the same ECEF axes and epoch (apply transit rotation first). */
     fun lineOfSight(observer: Wgs84, ellipsoidHeightMeters: Double, satellite: EcefPosition): GnssLineOfSight? {
         val receiver = ecef(observer, ellipsoidHeightMeters)
-        val latitude = Math.toRadians(observer.latitude)
-        val longitude = Math.toRadians(observer.longitude)
+        return lineOfSight(receiver, GeodeticOrientation(observer.latitude, observer.longitude), satellite)
+    }
+
+    /**
+     * Explicit origin and local normal permit frames such as GTRF without a silent datum conversion.
+     * Receiver, satellite and orientation must refer to the same ECEF axes at reception.
+     * The caller supplies the orientation from its frame/ellipsoid model; no ellipsoid is assumed here.
+     */
+    fun lineOfSight(receiver: EcefPosition, orientation: GeodeticOrientation,
+        satellite: EcefPosition): GnssLineOfSight? {
+        val latitude = Math.toRadians(orientation.latitudeDegrees)
+        val longitude = Math.toRadians(orientation.longitudeDegrees)
         val x = satellite.xMeters - receiver.xMeters
         val y = satellite.yMeters - receiver.yMeters
         val z = satellite.zMeters - receiver.zMeters

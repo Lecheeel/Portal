@@ -4,6 +4,7 @@ import android.os.IInterface
 import com.system.location.service.hook.hooks.gnss.GnssCallbackRegistry
 import com.system.location.service.hook.hooks.gnss.GnssSignalInjection
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.hook.utils.BinderUtils
 
 object NmeaListenerRouting {
@@ -14,6 +15,7 @@ object NmeaListenerRouting {
     }
     fun unregister(listener: IInterface) = registry.unregister(listener)
     fun listeners(): List<IInterface> = registry.listeners()
+    fun routeFor(listener: Any?): GnssFrameRoute? = registry.routeFor(listener)
     fun fixedPointFor(listener: Any?): Wgs84? = registry.fixedPointFor(listener)
     fun shouldDeliver(listener: Any?): Boolean = registry.shouldDeliver(listener)
     fun clear() = registry.clear()

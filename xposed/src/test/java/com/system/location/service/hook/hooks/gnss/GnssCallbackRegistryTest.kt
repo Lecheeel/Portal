@@ -2,11 +2,37 @@ package com.system.location.service.hook.hooks.gnss
 
 import android.os.IBinder
 import android.os.IInterface
+import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.gnss.GnssFrameRoute
+import com.system.location.service.core.routing.*
 import java.lang.reflect.Proxy
 import org.junit.Assert.*
 import org.junit.Test
 
 class GnssCallbackRegistryTest {
+    @Test fun receiverRouteRetainsScenarioAndPointIdentityAcrossLiveConfigChanges() {
+        val point = Wgs84(31.0, 121.0)
+        var config = RoutingConfig(mode = RoutingMode.PER_APP, routes = listOf(
+            AppRoute("app", scenarioId = "route-a", uid = 10001)))
+        val registry = GnssCallbackRegistry { packageName, uid -> RoutingTable(config).decision(uid, packageName, false) }
+        val listener = Transport().listener()
+        assertNull(registry.routeFor(listener))
+        assertFalse(registry.shouldDeliver(listener))
+        registry.register(listener, "app", 10001)
+        assertEquals(GnssFrameRoute.Scenario("route-a"), registry.routeFor(listener))
+        config = config.copy(routes = listOf(AppRoute("app", point = point)))
+        assertEquals(GnssFrameRoute.FixedPoint(point), registry.routeFor(listener))
+        config = config.copy(routes = emptyList(), globalScenarioId = "route-b")
+        assertEquals(GnssFrameRoute.Scenario("route-b"), registry.routeFor(listener))
+        config = config.copy(deniedPackages = setOf("app"))
+        assertNull(registry.routeFor(listener))
+        assertFalse(registry.shouldDeliver(listener))
+        config = config.copy(mode = RoutingMode.GLOBAL)
+        assertEquals(GnssFrameRoute.Global, registry.routeFor(listener))
+        registry.unregister(listener)
+        assertNull(registry.routeFor(listener))
+    }
+
     @Test fun duplicateTransportRegistrationIsDeduplicatedAndDeathReleasesTheCallback() {
         val transport = Transport()
         val registry = GnssCallbackRegistry()

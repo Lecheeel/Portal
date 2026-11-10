@@ -5,7 +5,6 @@ package com.system.location.service.hook.hooks
 
 import android.location.Location
 import android.os.Bundle
-import android.os.IBinder
 import android.os.IInterface
 import android.os.Parcel
 import com.system.location.service.hook.BaseLocationHook
@@ -30,12 +29,15 @@ import com.system.location.service.hook.utils.onceHookAllMethod
 import com.system.location.service.hook.utils.ProviderView
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
-import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.uuid.ExperimentalUuidApi
 
 internal object LocationServiceHook : BaseLocationHook() {
-    val locationListeners = LinkedBlockingQueue<Pair<String, IInterface>>()
+    private val listeners = LocationCallbackRegistry(
+        added = { listener -> hookILocationListener(listener); ListenerRouting.register(listener) },
+        removed = ListenerRouting::unregisterBinder,
+    )
+    val locationListeners: List<Pair<String, IInterface>> get() = listeners.listeners()
 
     operator fun invoke(classLoader: ClassLoader) {
         val cLocationManagerService =
@@ -417,7 +419,6 @@ internal object LocationServiceHook : BaseLocationHook() {
                             }
 
                     addLocationListenerInner("GnssBatch", listener)
-                    hookILocationListener(listener)
                 }
 
                 chain.proceed(args)
@@ -458,8 +459,6 @@ internal object LocationServiceHook : BaseLocationHook() {
                             }
 
                     addLocationListenerInner("gps", listener)
-
-                    hookILocationListener(listener)
                     if (FakeLoc.disableRegisterLocationListener || FakeLoc.enable)
                         return@intercept26 null
                 }
@@ -641,9 +640,11 @@ internal object LocationServiceHook : BaseLocationHook() {
         if (FakeLoc.enableDebugLog)
             Logger.debug("will hook ILocationListener: ${classListener.name}")
 
-        if (
-            com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
-                    classListener,
+        if (classListener.declaredMethods.none { it.name == "onLocationChanged" }) {
+            Logger.error("No supported location callback on ${classListener.name}")
+            return
+        }
+        classListener.onceHookAllMethod(
                     "onLocationChanged",
                     XposedInterface.Hooker intercept34@{ chain ->
                         val args = chain.args.toTypedArray()
@@ -677,36 +678,14 @@ internal object LocationServiceHook : BaseLocationHook() {
                         chain.proceed(args)
                     },
                 )
-                .isEmpty()
-        ) {
-            Logger.error("hook onLocationChanged failed")
-            return // If the hook fails, the listener is not added
-        }
     }
 
     private fun addLocationListenerInner(provider: String, listener: IInterface) {
-        ListenerRouting.register(listener)
-        val mDeathRecipient =
-            object : IBinder.DeathRecipient {
-                override fun binderDied() {}
-
-                override fun binderDied(who: IBinder) {
-                    who.unlinkToDeath(this, 0)
-                    removeLocationListenerByBinder(who)
-                }
-            }
-        listener.asBinder().linkToDeath(mDeathRecipient, 0)
-        locationListeners.add(provider to listener)
-        hookILocationListener(listener)
+        listeners.register(provider, listener)
     }
 
     private fun removeLocationListenerInner(listener: IInterface) {
-        removeLocationListenerByBinder(listener.asBinder())
-    }
-
-    private fun removeLocationListenerByBinder(binder: IBinder) {
-        ListenerRouting.unregisterBinder(binder)
-        locationListeners.removeIf { it.second.asBinder() == binder }
+        listeners.unregister(listener)
     }
 
     @Synchronized

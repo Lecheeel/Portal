@@ -13,6 +13,7 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.runtime.RuntimeSnapshot
 import com.system.location.service.core.runtime.RuntimeSnapshotStore
+import com.system.location.service.core.runtime.RuntimeTransfer
 
 object FakeLoc {
     /**
@@ -241,6 +242,32 @@ object FakeLoc {
     private var lastSampleNanos = 0L
     private var lastMovementNanos = 0L
     private var movementSpeed = 0f
+
+    @Synchronized
+    internal fun providerContext(force: Boolean, now: Long, timeMillis: Long): ProviderReadContext =
+        ProviderReadContext(snapshotState(force, now, timeMillis), scenarioSamples.snapshot(now), timeMillis)
+
+    @Synchronized
+    fun captureTransfer(now: Long = SystemClock.elapsedRealtimeNanos()): RuntimeTransfer {
+        require(now >= 0L)
+        val state = runtimeSnapshots.current()
+        val external = externallyDriven && state.configuration.enabled && state.sample != null
+        return RuntimeTransfer(if (external) state else state.copy(sample = null, provider = null),
+            external, scenarioSamples.snapshot(now))
+    }
+
+    /** Caller must order authenticated full restores against forwarded commands. */
+    @Synchronized
+    fun restoreRuntime(transfer: RuntimeTransfer, now: Long = SystemClock.elapsedRealtimeNanos()): RuntimeTransfer {
+        val received = transfer.atReception(now)
+        scenarioSamples.replace(received.scenarios)
+        runtimeSnapshots.set(received.state)
+        externallyDriven = received.externallyDriven
+        movementSpeed = 0f
+        lastMovementNanos = now
+        lastSampleNanos = maxOf(lastSampleNanos, received.state.sample?.elapsedNanos ?: 0L)
+        return received
+    }
 
     @Synchronized
     fun startRuntime(start: com.system.location.service.core.runtime.RuntimeStart,

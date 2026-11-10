@@ -38,8 +38,8 @@ object ProviderView {
     private var noiseSeed: Long? = null
 
     fun capture(now: Long = android.os.SystemClock.elapsedRealtimeNanos(),
-        timeMillis: Long = System.currentTimeMillis(), force: Boolean = false): ProviderReadContext = ProviderReadContext(
-        FakeLoc.snapshotState(force, now, timeMillis), FakeLoc.scenarioSamples.snapshot(now), timeMillis)
+        timeMillis: Long = System.currentTimeMillis(), force: Boolean = false): ProviderReadContext =
+        FakeLoc.providerContext(force, now, timeMillis)
 
     fun sampleFor(provider: String?, scenarioId: String? = null, point: Wgs84? = null,
         context: ProviderReadContext = capture()): LocationSample {

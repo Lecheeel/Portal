@@ -7,6 +7,32 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RuntimeLifecycleTest {
+    @Test fun fullRestoreReplacesPolicyAndScenariosTogetherAndDoesNotReviveStaleSamples() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            val sample = LocationSample(Wgs84(31.0, 121.0), 10.0, 5f, 8f, 90f, 1000, 1_000_000_000)
+            val transfer = RuntimeTransfer(RuntimeSnapshot(configRevision = 7, sample = sample,
+                configuration = HookConfiguration(enabled = true, minimumSatellites = 24, nmeaEnabled = false)),
+                true, mapOf("route" to sample))
+            FakeLoc.restoreRuntime(transfer, 2_000_000_000)
+            assertTrue(FakeLoc.externallyDriven)
+            assertSame(sample, FakeLoc.snapshot(true, 2_000_000_000, 2000))
+            val captured = FakeLoc.captureTransfer(2_000_000_000)
+            assertEquals(transfer, captured)
+            FakeLoc.restoreRuntime(transfer, 6_000_000_000)
+            assertFalse(FakeLoc.enable)
+            assertFalse(FakeLoc.externallyDriven)
+            assertTrue(FakeLoc.scenarioSamples.scenarioIds().isEmpty())
+            val stale = FakeLoc.captureTransfer(6_000_000_000)
+            assertNull(stale.state.sample)
+            assertEquals(24, stale.state.configuration.minimumSatellites)
+        } finally {
+            FakeLoc.scenarioSamples.replace(emptyMap())
+            FakeLoc.updateCoordinates(0.0, 0.0, nowNanos = 0)
+            FakeLoc.runtimeSnapshots.set(saved)
+        }
+    }
+
     @Test fun startDropsPreviousExternalFixAndMovementBeforeAnyNewSampleIsRead() {
         val saved = FakeLoc.runtimeSnapshots.current()
         try {

@@ -1,0 +1,117 @@
+{
+  "source": "Synthetic GGTO field patterns, not receiver navigation capture or real broadcast coefficients",
+  "method": "ICD 2.2 Tables 33/51/76; independent polynomial long division; field extraction and CRC checked with pinned RTKLIB getbits/getbitu/rtk_crc24q C functions. This is not an independent GGTO week resolver or time-conversion implementation.",
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rtkcmn.c",
+  "vectors": [
+    {
+      "name": "zero",
+      "type": 1537,
+      "wordType": 10,
+      "payloadHex": "0a00000000000000000000000000200390000000000000000d13ba3000",
+      "a0Units": 0,
+      "a1Units": 0,
+      "referenceHour": 0,
+      "referenceWeekModulo64": 57,
+      "crc": 13712291
+    },
+    {
+      "name": "negative",
+      "type": 1537,
+      "wordType": 10,
+      "payloadHex": "0a0000000000000000000080008023fda000000000000000069b685000",
+      "a0Units": -32768,
+      "a1Units": -2048,
+      "referenceHour": 255,
+      "referenceWeekModulo64": 26,
+      "crc": 6928005
+    },
+    {
+      "name": "positive",
+      "type": 1537,
+      "wordType": 10,
+      "payloadHex": "0a000000000000000000007fff7fee9d80000000000000000d9aab9000",
+      "a0Units": 32767,
+      "a1Units": 2047,
+      "referenceHour": 167,
+      "referenceWeekModulo64": 24,
+      "crc": 14265017
+    },
+    {
+      "name": "individual-ones",
+      "type": 1537,
+      "wordType": 10,
+      "payloadHex": "0a00000000000000000000ffffffec03f00000000000000007098ba000",
+      "a0Units": -1,
+      "a1Units": -1,
+      "referenceHour": 0,
+      "referenceWeekModulo64": 63,
+      "crc": 7379130
+    },
+    {
+      "name": "unavailable",
+      "type": 1537,
+      "wordType": 10,
+      "payloadHex": "0a00000000000000000000ffffffeffff00000000000000003cf1ac000",
+      "a0Units": -1,
+      "a1Units": -1,
+      "referenceHour": 255,
+      "referenceWeekModulo64": 63,
+      "crc": 3994028
+    },
+    {
+      "name": "zero",
+      "type": 1538,
+      "wordType": 4,
+      "payloadHex": "1000000000000000000000000000000000000000000001cb4d2d029f2100",
+      "a0Units": 0,
+      "a1Units": 0,
+      "referenceHour": 0,
+      "referenceWeekModulo64": 57,
+      "crc": 10995776
+    },
+    {
+      "name": "negative",
+      "type": 1538,
+      "wordType": 4,
+      "payloadHex": "1000000000000000000000000000000000001ff0001000d34d2d0268ec40",
+      "a0Units": -32768,
+      "a1Units": -2048,
+      "referenceHour": 255,
+      "referenceWeekModulo64": 26,
+      "crc": 10107664
+    },
+    {
+      "name": "positive",
+      "type": 1538,
+      "wordType": 4,
+      "payloadHex": "10000000000000000000000000000000000014efffeffec34d2d0127eb64",
+      "a0Units": 32767,
+      "a1Units": 2047,
+      "referenceHour": 167,
+      "referenceWeekModulo64": 24,
+      "crc": 4848345
+    },
+    {
+      "name": "individual-ones",
+      "type": 1538,
+      "wordType": 4,
+      "payloadHex": "100000000000000000000000000000000000001ffffffffb4d2d01fd7e10",
+      "a0Units": -1,
+      "a1Units": -1,
+      "referenceHour": 0,
+      "referenceWeekModulo64": 63,
+      "crc": 8347524
+    },
+    {
+      "name": "unavailable",
+      "type": 1538,
+      "wordType": 4,
+      "payloadHex": "1000000000000000000000000000000000001ffffffffffb4d2d030ffc94",
+      "a0Units": -1,
+      "a1Units": -1,
+      "referenceHour": 255,
+      "referenceWeekModulo64": 63,
+      "crc": 12844837
+    }
+  ]
+}

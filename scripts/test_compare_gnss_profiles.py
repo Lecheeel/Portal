@@ -86,6 +86,24 @@ class GnssComparisonTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_window(data)
 
+    def test_zero_cn0_placeholders_do_not_bias_distribution_or_bootstrap_eligibility(self):
+        zero = {**satellite(6), "cn0DbHz": 0.0}
+        mixed = report([satellite(), zero])
+        original = copy.deepcopy(mixed)
+        result = compare(read_window(report()), read_window(mixed), iterations=100)
+        self.assertEqual(original, mixed)  # Input evidence remains intact.
+        self.assertEqual(1, result["trial"]["metrics"]["meanVisible"])
+        self.assertEqual(0, result["trial"]["metrics"]["ratio:GALILEO"])
+        self.assertEqual([], result["addedIdentities"])
+        self.assertEqual(0, result["signalJointTotalVariation"])
+        empty = read_window(report([zero]))
+        result = compare(empty, empty, iterations=100)
+        self.assertIsNone(result["constellationTotalVariation"])
+        self.assertIsNone(result["metrics"]["meanVisible"]["bootstrapPercentile95"])
+        invalid = report([{**zero, "azimuthDegrees": 360}])
+        with self.assertRaises(ValueError):
+            read_window(invalid)
+
 
 if __name__ == "__main__":
     unittest.main()

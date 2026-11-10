@@ -113,8 +113,11 @@ def read_window(data):
             elevation = number(record.get("elevationDegrees" if detector else "elevationDeg"),
                                0, 90, "elevation")
             number(record.get("azimuthDegrees" if detector else "azimuthDeg"), 0, 360, "azimuth", False)
-            signals.append(Satellite(system, svid, number(record.get("cn0DbHz"), 0, 63, "CN0"),
-                                     elevation, record["usedInFix"]))
+            cn0 = number(record.get("cn0DbHz"), 0, 63, "CN0")
+            # Validate every raw row before excluding zero-CN0 acquisition placeholders.
+            # They are not evidence of a received signal or a constellation population.
+            if cn0 > 0:
+                signals.append(Satellite(system, svid, cn0, elevation, record["usedInFix"]))
         # Arrival bursts must not give one receiver second ten times the statistical weight.
         by_second[time // 1000] = Frame(time, tuple(signals))
     device = data.get("device") if detector else {"model": data.get("deviceModel"), "os": data.get("osVersion")}

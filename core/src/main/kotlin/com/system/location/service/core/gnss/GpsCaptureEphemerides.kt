@@ -12,6 +12,8 @@ object GpsCaptureEphemerisDecoder {
         val diagnostics = linkedSetOf<String>()
         val clock = CaptureGpsClockAssociation(capture.measurements)
         val assembler = GpsLnavAssembler()
+        val quarantined = mutableSetOf<Int>()
+        val clockDomains = mutableSetOf<Int>()
         capture.navigation.filter { it.type == 0x0101 }.forEach { message ->
             // Arrival is only an approximate era/HOW reference. The actual orbit epoch comes
             // from parity-checked HOW/toe/toc, never from treating callback time as transmission.
@@ -19,16 +21,21 @@ object GpsCaptureEphemerisDecoder {
             val reference = associated.reference
             if (reference == null) {
                 associated.reason?.let { diagnostics += "GPS $it" }
+                quarantined += message.svid
                 return@forEach
             }
+            clockDomains += reference.hardwareDiscontinuityCount
             val result = assembler.offer(message, reference.time)
             // Waiting for another subframe is diagnostic evidence, not a corrupt capture.
             result.reason?.let { diagnostics += "GPS ${message.svid}：$it" }
         }
+        if (clockDomains.size > 1) return GpsCaptureEphemerides(emptyList(),
+            (diagnostics + "GPS 采集跨接收机时钟重置，未拼接不同连续时钟域的星历").toList())
         val decoded = assembler.completed().groupBy { data ->
             val e = data.ephemeris
             Triple(e.svid, e.toe.week, e.toe.secondsOfWeek)
         }.mapNotNull { (_, repeated) ->
+            if (repeated.first().ephemeris.svid in quarantined) return@mapNotNull null
             if (repeated.map { it.ephemeris }.distinct().size != 1) {
                 diagnostics += "GPS ${repeated.first().ephemeris.svid}：同一星历历元存在冲突参数"
                 null

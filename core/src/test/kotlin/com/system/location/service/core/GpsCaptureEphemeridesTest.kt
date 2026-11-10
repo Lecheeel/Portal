@@ -62,4 +62,25 @@ class GpsCaptureEphemeridesTest {
         assertTrue(GpsCaptureEphemerisDecoder.decode(inconsistent).decoded.isEmpty())
         assertTrue(GpsCaptureEphemerisDecoder.decode(c.copy(navigation = c.navigation.take(2))).decoded.isEmpty())
     }
+
+    @Test fun missingNewServiceTimingWithdrawsOldCompletedSatellite() {
+        val c = capture()
+        val newer = c.navigation.first().copy(capturedElapsedRealtimeNanos = null, capturedAtMillis = 20000)
+        assertTrue(GpsCaptureEphemerisDecoder.decode(c.copy(navigation = c.navigation + newer)).decoded.isEmpty())
+    }
+
+    @Test fun resetBetweenSeparatedAnchorsCannotHideOutsideLocalAssociationWindows() {
+        val c = capture()
+        val navigation = c.navigation.mapIndexed { i, nav ->
+            nav.copy(capturedElapsedRealtimeNanos = nav.capturedElapsedRealtimeNanos!! + i * 40_000_000_000L)
+        }
+        val measurements = c.measurements.mapIndexed { i, batch ->
+            batch.copy(elapsedRealtimeNanos = navigation[i].capturedElapsedRealtimeNanos,
+                capturedElapsedRealtimeNanos = navigation[i].capturedElapsedRealtimeNanos,
+                hardwareClockDiscontinuityCount = if (i == 0) 0 else 1)
+        }
+        val result = GpsCaptureEphemerisDecoder.decode(c.copy(navigation = navigation, measurements = measurements))
+        assertTrue(result.decoded.isEmpty())
+        assertTrue(result.diagnostics.any { it.contains("重置") })
+    }
 }

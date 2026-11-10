@@ -2,7 +2,6 @@ package com.system.location.service.hook
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.os.Binder
 import android.os.SystemClock
 import com.system.location.service.hook.security.CommandSecurity
 import com.system.location.service.hook.security.SampleWire
@@ -10,7 +9,6 @@ import com.system.location.service.hook.security.SensitiveLog
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.Logger
-import kotlin.random.Random
 
 object RemoteCommandHandler {
 
@@ -18,6 +16,9 @@ object RemoteCommandHandler {
 
 
     private val security = CommandSecurity()
+    private val replicatedCommands = setOf("start", "stop", "set_speed_amp", "set_altitude", "set_speed",
+        "update_location", "set_bearing", "put_config", "publish_sample", "start_gnss_mock", "stop_gnss_mock",
+        "start_wifi_mock", "stop_wifi_mock")
 
 
 
@@ -64,17 +65,16 @@ object RemoteCommandHandler {
                 rely.getDouble("lon", Double.NaN) !in -180.0..180.0) return false
         }
 
-        ProxyCommand.forward(rely, commandId)
         if (FakeLoc.enableDebugLog && commandId !in setOf("publish_sample", "get_runtime_status")) {
             Logger.debug(SensitiveLog.describe(commandId, rely.keySet().associateWith { key ->
                 runCatching { rely.get(key)?.toString() }.getOrNull()
             }))
         }
 
-        return when (commandId) {
+        val accepted = when (commandId) {
             "publish_sample" -> SampleCommand.publish(incomingSample ?: return false, rely)
             "get_runtime_status" -> DiagnosticCommand.status(rely, SampleCommand.lastPublishMillis)
-            "set_proxy" -> ProxyCommand.add(rely)
+            "set_proxy" -> ProxyCommand.subscribe(rely)
             "start" -> ControlCommand.start(rely)
             "stop" -> ControlCommand.stop()
             "is_start" -> ControlCommand.isStart(rely)
@@ -102,9 +102,15 @@ object RemoteCommandHandler {
             "native_status" -> NativeCommand.setEnabled(rely)
             else -> return false
         }
+        if (accepted && commandId in replicatedCommands) ProxyCommand.publishCurrent()
+        return accepted
     }
 
-    @Synchronized internal fun expirePublication(nowNanos: Long): Boolean = SampleCommand.expire(nowNanos)
+    @Synchronized internal fun expirePublication(nowNanos: Long): Boolean {
+        val expired = SampleCommand.expire(nowNanos)
+        if (expired) ProxyCommand.publishCurrent()
+        return expired
+    }
     @Synchronized internal fun restoreSample(rely: Bundle) = SampleCommand.restore(rely)
 //    private var hasHookSensor = false
 //

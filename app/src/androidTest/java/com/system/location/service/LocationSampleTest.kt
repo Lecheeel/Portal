@@ -8,6 +8,23 @@ import java.util.concurrent.atomic.AtomicReference
 
 /** Runs on ART: exercises real Location and elapsedRealtimeNanos, without enabling hooks. */
 class LocationSampleTest {
+    @Test fun conversionUsesExplicitPolicyAfterLiveSettingsChange() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            val sample = com.system.location.service.core.location.LocationSample(
+                com.system.location.service.core.geo.Wgs84(31.0, 121.0), 10.0, 5f, 2f, 90f, 1000, 1000)
+            val captured = com.system.location.service.core.runtime.RuntimeSnapshot(sample = sample,
+                configuration = com.system.location.service.core.runtime.HookConfiguration(enabled = true, hideMock = true))
+            FakeLoc.runtimeSnapshots.set(captured.copy(configuration = captured.configuration.copy(hideMock = false)))
+            val old = sample.toLocation("gps", state = captured)
+            assertFalse(old.isMock)
+            assertNull(old.extras)
+            assertTrue(sample.toLocation("gps").isMock)
+            assertEquals(sample.coordinate.latitude, old.latitude, 0.0)
+            assertEquals(sample.elapsedNanos, old.elapsedRealtimeNanos)
+        } finally { FakeLoc.runtimeSnapshots.set(saved) }
+    }
+
     @Test fun fixedPointNeverJittersEvenWithLargeAccuracy() {
         FakeLoc.accuracy = 1000f
         FakeLoc.bearing = 123.0

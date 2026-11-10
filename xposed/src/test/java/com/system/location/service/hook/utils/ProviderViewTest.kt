@@ -43,4 +43,15 @@ class ProviderViewTest {
         assertEquals(0f, network.speed)
         assertSame(global, ProviderView.sampleFor("unknown", context = context))
     }
+
+    @Test fun repeatedProviderReadsAndContextsShareNoiseForTheSameTimestamp() {
+        fun context(time: Long) = ProviderReadContext(RuntimeSnapshot(
+            sample = global.copy(elapsedNanos = time), physicalNoise = true, physicalNoiseSeed = 8675309), emptyMap(), 1000)
+        ProviderView.sampleFor("gps", context = context(1_000_000_000))
+        val second = context(2_000_000_000)
+        val gps = ProviderView.sampleFor("gps", context = second)
+        assertNotEquals(global.coordinate, gps.coordinate)
+        assertEquals(gps.coordinate, ProviderView.sampleFor("network", context = second).coordinate)
+        assertEquals(gps, ProviderView.sampleFor("gps", context = context(2_000_000_000)))
+    }
 }

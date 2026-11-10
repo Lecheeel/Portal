@@ -1,18 +1,15 @@
 package com.system.location.service.core.gnss
 
-import kotlin.math.floor
-
 /** Full Galileo System Time (GST) week/seconds, never a GPS-week or UTC alias. */
 data class GalileoTime(val week: Int, val secondsOfWeek: Double) {
     init { require(week >= 0 && secondsOfWeek.isFinite() && secondsOfWeek >= 0 && secondsOfWeek < 604800) }
     fun secondsSince(other: GalileoTime) = (week.toLong() - other.week.toLong()) * 604800.0 + secondsOfWeek - other.secondsOfWeek
     fun plusSeconds(seconds: Double): GalileoTime {
         require(seconds.isFinite())
-        val total = secondsOfWeek + seconds
-        val delta = floor(total / 604800)
-        val nextWeek = week + delta
-        require(nextWeek >= 0 && nextWeek <= Int.MAX_VALUE)
-        return GalileoTime(nextWeek.toInt(), total - delta * 604800)
+        val normalized = requireNotNull(GnssWeekTime.normalize(week.toLong(), secondsOfWeek + seconds)) {
+            "GST outside supported full-week range"
+        }
+        return GalileoTime(normalized.first, normalized.second)
     }
 }
 

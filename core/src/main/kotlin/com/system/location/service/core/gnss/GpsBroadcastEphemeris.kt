@@ -1,7 +1,5 @@
 package com.system.location.service.core.gnss
 
-import kotlin.math.floor
-
 /** Full GPS system time, not UTC, Android elapsed time, or a truncated broadcast week. */
 data class GpsTime(val week: Int, val secondsOfWeek: Double) {
     init {
@@ -13,11 +11,10 @@ data class GpsTime(val week: Int, val secondsOfWeek: Double) {
 
     fun plusSeconds(seconds: Double): GpsTime {
         require(seconds.isFinite())
-        val total = secondsOfWeek + seconds
-        val weekChange = floor(total / SECONDS_PER_WEEK)
-        val nextWeek = week.toDouble() + weekChange
-        require(nextWeek >= 0 && nextWeek <= Int.MAX_VALUE)
-        return GpsTime(nextWeek.toInt(), total - weekChange * SECONDS_PER_WEEK)
+        val normalized = requireNotNull(GnssWeekTime.normalize(week.toLong(), secondsOfWeek + seconds)) {
+            "GPS time outside supported full-week range"
+        }
+        return GpsTime(normalized.first, normalized.second)
     }
 
     companion object { const val SECONDS_PER_WEEK = 604_800.0 }

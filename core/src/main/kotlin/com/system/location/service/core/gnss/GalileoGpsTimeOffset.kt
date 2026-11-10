@@ -1,7 +1,5 @@
 package com.system.location.service.core.gnss
 
-import kotlin.math.floor
-
 data class GpsToGalileoResult(val time: GalileoTime?, val reason: String? = null)
 data class GalileoToGpsResult(val time: GpsTime?, val reason: String? = null)
 
@@ -41,7 +39,7 @@ data class GalileoGpsTimeOffset(
         // GST - GPS = a0 + a1*(GST - t0). Solve for GST, rather than evaluating
         // the right-hand side at GPS and silently omitting the (1-a1) denominator.
         val correction = (a0Seconds + a1SecondsPerSecond * delta) / (1.0 - a1SecondsPerSecond)
-        val normalized = normalize(nominalWeek, time.secondsOfWeek + correction)
+        val normalized = GnssWeekTime.normalize(nominalWeek, time.secondsOfWeek + correction)
             ?: return GpsToGalileoResult(null, "converted GST is outside supported full-week range")
         val result = GalileoTime(normalized.first, normalized.second)
         return if (withinValidity(result)) GpsToGalileoResult(result)
@@ -52,26 +50,13 @@ data class GalileoGpsTimeOffset(
         if (!withinValidity(time)) return GalileoToGpsResult(null, "GGTO conversion outside supplied validity evidence")
         val delta = (time.week.toLong() - referenceWeek) * 604800.0 + time.secondsOfWeek - referenceHour * 3600.0
         val correction = a0Seconds + a1SecondsPerSecond * delta
-        val normalized = normalize(time.week.toLong() + GPS_WEEK_ORIGIN, time.secondsOfWeek - correction)
+        val normalized = GnssWeekTime.normalize(time.week.toLong() + GPS_WEEK_ORIGIN, time.secondsOfWeek - correction)
             ?: return GalileoToGpsResult(null, "converted GPS time is outside supported full-week range")
         return GalileoToGpsResult(GpsTime(normalized.first, normalized.second))
     }
 
     private fun withinValidity(time: GalileoTime) =
         time.secondsSince(validFrom) >= 0 && validUntil.secondsSince(time) >= 0
-
-    private fun normalize(week: Long, seconds: Double): Pair<Int, Double>? {
-        if (!seconds.isFinite()) return null
-        val change = floor(seconds / 604800.0)
-        var normalizedWeek = week + change.toLong()
-        var tow = seconds - change * 604800.0
-        if (normalizedWeek !in 0..Int.MAX_VALUE.toLong()) return null
-        // A negative sub-ULP offset from a week boundary can round the previous week's
-        // remainder to exactly 604800. Canonicalize the rounded representation.
-        if (tow == 604800.0) { normalizedWeek++; tow = 0.0 }
-        if (normalizedWeek > Int.MAX_VALUE || tow !in 0.0..<604800.0) return null
-        return normalizedWeek.toInt() to tow
-    }
 
     companion object {
         // An epoch-number relation, never an assumption that the physical time offset is zero.

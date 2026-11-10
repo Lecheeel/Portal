@@ -196,14 +196,25 @@ class GnssReceiverCollector(
                 override fun onStatusChanged(status: Int) { notes += "导航电文状态：$status" }
             }
             try {
+                // HAL capability flags, registration acceptance and actual received data are
+                // independent evidence. A successful registration does not imply hardware support.
+                runCatching {
+                    val capabilities = manager.gnssCapabilities
+                    notes += "系统声明 GNSS 能力：原始测量=${capabilities.hasMeasurements()}，导航电文=${capabilities.hasNavigationMessages()}"
+                }.onFailure { notes += "GNSS 能力读取失败：${it.javaClass.simpleName}" }
+                runCatching {
+                    notes += "GNSS 驱动：${manager.gnssHardwareModelName ?: "未提供"}；硬件年份=${manager.gnssYearOfHardware}（0 表示未提供 2016 年及以后的年份）"
+                }.onFailure { notes += "GNSS 驱动信息读取失败：${it.javaClass.simpleName}" }
                 statusRegistered = manager.registerGnssStatusCallback(statusCallback, handler)
                 check(statusRegistered) { "系统拒绝注册卫星状态监听" }
                 measurementRegistered = runCatching {
                     manager.registerGnssMeasurementsCallback(measurementCallback, handler)
                 }.onFailure { notes += "原始测量不可用：${it.javaClass.simpleName}" }.getOrDefault(false)
+                notes += "原始测量监听注册：${if (measurementRegistered) "已接受" else "未接受"}"
                 navigationRegistered = runCatching {
                     manager.registerGnssNavigationMessageCallback(navigationCallback, handler)
                 }.onFailure { notes += "导航电文不可用：${it.javaClass.simpleName}" }.getOrDefault(false)
+                notes += "导航电文监听注册：${if (navigationRegistered) "已接受" else "未接受"}"
                 manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, locationListener, Looper.getMainLooper())
                 locationRegistered = true
                 var lastSystemCheck = SystemClock.elapsedRealtime()

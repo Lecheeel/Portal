@@ -103,6 +103,11 @@ class GnssCaptureIsolationDeviceTest {
         val duration = InstrumentationRegistry.getArguments().getString("physicalCaptureMillis")?.toLong() ?: 60_000L
         require(duration in 30_000L..300_000L)
         val capture = withTimeout(duration + 15_000L) { GnssReceiverCollector(context).capture(duration) }
+        // Preserve the distinction even on devices that accept callbacks but advertise no raw
+        // support, or advertise support while providing no data in this acquisition window.
+        assertTrue(capture.notes.any { it.startsWith("系统声明 GNSS 能力：") || it.startsWith("GNSS 能力读取失败：") })
+        assertTrue(capture.notes.any { it.startsWith("原始测量监听注册：") })
+        assertTrue(capture.notes.any { it.startsWith("导航电文监听注册：") })
         val quality = GnssCaptureValidator.validate(capture, System.currentTimeMillis())
         // Persist real evidence in the test cache for inspection, never the user's profile.
         File(context.cacheDir, "gnss-physical-window.json").writeText(GnssCaptureCodec.encode(capture))

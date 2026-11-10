@@ -121,7 +121,7 @@ class HomeSelectionUiTest {
                 scenario.recreate()
                 compose.onNode(hasText("路线") and hasAnyAncestor(hasTestTag("home-target-picker"))).assertIsSelected()
                 compose.scrollTo(hasText(route.route.name) and hasAnyAncestor(hasTestTag("home-target-picker"))).assertIsDisplayed()
-                compose.onNodeWithText("收起").performClick()
+                compose.onNodeWithText("关闭").performClick()
                 assertSelectionWithoutStart(route.route.name)
                 selectSavedTarget("地点", location.name)
                 assertSelectionWithoutStart(location.name)

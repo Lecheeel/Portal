@@ -3,11 +3,13 @@ package com.system.location.service
 import android.Manifest
 import android.content.pm.PackageManager
 import android.location.GnssStatus
+import android.location.GnssMeasurementsEvent
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.location.OnNmeaMessageListener
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -67,6 +69,9 @@ class GnssFrameDeliveryDeviceTest {
         val statuses = ConcurrentLinkedQueue<Status>()
         val sentences = ConcurrentLinkedQueue<Sentence>()
         val locations = ConcurrentLinkedQueue<Location>()
+        val existingRaw = object : GnssMeasurementsEvent.Callback() {}
+        val blockedRaw = object : GnssMeasurementsEvent.Callback() {}
+        assumeTrue("Preserve existing raw registrations", rawRegistrations(context.packageName) == 0)
         val callback = object : GnssStatus.Callback() {
             override fun onSatelliteStatusChanged(status: GnssStatus) {
                 val satellites = (0 until status.satelliteCount).map { index ->
@@ -103,6 +108,7 @@ class GnssFrameDeliveryDeviceTest {
                 putString("gnss_capture", GnssCaptureWire.encode(fixture))
                 putBoolean("enable_nmea", true)
                 putBoolean("enable_physical_noise", false)
+                putBoolean("enable_agps", false)
                 putInt("min_satellites", 0)
                 fixedPoint?.let { point ->
                     putString("routing_json", Json.encodeToString(RoutingConfig.serializer(),
@@ -114,6 +120,8 @@ class GnssFrameDeliveryDeviceTest {
             command("start_gnss_mock")
             assertTrue(manager.registerGnssStatusCallback({ it.run() }, callback))
             assertTrue(manager.addNmeaListener({ it.run() }, nmea))
+            assertTrue(manager.registerGnssMeasurementsCallback({ it.run() }, existingRaw))
+            assertEquals(1, rawRegistrations(context.packageName))
             fun publish() {
                 command("publish_sample") {
                     SampleWire.write(this, LocationSample(observer, altitude = 42.0, accuracy = 5f,
@@ -122,6 +130,12 @@ class GnssFrameDeliveryDeviceTest {
             }
             publish()
             renewal = launch(Dispatchers.IO) { while (isActive) { delay(100L); publish() } }
+            val rawResult = runCatching { manager.registerGnssMeasurementsCallback({ it.run() }, blockedRaw) }
+            assertTrue("New raw registration must explicitly fail with an active frame: $rawResult",
+                rawResult.getOrNull() == false || rawResult.exceptionOrNull() is UnsupportedOperationException)
+            assertEquals("Rejected raw registration must not leak", 1, rawRegistrations(context.packageName))
+            manager.unregisterGnssMeasurementsCallback(existingRaw)
+            assertEquals("Existing registration must be removable while blocked", 0, rawRegistrations(context.packageName))
             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f, { it.run() }, location)
             withTimeout(12_000L) {
                 while (statuses.size < 3 || sentences.count { type(it.text) == "GGA" } < 3 || locations.size < 3) delay(100L)
@@ -187,6 +201,8 @@ class GnssFrameDeliveryDeviceTest {
                 manager.removeUpdates(location)
                 manager.unregisterGnssStatusCallback(callback)
                 manager.removeNmeaListener(nmea)
+                manager.unregisterGnssMeasurementsCallback(existingRaw)
+                manager.unregisterGnssMeasurementsCallback(blockedRaw)
             } finally {
                 command("stop")
                 if (configured) {
@@ -194,6 +210,7 @@ class GnssFrameDeliveryDeviceTest {
                         putString("gnss_capture", null)
                         putBoolean("enable_nmea", original.configuration.nmeaEnabled)
                         putBoolean("enable_physical_noise", original.physicalNoise)
+                        putBoolean("enable_agps", original.configuration.allowPhysicalRawGnss)
                         putInt("min_satellites", original.configuration.minimumSatellites)
                         if (fixedPoint != null) putString("routing_json", null)
                     }
@@ -208,6 +225,18 @@ class GnssFrameDeliveryDeviceTest {
     }
 
     private fun type(sentence: String) = sentence.substring(3, 6)
+
+    private fun rawRegistrations(packageName: String): Int {
+        val dump = ParcelFileDescriptor.AutoCloseInputStream(
+            InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("dumpsys location"))
+            .bufferedReader().use { it.readText() }.lines()
+        val start = dump.indices.single { dump[it].trim() == "Measurements Provider:" }
+        val indent = dump[start].takeWhile(Char::isWhitespace).length
+        val section = dump.drop(start + 1).takeWhile { it.isBlank() || it.takeWhile(Char::isWhitespace).length > indent }
+        check(section.any { it.trimStart().startsWith("service:") }) { "Provider dump has no service state" }
+        val entry = Regex("^\\s*\\d+/${Regex.escape(packageName)}(?:\\[|/|\\s|$)")
+        return section.count { entry.containsMatchIn(it) }
+    }
 
     private fun system(androidType: Int): Constellation = when (androidType) {
         GnssStatus.CONSTELLATION_GPS -> Constellation.GPS

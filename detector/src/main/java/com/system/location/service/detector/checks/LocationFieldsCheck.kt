@@ -8,6 +8,8 @@ import com.system.location.service.detector.model.Check
 import com.system.location.service.detector.model.CheckContext
 import com.system.location.service.detector.model.CheckIds
 import com.system.location.service.detector.model.CheckResult
+import com.system.location.service.detector.model.GnssFrameSnapshot
+import kotlin.math.abs
 
 /** C05 validates supplied Location fields; optional Android fields are never mandatory. */
 @SuppressLint("MissingPermission")
@@ -80,6 +82,13 @@ class LocationFieldsCheck : Check {
             "sampledAvailability=${context.snapshot.availability.size}"
         lines += "可用性是当前状态；缓存位置不因 provider 后来关闭而成为无效样本"
 
+        val discrepancies = LocationGnssReconciliation.compare(
+            location.provider, location.time, optional, context.snapshot.gnssFrames,
+        )
+        lines += discrepancies
+        if (issues.isEmpty() && discrepancies.isNotEmpty()) {
+            return unknown("同时间窗 GPS extras 与 GnssStatus 存在差异，需核对接收机输出语义和时序", limited(lines))
+        }
         return if (issues.isEmpty()) {
             pass("已提供的 Location 字段取值有效；可选字段缺失不构成异常。", limited(lines))
         } else {
@@ -116,5 +125,34 @@ internal object LocationFieldValidation {
         val max = supplied["maxCn0"]
         if (mean != null && max != null && mean > max) issues += "meanCn0 超过 maxCn0"
         return issues
+    }
+}
+
+/** Contemporaneous GPS-only comparison; network and stale status cannot contradict GPS extras. */
+internal object LocationGnssReconciliation {
+    fun compare(provider: String?, timeMillis: Long, extras: Map<String, Double>,
+        frames: List<GnssFrameSnapshot>): List<String> {
+        if (provider != "gps" || timeMillis <= 0) return emptyList()
+        val frame = frames.minByOrNull { abs(it.capturedAtMillis - timeMillis) }
+            ?.takeIf { abs(it.capturedAtMillis - timeMillis) <= 1000 } ?: return emptyList()
+        val used = frame.satellites.filter { it.usedInFix }
+        val uniqueUsed = used.map { it.constellation to it.svid }.toSet().size
+        val differences = mutableListOf<String>()
+        extras["satellites"]?.let { count ->
+            if (count != uniqueUsed.toDouble()) differences +=
+                "GPS extras satellites=$count，同时间窗 GnssStatus 唯一在用=$uniqueUsed（差 ${abs(frame.capturedAtMillis - timeMillis)}ms）"
+        }
+        // A multiband receiver may choose one band per spacecraft for its extras. Do not average
+        // all signal records and then mistake that value for a universal platform contract.
+        val minimum = used.minOfOrNull { it.cn0DbHz.toDouble() }
+        val maximum = used.maxOfOrNull { it.cn0DbHz.toDouble() }
+        for (key in listOf("meanCn0", "maxCn0")) {
+            val value = extras[key] ?: continue
+            if (minimum != null && maximum != null && value !in minimum..maximum)
+                differences += "GPS extras $key=$value 超出同时间窗在用信号范围 $minimum..$maximum"
+            if (used.isEmpty() && value > 0)
+                differences += "GPS extras $key=$value，但同时间窗 GnssStatus 没有在用信号"
+        }
+        return differences
     }
 }

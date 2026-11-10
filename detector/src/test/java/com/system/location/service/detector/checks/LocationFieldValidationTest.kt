@@ -1,6 +1,7 @@
 package com.system.location.service.detector.checks
 
 import org.junit.Assert.*
+import com.system.location.service.detector.model.*
 import org.junit.Test
 
 class LocationFieldValidationTest {
@@ -35,4 +36,25 @@ class LocationFieldValidationTest {
         assertFalse(issues(mapOf("meanCn0" to 64.0)).isEmpty())
         assertFalse(issues(mapOf("meanCn0" to 40.0, "maxCn0" to 30.0)).isEmpty())
     }
+    private fun frame(at: Long = 10000): GnssFrameSnapshot {
+        val satellite = GnssSatelliteSnapshot(1, 1, 30f, 40f, 50f, true, true, true, true)
+        return GnssFrameSnapshot(at, listOf(satellite, satellite.copy(cn0DbHz = 40f),
+            satellite.copy(svid = 2, usedInFix = false)))
+    }
+
+    @Test fun gpsExtrasCompareUniqueUsedSatellitesRatherThanVisibleOrSignalCount() {
+        assertTrue(LocationGnssReconciliation.compare("gps", 10000,
+            mapOf("satellites" to 1.0, "meanCn0" to 35.0), listOf(frame())).isEmpty())
+        val mismatches = LocationGnssReconciliation.compare("gps", 10000,
+            mapOf("satellites" to 12.0, "maxCn0" to 45.0), listOf(frame()))
+        assertEquals(2, mismatches.size)
+    }
+
+    @Test fun networkOrStaleEvidenceDoesNotParticipateInGnssReconciliation() {
+        for ((provider, at) in listOf("network" to 10000L, "gps" to 5000L)) {
+            assertTrue(LocationGnssReconciliation.compare(provider, at,
+                mapOf("satellites" to 12.0), listOf(frame())).isEmpty())
+        }
+    }
+
 }

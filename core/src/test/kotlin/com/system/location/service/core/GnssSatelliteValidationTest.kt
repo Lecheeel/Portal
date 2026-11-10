@@ -11,7 +11,11 @@ class GnssSatelliteValidationTest {
             assertEquals(cn0, satellite.cn0DbHz, 0f)
             val profile = GnssObservationProfileBuilder.build(
                 listOf(GnssObservationFrame(1000, satellites = listOf(satellite))), "receiver", "android")
-            assertEquals(mapOf(cn0.toInt() to 1), profile.constellations.single().cn0Histogram)
+            if (cn0 == 0f) {
+                assertTrue("zero-CN0 placeholders must not form a signal profile", profile.constellations.isEmpty())
+            } else {
+                assertEquals(mapOf(cn0.toInt() to 1), profile.constellations.single().cn0Histogram)
+            }
         }
         assertEquals(63f, GnssFrame.MAX_CN0_DB_HZ, 0f)
     }

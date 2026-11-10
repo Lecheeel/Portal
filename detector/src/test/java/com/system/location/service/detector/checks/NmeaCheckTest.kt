@@ -33,6 +33,25 @@ class NmeaCheckTest {
         assertEquals(result.detail, CheckStatus.PASS, result.status)
     }
 
+    @Test fun noFixReceiverMayLeaveUnavailableSatelliteCountBlankWithoutInventingZero() {
+        val empty = sentence("GPGGA,,,,,,0,,,,,,,,")
+        val result = evaluate(listOf(empty, sentence("GPRMC,,V,,,,,,,,,,N")))
+        assertEquals(result.detail, CheckStatus.UNKNOWN, result.status)
+        assertFalse(result.detail.contains("字段非法"))
+        assertTrue(result.evidence.any { it == "GGA 卫星数：无" })
+        // A later complete epoch cannot turn a missing count into verified agreement.
+        val mixed = evaluate(listOf(empty.copy(timestampMillis = 9000)) + fixture())
+        assertEquals(mixed.detail, CheckStatus.UNKNOWN, mixed.status)
+        assertTrue(mixed.evidence.any { it.contains("卫星数未提供") })
+    }
+
+    @Test fun nullCountsAreNotAcceptedForClaimedFixesOrMalformedFields() {
+        for ((quality, count) in listOf("1" to "", "" to "", "0" to "x", "0" to "-1")) {
+            val result = evaluate(listOf(sentence("GPGGA,120000,3100,N,12100,E,$quality,$count,,,,,,,")))
+            assertEquals("quality=$quality count=$count", CheckStatus.FAIL, result.status)
+        }
+    }
+
     @Test fun usedCannotExceedContemporaneousVisibleCount() {
         val result = evaluate(fixture(used = 9))
         assertEquals(CheckStatus.FAIL, result.status)

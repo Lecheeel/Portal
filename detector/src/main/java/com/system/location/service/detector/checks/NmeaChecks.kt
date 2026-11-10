@@ -120,10 +120,15 @@ class NmeaCheck : Check {
         }
 
         ggaList.forEach { gga ->
-            val used = gga.fields.getOrNull(6)?.toIntOrNull()
-            val quality = gga.fields.getOrNull(5)?.toIntOrNull()
-            if (used == null || used < 0 || quality == null || quality !in 0..8)
+            val countField = gga.fields.getOrNull(6)?.trim()
+            val used = countField?.toIntOrNull()
+            val quality = gga.fields.getOrNull(5)?.trim()?.toIntOrNull()
+            // Some real receivers emit $GPGGA,,,,,,0,,,,,,,,*66 before obtaining a fix.
+            // An explicit null field is unavailable evidence; never coerce it to a measured zero.
+            val unavailable = quality == 0 && countField == ""
+            if ((!unavailable && used == null) || (used != null && used < 0) || quality == null || quality !in 0..8)
                 issues += "GGA 卫星数或定位质量字段非法"
+            if (unavailable) sourceConcerns += "GGA 无解且卫星数未提供，不能完成该历元的数量对账"
             if (quality == 0 && used != null && used > 0) issues += "GGA 无解却声明 $used 颗卫星参与定位"
             // Network/cached/mock Location can coexist with no current GNSS fix.
             val gsa = gsaList.filter { it.timestampMillis == gga.timestampMillis }

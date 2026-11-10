@@ -186,7 +186,17 @@ az = [g − j(3−b)]z + az_luniSolar
 
 `scripts/generate_glonass_reference.py` 已用本机 C 编译器实际重建：输入是固定版本混合 RINEX 中 2013 年的全部 4 条 GLONASS 记录（两个槽、各两个时刻，属于 PZ-90.02），不是生产卫星集合。输入文件与远端固定版本逐字节比对相同，脚本校验 RINEX 与 `ephemeris.c` 的 SHA-256。独立 C `glorbit` 在 60/10/1 秒三组步长上输出 28 个时距的坐标和速度，Kotlin 对照 10 秒结果及 1 秒收敛结果；这些样本的最大坐标分量差分别约为 0.507 毫米（60 对 1）与 0.399 微米（10 对 1）。这是离散积分数值对照，不是广播轨道精度、现代 PZ-90.11 实测验证或当前星座分布证据。
 
-当前接口只接受外部已解析的 `tb` 起算连续 SI 时距，**尚未**实现 GLONASS 原始字符串校验/解码、绝对日历与闰秒关联、健康/钟差/逐信号服务检查、接收光程、真实框架证据或生产天空接入。不能直接相减有歧义的 UTC/GPS/民用日标签来填充时距，也不能将返回的数学轨道当作可用观测、伪距或 usedInFix。本阶段 Core/NMEA/Xposed/App arm64 JVM、App Kotlin 编译与模块规范检查通过；完整目标仍未完成。
+### GLONASS 字符串与即时参数
+
+`GlonassNavigationStrings` 按 Android GLO L1 C/A 的 11 字节大端载荷读取 85 位，跳过高位 B86–B88；不能直接套 RTKLIB 左对齐、末尾补三位的缓冲区。检查长度、填充、idle chip、已知槽号、帧/字符串元数据与编码字符串号；按 ICD Table 4.13 的七组位集合与总奇偶校验逐项验证。即使 HAL 标为 PARITY_PASSED/REBUILT 也重新核对，当前保守拒绝任何非零 syndrome，不自行纠错或猜测位对齐。严格拒绝部分仅校验位损坏的字符串可能损失可用数据，但不会把未验证载荷当成星历。
+
+新增 15 种字符串的独立 C 校验/字段向量，Python 使用固定 C 源码的字节掩码求校验位，Kotlin 则使用 ICD 位编号集合；C `test_glostr/getbitg` 核对干净载荷与符号幅值字段。测试逐一翻转这 15 组载荷的全部 85 个传输位和 3 个填充位（含 HAL passed/rebuilt 两种标签），并对一组载荷穷举全部传输位的双比特破坏。测试载荷为明确合成数据，不是真实 Android 接收样本；不能据此宣布厂商 HAL 打包已验收。
+
+`GlonassImmediateDecoder` 支持 GLONASS-M 的 strings 1–4，解码位置/速度/日月摄动、τn、γn、Δτn、Bn/ln、FT、En、P/P1–P4、tk/tb 和 NT；不把符号幅值当补码，不将年龄/更新间隔当拟合期。原始健康位保留，不把字段可解码等同于信号可用。检查完整无重复字符串、槽/帧一致、编码槽号、GLONASS-M 类型、日序号和时间字段范围、30 秒到达窗口与轨道数值。该到达窗口只是传输健全性检查：相同帧 ID 每个超帧重复，尚不能证明四条字符串属于同一实际发送周期。
+
+另有 4 组独立 C `decode_glostr` 全参数对照，轨道参数从上述真实 RINEX 量化重编码，钟参数、日期、标志与全部字符串明确为合成输入。Kotlin γn 使用精确 `2⁻⁴⁰`；固定 C 源码的十进制 P2_40 宏略有舍入，测试显式区分不超过两个 ULP 的该参考误差与严格的 ICD 二进制缩放，未将舍入误差复制进实现。旧 GLONASS 或其他 M 字段变体目前拒绝，不按 GLONASS-M 解释预留字段。
+
+当前传播接口只接受外部已解析的 `tb` 起算连续 SI 时距，解码结果只是即时参数，**尚未**完成可信逐条发送周期组帧、绝对日历与闰秒关联、健康/钟差/逐信号服务检查、接收光程、真实框架证据或生产天空接入。不能直接相减有歧义的 UTC/GPS/民用日标签来填充时距，也不能将返回的数学轨道当作可用观测、伪距或 usedInFix。本阶段 Core/NMEA/Xposed/App arm64 JVM、App Kotlin 编译与模块规范检查通过；完整目标仍未完成。
 
 ## 数学参考与验证
 
@@ -196,6 +206,7 @@ az = [g − j(3−b)]z + az_luniSolar
 - [GLONASS ICD 5.1 UNAVCO 英文镜像](https://www.unavco.org/help/glossary/docs/ICD_GLONASS_5.1_(2008)_en.pdf)：实际读取 §§3.3.3/3.3.4、Tables 4.5/4.6、A.3.1.1/2、Appendix 2；该正文使用 PZ-90.02。[IGS 2014 更新说明](https://lists.igs.org/pipermail/igsmail/2014/000730.html)指出同版本标题的更新正文可使用 PZ-90.11，不能仅凭“5.1 / 2008”判断框架。本次官方站证书/下载失败，没有声称已读到更新版正文。
 - [卡塔尔民航局 QCAR 044 Volume 1](https://www.caa.gov.qa/sites/default/files/2021-10/Aeronautical%20Telecommunications.pdf)：实际下载并渲染核对 Appendix B §§3.2.2.3.2、3.2.3.1、3.2.5，印刷页 198–201，特别核对第 199 页公式；其 Y/Z 项存在与旧 ICD 相同的问题，修正推导见上文。
 - [固定版本 GLONASS 混合 RINEX](https://github.com/geospace-code/georinex/blob/8d1210a0f1ada71ff7b8d0484cfaf22ff154a38e/src/georinex/tests/data/BRDM00DLR_R_20130010000_01D_MN.rnx)与[RTKLIB GLONASS 积分](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c)：四条真实参数及三组网格的独立数值对照，不是原始电文、闰秒转换或生产接入验证。
+- [RTKLIB GLONASS 校验/解码](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c)与[Android HAL 导航消息格式](https://source.android.google.cn/reference/hal/struct_gnss_navigation_message)：独立 C 对照 `test_glostr/getbitg/decode_glostr`，实际同时读取本机 SDK 37 `GnssNavigationMessage.java` 的载荷、帧号、字符串号说明。生成脚本校验固定 `rcvraw.c` 的 SHA-256；输入均区分真实轨道参数与合成字符串。
 - [固定版本 Galileo 混合 RINEX](https://github.com/geospace-code/georinex/blob/8d1210a0f1ada71ff7b8d0484cfaf22ff154a38e/src/georinex/tests/data/BRDC00IGS_R_20201360000_01D_MN.rnx)：`GalileoBroadcastPropagatorTest` 的 E24 真实输入；`GalileoNavigationPagesTest`、I/NAV 与 F/NAV 解码测试覆盖位破坏、身份/IOD/时刻不一致、缺页和信号状态。
 - [IS-GPS-200N 官方归档](https://archive.gps.gov/technical/icwg/IS-GPS-200N.pdf)：核对 20.3.3/20.3.4/20.3.5，Table 20-II/III/IV/XII/XIV，GPS 参数、拟合期、坐标系、飞行光程与逐字奇偶校验。
 - [固定版本 RTKLIB 导航输入](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/test/data/rinex/07590920.05n)、[eph2pos](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c)、[decode_frame](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c) 与 [decode_word](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rtkcmn.c)：三个真实 RINEX 轨道、9 个传播时刻和9组接收几何数值。90 个测试电文字由这些参数按 ICD 独立重建、经 C 实现解码对照；它们是合成字级测试样本，**不是真实接收机原始电文**。微米级数值一致性仅用于检查代码，不代表广播轨道精度。

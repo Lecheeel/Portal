@@ -48,7 +48,7 @@ class SimulationFeaturesTest {
                 compose.scrollToText("启动突发").assertIsDisplayed()
                 captureUi("settings-channels")
                 compose.scrollToText("路线平滑运动").assertIsDisplayed()
-                compose.scrollToText("轨道 GNSS 模型（实验）").assertIsDisplayed()
+                compose.scrollToText("最少卫星数").assertIsDisplayed()
                 compose.scrollToText("后台运行").performClick()
                 onView(withText(R.string.background_guidance)).inRoot(isDialog()).check(matches(isDisplayed()))
                 captureUi("background-guidance")

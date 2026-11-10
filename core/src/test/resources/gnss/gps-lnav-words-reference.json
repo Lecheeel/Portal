@@ -1,0 +1,71 @@
+{
+  "source": "RINEX-derived synthetic LNAV words; not a physical receiver capture",
+  "parameters": "gps-lnav-reference.json; quantized to IS-GPS-200N bit fields",
+  "parity": "Independent Table 20-XIV equation encoder, all 90 words verified by pinned RTKLIB decode_word",
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rtkcmn.c",
+  "subframes": [
+    {
+      "svid": 1,
+      "id": 1,
+      "nextTowSeconds": 525576,
+      "payloadHex": "22c000122ac581e4124440733fffffff3fffffff3fffffff3fffc19b1cdfeb713ffffc3d33009370",
+      "decodedHex": "8b0000ab16074911010000000000000000000000f98c805200000f33fdb2"
+    },
+    {
+      "svid": 1,
+      "id": 2,
+      "nextTowSeconds": 525582,
+      "payloadHex": "22c000122ac5a28c233e5e980b029d0d00336e3901673f2f3cc7e0bb3dcf97960345e0a8201480d8",
+      "decodedHex": "8b0000ab168a8cf97a2c0a74ff3247fa63030ce07d08c1a10d1782805203"
+    },
+    {
+      "svid": 1,
+      "id": 3,
+      "nextTowSeconds": 525588,
+      "payloadHex": "22c000122ac5c3fc000e6683253719a7000c75fe0449956e09ab2f04302c66f43fea6d78233fe8c4",
+      "decodedHex": "8b0000ab170f00399a6b2399ffce2811265526acbcc0b19bffa9b58cffa3"
+    },
+    {
+      "svid": 3,
+      "id": 1,
+      "nextTowSeconds": 518376,
+      "payloadHex": "22c000122a2f81f8124440853fffffd6000000293fffffd600003df52b205bd53ffff91a032b70e8",
+      "decodedHex": "8b0000a8be074911020000000000000000000000f7537e9000001b0cadc3"
+    },
+    {
+      "svid": 3,
+      "id": 2,
+      "nextTowSeconds": 518382,
+      "payloadHex": "22c000122a2fa29014c09d89314c66dc2babbcbd3f773f1a1cb7e9493c0897a4037624c81fa400d8",
+      "decodedHex": "8b0000a8be8a5302763ace64aeaef202230372dfa50fdda10dd8937e9003"
+    },
+    {
+      "svid": 3,
+      "id": 3,
+      "nextTowSeconds": 518388,
+      "payloadHex": "22c000122a2fc3e03ff285443459621d0008b6b0325f117f3940f9c226b943410016a2ea14fe55b8",
+      "decodedHex": "8b0000a8bf0fffca15d16588ffdd25c97c451afc189ae50dffa57453f956"
+    },
+    {
+      "svid": 4,
+      "id": 1,
+      "nextTowSeconds": 525576,
+      "payloadHex": "22c000122ac581e41244402000000000000000000000000000003cd71a9feb4f3fc031e335f2165c",
+      "decodedHex": "8b0000ab16074911000000000000000000000000f395805200ff382837a6"
+    },
+    {
+      "svid": 4,
+      "id": 2,
+      "nextTowSeconds": 525582,
+      "payloadHex": "22c000122ac5a28c2542a94933d27a0f2e60288e025b00ec26aa6a7c0436685f3ccf414e20148054",
+      "decodedHex": "8b0000ab168a950aa530b617467f5d096c039aa9a910d9a10cc2fa805201"
+    },
+    {
+      "svid": 4,
+      "id": 3,
+      "nextTowSeconds": 525588,
+      "payloadHex": "22c000122ac5c3fc0010111a2d210364000549bf05c8b7ae06e08046248118e63fea0e64257d83b8",
+      "decodedHex": "8b0000ab170f004044b4840d001526e8dd211b8201920463ffa83995f60e"
+    }
+  ]
+}

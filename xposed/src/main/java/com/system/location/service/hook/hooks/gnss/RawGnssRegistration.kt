@@ -13,7 +13,7 @@ internal fun rawGnssRegistrationHook(
     val method = chain.executable as? Method ?: return@Hooker chain.proceed()
     // Removal must always reach Android, including listeners created before simulation started.
     if (!method.name.startsWith("add") || chain.args.isEmpty() ||
-        !enabled() || allowPhysical() || !hasFrame()) return@Hooker chain.proceed()
+        !enabled() || allowPhysical() || !hasFrame()) return@Hooker RawGnssCallbacks.proceed(chain)
     if (method.returnType == Boolean::class.javaPrimitiveType || method.returnType == Boolean::class.javaObjectType) {
         false
     } else {

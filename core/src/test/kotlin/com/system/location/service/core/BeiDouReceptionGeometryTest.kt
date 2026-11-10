@@ -22,6 +22,45 @@ class BeiDouReceptionGeometryTest {
     }
     private val receiver = BdcsReceiver(EcefPosition(-2850000.0, 4650000.0, 3290000.0), GeodeticOrientation(31.2, 121.5))
 
+    @Test fun signalClocksMatchIndependentTransmissionClockForEveryOrbitTypeAndLegacySignal() {
+        cases.forEach { c ->
+            val e = ephemeris(c.n("recordIndex").toInt())
+            val xyz = c.getValue("receiverEcefMeters").jsonArray.map { it.jsonPrimitive.double }
+            val point = BdcsReceiver(EcefPosition(xyz[0], xyz[1], xyz[2]),
+                GeodeticOrientation(c.n("latitudeDegrees"), c.n("longitudeDegrees")))
+            val clock = c.getValue("expected").jsonObject.n("clockBiasSeconds")
+            val time = e.toe.plusSeconds(c.n("offsetSeconds"))
+            val validity = BeiDouServiceValidity(e.validFrom, e.validUntil)
+            for ((signal, tgd) in listOf(BeiDouLegacySignal.B1I to -34.5e-9, BeiDouLegacySignal.B2I to 23.4e-9)) {
+                val result = if (e.orbitType == BeiDouOrbitType.GEO) {
+                    BeiDouSignalReception.observe(BeiDouD2Decoded(e, 0, 5, -34.5e-9, 23.4e-9, e.toe, 3, 4),
+                        time, point, signal, validity)
+                } else {
+                    BeiDouSignalReception.observe(BeiDouD1Decoded(e, 0, 5, -34.5e-9, 23.4e-9, e.toe, 3, 4),
+                        time, point, signal, validity)
+                }
+                assertNotNull(result.reason, result.observation)
+                assertEquals(clock - tgd, result.observation!!.signalClockBiasSeconds, 1e-16)
+                assertEquals(BeiDouReceptionGeometry.observe(e, time, point).observation, result.observation!!.geometry)
+            }
+        }
+    }
+
+    @Test fun signalServiceAndOrbitLimitsApplyAtSolvedTransmissionRatherThanReception() {
+        val e = ephemeris().let { it.copy(validFrom = it.toe.plusSeconds(-1.0), validUntil = it.toe.plusSeconds(1.0)) }
+        val d = BeiDouD2Decoded(e, 0, 5, 0.0, 0.0, e.toe, 3, 4)
+        val service = BeiDouServiceValidity(e.validFrom, e.validUntil)
+        fun observe(decoded: BeiDouD2Decoded = d, validity: BeiDouServiceValidity = service) =
+            BeiDouSignalReception.observe(decoded, e.validUntil.plusSeconds(0.05), receiver, BeiDouLegacySignal.B1I, validity)
+        val result = observe()
+        assertNotNull(result.reason, result.observation)
+        assertTrue(result.observation!!.geometry.transmissionTime.secondsSince(service.until) < 0)
+        assertNull(observe(d.copy(health = 1)).observation)
+        assertNull(observe(d.copy(uraIndex = 15)).observation)
+        assertNull(observe(d.copy(tgd1Seconds = Double.NaN)).observation)
+        assertNull(observe(validity = BeiDouServiceValidity(e.validFrom, e.toe.plusSeconds(0.5))).observation)
+    }
+
     @Test fun matchesIndependentCLightTimeRotationAndEnuForAllTwelveCases() {
         cases.forEach { c ->
             val e = ephemeris(c.n("recordIndex").toInt())

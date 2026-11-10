@@ -53,4 +53,22 @@ class GpsBroadcastEvidenceTest {
             e.copy(clock = e.clock.copy(gpsSecondsOfWeek = e.clock.gpsSecondsOfWeek - 30))
         }
     }
+
+    @Test fun wireDecodesRawOnceAndRetainsCompactEvidenceAcrossPeerSynchronization() {
+        val c = capture()
+        val e = GpsBroadcastEvidence.fromCapture(c)!!
+        val compact = GnssCaptureWire.decode(GnssCaptureWire.encode(c))
+        assertEquals(e, compact.gpsBroadcastEvidence)
+        assertTrue(compact.measurements.isEmpty())
+        assertTrue(compact.navigation.isEmpty())
+        assertEquals(compact, GnssCaptureWire.decode(GnssCaptureWire.encode(compact)))
+        assertEquals(compact, GnssCaptureCodec.decode(GnssCaptureCodec.encode(compact)))
+        // New incomplete raw input must not rehabilitate old compact evidence.
+        val replaced = compact.copy(navigation = c.navigation.take(2))
+        assertNull(GnssCaptureWire.decode(GnssCaptureWire.encode(replaced)).gpsBroadcastEvidence)
+        assertThrows(IllegalArgumentException::class.java) { compact.copy(bootCount = 43) }
+        assertThrows(IllegalArgumentException::class.java) {
+            compact.copy(frames = listOf(GnssObservationFrame(0, satellites = emptyList())))
+        }
+    }
 }

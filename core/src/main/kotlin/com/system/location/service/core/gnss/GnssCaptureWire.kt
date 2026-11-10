@@ -6,15 +6,20 @@ import java.util.Base64
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
-/** Bounded Binder payload. Raw measurement/navigation evidence stays in the application's store. */
+/** Bounded Binder payload. Raw evidence stays local; validated compact GPS evidence can cross IPC. */
 object GnssCaptureWire {
     const val MAX_ENCODED_LENGTH = 262_144
 
     fun encode(capture: GnssCapture): String {
-        val statusOnly = capture.copy(measurements = emptyList(), navigation = emptyList(),
+        // Fresh raw input always supersedes compact input, including when it invalidates it.
+        // Peers may re-encode an already compact snapshot without losing its evidence.
+        val evidence = if (capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
+            GpsBroadcastEvidence.fromCapture(capture) else capture.gpsBroadcastEvidence
+        val compact = capture.copy(measurements = emptyList(), navigation = emptyList(),
+            gpsBroadcastEvidence = evidence,
             frames = capture.frames.map { it.copy(signalObservations = emptyList()) })
-        val data = GnssCaptureCodec.encode(statusOnly).toByteArray(Charsets.UTF_8)
-        require(data.size <= GnssCaptureCodec.MAX_BYTES) { "GNSS status capture too large" }
+        val data = GnssCaptureCodec.encode(compact).toByteArray(Charsets.UTF_8)
+        require(data.size <= GnssCaptureCodec.MAX_BYTES) { "GNSS compact capture too large" }
         val compressed = ByteArrayOutputStream()
         GZIPOutputStream(compressed).use { it.write(data) }
         val encoded = Base64.getEncoder().encodeToString(compressed.toByteArray())

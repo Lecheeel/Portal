@@ -17,7 +17,7 @@ class CapturedGnssSource private constructor(private val payload: String) {
         frames.current(sample.timeMillis, sample.coordinate, sample.altitude, minimumSatellites,
             sample.speed.toDouble(), sample.bearing.toDouble(), validationAtMillis, route)
 
-    /** Already bounded, status-only evidence for an authenticated peer's initial synchronization. */
+    /** Bounded status/compact broadcast evidence for an authenticated peer's synchronization. */
     fun wirePayload(): String = payload
 
     companion object {

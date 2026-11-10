@@ -17,10 +17,21 @@ data class GnssCapture(
     val notes: List<String> = emptyList(),
     /** Android BOOT_COUNT; missing in legacy captures. Elapsed-time evidence cannot cross boots. */
     val bootCount: Int? = null,
+    /** Decoded compact evidence; populated at the authenticated transport boundary. */
+    val gpsBroadcastEvidence: GpsBroadcastEvidence? = null,
 ) {
     init {
         require(schemaVersion == 1) { "unsupported GNSS capture version" }
         require(bootCount == null || bootCount >= 0) { "invalid capture boot count" }
+        gpsBroadcastEvidence?.let { evidence ->
+            require(evidence.clock.bootCount == bootCount) { "GPS evidence belongs to another boot" }
+            val observedGps = frames.flatMap { it.satellites }.filter {
+                it.constellation == Constellation.GPS
+            }.map { it.svid }.toSet()
+            require(evidence.ephemerides.all { it.ephemeris.svid in observedGps }) {
+                "GPS evidence contains an unobserved satellite"
+            }
+        }
         require(deviceModel.isNotBlank() && osVersion.isNotBlank()) { "missing device metadata" }
         require(startedAtMillis >= 0 && endedAtMillis >= startedAtMillis) { "invalid capture interval" }
         require(frames.isNotEmpty() && frames.size <= MAX_FRAMES) { "invalid frame count" }

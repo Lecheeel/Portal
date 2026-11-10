@@ -3,7 +3,7 @@ package com.system.location.service.core.gnss
 import com.system.location.service.core.geo.Wgs84
 import kotlin.math.abs
 
-enum class ReceiverGnssSource { STATISTICAL_REPLAY, BROADCAST_EPHEMERIS }
+enum class ReceiverGnssSource { STATISTICAL_REPLAY, BROADCAST_EPHEMERIS, HYBRID_BROADCAST_REPLAY }
 
 /** Candidate usage is retained until the final combined sky has been solved. */
 internal data class ReceiverGnssSelection(

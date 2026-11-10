@@ -31,7 +31,12 @@ import org.junit.runner.RunWith
 /** Opt-in lab integration with the independent Detector debug application, never real sky data. */
 @RunWith(AndroidJUnit4::class)
 class GnssIndependentReceiverDeviceTest {
-    @Test fun movingNoisySamplesRemainCoherentForAnIndependentReceiver() = runBlocking {
+    @Test fun movingNoisySamplesRemainCoherentForAnIndependentReceiver() = verifyReceiver()
+
+    @Test fun receiverDeathClearsFrameworkRegistrationAndRestartDoesNotDuplicateFrames() =
+        verifyReceiver(terminateFirstRun = true)
+
+    private fun verifyReceiver(terminateFirstRun: Boolean = false) = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         assumeTrue("Explicit independent receiver run required",
             InstrumentationRegistry.getArguments().getString("independentDetector") == "true")
@@ -50,6 +55,15 @@ class GnssIndependentReceiverDeviceTest {
             ?.groupValues?.get(1)?.toInt()
         assumeTrue("Independent Detector must already be installed", receiverUid != null)
         assertNotEquals("Receiver must have a separate UID", Process.myUid(), receiverUid)
+        fun statusRegistrations(): Int {
+            val dump = shell("dumpsys location").lines()
+            val start = dump.indices.single { dump[it].trim() == "Status Provider:" }
+            val indent = dump[start].takeWhile(Char::isWhitespace).length
+            val section = dump.drop(start + 1).takeWhile { it.isBlank() || it.takeWhile(Char::isWhitespace).length > indent }
+            check(section.any { it.trimStart().startsWith("service:") }) { "Provider dump has no service state" }
+            return section.count { Regex("^\\s*\\d+/${Regex.escape(receiverPackage)}(?:\\[|/|\\s|$)").containsMatchIn(it) }
+        }
+        assumeTrue("Preserve existing receiver registrations", statusRegistrations() == 0)
         assumeTrue("GPS must already be enabled", manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
         val client = CommandClient()
         assertTrue(client.connect(manager))
@@ -117,7 +131,7 @@ class GnssIndependentReceiverDeviceTest {
                     response.substringAfter("\r\n\r\n")
                 }
                 // Activity launch completion need not coincide with the bridge's worker startup.
-                val status = withTimeout(5_000L) {
+                suspend fun bridgeReady(): JSONObject = withTimeout(5_000L) {
                     var status: String? = null
                     while (status == null) {
                         try { status = request("GET", "/status") }
@@ -125,13 +139,35 @@ class GnssIndependentReceiverDeviceTest {
                     }
                     JSONObject(status)
                 }
+                val status = bridgeReady()
                 assertFalse("Preserve an existing independent receiver run", status.getBoolean("running"))
+                if (terminateFirstRun) {
+                    // No duration override: killing the process must not persist temporary settings
+                    // whose normal restoration would otherwise depend on the bridge's finally block.
+                    val interrupted = async { runCatching { request("POST", "/run", "{}") } }
+                    withTimeout(5_000L) {
+                        while (statusRegistrations() != 1) delay(100L)
+                    }
+                    assertTrue(request("GET", "/status").let(::JSONObject).getBoolean("running"))
+                    val oldPid = shell("pidof $receiverPackage").trim()
+                    assertTrue("Independent receiver process missing", oldPid.isNotBlank())
+                    shell("am force-stop $receiverPackage")
+                    withTimeout(5_000L) {
+                        while (statusRegistrations() != 0 || shell("pidof $receiverPackage").isNotBlank()) delay(100L)
+                    }
+                    assertTrue("Interrupted bridge unexpectedly completed a report", interrupted.await().isFailure)
+                    val restart = shell("am start -W -n $receiverPackage/.MainActivity")
+                    assertFalse("Cannot restart independent receiver", restart.contains("Error:"))
+                    assertFalse(bridgeReady().getBoolean("running"))
+                    assertNotEquals("Receiver process was not replaced", oldPid, shell("pidof $receiverPackage").trim())
+                }
                 request("POST", "/run", "{\"sampleSeconds\":20}")
             }
             File(context.getExternalFilesDir(null), "synthetic-independent-gnss-report.json").writeText(rawReport)
             val report = JSONObject(rawReport)
             val frames = report.getJSONObject("gnssEvidence").getJSONArray("frames")
             assertTrue("Independent receiver did not see the GNSS stream", frames.length() >= 15)
+            assertTrue("Duplicate 1 Hz GNSS deliveries in a 20 second window", frames.length() <= 22)
             val expectedCounts = mapOf(1 to 4, 2 to 4, 3 to 4, 4 to 4, 5 to 4, 6 to 4, 7 to 4)
             for (index in 0 until frames.length()) {
                 val records = frames.getJSONObject(index).getJSONArray("satellites")
@@ -158,6 +194,7 @@ class GnssIndependentReceiverDeviceTest {
                 ?.groupValues?.get(1)?.toInt() ?: error("Detector did not report GPS movement coverage")
             assertTrue("Independent GPS receiver did not observe movement/noise", distinctGps >= 100)
             assertNotEquals("Invalid GNSS fields observed", "FAIL", checkNotNull(relevant["C06"]).getString("status"))
+            assertEquals("Completed receiver run leaked a framework status registration", 0, statusRegistrations())
         } finally {
             renewal?.cancelAndJoin()
             command("stop")

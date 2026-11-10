@@ -45,7 +45,10 @@ object GnssSignalInjection {
                 val method = listener.javaClass.methods.firstOrNull {
                     it.name == "onSvStatusChanged" && ReceiverGnssStatusAdapter.supports(it)
                 } ?: error("unsupported GNSS status callback signature")
-                HookRuntime.invokeOriginalMethod(method, listener, ReceiverGnssStatusAdapter.arguments(method, publication))
+                GnssListenerRouting.deliverOnce(listener, publication.frame.toString()) {
+                    HookRuntime.invokeOriginalMethod(method, listener, ReceiverGnssStatusAdapter.arguments(method, publication))
+                    true
+                }
             }
         }
         if (!policy.nmeaEnabled) return
@@ -57,11 +60,17 @@ object GnssSignalInjection {
                     it.name == "onNmeaReceived" && it.parameterTypes.toList() ==
                         listOf(Long::class.javaPrimitiveType, String::class.java)
                 } ?: error("unsupported NMEA callback signature")
-                NmeaBridge.generatedSentences(publication).forEach { sentence ->
-                    if (Thread.currentThread().isInterrupted) return@deliver
-                    // Android OnNmeaMessageListener timestamps are UTC milliseconds, not elapsed nanos.
-                    HookRuntime.invokeOriginalMethod(method, listener,
-                        arrayOf(publication.frame.generatedAtMillis, sentence))
+                val sentences = NmeaBridge.generatedSentences(publication)
+                // Compare the exact emitted epoch/text, without rounded-time windows or hashes.
+                val key = "${publication.frame.generatedAtMillis}:${sentences.joinToString("")}"
+                NmeaListenerRouting.deliverOnce(listener, key) nmeaBatch@{
+                    sentences.forEach { sentence ->
+                        if (Thread.currentThread().isInterrupted) return@nmeaBatch false
+                        // Android OnNmeaMessageListener timestamps are UTC milliseconds, not elapsed nanos.
+                        HookRuntime.invokeOriginalMethod(method, listener,
+                            arrayOf(publication.frame.generatedAtMillis, sentence))
+                    }
+                    true
                 }
             }
         }

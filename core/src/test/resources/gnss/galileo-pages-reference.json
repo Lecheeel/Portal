@@ -31,9 +31,9 @@
       "type": 1537,
       "wordType": 3,
       "svid": 24,
-      "payloadHex": "03143ff12347bac0bdc373068b00ecc78000000000000000078fed1000",
-      "dataHex": "0c50ffc48d1eeb02f70dcc1a2c03cc78",
-      "crc": 7929553
+      "payloadHex": "03143ff12347bac0bdc373068b00ecc6b0000000000000000102ed0000",
+      "dataHex": "0c50ffc48d1eeb02f70dcc1a2c03cc6b",
+      "crc": 1060560
     },
     {
       "type": 1537,
@@ -55,9 +55,9 @@
       "type": 1538,
       "wordType": 1,
       "svid": 24,
-      "payloadHex": "058141c200b2c42bfffa8501e00000000000618872d3478000000342e4e8",
-      "dataHex": "058141c200b2c42bfffa8501e00000000000618872d34780000000",
-      "crc": 13678906
+      "payloadHex": "058141c200b2c42bfffa8501ac0000000000618872d34780000001062b60",
+      "dataHex": "058141c200b2c42bfffa8501ac0000000000618872d34780000000",
+      "crc": 4295384
     },
     {
       "type": 1538,
@@ -88,7 +88,7 @@
     "rinexGpsWeek": 2105.0,
     "iodnav": 80.0,
     "health": 0.0,
-    "sisa": 120.0,
+    "sisa": 107.0,
     "toe": 432000.0,
     "toc": 432000.0,
     "sqrtA": 5440.599994659424,

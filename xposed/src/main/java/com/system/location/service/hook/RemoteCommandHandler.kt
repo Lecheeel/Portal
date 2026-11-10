@@ -12,16 +12,10 @@ import com.system.location.service.hook.utils.Logger
 
 object RemoteCommandHandler {
 
-
-
-
     private val security = CommandSecurity()
     private val replicatedCommands = setOf("start", "stop", "set_speed_amp", "set_altitude", "set_speed",
         "update_location", "set_bearing", "put_config", "publish_sample", "start_gnss_mock", "stop_gnss_mock",
         "start_wifi_mock", "stop_wifi_mock")
-
-
-
 
     @SuppressLint("UnsafeDynamicallyLoadedCode")
     @Synchronized
@@ -43,7 +37,7 @@ object RemoteCommandHandler {
     }
 
     @Synchronized
-    internal fun resetProxySession(session: String = java.util.UUID.randomUUID().toString()) = RuntimeSyncCommand.begin(session)
+    internal fun resetProxySession(session: String) = RuntimeSyncCommand.begin(session)
 
     @Synchronized
     internal fun handleProxyInstruction(rely: Bundle): Boolean {
@@ -112,24 +106,4 @@ object RemoteCommandHandler {
         if (expired) ProxyCommand.publishCurrent()
         return expired
     }
-    @Synchronized internal fun restoreSample(rely: Bundle) = SampleCommand.restore(rely)
-//    private var hasHookSensor = false
-//
-//    private fun tryHookSensor(classLoader: ClassLoader = FakeLoc::class.java.classLoader!!) {
-//        if (hasHookSensor || proxyBinders.isNullOrEmpty()) return
-//
-//
-//
-//        hasHookSensor = true
-//    }
-
-//    private fun generateLocation(): Location {
-//        val (location, realLocation) = if (FakeLocationConfig.lastLocation != null) {
-//            (FakeLocationConfig.lastLocation!! to true)
-//        } else {
-//            (Location(LocationManager.GPS_PROVIDER) to false)
-//        }
-//
-//        return LocationServiceProxyHook.injectLocation(location, realLocation)
-//    }
 }

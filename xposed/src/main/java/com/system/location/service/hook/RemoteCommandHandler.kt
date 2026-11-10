@@ -43,12 +43,13 @@ object RemoteCommandHandler {
     }
 
     @Synchronized
-    internal fun resetProxySession() = ProxyCommand.resetSession()
+    internal fun resetProxySession(session: String = java.util.UUID.randomUUID().toString()) = RuntimeSyncCommand.begin(session)
 
     @Synchronized
     internal fun handleProxyInstruction(rely: Bundle): Boolean {
-        if (!ProxyCommand.acceptIncoming(rely)) return false
-        return runCatching { applyInstruction(rely) }.getOrDefault(false)
+        return runCatching { RuntimeSyncCommand.receive(rely) }.onFailure {
+            Logger.error("Invalid runtime state from peer publisher", it)
+        }.getOrDefault(false)
     }
     private fun applyInstruction(rely: Bundle): Boolean {
         var commandId = rely.getString("command_id") ?: return false

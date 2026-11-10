@@ -22,6 +22,9 @@ object NmeaListenerRouting {
     fun clear() = registry.clear()
     internal fun deliverOnce(listener: IInterface, key: String, action: () -> Boolean) =
         registry.deliverOnce(listener, key, action)
+    internal fun deliverBatch(listener: IInterface, key: String, itemCount: Int,
+        allowed: () -> Boolean, action: (Int) -> Unit) =
+        registry.deliverBatch(listener, key, itemCount, allowed, action)
     internal fun subscriptions(): List<CallbackSubscription> = registry.subscriptions()
     internal fun restore(subscription: CallbackSubscription): Boolean = registry.restore(subscription)
 }

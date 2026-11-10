@@ -15,6 +15,26 @@ class BeiDouNavigationSubframe internal constructor(
     information: ByteArray,
 ) {
     private val bytes = information.copyOf()
+    /** Read an ICD bit range in the original 300-bit word layout, skipping BCH parity gaps. */
+    fun rawUnsigned(start: Int, length: Int): Long {
+        require(start >= 0 && length in 1..63 && start + length <= 300)
+        var value = 0L
+        repeat(length) { offset ->
+            val raw = start + offset
+            val word = raw / 30
+            val within = raw % 30
+            require(if (word == 0) within < 26 else within < 22) { "range includes BeiDou BCH parity" }
+            val info = if (word == 0) within else 26 + (word - 1) * 22 +
+                if (within % 2 == 0) within / 2 else 11 + within / 2
+            value = (value shl 1) or ((bytes[info / 8].toInt() ushr (7 - info % 8)) and 1).toLong()
+        }
+        return value
+    }
+
+    fun rawSigned(start: Int, length: Int): Long {
+        val raw = rawUnsigned(start, length)
+        return if (raw and (1L shl (length - 1)) != 0L) raw - (1L shl length) else raw
+    }
     fun unsigned(start: Int, length: Int): Long {
         require(start >= 0 && length in 1..63 && start + length <= 224)
         var value = 0L
@@ -78,7 +98,7 @@ object BeiDouNavigationWords {
         }
         val preliminary = BeiDouNavigationSubframe(observation.svid, observation.capturedAtMillis, format, 0, 0, information)
         val id = preliminary.unsigned(15, 3).toInt()
-        val sow = preliminary.unsigned(18, 20).toInt()
+        val sow = (preliminary.rawUnsigned(18, 8) shl 12 or preliminary.rawUnsigned(30, 12)).toInt()
         if (id !in 1..5 || id != observation.submessageId) return invalid("BeiDou subframe/metadata identity mismatch")
         if (sow >= 604800) return invalid("BeiDou SOW outside week")
         if (format == BeiDouNavigationFormat.D1 && sow % 30 != (id - 1) * 6)

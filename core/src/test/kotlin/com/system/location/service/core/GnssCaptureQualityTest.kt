@@ -22,6 +22,15 @@ class GnssCaptureQualityTest {
         assertFalse(GnssCaptureValidator.validate(capture().copy(frames = capture().frames.map { it.copy(observer = null) }), 62000).eligible)
     }
 
+    @Test fun zeroCn0StatusPlaceholdersCannotCreateAReplayProfile() {
+        val noSignal = capture().copy(frames = capture().frames.map { frame ->
+            frame.copy(satellites = frame.satellites.map { it.copy(cn0DbHz = 0f) })
+        })
+        val quality = GnssCaptureValidator.validate(noSignal, 62000)
+        assertFalse(quality.eligible)
+        assertTrue(quality.issues.any { it.contains("正 CN0") })
+    }
+
     @Test fun correlatedRepeatsDoNotCreateFalsePrecisionInShortCaptures() {
         val short = capture().frames.take(5)
         val profile = GnssObservationProfileBuilder.build(short, "device", "os").constellations.single()

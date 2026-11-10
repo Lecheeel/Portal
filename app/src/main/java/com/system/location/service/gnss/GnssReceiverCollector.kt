@@ -221,7 +221,7 @@ class GnssReceiverCollector(
                 session.checkSystem(readSystemState(manager, initialize = systemState == null))
                 session.checkLocal(ScenarioRuntime.controller.startGeneration, localActive())
                 check(!contaminated) { "采集期间收到模拟定位，已废弃本次采集" }
-                check(frames.any { it.satellites.isNotEmpty() }) {
+                check(frames.any { it.satellites.any(GnssCaptureValidator::isUsableSatellite) }) {
                     "未收到有效卫星（状态帧 ${frames.size}、测量批次 ${measurements.size}、导航电文 ${navigation.size}）；" +
                         "${notes.joinToString("；")}" + "。请检查接收环境和系统定位后重新采集"
                 }

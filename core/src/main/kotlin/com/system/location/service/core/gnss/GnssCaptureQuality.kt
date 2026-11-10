@@ -10,10 +10,10 @@ object GnssCaptureValidator {
 
     fun validate(capture: GnssCapture, nowMillis: Long): GnssCaptureQuality {
         val issues = mutableListOf<String>()
-        val usable = capture.frames.filter { it.satellites.any { satellite -> satellite.elevationDeg >= 0f } }
+        val usable = capture.frames.filter { it.satellites.any(::isUsableSatellite) }
         if (usable.size < MIN_FRAMES) issues += "有效帧不足 $MIN_FRAMES 帧"
         if (usable.isEmpty() || usable.last().capturedAtMillis - usable.first().capturedAtMillis < MIN_WINDOW_MILLIS) {
-            issues += "有效观测窗口不足 30 秒"
+            issues += "有效观测窗口不足 30 秒（需要仰角、方位角和正 CN0）"
         }
         if (nowMillis < capture.endedAtMillis || nowMillis - capture.endedAtMillis > MAX_AGE_MILLIS) {
             issues += "采集画像已过期或系统时间异常"
@@ -24,4 +24,8 @@ object GnssCaptureValidator {
         }
         return GnssCaptureQuality(issues.isEmpty(), issues)
     }
+
+    /** CN0=0 is an Android placeholder, not evidence of a received signal. */
+    fun isUsableSatellite(satellite: GnssSatellite): Boolean =
+        satellite.elevationDeg >= 0f && satellite.azimuthDeg in 0f..<360f && satellite.cn0DbHz > 0f
 }

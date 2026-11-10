@@ -62,7 +62,17 @@ class GnssReceiverCollector(
             }
             val locationListener = LocationListener { sample ->
                 if (sample.isMock) contaminated = true
-                if (accepts()) location = Location(sample)
+                if (!accepts()) return@LocationListener
+                val arrival = SystemClock.elapsedRealtimeNanos()
+                val valid = sample.latitude in -90.0..90.0 && sample.longitude in -180.0..180.0 &&
+                    sample.elapsedRealtimeNanos in 1..arrival &&
+                    (!sample.hasAltitude() || sample.altitude.isFinite()) &&
+                    (!sample.hasAccuracy() || sample.accuracy.isFinite() && sample.accuracy >= 0f) &&
+                    (!sample.hasVerticalAccuracy() || sample.verticalAccuracyMeters.isFinite() && sample.verticalAccuracyMeters >= 0f) &&
+                    (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !sample.hasElapsedRealtimeUncertaintyNanos() ||
+                        sample.elapsedRealtimeUncertaintyNanos.isFinite() && sample.elapsedRealtimeUncertaintyNanos >= 0.0)
+                if (valid) location = Location(sample)
+                else notes += "真实定位包含无效坐标、单调时刻或精度，未将该定位用于卫星观察点"
             }
             val statusCallback = object : GnssStatus.Callback() {
                 override fun onStarted() { if (accepts()) notes += "GNSS 引擎已启动" }
@@ -70,6 +80,8 @@ class GnssReceiverCollector(
                 override fun onFirstFix(ttffMillis: Int) { if (accepts()) notes += "首次定位耗时：${ttffMillis}ms" }
                 override fun onSatelliteStatusChanged(status: GnssStatus) {
                     if (!accepts() || frames.size >= GnssCapture.MAX_FRAMES) return
+                    val capturedElapsed = SystemClock.elapsedRealtimeNanos()
+                    val capturedAt = System.currentTimeMillis()
                     if (status.satelliteCount > 512) {
                         notes += "卫星状态超过 512 条信号记录，未保存该异常帧"
                         return
@@ -91,16 +103,24 @@ class GnssReceiverCollector(
                     }
                     val satellites = GnssSignalProjection.spacecraft(signals)
                     val observer = location?.takeIf {
-                        SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos in 0..10_000_000_000L
+                        capturedElapsed - it.elapsedRealtimeNanos in 0..10_000_000_000L
                     }
                     frames += GnssObservationFrame(
-                        capturedAtMillis = System.currentTimeMillis(),
+                        capturedAtMillis = capturedAt,
                         observer = observer?.let { Wgs84(it.latitude, it.longitude) },
                         altitudeMeters = observer?.takeIf { it.hasAltitude() }?.altitude,
                         satellites = satellites,
                         signalObservations = signals,
                         measurementsAvailable = measurements.isNotEmpty(),
                         navigationMessagesAvailable = navigation.isNotEmpty(),
+                        capturedElapsedRealtimeNanos = capturedElapsed,
+                        observerElapsedRealtimeNanos = observer?.elapsedRealtimeNanos,
+                        observerElapsedRealtimeUncertaintyNanos = observer?.takeIf {
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && it.hasElapsedRealtimeUncertaintyNanos()
+                        }?.elapsedRealtimeUncertaintyNanos,
+                        observerHorizontalAccuracyMeters = observer?.takeIf { it.hasAccuracy() }?.accuracy?.toDouble(),
+                        observerVerticalAccuracyMeters = observer?.takeIf { it.hasAltitude() && it.hasVerticalAccuracy() }
+                            ?.verticalAccuracyMeters?.toDouble(),
                     )
                     onProgress(frames.size)
                 }

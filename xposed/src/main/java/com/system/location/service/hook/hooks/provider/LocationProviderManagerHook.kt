@@ -16,7 +16,6 @@ import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.onceHook
 import com.system.location.service.hook.utils.onceHookAllMethod
 import com.system.location.service.hook.utils.onceHookMethod
-import com.system.location.service.hook.utils.toLocation
 import io.github.libxposed.api.XposedInterface
 import java.util.Collections
 
@@ -45,12 +44,11 @@ object LocationProviderManagerHook {
                     ?: return@intercept42 chain.proceed(args)
             if (locations.isEmpty() || locations.any { it !is Location })
                 return@intercept42 chain.proceed(args)
-            val sample = FakeLoc.snapshot()
+            val context = ProviderView.capture()
             mLocationsField.set(
                 locationResult,
                 locations.map { location ->
-                    val provider = (location as Location).provider
-                    ProviderView.sampleFor(provider).toLocation(provider)
+                    injectLocation(location as Location, context = context)
                 },
             )
 

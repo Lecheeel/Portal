@@ -12,7 +12,8 @@ import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.RemoteCommandHandler
 import com.system.location.service.hook.hooks.gnss.GnssHook
 import com.system.location.service.hook.hooks.gnss.GnssListenerRouting
-import com.system.location.service.hook.hooks.gnss.GnssStatusBridge
+import com.system.location.service.hook.hooks.gnss.GnssReceiverRuntime
+import com.system.location.service.hook.hooks.gnss.ReceiverGnssStatusAdapter
 import com.system.location.service.hook.hooks.miui.MiuiBlurLocationProviderHook
 import com.system.location.service.hook.hooks.miui.MiuiLocationManagerHook
 import com.system.location.service.hook.hooks.nmea.LocationNMEAHook
@@ -362,122 +363,39 @@ internal object LocationServiceHook : BaseLocationHook() {
             },
         )
 
-        if (
-            com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
-                    cILocationManager,
-                    "registerGnssStatusCallback",
-                    XposedInterface.Hooker intercept22@{ chain ->
-                        val args = chain.args.toTypedArray()
-                        var result = chain.proceed()
-
-                        if (args.isEmpty() || args[0] == null) return@intercept22 result
-
-                        val callback = args[0] ?: return@intercept22 result
-                        val cIGnssStatusListener = callback.javaClass
-                        if (callback is IInterface) {
-                            GnssListenerRouting.register(callback, args.getOrNull(1) as? String)
-                        }
-
-                        if (FakeLoc.enableDebugLog) {
-                            Logger.debug("registerGnssStatusCallback: injected!")
-                        }
-                        if (!FakeLoc.enable || !FakeLoc.enableMockGnss) {
-                            return@intercept22 result
-                        }
-
-                        if (
-                            cIGnssStatusListener
-                                .onceHookAllMethod(
-                                    "onSvStatusChanged",
-                                    XposedInterface.Hooker intercept23@{ chain ->
-                                        val args = chain.args.toTypedArray()
-
-                                        if (!FakeLoc.enable || !FakeLoc.enableMockGnss)
-                                            return@intercept23 chain.proceed(args)
-
-                                        val mockGps =
-                                            GnssStatusBridge.toMockData(
-                                                GnssStatusBridge.currentFrame(
-                                                    GnssListenerRouting.fixedPointFor(
-                                                        chain.thisObject
-                                                    )
-                                                )
-                                            )
-                                        val svCount = mockGps.svCount
-
-                                        if (args[0] is Int) {
-                                            args[0] = svCount
-                                            args[1] = mockGps.svidWithFlags
-                                            args[2] = mockGps.cn0s
-                                            args[3] = mockGps.elevations
-                                            args[4] = mockGps.azimuths
-                                            if (args.size > 5) {
-                                                args[5] = mockGps.carrierFreqs
-                                            }
-
-                                            if (args.size > 6) {
-                                                args[6] = GnssStatusBridge.basebandCn0(mockGps)
-                                            }
-                                            return@intercept23 chain.proceed(args)
-                                        }
-
-                                        if (
-                                            args[0] != null &&
-                                                args[0]!!.javaClass.name ==
-                                                    "android.location.GnssStatus"
-                                        ) {
-                                            runCatching {
-                                                    val mConstructor =
-                                                        args[0]!!
-                                                            .javaClass
-                                                            .declaredConstructors
-                                                            .firstOrNull {
-                                                                it.parameterTypes.size == 7
-                                                            }
-                                                            .also { it?.isAccessible = true }
-
-                                                    if (mConstructor != null) {
-                                                        args[0] =
-                                                            mConstructor.newInstance(
-                                                                svCount,
-                                                                mockGps.svidWithFlags,
-                                                                mockGps.cn0s,
-                                                                mockGps.elevations,
-                                                                mockGps.azimuths,
-                                                                mockGps.carrierFreqs,
-                                                                GnssStatusBridge.basebandCn0(
-                                                                    mockGps
-                                                                ),
-                                                            )
-                                                    } else {
-                                                        Logger.error(
-                                                            "onSvStatusChanged: unsupported version: ${chain.executable}, constructor not found"
-                                                        )
-                                                    }
-                                                }
-                                                .onFailure { HookRuntime.log(it) }
-                                            return@intercept23 chain.proceed(args)
-                                        }
-
-                                        Logger.error(
-                                            "onSvStatusChanged: unsupported version: ${chain.executable}"
-                                        )
-
-                                        chain.proceed(args)
-                                    },
-                                )
-                                .isEmpty()
-                        ) {
-                            Logger.error("find onSvStatusChanged failed!")
-                        }
-
-                        result
+        cILocationManager.hookAllMethods(
+            "registerGnssStatusCallback",
+            XposedInterface.Hooker registration@{ chain ->
+                val args = chain.args
+                val result = chain.proceed()
+                if (result == false) return@registration result
+                val callback = args.firstOrNull() as? IInterface ?: return@registration result
+                // Install while simulation is stopped too, so an existing listener follows live toggles.
+                callback.javaClass.onceHookAllMethod(
+                    "onSvStatusChanged",
+                    XposedInterface.Hooker status@{ event ->
+                        val method = event.executable as? Method
+                        if (!FakeLoc.enable || !FakeLoc.enableMockGnss || method == null ||
+                            !ReceiverGnssStatusAdapter.supports(method) ||
+                            !GnssListenerRouting.shouldDeliver(event.thisObject) ||
+                            GnssReceiverRuntime.currentFrame(GnssListenerRouting.fixedPointFor(event.thisObject)) == null)
+                            return@status event.proceed()
+                        // The managed worker owns simulated delivery and invokes ORIGIN.
+                        null
                     },
                 )
-                .isEmpty()
-        ) {
-            HookRuntime.log("[LocationService] hook registerGnssStatusCallback failed")
-        }
+                GnssListenerRouting.register(callback, args.getOrNull(1) as? String)
+                result
+            },
+        )
+        cILocationManager.hookAllMethods(
+            "unregisterGnssStatusCallback",
+            XposedInterface.Hooker { chain ->
+                val result = chain.proceed()
+                if (result != false) (chain.args.firstOrNull() as? IInterface)?.let(GnssListenerRouting::unregister)
+                result
+            },
+        )
         cILocationManager.hookAllMethods(
             "startGnssBatch",
             XposedInterface.Hooker intercept24@{ chain ->

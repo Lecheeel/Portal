@@ -4,6 +4,7 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.hook.utils.ProviderReadContext
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -55,6 +56,7 @@ class GnssReceiverRuntimeTest {
             assertNotNull(GnssReceiverRuntime.frameForSample(sample))
             val first = GnssReceiverRuntime.frameForSample(sample)!!
             val originalState = FakeLoc.runtimeSnapshots.current()
+            val context = ProviderReadContext(originalState.copy(sample = sample), emptyMap(), now)
             assertSame(first, GnssReceiverRuntime.frameForSample(sample.copy(timeMillis = now + 100)))
             assertEquals(sample.coordinate, first.frame.observer)
             assertEquals(sample.altitude, first.frame.altitudeMeters, 0.0)
@@ -65,6 +67,7 @@ class GnssReceiverRuntimeTest {
             GnssReceiverRuntime.configure(null)
             assertNull(GnssReceiverRuntime.currentFrame(point))
             assertSame(first, GnssReceiverRuntime.frameForSample(sample, state = originalState))
+            assertSame(first, GnssReceiverRuntime.frameForRoute(GnssFrameRoute.Global, context))
         } finally { GnssReceiverRuntime.configure(null) }
     }
 }

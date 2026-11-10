@@ -6,6 +6,7 @@ import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.core.gnss.PublishedGnssFrame
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.ProviderView
+import com.system.location.service.hook.utils.ProviderReadContext
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.runtime.RuntimeSnapshot
 
@@ -26,17 +27,22 @@ object GnssReceiverRuntime {
     }
 
     fun frameForRoute(route: GnssFrameRoute): PublishedGnssFrame? {
-        val state = FakeLoc.runtimeSnapshots.current()
-        if (state.configuration.gnssSource == null) return null
+        if (FakeLoc.runtimeSnapshots.current().configuration.gnssSource == null) return null
+        return frameForRoute(route, ProviderView.capture())
+    }
+
+    fun frameForRoute(route: GnssFrameRoute, context: ProviderReadContext): PublishedGnssFrame? {
+        if (context.state.configuration.gnssSource == null) return null
         val sample = when (route) {
-            GnssFrameRoute.Global -> ProviderView.sampleFor("gps")
-            is GnssFrameRoute.FixedPoint -> ProviderView.sampleFor("gps", point = route.point)
-            is GnssFrameRoute.Scenario -> ProviderView.sampleFor("gps", scenarioId = route.id)
+            GnssFrameRoute.Global -> ProviderView.sampleFor("gps", context = context)
+            is GnssFrameRoute.FixedPoint -> ProviderView.sampleFor("gps", point = route.point, context = context)
+            is GnssFrameRoute.Scenario -> ProviderView.sampleFor("gps", scenarioId = route.id, context = context)
         }
-        return frameForSample(sample, route, state)
+        return frameForSample(sample, route, context.state, context.validationAtMillis)
     }
 
     fun frameForSample(sample: LocationSample, route: GnssFrameRoute = GnssFrameRoute.Global,
-        state: RuntimeSnapshot = FakeLoc.runtimeSnapshots.current()): PublishedGnssFrame? =
-        state.configuration.gnssSource?.frame(sample, state.configuration.minimumSatellites, route, System.currentTimeMillis())
+        state: RuntimeSnapshot = FakeLoc.runtimeSnapshots.current(),
+        validationAtMillis: Long = System.currentTimeMillis()): PublishedGnssFrame? =
+        state.configuration.gnssSource?.frame(sample, state.configuration.minimumSatellites, route, validationAtMillis)
 }

@@ -281,7 +281,7 @@ object DebugHttpServer {
         obj["report_interval"]?.jsonPrimitive?.jsonPrimitive?.content?.toIntOrNull()
             ?.let { app.reportDuration = it.coerceIn(50, 1000) }
         obj["environment_ap_count"]?.jsonPrimitive?.jsonPrimitive?.content?.toIntOrNull()
-            ?.let { app.environmentApCount = it.coerceIn(1, 8) }
+            ?.let { app.environmentApCount = it }
         obj["physical_noise"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()
             ?.let { app.physicalNoise = it }
         obj["wifi_fingerprint_enabled"]?.jsonPrimitive?.jsonPrimitive?.content?.toBooleanStrictOrNull()

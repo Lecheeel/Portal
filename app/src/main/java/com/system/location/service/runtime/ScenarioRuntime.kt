@@ -193,7 +193,7 @@ object ScenarioRuntime {
                             .getOrDefault(EnvironmentSourceMode.AUTO)
                         val environment = EnvironmentConfig(
                             source = EnvironmentRestorePolicy.savedSource(sourceMode, context.environmentReplayJson),
-                            apPerCell = context.environmentApCount.coerceIn(3, 8),
+                            apPerCell = context.environmentApCount,
                             cellMode = runCatching { CellMode.valueOf(context.cellMode) }
                                 .getOrDefault(CellMode.AUTO),
                         )

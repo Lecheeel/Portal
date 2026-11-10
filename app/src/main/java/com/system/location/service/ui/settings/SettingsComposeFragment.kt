@@ -523,7 +523,7 @@ private fun SettingsScreen(
                         )
                         PortalSwitchRow(
                             title = "启动突发",
-                            subtitle = "启动时快速补齐定位。",
+                            subtitle = "仅标准 Mock Provider：启动时密集上报定位，下次启动场景生效。",
                             checked = values.startupBurstEnabled,
                             onCheckedChange = { context.startupBurstEnabled = it; refresh() },
                         )

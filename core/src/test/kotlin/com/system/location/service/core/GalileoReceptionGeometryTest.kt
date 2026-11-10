@@ -23,6 +23,51 @@ class GalileoReceptionGeometryTest {
     }
     private val receiver = GtrfReceiver(EcefPosition(-2850000.0, 4650000.0, 3290000.0), GeodeticOrientation(31.2, 121.5))
 
+    @Test fun signalClocksUseIndependentTransmissionClockAndExactBroadcastFrequencyRatios() {
+        cases.forEach { c ->
+            val e = ephemeris(c.n("recordIndex").toInt())
+            val xyz = c.getValue("receiverEcefMeters").jsonArray.map { it.jsonPrimitive.double }
+            val point = GtrfReceiver(EcefPosition(xyz[0], xyz[1], xyz[2]),
+                GeodeticOrientation(c.n("latitudeDegrees"), c.n("longitudeDegrees")))
+            val time = e.toe.plusSeconds(c.n("offsetSeconds"))
+            val healthy = GalileoSignalStatus(0, 0)
+            val bgd = Math.scalb(5.0, -32)
+            val clock = c.getValue("expected").jsonObject.n("clockBiasSeconds")
+            if (e.clockReference == GalileoClockReference.INAV_E1_E5B) {
+                val d = DecodedGalileoInav(e, e.toe, healthy, healthy, 107, 0.0, bgd)
+                for ((signal, ratio) in listOf(GalileoOpenServiceSignal.E1 to 1.0,
+                    GalileoOpenServiceSignal.E5B to (5929.0 / 3481))) {
+                    val result = GalileoSignalReception.observe(d, time, point, signal)
+                    assertNotNull(result.reason, result.observation)
+                    assertEquals(clock - ratio * bgd, result.observation!!.signalClockBiasSeconds, 1e-16)
+                }
+            } else {
+                val d = DecodedGalileoFnav(e, e.toe, healthy, 107, bgd)
+                val result = GalileoSignalReception.observe(d, time, point, GalileoOpenServiceSignal.E5A)
+                assertNotNull(result.reason, result.observation)
+                assertEquals(clock - 23716.0 / 13225 * bgd, result.observation!!.signalClockBiasSeconds, 1e-16)
+            }
+        }
+    }
+
+    @Test fun signalUsabilityAndTransmissionValidityAreRequiredTogether() {
+        val e = ephemeris().let { it.copy(clockReference = GalileoClockReference.INAV_E1_E5B,
+            validFrom = it.toe.plusSeconds(-1.0), validUntil = it.toe.plusSeconds(1.0)) }
+        val healthy = GalileoSignalStatus(0, 0)
+        val d = DecodedGalileoInav(e, e.toe, healthy, healthy, 107, 0.0, 0.0)
+        fun observe(value: DecodedGalileoInav, signal: GalileoOpenServiceSignal = GalileoOpenServiceSignal.E1) =
+            GalileoSignalReception.observe(value, e.validUntil.plusSeconds(0.05), receiver, signal)
+        assertNotNull(observe(d).observation)
+        assertNull(observe(d.copy(e1Status = GalileoSignalStatus(1, 0))).observation)
+        assertNull(observe(d.copy(e1Status = GalileoSignalStatus(0, 1))).observation)
+        assertNotNull(observe(d.copy(e1Status = GalileoSignalStatus(1, 0)), GalileoOpenServiceSignal.E5B).observation)
+        assertNull(observe(d, GalileoOpenServiceSignal.E5A).observation)
+        assertNull(observe(d.copy(sisaIndex = 126)).observation)
+        assertNull(observe(d.copy(bgdE1E5bSeconds = Double.NaN)).observation)
+        assertNull(GalileoSignalReception.observe(d, e.validUntil.plusSeconds(0.5), receiver,
+            GalileoOpenServiceSignal.E1).observation)
+    }
+
     @Test fun matchesIndependentCLightTimeRotationAndEnuForAllTwelveCases() {
         cases.forEach { c ->
             val e = ephemeris(c.n("recordIndex").toInt())

@@ -52,4 +52,9 @@ class HookConfigurationPreferencesTest {
         ), RuntimeSnapshot())
         assertEquals(true, wire["enable_mock_wifi"])
     }
+
+    @Test fun staleMinimumSatellitePreferenceIsClampedAtTheWireBoundary() {
+        val wire = HookConfigurationPreferences.read(mapOf("minSatelliteCount" to 999), RuntimeSnapshot())
+        assertEquals(128, wire["min_satellites"])
+    }
 }

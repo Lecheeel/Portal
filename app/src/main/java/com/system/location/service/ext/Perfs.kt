@@ -2,6 +2,7 @@ package com.system.location.service.ext
 
 import android.content.Context
 import com.system.location.service.core.environment.EnvironmentConfig
+import com.system.location.service.core.gnss.GnssFrame
 import com.system.location.service.data.repository.*
 import androidx.core.content.edit
 import com.amap.api.maps.AMap
@@ -125,9 +126,9 @@ fun Context.movementProfile() = com.system.location.service.core.scenario.Moveme
     speed, altitude, accuracy.coerceAtLeast(0.1f), reportDuration.toLong(), smoothRouteMotion)
 
 var Context.minSatelliteCount: Int
-    get() = sharedPrefs.getInt("minSatelliteCount", 0)
+    get() = sharedPrefs.getInt("minSatelliteCount", 0).coerceIn(0, GnssFrame.MAX_SATELLITES)
     set(value) = sharedPrefs.edit {
-        putInt("minSatelliteCount", value)
+        putInt("minSatelliteCount", value.coerceIn(0, GnssFrame.MAX_SATELLITES))
     }
 
 var Context.mapType: Int

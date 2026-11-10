@@ -1,6 +1,7 @@
 package com.system.location.service.data.persistence
 
 import com.system.location.service.core.environment.EnvironmentConfig
+import com.system.location.service.core.gnss.GnssFrame
 import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.runtime.RuntimeSnapshot
 
@@ -28,7 +29,7 @@ object HookConfigurationPreferences {
             "disable_register_location_listener" to flag("disableRegitserLocationListener", policy.disableRegisterLocationListener),
             "disable_fused_location" to flag("disableFusedProvider", policy.disableFusedLocation),
             "need_downgrade_to_2g" to flag("needDowngradeToCdma", policy.downgradeToCdma),
-            "min_satellites" to integer("minSatelliteCount", 0),
+            "min_satellites" to integer("minSatelliteCount", 0).coerceIn(0, GnssFrame.MAX_SATELLITES),
             "enable_agps" to flag("enableAGPS", policy.allowPhysicalRawGnss),
             "enable_nmea" to flag("enableNMEA", true),
             "sensor_cadence_scale" to number("sensorCadenceScale", 1f).toDouble(),

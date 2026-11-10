@@ -72,6 +72,10 @@ data class GnssMeasurementBatch(
     val elapsedRealtimeUncertaintyNanos: Double? = null,
     /** Callback arrival time, distinct from the receiver event epoch. */
     val capturedElapsedRealtimeNanos: Long? = null,
+    /** Raw Android reference identifiers for inter-signal biases; absent is not GPS/L1/C/A. */
+    val referenceConstellationTypeForIsb: Int? = null,
+    val referenceCarrierHzForIsb: Double? = null,
+    val referenceCodeTypeForIsb: String? = null,
 ) {
     init {
         require(capturedAtMillis >= 0 && measurements.size <= 512) { "invalid measurement batch" }
@@ -83,6 +87,8 @@ data class GnssMeasurementBatch(
         require(driftNanosPerSecond == null || driftNanosPerSecond.isFinite()) { "invalid clock drift" }
         require(elapsedRealtimeNanos == null || elapsedRealtimeNanos >= 0)
         require(capturedElapsedRealtimeNanos == null || capturedElapsedRealtimeNanos >= 0)
+        require(referenceConstellationTypeForIsb == null || referenceConstellationTypeForIsb >= 0)
+        require(referenceCarrierHzForIsb == null || referenceCarrierHzForIsb.isFinite() && referenceCarrierHzForIsb > 0)
     }
 }
 
@@ -102,6 +108,16 @@ data class GnssMeasurementObservation(
     val accumulatedDeltaRangeUncertaintyMeters: Double,
     val carrierHz: Double? = null,
     val codeType: String? = null,
+    /**
+     * Android full ISB includes receiver and space-segment components, including time-system,
+     * frequency/code and group delays not already compensated in receivedSvTimeNanos.
+     * It is not an isolated GGTO. Satellite ISB is part of full ISB, not an additive correction.
+     * Raw values/independent availability flags are preserved; no corrections are applied here.
+     */
+    val fullInterSignalBiasNanos: Double? = null,
+    val fullInterSignalBiasUncertaintyNanos: Double? = null,
+    val satelliteInterSignalBiasNanos: Double? = null,
+    val satelliteInterSignalBiasUncertaintyNanos: Double? = null,
 ) {
     init {
         require(svid in 1..999) { "invalid measurement SVID" }
@@ -109,6 +125,9 @@ data class GnssMeasurementObservation(
             pseudorangeRateUncertaintyMetersPerSecond, accumulatedDeltaRangeMeters,
             accumulatedDeltaRangeUncertaintyMeters).all { it.isFinite() }) { "non-finite measurement" }
         require(carrierHz == null || carrierHz.isFinite() && carrierHz > 0) { "invalid carrier" }
+        require(listOf(fullInterSignalBiasNanos, satelliteInterSignalBiasNanos).all { it == null || it.isFinite() })
+        require(listOf(fullInterSignalBiasUncertaintyNanos, satelliteInterSignalBiasUncertaintyNanos)
+            .all { it == null || it.isFinite() && it >= 0 }) { "invalid inter-signal bias uncertainty" }
     }
 }
 

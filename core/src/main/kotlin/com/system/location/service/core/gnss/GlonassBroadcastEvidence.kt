@@ -35,6 +35,9 @@ data class GlonassElapsedClockEvidence(
     val coverageFrom: GlonassCoordinateEvidence,
     val coverageUntil: GlonassCoordinateEvidence,
 ) {
+    @kotlinx.serialization.Transient
+    private var cachedDomain: GlonassTimeDomain? = null
+
     init {
         require(bootCount >= 0 && domainId.isNotBlank() && domainId.length <= 256)
         require(elapsedRealtimeNanos >= 0)
@@ -45,8 +48,9 @@ data class GlonassElapsedClockEvidence(
         require(until.secondsSince(anchor.coordinate()) > 0.0)
     }
 
-    fun domain(): GlonassTimeDomain = GlonassTimeDomain(domainId,
-        coverageFrom.coordinate(), coverageUntil.coordinate())
+    @Synchronized
+    fun domain(): GlonassTimeDomain = cachedDomain ?: GlonassTimeDomain(domainId,
+        coverageFrom.coordinate(), coverageUntil.coordinate()).also { cachedDomain = it }
 
     fun at(elapsedNanos: Long, currentBootCount: Int?, timeDomain: GlonassTimeDomain = domain()): GlonassTime? {
         if (currentBootCount != bootCount || elapsedNanos < elapsedRealtimeNanos) return null

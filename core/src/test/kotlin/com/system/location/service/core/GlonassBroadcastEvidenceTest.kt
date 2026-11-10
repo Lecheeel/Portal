@@ -39,6 +39,17 @@ class GlonassBroadcastEvidenceTest {
         assertTrue(decoded.glonassBroadcastEvidence!!.ephemerides.single().resolve(clock.domain()) != null)
     }
 
+    @Test fun clockEvidenceKeepsOneContinuousDomainAcrossClockAndOrbitCalls() {
+        val date = LocalDate.of(2023, 12, 31)
+        fun coordinate(seconds: Double) = GlonassCoordinateEvidence(date.toEpochDay(), seconds)
+        val clock = GlonassElapsedClockEvidence(1, "stable-domain", coordinate(10_800.0), 0L,
+            GlonassCoordinateEvidence(date.minusDays(1).toEpochDay(), 0.0),
+            GlonassCoordinateEvidence(date.plusDays(1).toEpochDay(), 0.0))
+        val at = clock.at(0L, 1)
+        val anchor = clock.domain().at(coordinate(10_800.0).coordinate())
+        assertTrue(at != null && anchor != null && at.secondsSince(anchor) == 0.0)
+    }
+
     @Test fun validatedEvidenceProducesPhysicalGlonassGeometryWhenVisible() {
         val record = Json.parseToJsonElement(javaClass.getResource("/gnss/glonass-reference.json")!!.readText())
             .jsonObject.getValue("records").jsonArray[2].jsonObject

@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,12 +20,16 @@ import com.system.location.service.designsystem.components.PortalCard
 import com.system.location.service.designsystem.components.PortalSectionTitle
 import com.system.location.service.designsystem.theme.PortalSpacing
 import com.system.location.service.ui.viewmodel.GnssCaptureViewModel
+import com.system.location.service.ui.preferenceRevision
+import com.system.location.service.ext.minSatelliteCount
 import java.util.Locale
 
 @Composable
 internal fun GnssCaptureCard(model: GnssCaptureViewModel, simulationActive: Boolean) {
     val state by model.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val revision = preferenceRevision()
+    val minimumSatellites = remember(context, revision) { context.minSatelliteCount }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted[Manifest.permission.ACCESS_FINE_LOCATION] == true) model.capture()
     }
@@ -40,7 +45,8 @@ internal fun GnssCaptureCard(model: GnssCaptureViewModel, simulationActive: Bool
                     String.format(Locale.getDefault(), "%s：平均 %.1f 颗，占比 %.1f%%，在用 %.1f%%",
                         item.constellation.name, item.meanSatellitesPerFrame, item.ratio * 100, item.usedRatio * 100)
                 }, style = MaterialTheme.typography.bodySmall)
-            } ?: Text("尚无真实画像", style = MaterialTheme.typography.bodySmall)
+            }
+            GnssCaptureStatus(model, minimumSatellites)
             if (state.collecting) Text("正在采集：${state.frames} 帧", style = MaterialTheme.typography.bodyMedium)
             Button(
                 onClick = {

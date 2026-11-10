@@ -20,7 +20,9 @@ object FakeLoc {
     var enableLog = true
 
     /** P5-07: authoritative sample/environment/routing storage; legacy config fields remain. */
-    val runtimeSnapshots = RuntimeSnapshotStore()
+    val runtimeSnapshots = RuntimeSnapshotStore(RuntimeSnapshot(
+        gnssModel = com.system.location.service.core.gnss.GnssModelMode.ORBITAL,
+    ))
 
     private fun updateSnapshot(transform: (RuntimeSnapshot) -> RuntimeSnapshot) {
         runtimeSnapshots.update { transform(it).copy(configRevision = it.configRevision + 1) }
@@ -76,7 +78,7 @@ object FakeLoc {
     /**
      * 是否允许NMEA模块
      */
-    var enableNMEA = false
+    var enableNMEA = true
 
     /**
      * 是否隐藏模拟位置
@@ -126,7 +128,7 @@ object FakeLoc {
         get() = runtimeSnapshots.current().simReady
         set(value) { updateSnapshot { it.copy(simReady = value) } }
 
-    /** P3-05: analytical production model by default; ORBITAL is a feasibility experiment. */
+    /** Orbital model is the initial default; saved application preferences override it. */
     var gnssModelMode: com.system.location.service.core.gnss.GnssModelMode
         get() = runtimeSnapshots.current().gnssModel
         set(value) { updateSnapshot { it.copy(gnssModel = value) } }

@@ -20,6 +20,7 @@ class SettingsDefaultsTest {
         assertEquals(FakeLoc.gnssModelMode.name, schema.defaultValue("gnss_model"))
         assertEquals(FakeLoc.simReady.toString(), schema.defaultValue("sim_ready"))
         assertEquals(FakeLoc.enableDebugLog.toString(), schema.defaultValue("enable_debug_log"))
+        assertEquals(FakeLoc.enableNMEA.toString(), schema.defaultValue("enable_nmea"))
         assertEquals(FakeLoc.enableMockWifi.toString(), schema.defaultValue("enable_mock_wifi"))
         assertEquals(FakeLoc.enablePhysicalNoise.toString(), schema.defaultValue("enable_physical_noise"))
         assertEquals("false", schema.defaultValue("wifi_fingerprint_enabled"))

@@ -29,6 +29,22 @@ class GnssCaptureQualityTest {
         val quality = GnssCaptureValidator.validate(noSignal, 62000)
         assertFalse(quality.eligible)
         assertTrue(quality.issues.any { it.contains("正 CN0") })
+        assertFalse("Coordinates exist; missing signal must not be reported as missing position",
+            quality.issues.any { it.contains("观测坐标") })
+    }
+
+    @Test fun coordinatesOnZeroSignalFramesCannotAuthorizeUnlocatedSignalFrames() {
+        val original = capture()
+        val unpaired = original.copy(frames = original.frames.mapIndexed { index, frame ->
+            if (index < 40) frame.copy(observer = null)
+            else frame.copy(satellites = frame.satellites.map { it.copy(cn0DbHz = 0f) })
+        })
+        val quality = GnssCaptureValidator.validate(unpaired, 62000)
+        assertFalse(quality.eligible)
+        assertTrue(quality.issues.contains("有效卫星帧缺少同步观测坐标"))
+        assertFalse(quality.issues.contains("缺少真实观测坐标"))
+        val absent = original.copy(frames = original.frames.map { it.copy(observer = null) })
+        assertTrue(GnssCaptureValidator.validate(absent, 62000).issues.contains("缺少真实观测坐标"))
     }
 
     @Test fun correlatedRepeatsDoNotCreateFalsePrecisionInShortCaptures() {

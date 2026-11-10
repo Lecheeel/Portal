@@ -18,7 +18,9 @@ object GnssCaptureValidator {
         if (nowMillis < capture.endedAtMillis || nowMillis - capture.endedAtMillis > MAX_AGE_MILLIS) {
             issues += "采集画像已过期或系统时间异常"
         }
-        if (usable.none { it.observer != null }) issues += "缺少真实观测坐标"
+        if (capture.frames.none { it.observer != null }) issues += "缺少真实观测坐标"
+        else if (usable.isNotEmpty() && usable.none { it.observer != null })
+            issues += "有效卫星帧缺少同步观测坐标"
         if (capture.frames.any { it.satellites.any { satellite -> satellite.elevationDeg < 0f } }) {
             issues += "采集包含地平线以下卫星，请重新采集"
         }

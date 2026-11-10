@@ -9,6 +9,8 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.location.OnNmeaMessageListener
 import android.os.Bundle
+import android.os.Binder
+import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,6 +19,7 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.runtime.RuntimeTransferWire
+import com.system.location.service.core.runtime.OrderedRuntimeReceiver
 import com.system.location.service.core.routing.AppRoute
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.routing.RoutingMode
@@ -27,6 +30,8 @@ import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.runtime.XposedServiceBridge
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.*
 import org.junit.Assert.*
@@ -78,6 +83,31 @@ class GnssFrameDeliveryDeviceTest {
         val statuses = ConcurrentLinkedQueue<Status>()
         val sentences = ConcurrentLinkedQueue<Sentence>()
         val locations = ConcurrentLinkedQueue<Location>()
+        val peerSequences = ConcurrentLinkedQueue<Long>()
+        val acceptPeer = AtomicBoolean(true)
+        val rejectedPeer = AtomicInteger()
+        val rejectedPeerSequences = ConcurrentLinkedQueue<String>()
+        val peerSession = java.util.UUID.randomUUID().toString()
+        val peerReceiver = OrderedRuntimeReceiver({ null }) { _, _ -> }
+        peerReceiver.begin(peerSession)
+        val peer = object : Binder() {
+            override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
+                if (code != RuntimeSyncCommand.TRANSACTION) return super.onTransact(code, data, reply, flags)
+                if (Binder.getCallingUid() != 1000) return false
+                val message = checkNotNull(data.readBundle(Bundle::class.java.classLoader))
+                val sequence = message.getLong(RuntimeSyncCommand.SEQUENCE)
+                val accepted = acceptPeer.get() && peerReceiver.receive(
+                    checkNotNull(message.getString(RuntimeSyncCommand.SESSION)), sequence,
+                    checkNotNull(message.getByteArray(RuntimeSyncCommand.PAYLOAD)), SystemClock.elapsedRealtimeNanos())
+                if (accepted) peerSequences += sequence else if (acceptPeer.get()) {
+                    rejectedPeer.incrementAndGet()
+                    rejectedPeerSequences += "$sequence after ${peerSequences.maxOrNull()}"
+                }
+                reply?.writeNoException()
+                reply?.writeInt(if (accepted) 1 else 0)
+                return true
+            }
+        }
         val sampleWallOverride = AtomicLong(0L)
         val existingRaw = object : GnssMeasurementsEvent.Callback() {}
         val blockedRaw = object : GnssMeasurementsEvent.Callback() {}
@@ -114,6 +144,7 @@ class GnssFrameDeliveryDeviceTest {
         var renewal: Job? = null
         var configured = false
         var reloadAttempted = false
+        var primaryFailure: Throwable? = null
         try {
             command("put_config") {
                 putString("gnss_capture", GnssCaptureWire.encode(fixture))
@@ -128,6 +159,11 @@ class GnssFrameDeliveryDeviceTest {
                 }
             }
             configured = true
+            if (reload) command("set_proxy") {
+                putBinder("proxy", peer)
+                putString("proxy_name", "instrumentation-${peerSession}")
+                putString(RuntimeSyncCommand.SESSION, peerSession)
+            }
             command("start_gnss_mock")
             assertTrue(manager.registerGnssStatusCallback({ it.run() }, callback))
             assertTrue(manager.addNmeaListener({ it.run() }, nmea))
@@ -159,12 +195,14 @@ class GnssFrameDeliveryDeviceTest {
                 val beforePid = systemPid()
                 assertTrue(beforePid.isNotBlank())
                 renewal.cancelAndJoin()
+                withTimeout(5_000L) { while (peerSequences.size < 5) delay(50L) }
+                val beforeSequence = peerSequences.max()
                 // Reconnect command authentication after a generation change; do not re-register
                 // any receiver listener or resend its routing/profile/configuration.
                 reloadAttempted = true
                 val outcome = withContext(Dispatchers.IO) { XposedServiceBridge.hotReloadSystemServer() }
-                assertTrue("Command authentication did not recover", client.connect(manager))
                 assertTrue(outcome, outcome.startsWith("hot reload SUCCEEDED"))
+                assertTrue("Command authentication did not recover after $outcome", client.connect(manager))
                 assertEquals("Reload must not restart system_server", beforePid, systemPid())
                 val restored = RuntimeTransferWire.decode(checkNotNull(command("sync_config")
                     .getByteArray(RuntimeSyncCommand.PAYLOAD))).state
@@ -174,8 +212,10 @@ class GnssFrameDeliveryDeviceTest {
                 publish()
                 renewal = launch(Dispatchers.IO) { while (isActive) { delay(100L); publish() } }
                 withTimeout(10_000L) {
-                    while (statuses.size < 4 || sentences.count { type(it.text) == "GGA" } < 4 || locations.size < 20) delay(100L)
+                    while (statuses.size < 4 || sentences.count { type(it.text) == "GGA" } < 4 ||
+                        locations.size < 20 || peerSequences.none { it > beforeSequence }) delay(100L)
                 }
+                assertEquals("A restored peer must retain monotonic publications without a new session: before=$beforeSequence rejected=$rejectedPeerSequences accepted=$peerSequences", 0, rejectedPeer.get())
             }
             val expectedIds = satellites.map { it.constellation to it.svid }.toSet()
             for (status in statuses) {
@@ -238,17 +278,25 @@ class GnssFrameDeliveryDeviceTest {
             sampleWallOverride.set(fixture.endedAtMillis)
             command("put_config") { putString("gnss_capture", GnssCaptureWire.encode(variable)) }
             for ((minimum, expectedCount) in listOf(0 to sparse.size, 20 to 20, 128 to satellites.size, 0 to sparse.size)) {
+                statuses.clear()
                 command("put_config") { putInt("min_satellites", minimum) }
                 publish()
-                statuses.clear()
                 withTimeout(5_000L) {
-                    while (statuses.size < 2 || statuses.toList().takeLast(2).any { it.satellites.size != expectedCount }) delay(100L)
+                    while (statuses.none { it.satellites.size == expectedCount }) delay(100L)
                 }
-                val latest = statuses.toList().takeLast(2)
+                // The fixture clock is frozen: renewal extends the lease but must not emit
+                // the same immutable frame on the next worker tick.
+                delay(1_100L)
+                val latest = statuses.filter { it.satellites.size == expectedCount }
+                assertEquals("Frozen publication must be delivered exactly once at minimum=$minimum", 1, latest.size)
                 assertTrue(latest.all { it.satellites.all { satellite -> satellite.constellation to satellite.svid in expectedIds } })
             }
-        } finally {
+        } catch (error: Throwable) {
+            primaryFailure = error
+            throw error
+        } finally { runCatching {
             renewal?.cancelAndJoin()
+            acceptPeer.set(false) // The cleanup stop publication removes this temporary peer.
             try {
                 manager.removeUpdates(location)
                 manager.unregisterGnssStatusCallback(callback)
@@ -274,7 +322,9 @@ class GnssFrameDeliveryDeviceTest {
                 assertFalse(restored.configuration.enabled)
                 assertEquals(original.routing, restored.routing)
             }
-        }
+        }.exceptionOrNull()?.let { cleanup ->
+            primaryFailure?.addSuppressed(cleanup) ?: throw cleanup
+        } }
     }
 
     private fun type(sentence: String) = sentence.substring(3, 6)

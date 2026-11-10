@@ -14,6 +14,13 @@ import kotlinx.serialization.json.Json
 object ConfigCommand {
     fun apply(rely: Bundle): Boolean {
         if (!ConfigGate.valid(rely)) return false
+        // Validate the compressed evidence before applying any other setting.
+        if (rely.containsKey("gnss_capture")) {
+            val accepted = runCatching {
+                com.system.location.service.hook.hooks.gnss.GnssReceiverRuntime.configure(rely.getString("gnss_capture"))
+            }.isSuccess
+            if (!accepted) return false
+        }
         FakeLoc.enable = rely.getBoolean("enable", FakeLoc.enable)
         FakeLoc.enableMockWifi = rely.getBoolean("enable_mock_wifi", FakeLoc.enableMockWifi)
         if (!FakeLoc.enable) FakeLoc.speed = rely.getDouble("speed", FakeLoc.speed)

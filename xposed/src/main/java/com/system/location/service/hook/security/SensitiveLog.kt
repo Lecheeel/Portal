@@ -5,7 +5,7 @@ object SensitiveLog {
     private val sensitiveKeys = setOf(
         "lat", "lon", "latitude", "longitude", "altitude",
         "sample_lat", "sample_lon", "sample_altitude",
-        "environment_json", "routing_json", "key", "token",
+        "environment_json", "routing_json", "gnss_capture", "key", "token",
     )
 
     fun isSensitive(key: String): Boolean {

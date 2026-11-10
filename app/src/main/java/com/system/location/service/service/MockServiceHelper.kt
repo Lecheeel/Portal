@@ -342,6 +342,15 @@ object MockServiceHelper {
         rely.putBoolean("disable_fused_location", FakeLoc.disableFusedLocation)
         rely.putBoolean("need_downgrade_to_2g", FakeLoc.needDowngradeToCdma)
         rely.putInt("min_satellites", FakeLoc.minSatellites)
+        val captureFile = java.io.File(context.noBackupFilesDir, "gnss/receiver-capture.json")
+        val capturePayload = runCatching {
+            com.system.location.service.core.gnss.GnssCaptureStore(captureFile).load()
+                ?.let(com.system.location.service.core.gnss.GnssCaptureWire::encode)
+        }.getOrElse {
+            com.system.location.service.hook.utils.Logger.error("GNSS capture unavailable: ${it.javaClass.simpleName}")
+            null
+        }
+        rely.putString("gnss_capture", capturePayload)
         rely.putBoolean("enable_agps", FakeLoc.enableAGPS)
         rely.putBoolean("enable_nmea", FakeLoc.enableNMEA)
         rely.putDouble("sensor_cadence_scale", FakeLoc.sensorCadenceScale)

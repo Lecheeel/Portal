@@ -93,6 +93,7 @@ object PortalSettingsSchema {
             SettingSpec("accuracy", SettingType.FLOAT, "25.0", 0.1, 10_000.0),
             SettingSpec("report_interval", SettingType.LONG, "100", 50.0, 1_000.0),
             SettingSpec("min_satellites", SettingType.INT, "12", 0.0, 128.0),
+            SettingSpec("gnss_capture", SettingType.STRING, "", maxLength = 262_144),
             SettingSpec("enable_mock_wifi", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_debug_log", SettingType.BOOLEAN, "false"),
             SettingSpec("sim_ready", SettingType.BOOLEAN, "true"),

@@ -70,6 +70,19 @@ class GpsLnavAssemblerTest {
         assertNotNull(assembler.offer(observation(2), reference(2)).decoded)
     }
 
+    @Test fun lateParityValidConflictRetractsAnAlreadyCompletedEphemeris() {
+        val assembler = GpsLnavAssembler()
+        (0..2).forEach { assembler.offer(observation(it), reference(it)) }
+        assertEquals(1, assembler.completed().size)
+        val conflict = conflictingTlm(observation(0))
+        assertNotNull(GpsLnavWords.decode(conflict).subframe)
+        assertTrue(assembler.offer(conflict, reference(0)).reason!!.contains("conflicting"))
+        assertTrue(assembler.completed().isEmpty())
+        // Replaying the original complete set cannot silently rehabilitate poisoned evidence.
+        (0..2).forEach { assertNull(assembler.offer(observation(it), reference(it)).decoded) }
+        assertTrue(assembler.completed().isEmpty())
+    }
+
     /** Independently encode Table 20-XIV equations after changing one TLM information bit. */
     private fun conflictingTlm(observation: GnssNavigationObservation): GnssNavigationObservation {
         val frame = GpsLnavWords.decode(observation).subframe!!

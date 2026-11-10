@@ -66,8 +66,8 @@ class NmeaGeneratorTest {
         val values = supportedValues()
         val gga = values.filterIsInstance<NmeaValue.GGA>().single()
         assertEquals(1, gga.fixQuality)
-        assertEquals(satellites.size, gga.satellites)
-        assertEquals(42.5, gga.antennaAltitude ?: Double.NaN, 0.1)
+        assertEquals(satellites.count { it.usedInFix }, gga.satellites)
+        assertEquals(50.9, gga.antennaAltitude ?: Double.NaN, 0.1)
         assertTrue(abs((gga.latitude ?: 0.0) - 3113.8240) < 0.01)
         assertTrue(abs((gga.longitude ?: 0.0) - 12128.4220) < 0.01)
 
@@ -104,20 +104,14 @@ class NmeaGeneratorTest {
     }
 
     @Test
-    fun gstAndZdaAreGenerated() {
+    fun zdaIsGeneratedButUncalibratedGstIsNot() {
         val lines = NmeaGenerator.generate(fix)
-        val gst = lines.single { it.startsWith("\$GPGST") }
-        val zda = lines.single { it.startsWith("\$GPZDA") }
-
-        val gstFields = gst.trim().removePrefix("$").substringBefore('*').split(",")
-        assertEquals(9, gstFields.size)
-        assertEquals("GPGST", gstFields[0])
-        assertEquals("GPGST", gst.substring(1).substringBefore(','))
-        assertTrue(gstFields.drop(2).all { it.isNotBlank() })
+        assertTrue(lines.none { it.substringBefore(',').endsWith("GST") })
+        val zda = lines.single { it.startsWith("\$GNZDA") }
 
         val zdaFields = zda.trim().removePrefix("$").substringBefore('*').split(",")
         assertEquals(7, zdaFields.size)
-        assertEquals("GPZDA", zdaFields[0])
+        assertEquals("GNZDA", zdaFields[0])
         val utc = java.time.Instant.ofEpochMilli(fix.timeMillis).atZone(java.time.ZoneOffset.UTC)
         assertEquals("%02d".format(utc.dayOfMonth), zdaFields[2])
         assertEquals("%02d".format(utc.monthValue), zdaFields[3])
@@ -128,7 +122,8 @@ class NmeaGeneratorTest {
     fun invalidFixIsRejected() {
         assertThrows { fix.copy(latitude = 91.0) }
         assertThrows { fix.copy(speedMps = -1.0) }
-        assertThrows { fix.copy(satellites = emptyList()) }
+        assertThrows { fix.copy(hdop = Double.POSITIVE_INFINITY) }
+        assertThrows { fix.copy(hdop = null) }
         assertThrows { NmeaSatellite(NmeaConstellation.GPS, 1, 91f, 0f, 30f, true) }
     }
 

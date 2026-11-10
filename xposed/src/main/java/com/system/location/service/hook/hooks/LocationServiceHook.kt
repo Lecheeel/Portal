@@ -119,17 +119,13 @@ internal object LocationServiceHook : BaseLocationHook() {
                     Logger.debug("requestLocationUpdates: injected! $listener")
                 }
 
-                addLocationListenerInner(provider, listener)
-
                 if (FakeLoc.enable) {
+                    addLocationListenerInner(provider, listener)
                     return@intercept9 null
                 }
-
-                if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
-                    return@intercept9 null
-                }
-
-                chain.proceed(args)
+                val result = chain.proceed(args)
+                if (result != false) addLocationListenerInner(provider, listener)
+                result
             },
         )
         cILocationManager.hookAllMethods(
@@ -148,7 +144,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                     Logger.debug("removeUpdates: injected! $listener")
                 }
 
-                removeLocationListenerInner(listener)
+                if (result != false) removeLocationListenerInner(listener)
 
                 result
             },
@@ -174,17 +170,14 @@ internal object LocationServiceHook : BaseLocationHook() {
                     )
                 }
 
-                addLocationListenerInner(provider, listener)
-
-                if (FakeLoc.enable && FakeLoc.disableRegisterLocationListener) {
+                if (FakeLoc.enable && (FakeLoc.disableRegisterLocationListener ||
+                        (FakeLoc.disableFusedLocation && provider == "fused"))) {
+                    addLocationListenerInner(provider, listener)
                     return@intercept11 null
                 }
-
-                if (FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused") {
-                    return@intercept11 null
-                }
-
-                chain.proceed(args)
+                val result = chain.proceed(args)
+                if (result != false) addLocationListenerInner(provider, listener)
+                result
             },
         )
         cILocationManager.hookAllMethods(
@@ -205,7 +198,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                     Logger.debug("unregisterLocationListener: injected! $listener")
                 }
 
-                removeLocationListenerInner(listener)
+                if (result != false) removeLocationListenerInner(listener)
 
                 result
             },
@@ -403,6 +396,8 @@ internal object LocationServiceHook : BaseLocationHook() {
             "startGnssBatch",
             XposedInterface.Hooker intercept24@{ chain ->
                 val args = chain.args.toTypedArray()
+                val result = chain.proceed(args)
+                if (result == false) return@intercept24 result
 
                 if (FakeLoc.enableDebugLog) {
                     Logger.debug("startGnssBatch: injected!")
@@ -415,13 +410,13 @@ internal object LocationServiceHook : BaseLocationHook() {
                                 Logger.error(
                                     "startGnssBatch: listener is null: ${chain.executable}"
                                 )
-                                return@intercept24 chain.proceed(args)
+                                return@intercept24 result
                             }
 
                     addLocationListenerInner("GnssBatch", listener)
                 }
 
-                chain.proceed(args)
+                result
             },
         )
         cILocationManager.hookAllMethods(

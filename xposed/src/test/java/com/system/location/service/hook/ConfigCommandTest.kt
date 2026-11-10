@@ -10,6 +10,26 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ConfigCommandTest {
+    @Test fun disablingConfigurationCannotLeaveAnExternalFixToBeRevivedLater() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot())
+            val fix = com.system.location.service.core.location.LocationSample(
+                com.system.location.service.core.geo.Wgs84(31.0, 121.0), 10.0, 5f, 4f, 90f, 1000, 1000)
+            FakeLoc.acceptSample(fix, "route")
+            val stopped = ConfigCommand.publish(mapOf("enable" to false, "min_satellites" to 24))
+            assertFalse(FakeLoc.externallyDriven)
+            assertNull(stopped.sample)
+            assertEquals(24, stopped.configuration.minimumSatellites)
+            assertTrue(FakeLoc.scenarioSamples.scenarioIds().isEmpty())
+            ConfigCommand.publish(mapOf("enable" to true))
+            assertFalse(FakeLoc.captureTransfer(2000).externallyDriven)
+        } finally {
+            FakeLoc.stopRuntime()
+            FakeLoc.runtimeSnapshots.set(saved)
+        }
+    }
+
     @Test fun invalidCaptureOrScalarNeverChangesPublishedState() {
         val saved = FakeLoc.runtimeSnapshots.current()
         try {

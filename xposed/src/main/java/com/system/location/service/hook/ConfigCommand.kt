@@ -13,13 +13,17 @@ object ConfigCommand {
             val values = PreparedRuntimeConfiguration.keys.filter(rely::containsKey).associateWith { rely.get(it) }
             publish(values)
         } catch (_: Exception) { return false }
-        if (published.configuration.enabled) LocationTicker.start()
+        if (published.configuration.enabled) LocationTicker.start() else {
+            SampleCommand.clearLease()
+            LocationTicker.stop()
+            NativeCommand.disable()
+        }
         return true
     }
 
     internal fun publish(values: Map<String, Any?>): RuntimeSnapshot {
         val store = FakeLoc.runtimeSnapshots
         val prepared = PreparedRuntimeConfiguration.prepare(values, store.current().configuration.gnssSource)
-        return store.update(prepared::applyTo)
+        return FakeLoc.configureRuntime(prepared)
     }
 }

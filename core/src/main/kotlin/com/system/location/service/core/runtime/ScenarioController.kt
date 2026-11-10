@@ -32,6 +32,9 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     private val lastRecords = linkedMapOf<DiagnosticEvent, Long>()
     @Volatile var intervalMs = 500L
         private set
+    /** Retains even a complete start/stop between observers; never reset by backend selection. */
+    @Volatile var startGeneration = 0L
+        private set
 
     suspend fun selectBackend(type: BackendType): Boolean = mutex.withLock {
         if (backend != null || state.value.isActive) return@withLock false
@@ -48,6 +51,9 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
                 error = BackendResult.Failure("VALIDATE_SCENARIO", error.message ?: "Invalid scenario"))
             return@withLock false
         }
+        // Advance before any backend lifecycle work: even a partially failed start can expose
+        // simulated data. A StateFlow collector may miss a short PREPARING/RUNNING interval.
+        startGeneration = Math.addExact(startGeneration, 1)
         if (!stopLocked()) return@withLock false
         val instance = createBackend(type) ?: return@withLock false
         backend = instance

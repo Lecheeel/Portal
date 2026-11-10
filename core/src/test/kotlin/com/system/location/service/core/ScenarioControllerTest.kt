@@ -42,6 +42,24 @@ class ScenarioControllerTest {
     }
     private val scenario = Scenario("s", "test", route = Route("r", "route", listOf(Wgs84(0.0, 0.0), Wgs84(0.01, 0.01))))
 
+    @Test fun startupGenerationSurvivesShortSessionsBackendSelectionAndFailedPublication() = runBlocking {
+        val backend = Backend()
+        val c = ScenarioController({ backend }, Clock())
+        assertEquals(0L, c.startGeneration)
+        repeat(3) { index ->
+            assertTrue(c.start(scenario))
+            assertTrue(c.stop())
+            assertFalse(c.state.value.isActive)
+            assertEquals(index + 1L, c.startGeneration)
+        }
+        assertTrue(c.selectBackend(BackendType.MOCK_PROVIDER))
+        assertEquals(3L, c.startGeneration)
+        backend.failPublish = true
+        assertFalse(c.start(scenario))
+        assertFalse(c.state.value.isActive)
+        assertEquals(4L, c.startGeneration)
+    }
+
     @Test fun repeatedFailureAfterRecoveryIsRecordedWithinFiveSeconds() = runBlocking {
         assertOrdinaryDiagnosticTransitions(listOf("FAILED", "CONNECTED", "FAILED"))
     }

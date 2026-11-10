@@ -118,13 +118,20 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                         if (!listening) return
                         val list = buildList {
                             for (index in 0 until status.satelliteCount) {
+                                val cn0 = status.getCn0DbHz(index)
+                                val elevation = status.getElevationDegrees(index)
+                                val azimuth = status.getAzimuthDegrees(index)
+                                // CN0=0 is Android's placeholder for an unmeasured row.
+                                if (!cn0.isFinite() || cn0 <= 0f || !elevation.isFinite() ||
+                                    elevation !in 0f..90f || !azimuth.isFinite() || azimuth !in 0f..<360f
+                                ) continue
                                 add(
                                     SatelliteData(
                                         prn = status.getSvid(index),
                                         constellationType = status.getConstellationType(index),
-                                        snr = status.getCn0DbHz(index),
-                                        elevation = status.getElevationDegrees(index),
-                                        azimuth = status.getAzimuthDegrees(index),
+                                        snr = cn0,
+                                        elevation = elevation,
+                                        azimuth = azimuth,
                                         hasAlmanac = status.hasAlmanacData(index),
                                         hasEphemeris = status.hasEphemerisData(index),
                                         usedInFix = status.usedInFix(index),
@@ -152,7 +159,8 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
 
     val inView = satellites.size
     val inUse = satellites.count { it.usedInFix }
-    val averageCn0 = satellites.filter { it.usedInFix }.map { it.snr }.average().takeIf { it.isFinite() }
+    val averageCn0 = satellites.filter { it.usedInFix && it.snr > 0f }.map { it.snr }.average()
+        .takeIf { it.isFinite() }
     val systems = satellites.groupingBy { it.constellationType }.eachCount()
         .toSortedMap().map { (type, count) ->
             val name = when (type) {

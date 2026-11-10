@@ -223,7 +223,7 @@ object FakeLoc {
 
     @Synchronized
     fun acceptScenarioSample(scenarioId: String, fix: LocationSample) {
-        scenarioSamples.publish(scenarioId, fix, SystemClock.elapsedRealtimeNanos())
+        scenarioSamples.publish(scenarioId, fix, fix.elapsedNanos)
     }
 
     @Synchronized
@@ -297,7 +297,8 @@ object FakeLoc {
     }
 
     @Synchronized
-    fun acceptSample(fix: LocationSample) {
+    fun acceptSample(fix: LocationSample, scenarioId: String? = null) {
+        scenarioId?.let { acceptScenarioSample(it, fix) }
         runtimeSnapshots.update {
             it.copy(
                 latitude = fix.latitude,
@@ -308,6 +309,8 @@ object FakeLoc {
                 bearingDeg = fix.bearing.toDouble(),
                 hasBearings = true,
                 sample = fix,
+                configuration = it.configuration.copy(enabled = true),
+                configRevision = Math.addExact(it.configRevision, 1L),
             )
         }
         externallyDriven = true

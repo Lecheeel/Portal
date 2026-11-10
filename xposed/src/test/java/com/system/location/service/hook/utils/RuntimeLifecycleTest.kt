@@ -7,6 +7,30 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RuntimeLifecycleTest {
+    @Test fun sampleActivationAndScenarioUseOnePublicationAndOriginalDeadline() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot())
+            FakeLoc.scenarioSamples.replace(emptyMap())
+            val sample = LocationSample(Wgs84(31.0, 121.0), 10.0, 5f, 8f, 90f, 1000, 1000)
+            assertThrows(IllegalArgumentException::class.java) { FakeLoc.acceptSample(sample, "x".repeat(256)) }
+            assertFalse(FakeLoc.enable)
+            assertNull(FakeLoc.runtimeSnapshots.current().sample)
+            FakeLoc.acceptSample(sample, "route")
+            val captured = FakeLoc.captureTransfer(2000)
+            assertTrue(captured.externallyDriven)
+            assertTrue(captured.state.configuration.enabled)
+            assertEquals(1L, captured.state.configRevision)
+            assertSame(sample, captured.state.sample)
+            assertEquals(mapOf("route" to sample), captured.scenarios)
+            assertTrue(FakeLoc.captureTransfer(5_000_002_000).scenarios.isEmpty())
+        } finally {
+            FakeLoc.scenarioSamples.replace(emptyMap())
+            FakeLoc.updateCoordinates(0.0, 0.0, nowNanos = 0)
+            FakeLoc.runtimeSnapshots.set(saved)
+        }
+    }
+
     @Test fun restoringMovementDoesNotRestartItsActivityWindow() {
         val saved = FakeLoc.runtimeSnapshots.current()
         try {

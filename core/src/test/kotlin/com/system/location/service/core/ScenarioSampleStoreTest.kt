@@ -62,4 +62,17 @@ class ScenarioSampleStoreTest {
         assertThrows(IllegalArgumentException::class.java) { store.publish("", sample(31.0), 100) }
         assertThrows(IllegalArgumentException::class.java) { ScenarioSampleStore(0) }
     }
+
+    @Test fun tickSnapshotRetainsItsSamplesAndAppliesLeasesToAllScenarios() {
+        val store = ScenarioSampleStore()
+        store.publish("stale", sample(30.0), 100)
+        store.publish("current", sample(31.0), 1_000)
+        store.publish("future", sample(32.0), 2_000)
+        val captured = store.snapshot(1_500, 500)
+        assertEquals(setOf("current"), captured.keys)
+        store.publish("current", sample(33.0), 1_500)
+        store.clear("current")
+        assertEquals(31.0, captured.getValue("current").latitude, 0.0)
+        assertThrows(IllegalArgumentException::class.java) { store.snapshot(1_500, -1) }
+    }
 }

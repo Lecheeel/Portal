@@ -49,6 +49,15 @@ class ScenarioSampleStore(private val maxScenarios: Int = MAX_SCENARIOS) {
     @Synchronized
     fun scenarioIds(): Set<String> = entries.keys.toSet()
 
+    /** One bounded, lease-checked view for a delivery tick; later publications cannot change it. */
+    @Synchronized
+    fun snapshot(nowElapsedNanos: Long, maxAgeNanos: Long = SampleStore.DEFAULT_MAX_AGE_NANOS): Map<String, LocationSample> {
+        require(maxAgeNanos >= 0L) { "maxAgeNanos must be non-negative" }
+        return entries.filterValues {
+            nowElapsedNanos >= it.storedAtElapsedNanos && nowElapsedNanos - it.storedAtElapsedNanos <= maxAgeNanos
+        }.mapValues { it.value.sample }
+    }
+
     companion object {
         const val MAX_SCENARIOS = 64
     }

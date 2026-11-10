@@ -24,60 +24,37 @@ object GnssHook : BaseLocationHook() {
                 classLoader,
             ) ?: return
 
-        val doNothingMethod =
-            XposedInterface.Hooker intercept37@{ chain ->
-                val args = chain.args.toTypedArray()
-
-                if (args.isEmpty()) return@intercept37 chain.proceed(args)
-
-                if (FakeLoc.enableDebugLog) {
-                    Logger.debug("doNothingMethod: ${chain.executable.name}")
-                }
-
-                if (
-                    FakeLoc.enable &&
-                        FakeLoc.enableMockGnss &&
-                        !FakeLoc.enableAGPS &&
-                        chain.executable.name.startsWith("add")
-                ) {
-                    if (FakeLoc.enableDebugLog) {
-                        Logger.debug("${chain.executable.name}: disable")
-                    }
-                    return@intercept37 null
-                }
-
-                chain.proceed(args)
-            }
+        val rawRegistration = rawGnssRegistrationHook()
 
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "addGnssAntennaInfoListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "addGnssMeasurementsListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "addGnssNavigationMessageListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "removeGnssAntennaInfoListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "removeGnssMeasurementsListener",
-            doNothingMethod,
+            rawRegistration,
         )
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "removeGnssNavigationMessageListener",
-            doNothingMethod,
+            rawRegistration,
         )
     }
 

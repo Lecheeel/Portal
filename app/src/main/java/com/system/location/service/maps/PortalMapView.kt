@@ -16,6 +16,7 @@ import com.tencent.tencentmap.mapsdk.maps.CameraUpdateFactory as TCamera
 import com.tencent.tencentmap.mapsdk.maps.model.LatLng as TPoint
 
 interface MapOverlay { fun remove() }
+interface MapMarker : MapOverlay { fun position(point: Gcj02) }
 interface MapLine : MapOverlay { fun points(points: List<Gcj02>) }
 
 /** Only the selected SDK view is constructed, after its consent gate. Coordinates are GCJ-02. */
@@ -23,7 +24,9 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
     val provider = context.mapProvider
     private var amap: com.amap.api.maps.MapView? = null
     private var tencent: com.tencent.tencentmap.mapsdk.maps.MapView? = null
-    private var current: MapOverlay? = null
+    private var current: MapMarker? = null
+    private var original: MapMarker? = null
+    private var currentSimulated = false
     private var destroyed = false
     private var bottomObstruction = 0
     private var cameraRequest = 0L
@@ -145,19 +148,25 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
     }
     fun project(point: Point): Gcj02 = amap?.map?.projection?.fromScreenLocation(point)?.let { Gcj02(it.latitude, it.longitude) }
         ?: tencent!!.map.projection.fromScreenLocation(point).let { Gcj02(it.latitude, it.longitude) }
-    fun marker(point: Gcj02, title: String, label: View? = null, selected: Boolean = false): MapOverlay {
+    fun marker(point: Gcj02, title: String, label: View? = null, selected: Boolean = false, anchorY: Float = 1f): MapMarker {
         amap?.map?.let { map ->
             val options = com.amap.api.maps.model.MarkerOptions().position(APoint(point.latitude, point.longitude)).title(title)
-            if (label != null) options.icon(com.amap.api.maps.model.BitmapDescriptorFactory.fromView(label)).anchor(0.5f, 1f)
+            if (label != null) options.icon(com.amap.api.maps.model.BitmapDescriptorFactory.fromView(label)).anchor(0.5f, anchorY)
             else if (selected) options.icon(com.amap.api.maps.model.BitmapDescriptorFactory.fromResource(com.system.location.service.R.drawable.icon_selected_location_16))
             val marker = map.addMarker(options)
-            return object : MapOverlay { override fun remove() { marker.remove() } }
+            return object : MapMarker {
+                override fun remove() { marker.remove() }
+                override fun position(point: Gcj02) { marker.position = APoint(point.latitude, point.longitude) }
+            }
         }
         val options = com.tencent.tencentmap.mapsdk.maps.model.MarkerOptions().position(TPoint(point.latitude, point.longitude)).title(title)
-        if (label != null) options.icon(com.tencent.tencentmap.mapsdk.maps.model.BitmapDescriptorFactory.fromView(label)).anchor(0.5f, 1f)
+        if (label != null) options.icon(com.tencent.tencentmap.mapsdk.maps.model.BitmapDescriptorFactory.fromView(label)).anchor(0.5f, anchorY)
         else if (selected) options.icon(com.tencent.tencentmap.mapsdk.maps.model.BitmapDescriptorFactory.fromResource(com.system.location.service.R.drawable.icon_selected_location_16))
         val marker = tencent!!.map.addMarker(options)
-        return object : MapOverlay { override fun remove() { marker.remove() } }
+        return object : MapMarker {
+            override fun remove() { marker.remove() }
+            override fun position(point: Gcj02) { marker.position = TPoint(point.latitude, point.longitude) }
+        }
     }
     fun line(points: List<Gcj02>, color: Int, width: Float = 10f): MapLine {
         amap?.map?.let { map ->
@@ -173,12 +182,24 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
             override fun points(points: List<Gcj02>) { line.points = points.map { TPoint(it.latitude, it.longitude) } }
         }
     }
-    fun currentPosition(point: Gcj02) {
-        current?.remove()
-        val dot = android.widget.TextView(context).apply { text = "●"; textSize = 25f; setTextColor(android.graphics.Color.rgb(30, 110, 230)) }
-        current = marker(point, "当前位置", dot)
+    fun currentPosition(point: Gcj02, simulated: Boolean = false) {
+        if (currentSimulated != simulated) clearCurrentPosition()
+        currentSimulated = simulated
+        val existing = current
+        if (existing != null) existing.position(point) else {
+            val title = if (simulated) "模拟位置" else "当前位置"
+            current = marker(point, title, MapLocationBadge(context, false, title), anchorY = 44f / 64f)
+        }
     }
-    fun clear() { current = null; amap?.map?.clear(); tencent?.map?.clear() }
+    fun clearCurrentPosition() { current?.remove(); current = null }
+    fun originalPosition(point: Gcj02?) {
+        if (point == null) { original?.remove(); original = null; return }
+        val existing = original
+        if (existing != null) existing.position(point) else {
+            original = marker(point, "这是原始位置", MapLocationBadge(context, true, "这是原始位置"), anchorY = 44f / 64f)
+        }
+    }
+    fun clear() { current = null; original = null; amap?.map?.clear(); tencent?.map?.clear() }
     fun onStart() { tencent?.onStart() }
     fun onResume() { amap?.onResume(); tencent?.onResume() }
     fun onPause() { amap?.onPause(); tencent?.onPause() }
@@ -189,6 +210,6 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
         destroyed = true
         onClick(null); onCamera(null)
         amap?.onDestroy(); tencent?.onDestroy()
-        amap = null; tencent = null; current = null; removeAllViews()
+        amap = null; tencent = null; current = null; original = null; removeAllViews()
     }
 }

@@ -101,6 +101,7 @@ import com.system.location.service.core.repository.SavedRoute
 import com.system.location.service.data.repository.LibraryRepositories
 import com.system.location.service.data.repository.toHistorical
 import com.system.location.service.maps.MapLine
+import com.system.location.service.maps.MapLocationBadge
 import com.system.location.service.maps.MapServices
 import com.system.location.service.maps.PlaceSuggestion
 import com.system.location.service.maps.PortalMapView
@@ -170,6 +171,7 @@ class HomeComposeFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 mockModel.runtimeState.collect { runtime ->
+                    renderRuntimePosition()
                     if (runtime.isActive || startInFlight) {
                         stopRealLocation()
                         locationState.value = locationState.value.copy(loading = false, issue = null)
@@ -193,7 +195,6 @@ class HomeComposeFragment : Fragment() {
                     locationFlow = locationState,
                     libraryFlow = libraryState,
                     onLocate = ::locate,
-                    onReturnOriginal = ::returnToOriginalLocation,
                     onLocationRecovery = ::recoverLocation,
                     onBrowse = ::browseMap,
                     createMap = ::createMap,
@@ -215,13 +216,14 @@ class HomeComposeFragment : Fragment() {
     private fun createMap(context: Context): View {
         val view = PortalMapView(context)
         cameraPolicy = HomeCameraPolicy()
-        locationState.value = HomeLocationState(canReturnToOriginal = mapModel.originalLocation != null)
+        locationState.value = HomeLocationState()
         map = view
         view.onCreate(null)
         if (targetState.value.selection == null && restoredKind == null) mapModel.markedLoc?.let { point ->
             targetState.value = HomeTarget(HomeSelection.Point(Wgs84(point.first, point.second), mapModel.markName))
         }
         renderSelection(moveCamera = true)
+        renderRuntimePosition()
         if (targetState.value.selection == null && mapModel.markedLoc == null) {
             mockModel.runtimeState.value.takeIf { it.isActive }?.sample?.let { sample ->
                 cameraPolicy.userMovedCamera()
@@ -289,7 +291,8 @@ class HomeComposeFragment : Fragment() {
         locationState.value = locationState.value.copy(mapVisible = true)
         val map = map ?: return
         val gcj = CoordinateTransform.toGcj02(point)
-        targetMarker = map.marker(gcj, targetState.value.name ?: "待确认位置", selected = true)
+        targetMarker = map.marker(gcj, targetState.value.name ?: "待确认位置",
+            label = MapLocationBadge(map.context, false, "模拟目标"), anchorY = 44f / 64f)
         if (selected is HomeSelection.Route) {
             val geometry = selected.saved.route.points.map(CoordinateTransform::toGcj02)
             routeLine = map.line(geometry, Color.argb(200, 59, 130, 246), 12f)
@@ -533,8 +536,13 @@ class HomeComposeFragment : Fragment() {
     }
 
     private fun locate() {
-        if (mockModel.runtimeState.value.isActive) {
-            returnToOriginalLocation()
+        val runtime = mockModel.runtimeState.value
+        if (runtime.isActive) {
+            runtime.sample?.coordinate?.let { point ->
+                cameraPolicy.userMovedCamera()
+                map?.currentPosition(CoordinateTransform.toGcj02(point), simulated = true)
+                moveCamera(HomeCameraPolicy.Move(HomeCameraPolicy.Position(point.latitude, point.longitude)))
+            } ?: Toast.makeText(requireContext(), "正在等待模拟位置", Toast.LENGTH_SHORT).show()
             return
         }
         if (!hasLocationPermission()) { stopRealLocation(); showLocationIssue(HomeLocationIssue.PERMISSION); return }
@@ -547,10 +555,22 @@ class HomeComposeFragment : Fragment() {
         startRealLocation()
     }
 
-    private fun returnToOriginalLocation() {
-        val (lat, lon) = mapModel.originalLocation ?: return
-        cameraPolicy.userMovedCamera()
-        moveCamera(HomeCameraPolicy.Move(HomeCameraPolicy.Position(lat, lon)))
+    private fun renderRuntimePosition() {
+        val view = map ?: return
+        val runtime = mockModel.runtimeState.value
+        val original = mapModel.originalLocation?.let { (lat, lon) -> CoordinateTransform.toGcj02(Wgs84(lat, lon)) }
+        view.originalPosition(if (runtime.isActive) original else null)
+        if (runtime.isActive) {
+            val sample = runtime.sample
+            if (sample != null) {
+                view.currentPosition(CoordinateTransform.toGcj02(sample.coordinate), simulated = true)
+                locationState.value = locationState.value.copy(mapVisible = true, loading = false, issue = null)
+            } else view.clearCurrentPosition()
+        } else {
+            mapModel.currentLocation?.let { (lat, lon) ->
+                view.currentPosition(CoordinateTransform.toGcj02(Wgs84(lat, lon)))
+            } ?: view.clearCurrentPosition()
+        }
     }
 
     private fun acceptRealLocation(loc: Location, point: Pair<Double, Double>) {
@@ -573,7 +593,7 @@ class HomeComposeFragment : Fragment() {
         requireContext().lastKnownLng = point.second
         move?.let(::moveCamera)
         locationTimeout?.cancel()
-        locationState.value = locationState.value.copy(loading = false, issue = null, canReturnToOriginal = mapModel.originalLocation != null)
+        locationState.value = locationState.value.copy(loading = false, issue = null)
     }
 
     @Suppress("MissingPermission")
@@ -667,7 +687,6 @@ private data class HomeLocationState(
     val mapVisible: Boolean = false,
     val loading: Boolean = true,
     val issue: HomeLocationIssue? = null,
-    val canReturnToOriginal: Boolean = false,
 )
 
 private data class HomeTarget(
@@ -698,7 +717,6 @@ private fun HomeScreen(
     locationFlow: kotlinx.coroutines.flow.StateFlow<HomeLocationState>,
     libraryFlow: kotlinx.coroutines.flow.StateFlow<HomeLibraryState>,
     onLocate: () -> Unit,
-    onReturnOriginal: () -> Unit,
     onLocationRecovery: () -> Unit,
     onBrowse: () -> Unit,
     createMap: (Context) -> View,
@@ -912,7 +930,7 @@ private fun HomeScreen(
                     onOpenTargets()
                 }
                 HomeMapButton(R.drawable.ic_home_coordinates, "输入坐标") { coordinateDialog = true }
-                if (!runtime.isActive) HomeMapButton(R.drawable.ic_home_locate, "定位到真实位置", onLocate)
+                HomeMapButton(R.drawable.ic_home_locate, if (runtime.isActive) "定位到模拟位置" else "定位到真实位置", onLocate)
             }
             PortalCard(
                 modifier = Modifier
@@ -934,11 +952,6 @@ private fun HomeScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    }
-                    if (runtime.isActive && location.canReturnToOriginal) {
-                        IconButton(onClick = onReturnOriginal) {
-                            Icon(painterResource(R.drawable.ic_home_locate), contentDescription = "返回真实位置")
-                        }
                     }
                     IconButton(onClick = { saveDialog = true }, enabled = target.point != null) {
                         Icon(painterResource(R.drawable.ic_home_save), contentDescription = "保存位置")

@@ -30,11 +30,16 @@ data class ReceiverGnssFrame(
  */
 class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: Long = 0) {
     private val ratios = capture.profile().constellations.associate { it.constellation to it.ratio }
+    private val frames = capture.frames.map { frame -> frame.copy(satellites = frame.satellites.filter {
+        GnssSatelliteIds.nmeaId(it.constellation, it.svid) != null
+    }) }
+    private val excluded = capture.frames.flatMap { it.satellites }.filter {
+        GnssSatelliteIds.nmeaId(it.constellation, it.svid) == null
+    }.map { "${it.constellation}:${it.svid}" }.distinct()
     fun frame(atMillis: Long, observer: Wgs84, altitudeMeters: Double, minimumSatellites: Int = 0): ReceiverGnssFrame? {
         require(atMillis >= 0 && altitudeMeters.isFinite())
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         if (!GnssCaptureValidator.validate(capture, atMillis).eligible) return null
-        val frames = capture.frames
         val first = frames.first().capturedAtMillis
         val duration = frames.last().capturedAtMillis - first
         val period = duration * 2
@@ -56,6 +61,7 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
             else interpolate(a, b, fraction)
         }.toMutableList()
         val diagnostics = mutableListOf("统计回放：局部天空形态来自实测画像，不代表目标地点的精确星历")
+        if (excluded.isNotEmpty()) diagnostics += "统一排除无明确 NMEA 编号映射的卫星：${excluded.joinToString()}"
         if (selected.size < minimumSatellites) {
             // Only reuse genuinely observed satellites from a local temporal window. Never make
             // up SVIDs or lift below-horizon satellites to satisfy the requested count.
@@ -76,7 +82,8 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
         val ordered = selected.sortedWith(compareBy({ it.constellation.ordinal }, { it.svid }))
         val geometry = GnssGeometry.solve(ordered)
         geometry.reason?.let { diagnostics += "无有效三维定位解：$it" }
-        return ReceiverGnssFrame(atMillis, observer, altitudeMeters, ordered, geometry,
+        val output = if (geometry.dop == null) ordered.map { it.copy(usedInFix = false) } else ordered
+        return ReceiverGnssFrame(atMillis, observer, altitudeMeters, output, geometry,
             ReceiverGnssSource.STATISTICAL_REPLAY, diagnostics)
     }
 

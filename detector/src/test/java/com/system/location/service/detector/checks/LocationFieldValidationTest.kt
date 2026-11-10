@@ -57,4 +57,40 @@ class LocationFieldValidationTest {
         }
     }
 
+    @Test fun laterFusedCallbackCannotHideEarlierGpsContradiction() {
+        val samples = listOf(
+            LocationFieldSample("gps", 10000, 31.0, 121.0, mapOf("satellites" to 12.0)),
+            LocationFieldSample("fused", 10001, 31.0, 121.0, emptyMap()),
+        )
+        val result = LocationWindowValidation.evaluate(samples, listOf(frame()))
+        assertTrue(result.issues.isEmpty())
+        assertEquals(1, result.discrepancies.size)
+        assertEquals(1, result.gpsExtrasCount)
+        assertEquals(1, result.comparedGpsCount)
+    }
+
+    @Test fun windowRetainsInvalidEarlierFieldsAndSeparatesMissingComparisonCoverage() {
+        val samples = listOf(
+            LocationFieldSample("network", 10000, 91.0, 121.0, mapOf("accuracy" to -1.0)),
+            LocationFieldSample("gps", 5000, 31.0, 121.0, mapOf("satellites" to 12.0)),
+            LocationFieldSample("gps", 10000, 31.0, 121.0, emptyMap()),
+            LocationFieldSample("fused", 10001, 31.0, 121.0, emptyMap()),
+        )
+        val result = LocationWindowValidation.evaluate(samples, listOf(frame()))
+        assertEquals(2, result.issues.size)
+        assertTrue(result.discrepancies.isEmpty())
+        assertEquals(1, result.gpsExtrasCount)
+        assertEquals(0, result.comparedGpsCount)
+    }
+
+    @Test fun coherentMovingHighRateGpsSamplesAreAllReconciled() {
+        val samples = (0..9).map { index -> LocationFieldSample("gps", 10000 + index * 100L,
+            31.0 + index * 0.00001, 121.0, mapOf("satellites" to 1.0, "meanCn0" to 35.0)) }
+        val result = LocationWindowValidation.evaluate(samples, listOf(frame()))
+        assertTrue(result.issues.isEmpty())
+        assertTrue(result.discrepancies.isEmpty())
+        assertEquals(10, result.gpsExtrasCount)
+        assertEquals(10, result.comparedGpsCount)
+    }
+
 }

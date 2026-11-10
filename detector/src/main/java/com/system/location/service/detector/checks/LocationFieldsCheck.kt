@@ -53,28 +53,19 @@ class LocationFieldsCheck : Check {
         val meanCn0 = extras?.getFloat("meanCn0", -1f) ?: -1f
         val maxCn0 = extras?.getFloat("maxCn0", -1f) ?: -1f
         lines += "extras: keys=${extras?.keySet()?.sorted() ?: "null"} satellites=$satellites meanCn0=$meanCn0 maxCn0=$maxCn0"
-        val optional = linkedMapOf<String, Double>()
-        fun supplied(name: String, present: Boolean, value: () -> Double) {
-            if (present) optional[name] = value()
-        }
-        supplied("satellites", extras?.containsKey("satellites") == true) { satellites.toDouble() }
-        supplied("meanCn0", extras?.containsKey("meanCn0") == true) { meanCn0.toDouble() }
-        supplied("maxCn0", extras?.containsKey("maxCn0") == true) { maxCn0.toDouble() }
-        supplied("accuracy", location.hasAccuracy()) { location.accuracy.toDouble() }
-        supplied("altitude", location.hasAltitude()) { location.altitude }
-        supplied("verticalAccuracy", location.hasVerticalAccuracy()) { location.verticalAccuracyMeters.toDouble() }
-        supplied("speed", location.hasSpeed()) { location.speed.toDouble() }
-        supplied("speedAccuracy", location.hasSpeedAccuracy()) { location.speedAccuracyMetersPerSecond.toDouble() }
-        supplied("bearing", location.hasBearing()) { location.bearing.toDouble() }
-        supplied("bearingAccuracy", location.hasBearingAccuracy()) { location.bearingAccuracyDegrees.toDouble() }
-        supplied("elapsedUncertainty", location.hasElapsedRealtimeUncertaintyNanos()) { location.elapsedRealtimeUncertaintyNanos }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // API 34 getters throw when absent. Test presence before evaluating any optional getter.
-            supplied("mslAltitude", location.hasMslAltitude()) { location.mslAltitudeMeters }
-            supplied("mslAccuracy", location.hasMslAltitudeAccuracy()) { location.mslAltitudeAccuracyMeters.toDouble() }
-        }
-        issues += LocationFieldValidation.issues(location.latitude, location.longitude, optional)
+        val optional = suppliedFields(location)
         lines += "已提供可选字段：$optional；未提供的字段不作为异常"
+
+        // The latest callback can be fused/network. It must not hide earlier invalid fields or
+        // contradictory GPS extras from the same collection window.
+        val samples = context.snapshot.locations.ifEmpty { listOf(location) }.map { sample ->
+            LocationFieldSample(sample.provider, sample.time, sample.latitude, sample.longitude,
+                if (sample === location) optional else suppliedFields(sample))
+        }
+        val window = LocationWindowValidation.evaluate(samples, context.snapshot.gnssFrames)
+        issues += window.issues
+        lines += "窗口字段检查：${samples.size} 个位置样本；GPS extras=${window.gpsExtrasCount}，同时间窗对账=${window.comparedGpsCount}"
+        lines += "GPS 不同坐标=${samples.filter { it.provider == "gps" }.map { it.latitude to it.longitude }.toSet().size}"
 
         val manager = context.locationManager
         val locationEnabled = runCatching { manager?.isLocationEnabled }.getOrNull()
@@ -83,9 +74,7 @@ class LocationFieldsCheck : Check {
             "sampledAvailability=${context.snapshot.availability.size}"
         lines += "可用性是当前状态；缓存位置不因 provider 后来关闭而成为无效样本"
 
-        val discrepancies = LocationGnssReconciliation.compare(
-            location.provider, location.time, optional, context.snapshot.gnssFrames,
-        )
+        val discrepancies = window.discrepancies
         lines += discrepancies
         if (issues.isEmpty() && discrepancies.isNotEmpty()) {
             return unknown("同时间窗 GPS extras 与 GnssStatus 存在差异，需核对接收机输出语义和时序", limited(lines))
@@ -93,7 +82,28 @@ class LocationFieldsCheck : Check {
         return if (issues.isEmpty()) {
             pass("已提供的 Location 字段取值有效；可选字段缺失不构成异常。", limited(lines))
         } else {
-            fail("Location 字段非法/矛盾 ${issues.size} 项：${issues.joinToString("；")}", limited(lines + issues))
+            fail("Location 字段非法/矛盾 ${issues.size} 项：${issues.take(3).joinToString("；")}", limited(lines + issues))
+        }
+    }
+
+    /** Read only supplied optional fields, including API 34 getters which throw when absent. */
+    private fun suppliedFields(location: Location): Map<String, Double> = buildMap {
+        val extras = location.extras
+        for (key in listOf("satellites", "meanCn0", "maxCn0")) {
+            if (extras?.containsKey(key) == true) put(key, if (key == "satellites")
+                extras.getInt(key).toDouble() else extras.getFloat(key).toDouble())
+        }
+        if (location.hasAccuracy()) put("accuracy", location.accuracy.toDouble())
+        if (location.hasAltitude()) put("altitude", location.altitude)
+        if (location.hasVerticalAccuracy()) put("verticalAccuracy", location.verticalAccuracyMeters.toDouble())
+        if (location.hasSpeed()) put("speed", location.speed.toDouble())
+        if (location.hasSpeedAccuracy()) put("speedAccuracy", location.speedAccuracyMetersPerSecond.toDouble())
+        if (location.hasBearing()) put("bearing", location.bearing.toDouble())
+        if (location.hasBearingAccuracy()) put("bearingAccuracy", location.bearingAccuracyDegrees.toDouble())
+        if (location.hasElapsedRealtimeUncertaintyNanos()) put("elapsedUncertainty", location.elapsedRealtimeUncertaintyNanos)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (location.hasMslAltitude()) put("mslAltitude", location.mslAltitudeMeters)
+            if (location.hasMslAltitudeAccuracy()) put("mslAccuracy", location.mslAltitudeAccuracyMeters.toDouble())
         }
     }
 
@@ -104,6 +114,33 @@ class LocationFieldsCheck : Check {
         const val MAX_EVIDENCE_LINES = 20
         const val MAX_EVIDENCE_CHARS = 299
     }
+}
+
+internal data class LocationFieldSample(val provider: String?, val timeMillis: Long,
+    val latitude: Double, val longitude: Double, val supplied: Map<String, Double>)
+
+internal data class LocationWindowResult(val issues: List<String>, val discrepancies: List<String>,
+    val gpsExtrasCount: Int, val comparedGpsCount: Int)
+
+internal object LocationWindowValidation {
+    fun evaluate(samples: List<LocationFieldSample>, frames: List<GnssFrameSnapshot>): LocationWindowResult {
+        val issues = linkedSetOf<String>()
+        val discrepancies = linkedSetOf<String>()
+        var gpsExtrasCount = 0
+        var comparedGpsCount = 0
+        samples.forEach { sample ->
+            issues += LocationFieldValidation.issues(sample.latitude, sample.longitude, sample.supplied)
+                .map { "${sample.provider}@${sample.timeMillis}: $it" }
+            if (sample.provider == "gps" && sample.supplied.keys.any { it in GNSS_KEYS }) {
+                gpsExtrasCount++
+                if (LocationGnssReconciliation.nearestFrame(sample.timeMillis, frames) != null) comparedGpsCount++
+            }
+            discrepancies += LocationGnssReconciliation.compare(sample.provider, sample.timeMillis, sample.supplied, frames)
+        }
+        return LocationWindowResult(issues.toList(), discrepancies.toList(), gpsExtrasCount, comparedGpsCount)
+    }
+
+    private val GNSS_KEYS = setOf("satellites", "meanCn0", "maxCn0")
 }
 
 /** Independent numeric validation, deliberately separate from production sanitization. */
@@ -131,11 +168,16 @@ internal object LocationFieldValidation {
 
 /** Contemporaneous GPS-only comparison; network and stale status cannot contradict GPS extras. */
 internal object LocationGnssReconciliation {
+    fun nearestFrame(timeMillis: Long, frames: List<GnssFrameSnapshot>): GnssFrameSnapshot? {
+        if (timeMillis <= 0) return null
+        return frames.minByOrNull { abs(it.capturedAtMillis - timeMillis) }
+            ?.takeIf { abs(it.capturedAtMillis - timeMillis) <= 1000 }
+    }
+
     fun compare(provider: String?, timeMillis: Long, extras: Map<String, Double>,
         frames: List<GnssFrameSnapshot>): List<String> {
         if (provider != "gps" || timeMillis <= 0) return emptyList()
-        val frame = frames.minByOrNull { abs(it.capturedAtMillis - timeMillis) }
-            ?.takeIf { abs(it.capturedAtMillis - timeMillis) <= 1000 } ?: return emptyList()
+        val frame = nearestFrame(timeMillis, frames) ?: return emptyList()
         val used = frame.satellites.filter { it.usedInFix }
         val uniqueUsed = used.map { it.constellation to it.svid }.toSet().size
         val differences = mutableListOf<String>()

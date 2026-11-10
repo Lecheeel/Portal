@@ -17,7 +17,7 @@ data class RawGnssMeasurement(
 ) {
     init {
         require(svid in 1..999) { "svid out of range: $svid" }
-        require(cn0DbHz in 0f..60f) { "CN0 out of range: $cn0DbHz" }
+        require(cn0DbHz in 0f..GnssFrame.MAX_CN0_DB_HZ) { "CN0 out of range: $cn0DbHz" }
         require(pseudorangeRateMps.isFinite()) { "pseudorangeRate must be finite" }
         require(carrierPhase == null || carrierPhase.isFinite()) { "carrierPhase must be finite" }
         require(state >= 0) { "state must be non-negative" }
@@ -38,7 +38,7 @@ data class RawGnssPolicy(
     val maxMeasurements: Int = MAX_MEASUREMENTS,
 ) {
     init {
-        require(minCn0DbHz in 0f..60f) { "minCn0DbHz out of range: $minCn0DbHz" }
+        require(minCn0DbHz in 0f..GnssFrame.MAX_CN0_DB_HZ) { "minCn0DbHz out of range: $minCn0DbHz" }
         require(maxMeasurements in 1..MAX_MEASUREMENTS) { "maxMeasurements out of range: $maxMeasurements" }
     }
 

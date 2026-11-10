@@ -20,7 +20,7 @@ data class GnssSatellite(
         require(svid in 1..999) { "svid out of range: $svid" }
         require(elevationDeg in -90f..90f) { "elevation out of range: $elevationDeg" }
         require(azimuthDeg in 0f..360f) { "azimuth out of range: $azimuthDeg" }
-        require(cn0DbHz in 0f..60f) { "CN0 out of range: $cn0DbHz" }
+        require(cn0DbHz in 0f..GnssFrame.MAX_CN0_DB_HZ) { "CN0 out of range: $cn0DbHz" }
     }
 }
 
@@ -47,6 +47,7 @@ data class GnssFrame(
 
     companion object {
         const val MAX_SATELLITES = 128
-        const val MAX_CN0_DB_HZ = 60f
+        // Android GnssStatus.getCn0DbHz is specified in the inclusive range 0..63 dB-Hz.
+        const val MAX_CN0_DB_HZ = 63f
     }
 }

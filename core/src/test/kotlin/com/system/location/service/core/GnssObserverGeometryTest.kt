@@ -6,6 +6,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssObserverGeometryTest {
+    @Test fun nearNorthGeometryRemainsValidAfterStatusFloatConversion() {
+        val los = GnssObserverGeometry.lineOfSight(EcefPosition(0.0, 0.0, 0.0),
+            GeodeticOrientation(0.0, 0.0), EcefPosition(1.0, -1e-8, 1.0))!!
+        val azimuth = los.azimuthDegrees!!
+        assertTrue(azimuth < 360.0)
+        assertEquals(360f, azimuth.toFloat(), 0f)
+        assertEquals(0f, azimuth.toGnssAzimuthFloat(), 0f)
+        assertEquals(90f, 90.0.toGnssAzimuthFloat(), 0f)
+    }
+
     @Test fun explicitFrameProjectionIsTranslationInvariantAndUsesLocalNormal() {
         // At lat=0, lon=90: east=-x, north=z, up=y. Origin is intentionally not WGS84.
         val origin = EcefPosition(100.0, 200.0, 300.0)

@@ -6,6 +6,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ReceiverGnssSkyModelTest {
+    @Test fun interpolationNearNorthDoesNotRoundToAnInvalid360DegreeFrame() {
+        val source = capture().let { source -> source.copy(frames = source.frames.mapIndexed { index, frame ->
+            frame.copy(satellites = frame.satellites.map {
+                it.copy(azimuthDeg = if (index < 30) 359.99997f else 0f)
+            })
+        }) }
+        val frame = ReceiverGnssSkyModel(source).frame(91500, observer, 0.0)!!
+        assertTrue(frame.satellites.all { it.azimuthDeg in 0f..<360f })
+        assertEquals(0f, frame.satellites.first().azimuthDeg, 0f)
+    }
+
     private val observer = Wgs84(31.0, 121.0)
     private fun satellite(id: Int, system: Constellation = Constellation.GPS) =
         GnssSatellite(system, id, 20f + id, 100f, 30f + id, true, true, true)

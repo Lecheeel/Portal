@@ -115,7 +115,7 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
         val arc = ((b.azimuthDeg - a.azimuthDeg + 540f) % 360f) - 180f
         val nearest = if (fraction < 0.5) a else b
         return nearest.copy(elevationDeg = mix(a.elevationDeg, b.elevationDeg),
-            azimuthDeg = ((a.azimuthDeg + arc * fraction + 360.0) % 360.0).toFloat(),
+            azimuthDeg = ((a.azimuthDeg + arc * fraction + 360.0) % 360.0).toGnssAzimuthFloat(),
             cn0DbHz = mix(a.cn0DbHz, b.cn0DbHz))
     }
 }

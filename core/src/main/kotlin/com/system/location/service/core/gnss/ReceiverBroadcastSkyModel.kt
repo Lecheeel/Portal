@@ -83,7 +83,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 return@mapNotNull null
             }
             GnssSatellite(Constellation.GPS, id, los.elevationDegrees.toFloat(),
-                azimuth.toFloat().let { if (it >= 360f) 0f else it }, calibration.cn0DbHz.toFloat(),
+                azimuth.toGnssAzimuthFloat(), calibration.cn0DbHz.toFloat(),
                 calibration.usedFraction >= 0.5 && calibration.cn0DbHz > 0.0,
                 hasEphemeris = true, hasAlmanac = calibration.hasAlmanac, carrierHz = calibration.carrierHz)
         }.sortedBy { it.svid } else emptyList()
@@ -101,7 +101,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 val calibration = empirical(Constellation.GALILEO, los.elevationDegrees)
                     ?: run { diagnostics += "Galileo ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
                 GnssSatellite(Constellation.GALILEO, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
-                    los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
                     true, calibration.almanac, calibration.carrier)
             }
             val fnav = galileoEvidence.fnav.mapNotNull { decoded ->
@@ -114,7 +114,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 val calibration = empirical(Constellation.GALILEO, los.elevationDegrees)
                     ?: run { diagnostics += "Galileo ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
                 GnssSatellite(Constellation.GALILEO, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
-                    los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
                     true, calibration.almanac, calibration.carrier)
             }
             (inav + fnav).distinctBy { it.constellation to it.svid }
@@ -136,7 +136,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 val calibration = empirical(Constellation.BEIDOU, los.elevationDegrees)
                     ?: run { diagnostics += "北斗 ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
                 GnssSatellite(Constellation.BEIDOU, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
-                    los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
                     true, calibration.almanac, calibration.carrier)
             } + beiDouEvidence.d2.mapNotNull { decoded ->
                 val result = BeiDouSignalReception.observe(decoded, beiDouTime, receiverBdcs,
@@ -149,7 +149,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 val calibration = empirical(Constellation.BEIDOU, los.elevationDegrees)
                     ?: run { diagnostics += "北斗 ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
                 GnssSatellite(Constellation.BEIDOU, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
-                    los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
                     true, calibration.almanac, calibration.carrier)
             }).distinctBy { it.constellation to it.svid }
         } else emptyList()
@@ -183,7 +183,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     val calibration = empirical(Constellation.GLONASS, los.elevationDegrees)
                         ?: run { diagnostics += "GLONASS ${encoded.orbit.slot}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
                     GnssSatellite(Constellation.GLONASS, encoded.orbit.slot, los.elevationDegrees.toFloat(),
-                        los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                        los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
                         true, calibration.almanac, calibration.carrier)
                 }
             }

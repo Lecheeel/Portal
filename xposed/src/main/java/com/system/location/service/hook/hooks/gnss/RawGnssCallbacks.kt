@@ -9,7 +9,9 @@ import io.github.libxposed.api.XposedInterface
 internal object RawGnssCallbacks {
     private val registry = GnssCallbackRegistry()
 
-    fun proceed(chain: XposedInterface.Chain): Any? {
+    fun proceed(chain: XposedInterface.Chain,
+        install: (IInterface) -> Unit = ::installRestored,
+        callerUid: () -> Int = BinderUtils::getCallerUid): Any? {
         val listener = chain.args.filterIsInstance<IInterface>().firstOrNull() ?: return chain.proceed()
         val binder = listener.asBinder()
         // Serialize duplicate add/remove for one transport without locking callback delivery.
@@ -20,10 +22,11 @@ internal object RawGnssCallbacks {
                 result
             } else {
                 val existed = registry.listeners().any { it.asBinder() == binder }
-                registry.register(listener, chain.args.filterIsInstance<String>().firstOrNull(), BinderUtils.getCallerUid())
-                val hook = rawGnssCallbackHook()
-                for (name in RAW_CALLBACKS) listener.javaClass.onceHookAllMethod(name, hook)
+                registry.register(listener, chain.args.filterIsInstance<String>().firstOrNull(), callerUid())
                 try {
+                    // Hook setup can fail after installing only part of the callback surface.
+                    // The provisional subscription must roll back before Android is ever called.
+                    install(listener)
                     val result = chain.proceed()
                     if (result == false && !existed) registry.unregister(listener)
                     result
@@ -47,7 +50,8 @@ internal object RawGnssCallbacks {
     internal fun restore(subscription: com.system.location.service.hook.runtime.CallbackSubscription): Boolean =
         registry.restore(subscription)
     internal fun installRestored(listener: IInterface) {
-        for (name in RAW_CALLBACKS) listener.javaClass.onceHookAllMethod(name, rawGnssCallbackHook())
+        val hook = rawGnssCallbackHook()
+        for (name in RAW_CALLBACKS) listener.javaClass.onceHookAllMethod(name, hook)
     }
 }
 

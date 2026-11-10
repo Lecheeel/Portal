@@ -1,0 +1,87 @@
+{
+  "source": "RINEX-derived synthetic I/NAV and F/NAV pages from galileo-reference.json; not physical receiver capture",
+  "method": "ICD 2.2 bit fields, independent polynomial long division, all CRCs verified by pinned RTKLIB rtk_crc24q",
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rtkcmn.c",
+  "pages": [
+    {
+      "type": 1537,
+      "wordType": 0,
+      "svid": 24,
+      "payloadHex": "00800000000000000000000010e5a9a3c00000000000000002f4640000",
+      "dataHex": "02000000000000000000000043969a3c",
+      "crc": 3098176
+    },
+    {
+      "type": 1537,
+      "wordType": 1,
+      "svid": 24,
+      "payloadHex": "01141c20048702480044f6d2aa04e33280000000000000000ba42c5000",
+      "dataHex": "04507080121c09200113db4aa8133328",
+      "crc": 12206789
+    },
+    {
+      "type": 1537,
+      "wordType": 2,
+      "svid": 24,
+      "payloadHex": "021409bef32c49fccd2648d706716f31c00000000000000000777f4000",
+      "dataHex": "085026fbccb127f33499235c19c5f31c",
+      "crc": 489460
+    },
+    {
+      "type": 1537,
+      "wordType": 3,
+      "svid": 24,
+      "payloadHex": "03143ff12347bac0bdc373068b00ecc78000000000000000078fed1000",
+      "dataHex": "0c50ffc48d1eeb02f70dcc1a2c03cc78",
+      "crc": 7929553
+    },
+    {
+      "type": 1537,
+      "wordType": 4,
+      "svid": 24,
+      "payloadHex": "041418ffecfff870802cb10e2ffea85000000000000000000230b48000",
+      "dataHex": "105063ffb3ffe1c200b2c438bffa8500",
+      "crc": 2296648
+    },
+    {
+      "type": 1537,
+      "wordType": 5,
+      "svid": 24,
+      "payloadHex": "0500000000001866d80872d348002000000000000000000008d373a000",
+      "dataHex": "140000000000619b6021cb4d20000000",
+      "crc": 9254714
+    },
+    {
+      "type": 1538,
+      "wordType": 1,
+      "svid": 24,
+      "payloadHex": "058141c200b2c42bfffa8501e00000000000618872d3478000000342e4e8",
+      "dataHex": "058141c200b2c42bfffa8501e00000000000618872d34780000000",
+      "crc": 13678906
+    },
+    {
+      "type": 1538,
+      "wordType": 2,
+      "svid": 24,
+      "payloadHex": "085004870248ffc48d0044f6d2aa04ccca26fbccb1f31d0e5a691914ef9c",
+      "dataHex": "085004870248ffc48d0044f6d2aa04ccca26fbccb1f31d0e5a6918",
+      "crc": 4537319
+    },
+    {
+      "type": 1538,
+      "wordType": 3,
+      "svid": 24,
+      "payloadHex": "0c5027f33499235c19c51eeb02f70dcc1a2c03cc70810e5a694003f61464",
+      "dataHex": "0c5027f33499235c19c51eeb02f70dcc1a2c03cc70810e5a694000",
+      "crc": 16614681
+    },
+    {
+      "type": 1538,
+      "wordType": 4,
+      "svid": 24,
+      "payloadHex": "1050ffecfff80000000000000000000000000000000000034d2d02f028c0",
+      "dataHex": "1050ffecfff80000000000000000000000000000000000034d2d00",
+      "crc": 12323376
+    }
+  ]
+}

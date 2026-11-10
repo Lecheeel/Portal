@@ -3,11 +3,14 @@ package com.system.location.service.hook.runtime
 import android.util.Log
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Constructor
+import java.lang.reflect.Executable
 import java.lang.reflect.Method
 import java.util.concurrent.CopyOnWriteArrayList
 
 /** Process-local framework access. Interceptors use the native libxposed chain directly. */
 object HookRuntime {
+    @Volatile internal var executionGate = ReloadExecutionGate()
     @Volatile private var framework: XposedInterface? = null
     private val handles = CopyOnWriteArrayList<XposedInterface.HookHandle>()
     internal fun attachedInterface(): XposedInterface? = framework
@@ -34,6 +37,19 @@ object HookRuntime {
         interfaceInstance().getInvoker(method)
             .setType(XposedInterface.Invoker.Type.ORIGIN)
             .invoke(receiver, *args)
+    } catch (error: InvocationTargetException) {
+        throw error.targetException
+    }
+
+    /** A queued interceptor from a retired snapshot must execute the successor's complete chain. */
+    internal fun invokeCurrentChain(executable: Executable, receiver: Any?, args: Array<Any?>): Any? = try {
+        when (executable) {
+            is Method -> interfaceInstance().getInvoker(executable)
+                .setType(XposedInterface.Invoker.Type.Chain.FULL).invoke(receiver, *args)
+            is Constructor<*> -> interfaceInstance().getInvoker(executable)
+                .setType(XposedInterface.Invoker.Type.Chain.FULL).invoke(receiver, *args)
+            else -> error("Unsupported executable: $executable")
+        }
     } catch (error: InvocationTargetException) {
         throw error.targetException
     }

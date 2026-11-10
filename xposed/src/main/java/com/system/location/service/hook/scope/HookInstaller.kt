@@ -21,13 +21,19 @@ object HookInstaller {
             ?: throw IllegalArgumentException("Only methods and constructors can be hooked: $member")
         val key = member.toString()
         val matched = AtomicBoolean(false)
+        val generation = HookRuntime.executionGate
         val handle = try {
             HookRuntime.interfaceInstance().hook(executable)
                 .setPriority(priority)
                 .setExceptionMode(exceptionMode)
                 .intercept { chain ->
-                    if (matched.compareAndSet(false, true)) HookStatusRegistry.matched(key)
-                    callback.intercept(chain)
+                    generation.enter { current ->
+                        if (!current) HookRuntime.invokeCurrentChain(chain.executable, chain.thisObject, chain.args.toTypedArray())
+                        else {
+                            if (matched.compareAndSet(false, true)) HookStatusRegistry.matched(key)
+                            callback.intercept(chain)
+                        }
+                    }
                 }
         } catch (error: Throwable) {
             HookStatusRegistry.record(key, HookStatus(supported = true, failed = true,

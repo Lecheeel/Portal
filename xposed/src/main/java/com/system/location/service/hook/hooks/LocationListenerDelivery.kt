@@ -2,6 +2,7 @@ package com.system.location.service.hook.hooks
 
 import android.os.DeadObjectException
 import android.os.IInterface
+import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.runtime.Reflection
@@ -34,7 +35,8 @@ internal object LocationListenerDelivery : BaseLocationHook() {
                     )
                     .toLocation(
                         if (listenerWithProvider.first == "GnssBatch") "gps"
-                        else listenerWithProvider.first
+                        else listenerWithProvider.first,
+                        GnssFrameRoute.forObserver(scenarioId, point),
                     )
             var called = false
             var error: Throwable? = null

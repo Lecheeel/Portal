@@ -6,6 +6,7 @@ import com.system.location.service.core.gnss.PublishedGnssFrame
 import com.system.location.service.hook.hooks.nmea.NmeaBridge
 import com.system.location.service.hook.hooks.nmea.NmeaListenerRouting
 import com.system.location.service.hook.runtime.HookRuntime
+import com.system.location.service.hook.runtime.DeliveryWorker
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.LogRateLimiter
 import com.system.location.service.hook.utils.ProviderView
@@ -13,15 +14,20 @@ import com.system.location.service.hook.utils.ProviderView
 /** The only producer of simulated GNSS callbacks. Missing capture leaves the real stream intact. */
 object GnssSignalInjection {
     private val failures = LogRateLimiter()
-    private val worker = ReceiverDeliveryWorker(::tick) { error -> report("worker", error) }
+    private val worker = DeliveryWorker("GnssSignalInjection", { 1000 },
+        tick = ::tick, failure = { error -> report("worker", error) })
 
     fun ensureStarted() = worker.start()
 
-    fun stop() {
-        worker.stop()
+    /** Pause delivery without losing subscriptions; a failed reload can resume this generation. */
+    fun pause(): Boolean = worker.stop()
+
+    fun stop(): Boolean {
+        if (!pause()) return false
         GnssListenerRouting.clear()
         NmeaListenerRouting.clear()
         RawGnssCallbacks.clear()
+        return true
     }
 
     private fun tick() {
@@ -73,33 +79,6 @@ object GnssSignalInjection {
     private fun report(key: String, error: Exception) {
         if (failures.allow(key, System.nanoTime()))
             HookRuntime.log("GNSS delivery failed [$key]: ${error.javaClass.simpleName}: ${error.message}")
-    }
-}
-
-/** A referenced worker cannot overlap its replacement, including while a callback is returning. */
-internal class ReceiverDeliveryWorker(private val tick: () -> Unit, private val failure: (Exception) -> Unit) {
-    private var worker: Thread? = null
-
-    @Synchronized fun start() {
-        if (worker != null) return
-        worker = Thread({
-            try {
-                while (!Thread.currentThread().isInterrupted) {
-                    try { tick() } catch (interrupted: InterruptedException) { throw interrupted }
-                    catch (error: Exception) { failure(error) }
-                    Thread.sleep(1000)
-                }
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-            } finally {
-                synchronized(this) { if (worker === Thread.currentThread()) worker = null }
-            }
-        }, "GnssSignalInjection").apply { isDaemon = true; start() }
-    }
-
-    fun stop() {
-        val current = synchronized(this) { worker?.also { it.interrupt() } } ?: return
-        if (current !== Thread.currentThread()) current.join(2000)
     }
 }
 

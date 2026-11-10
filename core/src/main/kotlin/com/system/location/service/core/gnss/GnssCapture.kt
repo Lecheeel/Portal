@@ -25,11 +25,9 @@ data class GnssCapture(
         require(bootCount == null || bootCount >= 0) { "invalid capture boot count" }
         gpsBroadcastEvidence?.let { evidence ->
             require(evidence.clock.bootCount == bootCount) { "GPS evidence belongs to another boot" }
-            val observedGps = frames.flatMap { it.satellites }.filter {
-                it.constellation == Constellation.GPS
-            }.map { it.svid }.toSet()
+            val observedGps = GpsBroadcastEvidence.visibleGpsIdentities(frames)
             require(evidence.ephemerides.all { it.ephemeris.svid in observedGps }) {
-                "GPS evidence contains an unobserved satellite"
+                "GPS evidence contains a satellite without valid visible status"
             }
         }
         require(deviceModel.isNotBlank() && osVersion.isNotBlank()) { "missing device metadata" }

@@ -29,6 +29,8 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import com.system.location.service.ui.gnss.GnssCaptureStatus
+import com.system.location.service.ui.viewmodel.GnssCaptureViewModel
 import com.system.location.service.ui.viewmodel.SettingsViewModel
 import com.system.location.service.ui.viewmodel.RestoreConfigState
 import com.system.location.service.core.runtime.RuntimePhase
@@ -84,6 +86,7 @@ import kotlinx.serialization.json.Json
 /** Settings presentation; preference writes continue through the existing configuration API. */
 class SettingsComposeFragment : Fragment() {
     private val model by viewModels<SettingsViewModel>()
+    private val captureModel by viewModels<GnssCaptureViewModel>()
     private val revision = MutableStateFlow(0)
     private var updateRequest = 0L
     private var numberDialog: androidx.appcompat.app.AlertDialog? = null
@@ -98,6 +101,7 @@ class SettingsComposeFragment : Fragment() {
             val restoreState by model.restore.collectAsStateWithLifecycle()
             PortalTheme {
                 SettingsScreen(
+                    captureModel = captureModel,
                     revision = revisionState.value,
                     restoreState = restoreState,
                     onMapProvider = ::showMapProvider,
@@ -395,6 +399,7 @@ private data class SettingsValues(
 
 @Composable
 private fun SettingsScreen(
+    captureModel: GnssCaptureViewModel,
     revision: Int,
     restoreState: RestoreConfigState,
     onMapProvider: () -> Unit,
@@ -571,6 +576,7 @@ private fun SettingsScreen(
                             onClick = onEditSatelliteCount,
                             enabled = hooksEnabled,
                         )
+                        GnssCaptureStatus(captureModel, values.minSatelliteCount)
                         PortalSwitchRow(
                             title = "禁用 Wi-Fi 扫描",
                             subtitle = "尝试减少位置拉回（实验）。",

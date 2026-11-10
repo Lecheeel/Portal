@@ -59,7 +59,10 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
             receiverSecond,
             if (hasBroadcast) currentBootCount else null)
         if (cache.containsKey(key)) return cache[key]
-        val frame = model?.frame(utcEpochMillis, observer, altitudeMeters, minimumSatellites,
+        // Physical time uses the first sample's exact elapsed epoch, so its UTC label must
+        // retain that same sample's milliseconds. Only the statistical legacy path is rounded.
+        val frameAtMillis = if (receiverSecond != null) atMillis else utcEpochMillis
+        val frame = model?.frame(frameAtMillis, observer, altitudeMeters, minimumSatellites,
             elapsedRealtimeNanos, currentBootCount)
         val published = frame?.let { PublishedGnssFrame(sequence.incrementAndGet(), it, speedMps, bearing) }
         cache[key] = published

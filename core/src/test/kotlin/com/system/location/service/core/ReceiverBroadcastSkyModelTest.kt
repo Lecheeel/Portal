@@ -127,4 +127,19 @@ class ReceiverBroadcastSkyModelTest {
         assertNotEquals(first.sequence, fixed.sequence)
         assertSame(first, source.frame(sample, 0, GnssFrameRoute.Global, 62000, 42))
     }
+
+    @Test fun physicalFrameRetainsTheExactFirstSampleUtcLabelForItsElapsedEpoch() {
+        val source = CapturedGnssSource.prepare(GnssCaptureWire.encode(capture()))!!
+        val sample = LocationSample(point, 0.0, 5f, 0f, 0f, 62125, elapsed + 125_000_000L)
+        val publication = source.frame(sample, 0, GnssFrameRoute.Global, 62125, 42)!!
+        assertEquals(62125L, publication.frame.generatedAtMillis)
+        val expected = GpsReceptionGeometry.observe(decoded().ephemeris,
+            decoded().ephemeris.toe.plusSeconds(0.125), point, 0.0).observation!!.lineOfSight
+        val gps = publication.frame.satellites.single { it.constellation == Constellation.GPS && it.svid == 1 }
+        assertEquals(expected.elevationDegrees, gps.elevationDeg.toDouble(), 1e-5)
+        val same = source.frame(sample.copy(timeMillis = 62800, elapsedNanos = elapsed + 800_000_000L),
+            0, GnssFrameRoute.Global, 62800, 42)!!
+        assertSame(publication, same)
+        assertEquals(62125L, same.frame.generatedAtMillis)
+    }
 }

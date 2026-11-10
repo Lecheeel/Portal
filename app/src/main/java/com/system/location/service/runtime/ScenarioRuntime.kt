@@ -210,7 +210,7 @@ object ScenarioRuntime {
                 }
             }
             started.also {
-                startupBurst = if (it && context.startupBurstEnabled && state.value.backend == BackendType.MOCK_PROVIDER)
+                startupBurst = if (it && context.startupBurstEnabled)
                     StartupBurst(state.value.scenarioId, state.value.startedAt) else null
                 service?.reschedule()
             }

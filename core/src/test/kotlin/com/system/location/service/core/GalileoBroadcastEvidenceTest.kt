@@ -8,6 +8,10 @@ import com.system.location.service.core.geo.Wgs84
 import org.junit.Test
 
 class GalileoBroadcastEvidenceTest {
+    private fun datum() = GnssReceiverDatumTransform("synthetic WGS84/GTRF fixture", 7, 0L, 10_000_000_000L,
+        listOf(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0), listOf(0.0, 0.0, 0.0),
+        1.0, 6378137.0, 298.257223563)
+
     @Test fun productionSkyRequiresUsableStatusAndCalibrationForTheSameGalileoSignal() {
         val time = GalileoTime(100, 10_000.0)
         val observer = Wgs84(0.0, 0.0)
@@ -20,15 +24,16 @@ class GalileoBroadcastEvidenceTest {
         val clock = GpsElapsedClockEvidence(7, 1124, 10_000.0, 0L, 1e-6, 1e-6)
         val offset = GalileoGpsTimeOffset(100, 2, 0, 0, time.plusSeconds(-600.0), time.plusSeconds(600.0))
         fun output(inav: DecodedGalileoInav? = decoded, fn: DecodedGalileoFnav? = null,
-            carrier: Float? = 1_575_420_000f): ReceiverGnssFrame {
+            carrier: Float? = 1_575_420_000f, transform: GnssReceiverDatumTransform? = datum(),
+            elapsed: Long = 0L): ReceiverGnssFrame {
             val capture = GnssCapture(deviceModel = "synthetic health fixture", osVersion = "test", startedAtMillis = 0,
                 endedAtMillis = 60_000, bootCount = 7,
                 frames = (0..60).map { second -> GnssObservationFrame(second * 1000L, observer,
                     satellites = listOf(GnssSatellite(Constellation.GALILEO, 1, second * 1.5f, 0f, 35f,
                         true, true, true, carrier))) },
                 galileoBroadcastEvidence = GalileoBroadcastEvidence(clock, offset, GalileoReceiverFrame.GTRF,
-                    listOfNotNull(inav), listOfNotNull(fn)))
-            return ReceiverBroadcastSkyModel(capture).frame(60_000, observer, 0.0, 128, 0L, 7)!!
+                    listOfNotNull(inav), listOfNotNull(fn), transform))
+            return ReceiverBroadcastSkyModel(capture).frame(60_000, observer, 0.0, 128, elapsed, 7)!!
         }
         val healthy = output()
         assertEquals(healthy.diagnostics.joinToString(), 1, healthy.satellites.size)
@@ -44,6 +49,16 @@ class GalileoBroadcastEvidenceTest {
         assertEquals(1, output(null, fnav, 1_176_450_000f).satellites.size)
         assertTrue(output(null, fnav.copy(e5aStatus = GalileoSignalStatus(0, 1)), 1_176_450_000f).satellites.isEmpty())
         assertTrue(output(null, fnav, 1_575_420_000f).satellites.isEmpty())
+        assertTrue(output(transform = null).satellites.isEmpty())
+        assertTrue(output(elapsed = 10_000_000_000L).satellites.isEmpty())
+        val transformed = datum().copy(translationMeters = listOf(100_000.0, -200_000.0, 300_000.0))
+        val receiver = transformed.receiver(observer, 0.0, 0L, 7)!!
+        val expected = GalileoReceptionGeometry.observe(eph, time,
+            GtrfReceiver(receiver.position, receiver.orientation)).observation!!.lineOfSight
+        val actual = output(transform = transformed).satellites.single()
+        assertEquals(expected.elevationDegrees, actual.elevationDeg.toDouble(), 1e-5)
+        assertEquals(expected.azimuthDegrees!!, actual.azimuthDeg.toDouble(), 1e-5)
+        assertTrue(actual.elevationDeg != healthy.satellites.single().elevationDeg)
     }
 
     @Test fun missingIndependentGgtoDoesNotCreateEvidence() {
@@ -71,7 +86,7 @@ class GalileoBroadcastEvidenceTest {
             frames = (0..60).map { index -> GnssObservationFrame(index * 1000L,
                 satellites = listOf(GnssSatellite(Constellation.GALILEO, 1, 30f, 90f, 35f, true, true, true))) },
             galileoBroadcastEvidence = GalileoBroadcastEvidence(clock, offset, GalileoReceiverFrame.GTRF,
-                inav = listOf(decoded), fnav = listOf(fnav)))
+                inav = listOf(decoded), fnav = listOf(fnav), receiverTransform = datum()))
         val result = GnssCaptureWire.decode(GnssCaptureWire.encode(capture))
         assertEquals(capture.galileoBroadcastEvidence, result.galileoBroadcastEvidence)
         assertEquals(7, ReceiverBroadcastSkyModel(result).broadcastBootCount)

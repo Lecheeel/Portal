@@ -18,8 +18,11 @@ data class GalileoBroadcastEvidence(
     val receiverFrame: GalileoReceiverFrame,
     val inav: List<DecodedGalileoInav> = emptyList(),
     val fnav: List<DecodedGalileoFnav> = emptyList(),
+    /** Frame names alone cannot convert a WGS 84 route into GTRF. */
+    val receiverTransform: GnssReceiverDatumTransform? = null,
 ) {
     init {
+        require(receiverTransform == null || receiverTransform.bootCount == clock.bootCount)
         require(inav.isNotEmpty() || fnav.isNotEmpty()) { "Galileo evidence is empty" }
         require(inav.map { it.ephemeris.svid }.distinct().size == inav.size) { "duplicate Galileo I/NAV identity" }
         require(fnav.map { it.ephemeris.svid }.distinct().size == fnav.size) { "duplicate Galileo F/NAV identity" }
@@ -37,7 +40,8 @@ data class GalileoBroadcastEvidence(
          * returns null instead of treating GPS and GST as the same clock.
          */
         fun fromCapture(capture: GnssCapture, gpsToGst: GalileoGpsTimeOffset?,
-            receiverFrame: GalileoReceiverFrame? = null): GalileoBroadcastEvidence? {
+            receiverFrame: GalileoReceiverFrame? = null,
+            receiverTransform: GnssReceiverDatumTransform? = null): GalileoBroadcastEvidence? {
             val offset = gpsToGst ?: return null
             val frame = receiverFrame ?: return null
             val clock = GpsElapsedClockEvidence.fromCapture(capture) ?: return null
@@ -49,7 +53,8 @@ data class GalileoBroadcastEvidence(
             val decoded = GalileoCaptureEphemerisDecoder.decode(capture, offset)
             val inav = decoded.inav.filter { it.ephemeris.svid in visible }
             val fnav = decoded.fnav.filter { it.ephemeris.svid in visible }
-            return if (inav.isEmpty() && fnav.isEmpty()) null else GalileoBroadcastEvidence(clock, offset, frame, inav, fnav)
+            return if (inav.isEmpty() && fnav.isEmpty()) null
+                else GalileoBroadcastEvidence(clock, offset, frame, inav, fnav, receiverTransform)
         }
     }
 }

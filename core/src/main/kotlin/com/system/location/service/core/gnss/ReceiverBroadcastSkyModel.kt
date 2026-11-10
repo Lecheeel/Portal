@@ -87,12 +87,15 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 calibration.usedFraction >= 0.5 && calibration.cn0DbHz > 0.0,
                 hasEphemeris = true, hasAlmanac = calibration.hasAlmanac, carrierHz = calibration.carrierHz)
         }.sortedBy { it.svid } else emptyList()
-        val receiver = GtrfReceiver(GnssObserverGeometry.ecef(observer, altitudeMeters),
-            GeodeticOrientation(observer.latitude, observer.longitude))
+        val galileoReceiver = galileoEvidence?.receiverTransform
+            ?.receiver(observer, altitudeMeters, elapsedRealtimeNanos, currentBootCount)
+            ?.let { GtrfReceiver(it.position, it.orientation) }
+        if (galileoEvidence != null && galileoReceiver == null)
+            diagnostics += "Galileo 广播几何未启用：缺少适用的 WGS 84 → GTRF 接收机变换，未回退同身份统计几何"
         val physicalGalileo = if (galileoEvidence != null && galileoTime != null &&
-            galileoEvidence.receiverFrame == GalileoReceiverFrame.GTRF) {
+            galileoEvidence.receiverFrame == GalileoReceiverFrame.GTRF && galileoReceiver != null) {
             val inav = galileoEvidence.inav.mapNotNull { decoded ->
-                val result = GalileoReceptionGeometry.observe(decoded.ephemeris, galileoTime, receiver)
+                val result = GalileoReceptionGeometry.observe(decoded.ephemeris, galileoTime, galileoReceiver)
                 val los = result.observation?.lineOfSight
                 if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
                     diagnostics += "Galileo ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
@@ -111,7 +114,7 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     true, calibration.almanac, calibration.carrier)
             }
             val fnav = galileoEvidence.fnav.mapNotNull { decoded ->
-                val result = GalileoReceptionGeometry.observe(decoded.ephemeris, galileoTime, receiver)
+                val result = GalileoReceptionGeometry.observe(decoded.ephemeris, galileoTime, galileoReceiver)
                 val los = result.observation?.lineOfSight
                 if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
                     diagnostics += "Galileo ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"

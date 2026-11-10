@@ -153,9 +153,21 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
     val inView = satellites.size
     val inUse = satellites.count { it.usedInFix }
     val averageCn0 = satellites.filter { it.usedInFix }.map { it.snr }.average().takeIf { it.isFinite() }
-    val gps = satellites.count { it.constellationType == GnssStatus.CONSTELLATION_GPS }
-    val glonass = satellites.count { it.constellationType == GnssStatus.CONSTELLATION_GLONASS }
-    val beidou = satellites.count { it.constellationType == GnssStatus.CONSTELLATION_BEIDOU }
+    val systems = satellites.groupingBy { it.constellationType }.eachCount()
+        .toSortedMap().map { (type, count) ->
+            val name = when (type) {
+                GnssStatus.CONSTELLATION_GPS -> "GPS"
+                GnssStatus.CONSTELLATION_GLONASS -> "GLONASS"
+                GnssStatus.CONSTELLATION_BEIDOU -> "北斗"
+                GnssStatus.CONSTELLATION_GALILEO -> "Galileo"
+                GnssStatus.CONSTELLATION_QZSS -> "QZSS"
+                GnssStatus.CONSTELLATION_SBAS -> "SBAS"
+                GnssStatus.CONSTELLATION_IRNSS -> "NavIC"
+                else -> "未知系统 ($type)"
+            }
+            "$name：$count"
+        }.joinToString("   ").ifEmpty { "暂无观测" }
+
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
@@ -196,7 +208,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                     Spacer(Modifier.height(PortalSpacing.md))
                     Text("导航系统", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(PortalSpacing.xs))
-                    Text("GPS: $gps   GLONASS: $glonass   北斗: $beidou", style = MaterialTheme.typography.bodyMedium)
+                    Text(systems, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             item(key = "capture") { GnssCaptureCard(captureModel, runtime.isActive) }

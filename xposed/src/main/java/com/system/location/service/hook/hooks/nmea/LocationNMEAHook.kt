@@ -1,7 +1,6 @@
 package com.system.location.service.hook.hooks.nmea
 
 import com.system.location.service.hook.BaseLocationHook
-import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.onceHookAllMethod
 import io.github.libxposed.api.XposedInterface
@@ -75,7 +74,8 @@ internal fun installNmeaCallback(callback: IInterface) {
 }
 
 internal fun ownsNmeaDelivery(listener: Any?): Boolean {
-    if (!FakeLoc.enable || !FakeLoc.enableMockGnss || !FakeLoc.enableNMEA) return false
-    val route = NmeaListenerRouting.routeFor(listener) ?: return false
-    return GnssReceiverRuntime.frameForRoute(route) != null
+    val context = GnssReceiverRuntime.activeContext() ?: return false
+    if (!context.state.configuration.nmeaEnabled) return false
+    val route = NmeaListenerRouting.routeFor(listener, context.state.routing) ?: return false
+    return GnssReceiverRuntime.frameForRoute(route, context) != null
 }

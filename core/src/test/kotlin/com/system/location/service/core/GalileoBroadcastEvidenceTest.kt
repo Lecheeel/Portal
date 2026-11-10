@@ -3,9 +3,49 @@ package com.system.location.service.core
 import com.system.location.service.core.gnss.*
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import com.system.location.service.core.geo.Wgs84
 import org.junit.Test
 
 class GalileoBroadcastEvidenceTest {
+    @Test fun productionSkyRequiresUsableStatusAndCalibrationForTheSameGalileoSignal() {
+        val time = GalileoTime(100, 10_000.0)
+        val observer = Wgs84(0.0, 0.0)
+        val eph = GalileoBroadcastEphemeris(1, time, time, time.plusSeconds(-600.0), time.plusSeconds(600.0), 1,
+            GalileoClockReference.INAV_E1_E5B, 5_440.0, 0.01, 0.0, 0.0, 0.0, 0.1,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        val good = GalileoSignalStatus(0, 0)
+        val decoded = DecodedGalileoInav(eph, time, good, good, 10, 0.0, 0.0)
+        val fnav = DecodedGalileoFnav(eph.copy(clockReference = GalileoClockReference.FNAV_E1_E5A), time, good, 10, 0.0)
+        val clock = GpsElapsedClockEvidence(7, 1124, 10_000.0, 0L, 1e-6, 1e-6)
+        val offset = GalileoGpsTimeOffset(100, 2, 0, 0, time.plusSeconds(-600.0), time.plusSeconds(600.0))
+        fun output(inav: DecodedGalileoInav? = decoded, fn: DecodedGalileoFnav? = null,
+            carrier: Float? = 1_575_420_000f): ReceiverGnssFrame {
+            val capture = GnssCapture(deviceModel = "synthetic health fixture", osVersion = "test", startedAtMillis = 0,
+                endedAtMillis = 60_000, bootCount = 7,
+                frames = (0..60).map { second -> GnssObservationFrame(second * 1000L, observer,
+                    satellites = listOf(GnssSatellite(Constellation.GALILEO, 1, second * 1.5f, 0f, 35f,
+                        true, true, true, carrier))) },
+                galileoBroadcastEvidence = GalileoBroadcastEvidence(clock, offset, GalileoReceiverFrame.GTRF,
+                    listOfNotNull(inav), listOfNotNull(fn)))
+            return ReceiverBroadcastSkyModel(capture).frame(60_000, observer, 0.0, 128, 0L, 7)!!
+        }
+        val healthy = output()
+        assertEquals(healthy.diagnostics.joinToString(), 1, healthy.satellites.size)
+        for (health in 0..3) for (dvs in 0..1) {
+            val status = GalileoSignalStatus(health, dvs)
+            assertEquals(status.usable, output(decoded.copy(e1Status = status)).satellites.isNotEmpty())
+        }
+        assertTrue(output(decoded.copy(sisaIndex = 255)).satellites.isEmpty())
+        assertTrue(output(carrier = null).satellites.isEmpty())
+        assertTrue(output(carrier = 1_176_450_000f).satellites.isEmpty())
+        assertEquals(1, output(carrier = 1_207_140_000f).satellites.size)
+        assertTrue(output(decoded.copy(e5bStatus = GalileoSignalStatus(1, 0)), carrier = 1_207_140_000f).satellites.isEmpty())
+        assertEquals(1, output(null, fnav, 1_176_450_000f).satellites.size)
+        assertTrue(output(null, fnav.copy(e5aStatus = GalileoSignalStatus(0, 1)), 1_176_450_000f).satellites.isEmpty())
+        assertTrue(output(null, fnav, 1_575_420_000f).satellites.isEmpty())
+    }
+
     @Test fun missingIndependentGgtoDoesNotCreateEvidence() {
         val capture = GnssCapture(
             deviceModel = "receiver", osVersion = "os", startedAtMillis = 0, endedAtMillis = 60_000,

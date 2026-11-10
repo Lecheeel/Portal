@@ -98,8 +98,14 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     diagnostics += "Galileo ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
                     return@mapNotNull null
                 }
-                val calibration = empirical(Constellation.GALILEO, los.elevationDegrees)
-                    ?: run { diagnostics += "Galileo ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
+                val calibration = listOf(GalileoOpenServiceSignal.E1 to 1_575_420_000.0,
+                    GalileoOpenServiceSignal.E5B to 1_207_140_000.0).firstNotNullOfOrNull { (band, frequency) ->
+                    if (GalileoSignalClock.correction(decoded, result.observation.transmissionTime, band).correctionSeconds == null)
+                        null else empirical(Constellation.GALILEO, los.elevationDegrees, frequency)
+                } ?: run {
+                    diagnostics += "Galileo ${decoded.ephemeris.svid}：没有健康、数据有效且具备同频实测校准的 I/NAV 信号"
+                    return@mapNotNull null
+                }
                 GnssSatellite(Constellation.GALILEO, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
                     los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
                     true, calibration.almanac, calibration.carrier)
@@ -111,8 +117,14 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                     diagnostics += "Galileo ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
                     return@mapNotNull null
                 }
-                val calibration = empirical(Constellation.GALILEO, los.elevationDegrees)
-                    ?: run { diagnostics += "Galileo ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
+                val correction = GalileoSignalClock.correction(decoded, result.observation.transmissionTime,
+                    GalileoOpenServiceSignal.E5A)
+                if (correction.correctionSeconds == null) {
+                    diagnostics += "Galileo ${decoded.ephemeris.svid}：${correction.reason}"
+                    return@mapNotNull null
+                }
+                val calibration = empirical(Constellation.GALILEO, los.elevationDegrees, 1_176_450_000.0)
+                    ?: run { diagnostics += "Galileo ${decoded.ephemeris.svid}：缺少 E5a 同频实测校准"; return@mapNotNull null }
                 GnssSatellite(Constellation.GALILEO, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
                     los.azimuthDegrees.toGnssAzimuthFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
                     true, calibration.almanac, calibration.carrier)
@@ -234,9 +246,15 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
 
     private data class Empirical(val cn0: Double, val used: Double, val carrier: Float?, val almanac: Boolean)
 
-    private fun empirical(constellation: Constellation, elevation: Double): Empirical? {
-        val samples = capture.frames.flatMap { it.satellites }.filter {
-            it.constellation == constellation && it.elevationDeg >= 0f && it.cn0DbHz > 0f
+    private fun empirical(constellation: Constellation, elevation: Double, signalCarrierHz: Double? = null): Empirical? {
+        val samples = capture.frames.flatMap { frame ->
+            if (signalCarrierHz != null && frame.signalObservations.isNotEmpty())
+                frame.signalObservations.map { it.satellite } else frame.satellites
+        }.filter {
+            it.constellation == constellation && GnssCaptureValidator.isUsableSatellite(it) &&
+                (signalCarrierHz == null || it.carrierHz?.let { carrier ->
+                    kotlin.math.abs(carrier.toDouble() - signalCarrierHz) <= 100_000.0
+                } == true)
         }
         if (samples.isEmpty()) return null
         val nearest = samples.sortedBy { kotlin.math.abs(it.elevationDeg - elevation.toFloat()) }.take(8)

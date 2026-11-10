@@ -7,6 +7,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RuntimeLifecycleTest {
+    @Test fun targetAndHeadingAreValidatedAndReplacedTogetherWithMotion() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot())
+            FakeLoc.updateCoordinates(31.0, 121.0, 4f, 1000, 270.0)
+            val before = FakeLoc.captureTransfer(1001)
+            for (bearing in listOf(Double.NaN, Double.POSITIVE_INFINITY)) {
+                assertThrows(IllegalArgumentException::class.java) { FakeLoc.updateCoordinates(40.0, 116.0, 8f, 2000, bearing) }
+                assertEquals(before, FakeLoc.captureTransfer(1001))
+            }
+            val context = FakeLoc.snapshotState(true, 1001, 1001)
+            assertEquals(31.0, context.sample!!.latitude, 0.0)
+            assertEquals(270f, context.sample!!.bearing)
+            assertEquals(4f, context.sample!!.speed)
+            assertTrue(context.hasBearings)
+        } finally {
+            FakeLoc.updateCoordinates(0.0, 0.0, nowNanos = 0)
+            FakeLoc.runtimeSnapshots.set(saved)
+        }
+    }
+
     @Test fun sampleActivationAndScenarioUseOnePublicationAndOriginalDeadline() {
         val saved = FakeLoc.runtimeSnapshots.current()
         try {

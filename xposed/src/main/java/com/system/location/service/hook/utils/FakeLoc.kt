@@ -287,11 +287,12 @@ object FakeLoc {
     }
 
     @Synchronized
-    fun updateCoordinates(lat: Double, lon: Double, movingSpeed: Float = 0f, nowNanos: Long = SystemClock.elapsedRealtimeNanos()) {
-        require(lat in -90.0..90.0 && lon in -180.0..180.0)
-        require(movingSpeed.isFinite() && movingSpeed >= 0f && nowNanos >= 0L)
-        runtimeSnapshots.update { it.copy(latitude = lat, longitude = lon, sample = null, provider = null) }
-        movementSpeed = movingSpeed.coerceAtLeast(0f)
+    fun updateCoordinates(lat: Double, lon: Double, movingSpeed: Float = 0f,
+        nowNanos: Long = SystemClock.elapsedRealtimeNanos(), bearingDeg: Double? = null) {
+        val update = com.system.location.service.core.runtime.RuntimePositionUpdate(Wgs84(lat, lon), movingSpeed, bearingDeg)
+        require(nowNanos >= 0L)
+        runtimeSnapshots.update(update::applyTo)
+        movementSpeed = movingSpeed
         lastMovementNanos = nowNanos
         externallyDriven = false
     }

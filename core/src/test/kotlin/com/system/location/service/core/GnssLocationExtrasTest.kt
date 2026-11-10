@@ -28,4 +28,16 @@ class GnssLocationExtrasTest {
         assertNull(extras.meanCn0DbHz)
         assertNull(extras.maxCn0DbHz)
     }
+
+    @Test fun zeroCn0UsedRowsAreNotPublishedAsMeasuredFixSignals() {
+        val zero = GnssSatellite(Constellation.GALILEO, 1, 40f, 20f, 0f, true, true, true)
+        val frame = publication.frame.copy(
+            satellites = publication.frame.satellites + zero,
+            availableSatelliteCapacity = publication.frame.availableSatelliteCapacity + 1,
+        )
+        val extras = GnssLocationExtras.from(publication.copy(frame = frame))
+        assertEquals(5, extras.satellites)
+        assertEquals(30f, extras.meanCn0DbHz!!, 0f)
+        assertEquals(40f, extras.maxCn0DbHz!!, 0f)
+    }
 }

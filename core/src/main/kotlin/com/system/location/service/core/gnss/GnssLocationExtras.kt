@@ -5,7 +5,9 @@ data class GnssLocationExtras(val satellites: Int, val meanCn0DbHz: Float?, val 
     companion object {
         fun from(publication: PublishedGnssFrame): GnssLocationExtras {
             val used = if (publication.frame.geometry.dop == null) emptyList()
-                else publication.frame.satellites.filter { it.usedInFix }
+                else publication.frame.satellites.filter {
+                    it.usedInFix && GnssCaptureValidator.isUsableSatellite(it)
+                }
             return GnssLocationExtras(used.size,
                 used.takeIf { it.isNotEmpty() }?.map { it.cn0DbHz }?.average()?.toFloat(),
                 used.maxOfOrNull { it.cn0DbHz })

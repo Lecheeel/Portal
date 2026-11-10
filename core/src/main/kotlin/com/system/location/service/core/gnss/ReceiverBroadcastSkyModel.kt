@@ -14,15 +14,17 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
     private val evidence = if (capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
         GpsBroadcastEvidence.fromCapture(capture) else capture.gpsBroadcastEvidence
     private val galileoEvidence = capture.galileoBroadcastEvidence
+    private val beiDouEvidence = capture.beiDouBroadcastEvidence
     internal val broadcastBootCount: Int?
         get() = evidence?.clock?.bootCount ?: galileoEvidence?.clock?.bootCount
+            ?: beiDouEvidence?.clock?.bootCount
     private val ratios = capture.profile().constellations.associate { it.constellation to it.ratio }
 
     fun frame(atMillis: Long, observer: Wgs84, altitudeMeters: Double, minimumSatellites: Int = 0,
         elapsedRealtimeNanos: Long? = null, currentBootCount: Int? = null): ReceiverGnssFrame? {
         require(atMillis >= 0 && altitudeMeters.isFinite())
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
-        if (evidence == null && galileoEvidence == null)
+        if (evidence == null && galileoEvidence == null && beiDouEvidence == null)
             return replay.frame(atMillis, observer, altitudeMeters, minimumSatellites)
         val time = evidence?.let { e -> elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) } }
         val galileoTime = galileoEvidence?.let { e ->
@@ -30,17 +32,22 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
                 e.clock.at(elapsed, currentBootCount)?.let { gps -> e.gpsToGst.gpsToGalileo(gps).time }
             }
         }
+        val beiDouTime = beiDouEvidence?.let { e -> elapsedRealtimeNanos?.let { e.clock.at(it, currentBootCount) } }
         val base = replay.selection(atMillis, 0) ?: return null
         val diagnostics = mutableListOf<String>()
         if (evidence != null) diagnostics += "GPS 方位/仰角来自广播轨道和真空光程；CN0、在用候选来自本次采集的经验校准，非实时接收状态"
         if (galileoEvidence != null) diagnostics += "Galileo 方位/仰角来自经 GGTO 对齐的广播轨道；坐标系和时标证据均需独立建立"
+        if (beiDouEvidence != null) diagnostics += "北斗方位/仰角来自 BDT 广播轨道；BDCS 坐标和服务有效期均来自显式证据"
         if (evidence != null && time == null) diagnostics += "GPS 广播几何未启用：缺少同次开机的有效单调时间，当前明确使用统计回放"
         if (galileoEvidence != null && galileoTime == null) diagnostics += "Galileo 广播几何未启用：缺少同次开机的有效 GPS/GST 时标，当前明确使用统计回放"
+        if (beiDouEvidence != null && beiDouTime == null) diagnostics += "北斗广播几何未启用：缺少同次开机的有效 BDT 时标，当前明确使用统计回放"
         val broadcastIds = evidence?.ephemerides?.map { it.ephemeris.svid }?.toSet().orEmpty()
         val galileoIds = galileoEvidence?.identities.orEmpty()
+        val beiDouIds = beiDouEvidence?.identities.orEmpty()
         fun statistical(s: GnssSatellite) = when (s.constellation) {
             Constellation.GPS -> s.svid !in broadcastIds
             Constellation.GALILEO -> s.svid !in galileoIds
+            Constellation.BEIDOU -> s.svid !in beiDouIds
             else -> true
         }
         val physicalGps = if (evidence != null && time != null) evidence.ephemerides.mapNotNull { decoded ->
@@ -106,9 +113,43 @@ class ReceiverBroadcastSkyModel(private val capture: GnssCapture, seed: Long = 0
         } else emptyList()
         if (galileoEvidence != null && galileoEvidence.receiverFrame != GalileoReceiverFrame.GTRF)
             diagnostics += "Galileo 广播证据坐标系不受支持，未输出物理几何"
+        val physicalBeiDou = if (beiDouEvidence != null && beiDouTime != null &&
+            beiDouEvidence.receiverFrame == BeiDouReceiverFrame.BDCS) {
+            val receiverBdcs = BdcsReceiver(GnssObserverGeometry.ecef(observer, altitudeMeters),
+                GeodeticOrientation(observer.latitude, observer.longitude))
+            (beiDouEvidence.d1.mapNotNull { decoded ->
+                val result = BeiDouSignalReception.observe(decoded, beiDouTime, receiverBdcs,
+                    BeiDouLegacySignal.B1I, beiDouEvidence.serviceValidity)
+                val los = result.observation?.geometry?.lineOfSight
+                if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
+                    diagnostics += "北斗 ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
+                    return@mapNotNull null
+                }
+                val calibration = empirical(Constellation.BEIDOU, los.elevationDegrees)
+                    ?: run { diagnostics += "北斗 ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
+                GnssSatellite(Constellation.BEIDOU, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
+                    los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    true, calibration.almanac, calibration.carrier)
+            } + beiDouEvidence.d2.mapNotNull { decoded ->
+                val result = BeiDouSignalReception.observe(decoded, beiDouTime, receiverBdcs,
+                    BeiDouLegacySignal.B1I, beiDouEvidence.serviceValidity)
+                val los = result.observation?.geometry?.lineOfSight
+                if (los == null || !los.aboveHorizon || los.azimuthDegrees == null) {
+                    diagnostics += "北斗 ${decoded.ephemeris.svid}：${result.reason ?: "地平线以下或方位未定义"}"
+                    return@mapNotNull null
+                }
+                val calibration = empirical(Constellation.BEIDOU, los.elevationDegrees)
+                    ?: run { diagnostics += "北斗 ${decoded.ephemeris.svid}：仰角超出实测校准范围，未外推 CN0"; return@mapNotNull null }
+                GnssSatellite(Constellation.BEIDOU, decoded.ephemeris.svid, los.elevationDegrees.toFloat(),
+                    los.azimuthDegrees.toFloat(), calibration.cn0.toFloat(), calibration.used >= 0.5 && calibration.cn0 > 0,
+                    true, calibration.almanac, calibration.carrier)
+            }).distinctBy { it.constellation to it.svid }
+        } else emptyList()
+        if (beiDouEvidence != null && beiDouEvidence.receiverFrame != BeiDouReceiverFrame.BDCS)
+            diagnostics += "北斗广播证据坐标系不受支持，未输出物理几何"
         // All genuinely observed, valid broadcast identities may contribute, including those
         // absent from the current statistical window. The remaining pool stays local empirical.
-        val physical = physicalGps + physicalGalileo
+        val physical = physicalGps + physicalGalileo + physicalBeiDou
         val pool = physical + base.evidencePool.filter(::statistical)
         val selected = (physical + base.satellites.filter(::statistical)).toMutableList()
         while (selected.size < minimumSatellites) {

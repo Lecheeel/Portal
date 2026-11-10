@@ -1,7 +1,9 @@
 package com.system.location.service.core.gnss
 
 import kotlin.math.pow
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class BeiDouD2Decoded(
     val ephemeris: BeiDouBroadcastEphemeris,
     val health: Int,

@@ -1,6 +1,9 @@
 package com.system.location.service.core.gnss
 
+import kotlinx.serialization.Serializable
+
 /** Full BeiDou Time since its own week origin; no GPS/GST/UTC conversion is implicit. */
+@Serializable
 data class BeiDouTime(val week: Int, val secondsOfWeek: Double) {
     init { require(week >= 0 && secondsOfWeek.isFinite() && secondsOfWeek >= 0 && secondsOfWeek < 604800) }
     fun secondsSince(other: BeiDouTime) = (week.toLong() - other.week.toLong()) * 604800.0 + secondsOfWeek - other.secondsOfWeek
@@ -11,6 +14,7 @@ data class BeiDouTime(val week: Int, val secondsOfWeek: Double) {
     }
 }
 
+@Serializable
 enum class BeiDouOrbitType { GEO, IGSO, MEO }
 
 /**
@@ -19,6 +23,7 @@ enum class BeiDouOrbitType { GEO, IGSO, MEO }
  * Validity must be independently established; an hourly update period/AODE is not a fit flag.
  * Raw D1/D2 validation, assembly, health and per-signal TGD are separate requirements.
  */
+@Serializable
 data class BeiDouBroadcastEphemeris(
     val svid: Int,
     val orbitType: BeiDouOrbitType,

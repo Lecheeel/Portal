@@ -14,6 +14,7 @@ class CapturedGnssSource private constructor(private val payload: String) {
     private val frames = GnssFrameStore(sequences).apply { configure(capture) }
     val requiresBootIdentity: Boolean = capture.bootCount != null &&
         (capture.gpsBroadcastEvidence != null || capture.galileoBroadcastEvidence != null ||
+            capture.beiDouBroadcastEvidence != null ||
             capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
 
     fun frame(sample: LocationSample, minimumSatellites: Int, route: GnssFrameRoute,

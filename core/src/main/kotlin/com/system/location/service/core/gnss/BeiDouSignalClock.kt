@@ -1,8 +1,11 @@
 package com.system.location.service.core.gnss
 
+import kotlinx.serialization.Serializable
+
 enum class BeiDouLegacySignal { B1I, B2I }
 
 /** Independently established service applicability; an orbit fit interval is not health evidence. */
+@Serializable
 data class BeiDouServiceValidity(val from: BeiDouTime, val until: BeiDouTime) {
     init { require(until.secondsSince(from) > 0) }
     fun contains(time: BeiDouTime) = time.secondsSince(from) >= 0 && until.secondsSince(time) >= 0

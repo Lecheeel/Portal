@@ -1,0 +1,166 @@
+{
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c",
+  "method": "Synthetic raw strings: orbital parameters quantized from glonass-reference.json; clock/date/flags explicitly synthetic. C decode_glostr field oracle; no absolute time validation.",
+  "records": [
+    {
+      "rawUnits": {
+        "slot": 1,
+        "tauN": 123457,
+        "gammaN": -347,
+        "deltaTauN": 13,
+        "tb": 31,
+        "day": 800,
+        "hours": 13,
+        "minutes": 24,
+        "halfMinute": 1,
+        "bn": 2,
+        "ln": 0,
+        "ft": 3,
+        "age": 9,
+        "p1": 0,
+        "p2": 1,
+        "p3": 0,
+        "p4": 1,
+        "p": 0
+      },
+      "androidBase64": [
+        "AQaxFhlDAQgT8wg=",
+        "AlPgmLFTFknFvL0=",
+        "A1WwqvKQidguXe0=",
+        "BAeJBakAAmGQBb8="
+      ],
+      "expected": {
+        "positionMeters": [8450493.65234375, -18744716.796875, 15109795.41015625],
+        "velocityMetersPerSecond": [1381.1674118041992, -1543.2920455932617, -2684.2193603515625],
+        "luniSolarAccelerationMetersPerSecondSquared": [0.0, 1.862645149230957e-06, -9.313225746154785e-07],
+        "tauNSeconds": 0.00011497829109430313,
+        "gammaN": -3.1559466151520605e-10,
+        "deltaTauNSeconds": 1.210719347000122e-08,
+        "bn": 2.0,
+        "ft": 3.0,
+        "age": 9.0,
+        "tb": 31.0
+      }
+    },
+    {
+      "rawUnits": {
+        "slot": 1,
+        "tauN": -123458,
+        "gammaN": 348,
+        "deltaTauN": -13,
+        "tb": 33,
+        "day": 801,
+        "hours": 13,
+        "minutes": 24,
+        "halfMinute": 1,
+        "bn": 3,
+        "ln": 1,
+        "ft": 4,
+        "age": 10,
+        "p1": 1,
+        "p2": 1,
+        "p3": 1,
+        "p4": 1,
+        "p": 1
+      },
+      "androidBase64": [
+        "ARaxC0O8AUKGWVQ=",
+        "AnQgkkjXFpaKirQ=",
+        "A5XDs5hoATDoLkc=",
+        "BIeJC6oAAoGQhcI="
+      ],
+      "expected": {
+        "positionMeters": [10320793.45703125, -21201317.3828125, 9757022.4609375],
+        "velocityMetersPerSecond": [704.0367126464844, -1142.7831649780273, -3224.7085571289062],
+        "luniSolarAccelerationMetersPerSecondSquared": [0.0, 1.862645149230957e-06, 0.0],
+        "tauNSeconds": -0.00011497922241687775,
+        "gammaN": 3.16504156216979e-10,
+        "deltaTauNSeconds": -1.210719347000122e-08,
+        "bn": 3.0,
+        "ft": 4.0,
+        "age": 10.0,
+        "tb": 33.0
+      }
+    },
+    {
+      "rawUnits": {
+        "slot": 2,
+        "tauN": 123459,
+        "gammaN": -349,
+        "deltaTauN": 13,
+        "tb": 35,
+        "day": 802,
+        "hours": 13,
+        "minutes": 24,
+        "halfMinute": 1,
+        "bn": 4,
+        "ln": 0,
+        "ft": 5,
+        "age": 11,
+        "p1": 2,
+        "p2": 1,
+        "p3": 0,
+        "p4": 1,
+        "p": 2
+      },
+      "androidBase64": [
+        "ASaxI0dABOH6K1s=",
+        "ApRgo7pWBQpcJoI=",
+        "A1XUgiA0msx/Aak=",
+        "BAeJDasAAqGRCbg="
+      ],
+      "expected": {
+        "positionMeters": [-7231270.99609375, -8523518.5546875, 22927875.48828125],
+        "velocityMetersPerSecond": [2204.89501953125, -2232.992172241211, -132.86209106445312],
+        "luniSolarAccelerationMetersPerSecondSquared": [0.0, 0.0, -2.7939677238464355e-06],
+        "tauNSeconds": 0.00011498015373945236,
+        "gammaN": -3.174136509187519e-10,
+        "deltaTauNSeconds": 1.210719347000122e-08,
+        "bn": 4.0,
+        "ft": 5.0,
+        "age": 11.0,
+        "tb": 35.0
+      }
+    },
+    {
+      "rawUnits": {
+        "slot": 2,
+        "tauN": -123460,
+        "gammaN": 350,
+        "deltaTauN": -13,
+        "tb": 37,
+        "day": 803,
+        "hours": 13,
+        "minutes": 24,
+        "halfMinute": 1,
+        "bn": 5,
+        "ln": 1,
+        "ft": 6,
+        "age": 12,
+        "p1": 3,
+        "p2": 1,
+        "p3": 1,
+        "p4": 1,
+        "p": 3
+      },
+      "androidBase64": [
+        "ATaxHFehBHFdqCA=",
+        "ArSgpm4EBY3qNnc=",
+        "A5XnkbG/kqltTvk=",
+        "BIeJE6wAAsGRiVI="
+      ],
+      "expected": {
+        "positionMeters": [-3627707.03125, -12733276.3671875, 21805663.0859375],
+        "velocityMetersPerSecond": [1771.3937759399414, -2401.8592834472656, -1105.8950424194336],
+        "luniSolarAccelerationMetersPerSecondSquared": [0.0, 0.0, -1.862645149230957e-06],
+        "tauNSeconds": -0.00011498108506202698,
+        "gammaN": 3.1832314562052483e-10,
+        "deltaTauNSeconds": -1.210719347000122e-08,
+        "bn": 5.0,
+        "ft": 6.0,
+        "age": 12.0,
+        "tb": 37.0
+      }
+    }
+  ]
+}

@@ -13,8 +13,11 @@ data class GnssObservationFrame(
     val satellites: List<GnssSatellite>,
     val measurementsAvailable: Boolean = false,
     val navigationMessagesAvailable: Boolean = false,
+    /** Original per-signal status records. Empty means legacy evidence was not captured. */
+    val signalObservations: List<GnssSignalObservation> = emptyList(),
 ) {
     init {
+        require(signalObservations.size <= 512) { "too many signal observations" }
         require(capturedAtMillis >= 0L) { "capturedAtMillis must be non-negative" }
         require(altitudeMeters == null || altitudeMeters.isFinite()) { "invalid altitude" }
         require(satellites.map { it.constellation to it.svid }.distinct().size == satellites.size) {

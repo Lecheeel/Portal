@@ -11,7 +11,8 @@ object GnssCaptureWire {
     const val MAX_ENCODED_LENGTH = 262_144
 
     fun encode(capture: GnssCapture): String {
-        val statusOnly = capture.copy(measurements = emptyList(), navigation = emptyList())
+        val statusOnly = capture.copy(measurements = emptyList(), navigation = emptyList(),
+            frames = capture.frames.map { it.copy(signalObservations = emptyList()) })
         val data = GnssCaptureCodec.encode(statusOnly).toByteArray(Charsets.UTF_8)
         require(data.size <= GnssCaptureCodec.MAX_BYTES) { "GNSS status capture too large" }
         val compressed = ByteArrayOutputStream()

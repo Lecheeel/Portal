@@ -193,6 +193,17 @@ class GnssIndependentReceiverDeviceTest {
             val distinctGps = lines.firstNotNullOfOrNull { Regex("GPS 不同坐标=(\\d+)").find(it) }
                 ?.groupValues?.get(1)?.toInt() ?: error("Detector did not report GPS movement coverage")
             assertTrue("Independent GPS receiver did not observe movement/noise", distinctGps >= 100)
+            val nmeaEvidence = checkNotNull(relevant["C07"]).getJSONArray("evidence")
+            val nmeaLines = (0 until nmeaEvidence.length()).map { nmeaEvidence.getString(it) }
+            val pairedGsv = nmeaLines.firstNotNullOfOrNull {
+                Regex("GSV↔GnssStatus：(\\d+) 组完成同时间窗身份对账；身份差异=(\\d+) 组，最大数量差=(\\d+)").find(it)
+            } ?: error("Detector did not report per-epoch GSV identity comparison coverage")
+            val bursts = nmeaLines.firstNotNullOfOrNull { Regex("GSV：(\\d+) 组 burst").find(it) }
+                ?.groupValues?.get(1)?.toInt() ?: error("Detector did not report GSV burst count")
+            assertTrue("Insufficient independent NMEA/GNSS comparisons", bursts >= 15)
+            assertEquals("Every GSV epoch must be compared", bursts, pairedGsv.groupValues[1].toInt())
+            assertEquals("GSV identities differ from status", 0, pairedGsv.groupValues[2].toInt())
+            assertEquals("GSV count differs from status", 0, pairedGsv.groupValues[3].toInt())
             assertNotEquals("Invalid GNSS fields observed", "FAIL", checkNotNull(relevant["C06"]).getString("status"))
             assertEquals("Completed receiver run leaked a framework status registration", 0, statusRegistrations())
         } finally {

@@ -5,6 +5,13 @@ import kotlin.math.abs
 
 enum class ReceiverGnssSource { STATISTICAL_REPLAY, BROADCAST_EPHEMERIS }
 
+/** Candidate usage is retained until the final combined sky has been solved. */
+internal data class ReceiverGnssSelection(
+    val satellites: List<GnssSatellite>,
+    val diagnostics: List<String>,
+    val capacity: Int,
+)
+
 data class ReceiverGnssFrame(
     val generatedAtMillis: Long,
     val observer: Wgs84,
@@ -41,6 +48,17 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
     }.map { "${it.constellation}:${it.svid}" }.distinct()
     fun frame(atMillis: Long, observer: Wgs84, altitudeMeters: Double, minimumSatellites: Int = 0): ReceiverGnssFrame? {
         require(atMillis >= 0 && altitudeMeters.isFinite())
+        val selected = selection(atMillis, minimumSatellites) ?: return null
+        val geometry = GnssGeometry.solve(selected.satellites)
+        val diagnostics = selected.diagnostics.toMutableList()
+        geometry.reason?.let { diagnostics += "无有效三维定位解：$it" }
+        val output = if (geometry.dop == null) selected.satellites.map { it.copy(usedInFix = false) } else selected.satellites
+        return ReceiverGnssFrame(atMillis, observer, altitudeMeters, output, geometry,
+            ReceiverGnssSource.STATISTICAL_REPLAY, diagnostics, selected.capacity, minimumSatellites)
+    }
+
+    internal fun selection(atMillis: Long, minimumSatellites: Int): ReceiverGnssSelection? {
+        require(atMillis >= 0)
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         if (!GnssCaptureValidator.validate(capture, atMillis).eligible) return null
         val first = frames.first().capturedAtMillis
@@ -84,11 +102,7 @@ class ReceiverGnssSkyModel(private val capture: GnssCapture, private val seed: L
             if (selected.size < minimumSatellites) diagnostics += "卫星下限 $minimumSatellites 无法满足，当前实测池仅 ${selected.size} 颗"
         }
         val ordered = selected.sortedWith(compareBy({ it.constellation.ordinal }, { it.svid }))
-        val geometry = GnssGeometry.solve(ordered)
-        geometry.reason?.let { diagnostics += "无有效三维定位解：$it" }
-        val output = if (geometry.dop == null) ordered.map { it.copy(usedInFix = false) } else ordered
-        return ReceiverGnssFrame(atMillis, observer, altitudeMeters, output, geometry,
-            ReceiverGnssSource.STATISTICAL_REPLAY, diagnostics, capacity, minimumSatellites)
+        return ReceiverGnssSelection(ordered, diagnostics, capacity)
     }
 
     private companion object { const val POOL_WINDOW_MILLIS = 10_000L }

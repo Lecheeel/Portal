@@ -155,11 +155,6 @@ object FakeLoc {
         set(value) { updateSnapshot { it.copy(routing = value) } }
 
     /**
-     * 反定位复原加强（启用后将导致部分应用在关闭LocationService后需要重新启动才能重新获取定位）
-     */
-    var loopBroadcastLocation = false
-
-    /**
      * 上一次的位置
      */
     @Volatile var lastLocation: Location? = null

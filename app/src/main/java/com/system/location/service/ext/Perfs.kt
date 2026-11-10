@@ -317,8 +317,7 @@ var Context.mockWifiEnabled: Boolean
     }
 
 var Context.loopBroadcastlocation: Boolean
-    get() = sharedPrefs.getBoolean("loopBroadcastLocation", FakeLoc.loopBroadcastLocation)
+    get() = sharedPrefs.getBoolean("loopBroadcastLocation", false)
     set(value) = sharedPrefs.edit {
         putBoolean("loopBroadcastLocation", value)
-        FakeLoc.loopBroadcastLocation = value
     }

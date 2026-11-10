@@ -13,12 +13,16 @@ class SensitiveLogTest {
             "environment_json" to "{\"wifi\":1}",
             "routing_json" to "{\"mode\":\"PER_APP\"}",
             "key" to "secret",
+            "runtime_transfer" to "full-private-state",
+            "proxy_session" to "private-session",
             "mode" to "=",
         ))
         assertFalse(line.contains("31.2304"))
         assertFalse(line.contains("121.4737"))
         assertFalse(line.contains("{\"wifi\":1}"))
         assertFalse(line.contains("secret"))
+        assertFalse(line.contains("full-private-state"))
+        assertFalse(line.contains("private-session"))
         assertTrue(line.contains("mode=="))
         assertTrue(line.contains("<redacted>"))
     }

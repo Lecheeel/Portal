@@ -20,7 +20,8 @@ class CallbackTransferTest {
         } as IBinder
         val old = object : IInterface { override fun asBinder() = binder }
         val replacement = object : IInterface { override fun asBinder() = binder }
-        val row = CallbackSubscription(old, 10272, "receiver", listOf("gps", "network"), "exact emitted frame").encode()
+        val row = CallbackSubscription(old, 10272, "receiver", listOf("gps", "network"),
+            "exact emitted frame", "partially emitted frame", 3).encode()
         assertSame(binder, row[0])
         assertFalse(row.any { it === old })
         val restored = CallbackSubscription.decode(row) { descriptor, transport ->
@@ -33,7 +34,19 @@ class CallbackTransferTest {
         assertEquals("receiver", restored.packageName)
         assertEquals(listOf("gps", "network"), restored.providers)
         assertEquals("exact emitted frame", restored.lastDeliveryKey)
+        assertEquals("partially emitted frame", restored.pendingDeliveryKey)
+        assertEquals(3, restored.nextDeliveryIndex)
         assertNull(CallbackSubscription.decode(row.take(5).toTypedArray()) { _, _ -> replacement }!!.lastDeliveryKey)
+        val previous = CallbackSubscription.decode(row.take(6).toTypedArray()) { _, _ -> replacement }!!
+        assertEquals("exact emitted frame", previous.lastDeliveryKey)
+        assertNull(previous.pendingDeliveryKey)
+        assertEquals(0, previous.nextDeliveryIndex)
+        assertThrows(IllegalArgumentException::class.java) {
+            CallbackSubscription(old, 10272, nextDeliveryIndex = 1)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CallbackSubscription(old, 10272, pendingDeliveryKey = "pending", nextDeliveryIndex = -1)
+        }
         alive = false
         assertNull(CallbackSubscription.decode(row) { _, _ -> error("dead binder must not resolve") })
     }

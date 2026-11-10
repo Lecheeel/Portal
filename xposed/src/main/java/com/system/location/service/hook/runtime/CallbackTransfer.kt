@@ -10,7 +10,12 @@ internal data class CallbackSubscription(
     val packageName: String? = null,
     val providers: List<String> = emptyList(),
     val lastDeliveryKey: String? = null,
+    val pendingDeliveryKey: String? = null,
+    val nextDeliveryIndex: Int = 0,
 ) {
+    init {
+        require(nextDeliveryIndex >= 0 && (pendingDeliveryKey != null || nextDeliveryIndex == 0))
+    }
     fun toBundle(): android.os.Bundle = android.os.Bundle().apply {
         putBinder("binder", listener.asBinder())
         putString("descriptor", listener.asBinder().interfaceDescriptor)
@@ -18,10 +23,13 @@ internal data class CallbackSubscription(
         putString("package", packageName)
         putStringArrayList("providers", ArrayList(providers))
         putString("last_delivery", lastDeliveryKey)
+        putString("pending_delivery", pendingDeliveryKey)
+        putInt("next_delivery_index", nextDeliveryIndex)
     }
     fun encode(): Array<Any?> {
         val binder = listener.asBinder()
-        return arrayOf(binder, binder.interfaceDescriptor, uid, packageName, providers.toTypedArray(), lastDeliveryKey)
+        return arrayOf(binder, binder.interfaceDescriptor, uid, packageName, providers.toTypedArray(), lastDeliveryKey,
+            pendingDeliveryKey, nextDeliveryIndex)
     }
 
     companion object {
@@ -32,11 +40,12 @@ internal data class CallbackSubscription(
             val descriptor = bundle.getString("descriptor") ?: return null
             val providers = bundle.getStringArrayList("providers")?.toList().orEmpty()
             return decode(arrayOf(binder, descriptor, bundle.getInt("uid"),
-                bundle.getString("package"), providers.toTypedArray(), bundle.getString("last_delivery")), resolve)
+                bundle.getString("package"), providers.toTypedArray(), bundle.getString("last_delivery"),
+                bundle.getString("pending_delivery"), bundle.getInt("next_delivery_index")), resolve)
         }
 
         fun decode(row: Array<*>, resolve: (String, IBinder) -> IInterface = ::frameworkCallback): CallbackSubscription? {
-            require(row.size in 5..6)
+            require(row.size in 5..6 || row.size == 8)
             val binder = row[0] as IBinder
             if (!binder.isBinderAlive) return null
             val descriptor = row[1] as String
@@ -48,7 +57,8 @@ internal data class CallbackSubscription(
             val callback = try { resolve(descriptor, binder) }
             catch (dead: android.os.DeadObjectException) { return null }
             check(callback.asBinder() == binder)
-            return CallbackSubscription(callback, uid, packageName, providers, row.getOrNull(5) as String?)
+            return CallbackSubscription(callback, uid, packageName, providers, row.getOrNull(5) as String?,
+                row.getOrNull(6) as String?, row.getOrNull(7) as Int? ?: 0)
         }
 
         private fun frameworkCallback(descriptor: String, binder: IBinder): IInterface =

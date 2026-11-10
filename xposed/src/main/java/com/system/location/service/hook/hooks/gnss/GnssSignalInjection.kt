@@ -8,6 +8,7 @@ import com.system.location.service.hook.hooks.nmea.NmeaListenerRouting
 import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.LogRateLimiter
+import com.system.location.service.hook.utils.ProviderView
 
 /** The only producer of simulated GNSS callbacks. Missing capture leaves the real stream intact. */
 object GnssSignalInjection {
@@ -24,11 +25,16 @@ object GnssSignalInjection {
     }
 
     private fun tick() {
-        if (!FakeLoc.enable || !FakeLoc.enableMockGnss) return
-        val frames = ReceiverTickFrames(GnssReceiverRuntime::frameForRoute)
+        // Avoid generating samples while inactive; the captured policy below is authoritative.
+        val initial = FakeLoc.runtimeSnapshots.current().configuration
+        if (!initial.enabled || !initial.gnssEnabled || initial.gnssSource == null) return
+        val context = ProviderView.capture()
+        val policy = context.state.configuration
+        if (!policy.enabled || !policy.gnssEnabled || policy.gnssSource == null) return
+        val frames = ReceiverTickFrames { GnssReceiverRuntime.frameForRoute(it, context) }
         GnssListenerRouting.listeners().forEach { listener ->
             deliver(listener, { GnssListenerRouting.unregister(listener) }) {
-                val route = GnssListenerRouting.routeFor(listener) ?: return@deliver
+                val route = GnssListenerRouting.routeFor(listener, context.state.routing) ?: return@deliver
                 val publication = frames.forRoute(route) ?: return@deliver
                 val method = listener.javaClass.methods.firstOrNull {
                     it.name == "onSvStatusChanged" && ReceiverGnssStatusAdapter.supports(it)
@@ -36,10 +42,10 @@ object GnssSignalInjection {
                 HookRuntime.invokeOriginalMethod(method, listener, ReceiverGnssStatusAdapter.arguments(method, publication))
             }
         }
-        if (!FakeLoc.enableNMEA) return
+        if (!policy.nmeaEnabled) return
         NmeaListenerRouting.listeners().forEach { listener ->
             deliver(listener, { NmeaListenerRouting.unregister(listener) }) {
-                val route = NmeaListenerRouting.routeFor(listener) ?: return@deliver
+                val route = NmeaListenerRouting.routeFor(listener, context.state.routing) ?: return@deliver
                 val publication = frames.forRoute(route) ?: return@deliver
                 val method = listener.javaClass.methods.firstOrNull {
                     it.name == "onNmeaReceived" && it.parameterTypes.toList() ==

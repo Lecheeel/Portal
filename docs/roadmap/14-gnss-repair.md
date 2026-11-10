@@ -43,8 +43,8 @@
 - [ ] 移动、噪声、100ms Location 和 1Hz GNSS 输出的序列/时间窗集成验收。相同完整样本共享缓存，但同一秒不同坐标/速度仍可能产生多个序列，不能声称所有移动回调都已同帧。
 - [ ] 注册/注销与正在执行的 Binder 回调竞态、停用中断、热重载后现有监听器恢复的设备验证。
 - [x] 本机保存逐信号状态、载频和可用基带 CN0，不再 distinctBy 后丢弃多频证据；画像/几何按唯一星座与 SVID 统计。投影优先保留在用信号，再按载频和稳定字段选取整条记录，统计载频的选择不是伪距加权模型。逐信号证据不进入 Binder 配置载荷。真实多频设备回归仍待完成。
-- [ ] 完整广播星历解码、分页完整性/校验、卫星健康、IOD、系统时标/周跳/有效期和轨道传播。GLONASS 状态向量不能套 Kepler，北斗 GEO 不能套通用 MEO 旋转。
-- [ ] 传播路径使用标准对应坐标系与时间约定；补独立权威数据向量对照、地平线、ECEF/ENU、地球自转和钟差校正测试。统计回放不能称为精确轨道，收到导航电文不代表星历完整。
+- [ ] 多系统完整广播星历与生产输出。GPS LNAV 已实现逐字奇偶校验/数据反转、子帧 1/2/3 同发送帧拼接、IODC/IODE、健康/告警/URA、10 位周号与可信完整时刻解析、toe/toc 和拟合期；有界组帧拒绝冲突重复电文。已能从本机采集的接收机时钟证据解码 GPS 星历，但尚未接入生产天空输出。Galileo、北斗和 GLONASS 仍未实现；GLONASS 状态向量不能套 Kepler，北斗 GEO 不能套通用 MEO 旋转。
+- [ ] 多系统传播与设备闭环。GPS LNAV 传播、相对论钟差、L1 C/A TGD、真空飞行时间、接收时刻 ECEF 旋转、WGS 84/ENU 观测几何已通过独立数值向量。仍缺多系统、真实原始电文样本、完整天空/CN0/在用策略与生产集成。统计回放不能称为精确轨道，收到导航电文不代表星历完整。
 - [ ] 在非零最少数量约束下验证分布和诊断；自动模式的实测分布验收与用户强制下限须分别评价。
 - [ ] 彻底整理旧模型配置键、旧偏好和 legacy UI，当前只保留兼容字段不再改变生产模型。
 
@@ -55,25 +55,33 @@
 - [x] 启动突发说明仅标准 Mock Provider 支持、下次场景启动生效。
 - [x] 删除没有消费者的 Hook loopBroadcastLocation 字段；原偏好保留，当前 UI 改为按设定间隔广播，说明 Xposed/Native、关闭时最小 500ms 的实际行为。
 - [x] 未保存的 accuracy 默认值统一为公共 25m，保留用户已存数值；AP 数在 Schema/Runtime/旧配置归一化/命令/调试入口/场景启动统一为 EnvironmentConfig 的 3–8。
-- [ ] 遗留清理继续进行：旧 GNSS、Settings、Environment Fragment 与布局已删除；三个未接线且使用伪数据的 raw 测量、导航、天线策略及占位测试已删除。旧 SimulationFragment 及布局亦已删除；HAL 死方法和旧模型配置兼容字段仍待清理。
-- [ ] detector 最终对账和画像偏差仍待完成。已修复 C06 对负仰角、非有限方位/CN0 的漏报；少星、单星座、无解和 CN0 相关性只作为证据不足，不判定造假。C07 区分可见与在用、按 UTC 毫秒限定配对时间窗、GST/ZDA 可选、多频 GSV 分组及唯一卫星计数，缺少语句、陈旧配对或混合定位缺少部分星座 GSV 时为 UNKNOWN。C05 只验证已提供的可选字段，GPS extras 与同时间窗唯一在用身份对账，network/陈旧状态不混比。GSA 身份集合、GN 混合编号、跨来源一致性和完整画像分布验收仍需继续。
+- [ ] 遗留清理继续进行：旧 GNSS、Settings、Environment、Simulation Fragment 与布局已删除；三个未接线且使用伪数据的 raw 测量、导航、天线策略及占位测试和 HAL 死方法已删除。旧模型配置兼容字段仍待清理。
+- [ ] detector 最终对账和画像偏差仍待完成。已修复 C06 对负仰角、非有限方位/CN0 的漏报；少星、单星座、无解和 CN0 相关性只作为证据不足，不判定造假。C07 区分可见与在用、按 UTC 毫秒限定配对时间窗、GST/ZDA 可选、多频 GSV 分组及唯一卫星计数；新增 GSA 身份重复/非法编号检查，并与同时间窗 GSV/GnssStatus usedInFix 身份对账。GN 仅在明确 systemId 时映射，跨来源差异或编号不明为 UNKNOWN。C05 只验证已提供的可选字段，GPS extras 与同时间窗唯一在用身份对账，network/陈旧状态不混比。画像分布和最终跨来源设备验收仍需继续。
+- [x] 修复 GnssNative 单参数 Location[] 批量回调被 args.size>1 漏过的问题，替换时复制数组，不修改 Provider 持有的原批次；已通过 Xposed JVM 回归，厂商实际回调仍需设备验收。
 - [ ] raw GNSS 运行中与厂商适配验收：新注册按 API 明确返回 false 或不支持异常；已有监听器逐回调执行实时策略，保留 Binder 死亡/注销/卸载清理；在没有有效画像时真实透传。状态与导航的 NOT_SUPPORTED 回调、分应用排除路由已接线并有 JVM 覆盖，仍需真实框架回归。
 - [ ] 新生产 Hook 的 Android/适配层集成测试及最终完整回归。Core/NMEA/Xposed JVM 测试、App Kotlin 编译和模块规范检查已在前阶段通过；本阶段针对新增逻辑的 Core/Xposed/Detector JVM 测试、App Kotlin 编译及 arm64 开发包/测试包构建已通过，仍须随后续改动验证。
 - [ ] 真实 Xposed 设备开启前后对比。M2102K1C / Android 14 已执行一次 60 秒真实采集尝试，认证状态确认模拟停止，但未收到有效卫星，未形成画像，不能验收星座比例或传播；已向用户询问接收环境。新 Hook 尚未经系统进程重载/重启验收。开发包更新前已核对相同证书并在本机保存原 APK/配置备份；未卸载应用、未修改生产画像。空采集新增引擎启动/停止、测量批次/电文数和无效字段原因诊断，便于下一次定位链路排查。
 - [ ] 标准 Mock Provider 真机对比，单独记录实际能力；不将 Xposed 结果外推到标准后端。
 - [ ] 文档更新和逐项最终验收。
 
-## 星历传播的下一组实现与验收
+## GPS 星历实现与后续验收
 
-GPS LNAV 先按 IS-GPS-200N 20.3.3.4 / Table 20-IV 实现一条完整路径：位序与字校验、子帧 1/2/3 拼接、IODC/IODE 一致、健康和拟合有效期、GPS 周与 UTC/传输时刻，最后再计算位置。缺少任一条件时禁止发布物理帧，保持统计回放或真实透传的明确状态。不能由随机字节、状态 hasEphemeris 标志或不完整导航分页推断已获得星历。
+GPS LNAV 的纯 Kotlin 数学和本机采集解码已落地，生产输出仍使用统计回放。位序/字校验按 Table 20-XIV，组帧要求同一卫星、同一个 30 秒发送帧和完整 IOD；扩展拟合期按 Table 20-XII，保留区间拒绝。完整周号由明确可信的 GPS 时刻解析，不硬编码 GPS−UTC 秒数；接收机时间采用整数/十进制先减偏差再转秒，避免绝对纳秒转 Double 丢精度。
+
+原始采集新增时钟不确定度、漂移、闰秒证据、接收机事件单调时刻与回调到达时刻，兼容缺少这些字段的旧画像。GPS 捕获解码要求已知时间不确定度、附近一致且未重置的接收机时钟；回调到达时刻只用于周号/HOW 关联，不冒充精确发送时刻。缺证据、告警、陈旧、冲突或分页不完整时返回诊断，不由 hasEphemeris 标志推断星历。
 
 广播参数是为 ECEF 拟合的参数，不可将中间轨道坐标当成普通 ECI 再额外旋转。应包含 Δn、六个二次谐波项、IDOT、Ωdot 和 toe 地球自转项；GPS LNAV 的 μ=3.986005×10¹⁴，与通用二体试验常量不相同。计算发射时刻位置，并处理信号传播期间地球自转；钟差多项式、相对论项和 TGD 单独按对应观测信号处理。周跨越修正不能让陈旧一周的星历重新有效，须先以完整绝对时刻检查有效期。
+
+GPS 接收几何通过有界真空光程方程求发射时刻，再将发射 ECEF 坐标旋转到接收时刻的 ECEF 轴。拟合期检查针对实际发射时刻；接收时刻稍晚于拟合期末但发射仍有效的情况可以成立。该模型不含电离层、对流层、天线和接收机偏差，不能据此生成伪距或载波相位。ENU 仰角采用与 asin(up/range) 等价且数值稳定的 atan2；天顶/天底方位角明确未定义，不制造数值。
 
 后续 Galileo、北斗 MEO/IGSO/GEO、GLONASS 必须分别核对接口规范和系统时标；不以 GPS 代码通过代替其他系统验证。每个解码器、每个传播器分别提交，使用独立权威导航向量和可追溯数值结果，补单元/时间/地平线/过期/分页切换等边界测试后才接生产路径。
 
 ## 数学参考与验证
 
-- [IS-GPS-200N 官方归档](https://archive.gps.gov/technical/icwg/IS-GPS-200N.pdf)：本轮已核对 20.3.3.4、Table 20-III/IV 的完整相关页和公式；用于下一组传播实现，当前尚未实现该路径。
+- [IS-GPS-200N 官方归档](https://archive.gps.gov/technical/icwg/IS-GPS-200N.pdf)：核对 20.3.3/20.3.4/20.3.5，Table 20-II/III/IV/XII/XIV，GPS 参数、拟合期、坐标系、飞行光程与逐字奇偶校验。
+- [固定版本 RTKLIB 导航输入](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/test/data/rinex/07590920.05n)、[eph2pos](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/ephemeris.c)、[decode_frame](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c) 与 [decode_word](https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rtkcmn.c)：三个真实 RINEX 轨道、9 个传播时刻和9组接收几何数值。90 个测试电文字由这些参数按 ICD 独立重建、经 C 实现解码对照；它们是合成字级测试样本，**不是真实接收机原始电文**。微米级数值一致性仅用于检查代码，不代表广播轨道精度。
+- `GpsLnavWordsTest` 覆盖每一位的单比特破坏；`GpsLnavEphemerisDecoderTest` 对照全部参数，覆盖 IOD、健康、时标、拟合期和非法字段；`GpsLnavAssemblerTest` 覆盖乱序、重复、冲突、缓存上限与完整周隔离；`GpsCaptureEphemeridesTest` 覆盖时钟证据缺失、不确定度和重置。
+- `GpsReceptionGeometryTest` 对照独立 C 光程/接收 ECEF/ENU 数值并检查拟合期边缘和跨周；`GnssObserverGeometryTest` 使用赤道/两极/日期变更线、ENU 正交向量和天顶解析值。
 - [ESA Navipedia：Positioning Error](https://gssc.esa.int/navipedia/index.php/Positioning_Error)：Q=(HᵀH)⁻¹，ENU 下 HDOP/VDOP 与协方差对角线的关系。
 - `GnssGeometryTest` 使用四个水平正交方位加天顶卫星的独立解析协方差 Qee=Qnn=1/2、Quu=5/4、Qtt=1/4 验证数值结果，并覆盖退化几何与多系统钟差。
 - `ReceiverGnssSkyModelTest` 对一个完整回放遍历核对实际样本数量分布，检查下限不足、过期、确定性和跨北插值。

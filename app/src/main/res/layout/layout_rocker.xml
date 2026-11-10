@@ -18,7 +18,7 @@
 
     <LinearLayout
         android:id="@+id/rocker_panel"
-        android:layout_width="176dp"
+        android:layout_width="168dp"
         android:layout_height="wrap_content"
         android:background="@drawable/rocker_panel"
         android:clipToOutline="true"
@@ -95,9 +95,10 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:gravity="center_vertical"
+            android:minHeight="48dp"
             android:orientation="horizontal">
 
             <androidx.appcompat.widget.AppCompatImageButton
@@ -123,12 +124,13 @@
                     android:layout_height="wrap_content"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="center"
+                    android:includeFontPadding="false"
                     android:maxLines="1"
                     android:text="0.00"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     app:autoSizeMaxTextSize="18sp"
-                    app:autoSizeMinTextSize="11sp"
+                    app:autoSizeMinTextSize="10sp"
                     app:autoSizeStepGranularity="1sp"
                     app:autoSizeTextType="uniform" />
 
@@ -136,6 +138,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:importantForAccessibility="no"
+                    android:includeFontPadding="false"
                     android:text="m/s"
                     android:textColor="@color/text_secondary"
                     android:textSize="11sp" />

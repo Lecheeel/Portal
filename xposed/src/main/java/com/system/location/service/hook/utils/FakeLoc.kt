@@ -21,9 +21,7 @@ object FakeLoc {
     var enableLog = true
 
     /** P5-07: authoritative sample/environment/routing storage; legacy config fields remain. */
-    val runtimeSnapshots = RuntimeSnapshotStore(RuntimeSnapshot(
-        gnssModel = com.system.location.service.core.gnss.GnssModelMode.ORBITAL,
-    ))
+    val runtimeSnapshots = RuntimeSnapshotStore()
 
     private fun updateSnapshot(transform: (RuntimeSnapshot) -> RuntimeSnapshot) {
         runtimeSnapshots.update { transform(it).copy(configRevision = it.configRevision + 1) }
@@ -129,11 +127,6 @@ object FakeLoc {
     var simReady: Boolean
         get() = runtimeSnapshots.current().simReady
         set(value) { updateSnapshot { it.copy(simReady = value) } }
-
-    /** Orbital model is the initial default; saved application preferences override it. */
-    var gnssModelMode: com.system.location.service.core.gnss.GnssModelMode
-        get() = runtimeSnapshots.current().gnssModel
-        set(value) { updateSnapshot { it.copy(gnssModel = value) } }
 
     /** P2-07 environment knobs; defaults preserve the P2-03/P2-05 behavior. */
     var environmentApCount: Int

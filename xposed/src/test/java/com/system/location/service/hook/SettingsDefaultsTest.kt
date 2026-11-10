@@ -28,7 +28,6 @@ class SettingsDefaultsTest {
         assertEquals(FakeLoc.environmentApCount.toString(), schema.defaultValue("environment_ap_count"))
         assertEquals(FakeLoc.cellMode.name, schema.defaultValue("cell_mode"))
         assertEquals(FakeLoc.environmentSourceMode.name, schema.defaultValue("environment_source"))
-        assertEquals(FakeLoc.gnssModelMode.name, schema.defaultValue("gnss_model"))
         assertEquals(FakeLoc.simReady.toString(), schema.defaultValue("sim_ready"))
         assertEquals(FakeLoc.enableDebugLog.toString(), schema.defaultValue("enable_debug_log"))
         assertEquals(FakeLoc.enableNMEA.toString(), schema.defaultValue("enable_nmea"))

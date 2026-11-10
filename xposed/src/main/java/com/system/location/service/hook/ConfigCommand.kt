@@ -4,7 +4,6 @@ import android.os.Bundle
 import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentProfileCodec
 import com.system.location.service.core.environment.EnvironmentSourceMode
-import com.system.location.service.core.gnss.GnssModelMode
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.hook.security.ConfigGate
 import com.system.location.service.hook.utils.FakeLoc
@@ -40,9 +39,6 @@ object ConfigCommand {
         FakeLoc.enablePhysicalNoise = rely.getBoolean("enable_physical_noise", FakeLoc.enablePhysicalNoise)
         FakeLoc.physicalNoiseSeed = rely.getLong("physical_noise_seed", FakeLoc.physicalNoiseSeed)
         FakeLoc.simReady = rely.getBoolean("sim_ready", FakeLoc.simReady)
-        FakeLoc.gnssModelMode = runCatching {
-            GnssModelMode.valueOf(rely.getString("gnss_model") ?: FakeLoc.gnssModelMode.name)
-        }.getOrDefault(FakeLoc.gnssModelMode)
         FakeLoc.environmentApCount = rely.getInt("environment_ap_count", FakeLoc.environmentApCount)
         FakeLoc.cellMode = runCatching {
             CellMode.valueOf(rely.getString("cell_mode") ?: FakeLoc.cellMode.name)

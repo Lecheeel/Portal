@@ -11,16 +11,16 @@ class GpsLnavAssembler {
     private data class Key(val svid: Int, val week: Int, val frameStartSeconds: Int)
     private data class Part(val frame: GpsLnavSubframe, val reference: GpsTime)
     private data class Candidate(val parts: MutableMap<Int, Part> = linkedMapOf(), var conflict: Boolean = false)
-    private val candidates = object : LinkedHashMap<Key, Candidate>() {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, Candidate>?): Boolean = size > 64
-    }
+    private val candidates = linkedMapOf<Key, Candidate>()
+    private val latest = mutableMapOf<Int, Key>()
 
     @Synchronized
-    fun clear() = candidates.clear()
+    fun clear() { candidates.clear(); latest.clear() }
 
     /** Re-evaluate at the end of a capture, after late conflicts have invalidated candidates. */
     @Synchronized
-    fun completed(): List<DecodedGpsLnav> = candidates.values.filter { !it.conflict && it.parts.size == 3 }
+    fun completed(): List<DecodedGpsLnav> = latest.toSortedMap().values.mapNotNull { candidates[it] }
+        .filter { !it.conflict && it.parts.size == 3 }
         .mapNotNull { candidate ->
             GpsLnavEphemerisDecoder.decode(candidate.parts.values.map { it.frame },
                 candidate.parts.getValue(1).reference).decoded
@@ -41,7 +41,15 @@ class GpsLnavAssembler {
         if (abs(GpsTime(week, (start + frame.id * 6).toDouble()).secondsSince(ref)) > 120)
             return GpsLnavDecodeResult(null, "HOW disagrees with trusted capture reference")
         val key = Key(frame.svid, week, start)
-        val candidate = candidates.getOrPut(key) { Candidate() }
+        val selected = latest[frame.svid]
+        if (selected == null || week > selected.week || (week == selected.week && start > selected.frameStartSeconds))
+            latest[frame.svid] = key
+        val candidate = candidates[key] ?: run {
+            // Never evict poisoned evidence: a flood must not rehabilitate a conflicting frame.
+            // The newer selected frame still withdraws older output if capacity prevents retention.
+            if (candidates.size >= 64) return GpsLnavDecodeResult(null, "GPS candidate capacity exceeded")
+            Candidate().also { candidates[key] = it }
+        }
         if (candidate.conflict) return GpsLnavDecodeResult(null, "conflicting GPS subframe candidate")
         val previous = candidate.parts[frame.id]
         if (previous != null) {
@@ -53,6 +61,7 @@ class GpsLnavAssembler {
                 return GpsLnavDecodeResult(null, "conflicting duplicate GPS subframe")
             }
         } else candidate.parts[frame.id] = Part(frame, ref)
+        if (latest[frame.svid] != key) return GpsLnavDecodeResult(null, "GPS transmission frame superseded")
         if (candidate.parts.size != 3) return GpsLnavDecodeResult(null, "waiting for GPS subframes 1/2/3")
         return GpsLnavEphemerisDecoder.decode(candidate.parts.values.map { it.frame },
             candidate.parts.getValue(1).reference)

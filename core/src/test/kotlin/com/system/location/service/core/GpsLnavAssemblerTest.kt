@@ -50,7 +50,12 @@ class GpsLnavAssemblerTest {
         assertNull(assembler.offer(observation(0), reference(0)).decoded)
         assertNull(assembler.offer(observation(1), GpsTime(1317, reference(1).secondsOfWeek)).decoded)
         assertNull(assembler.offer(observation(2), reference(2)).decoded)
-        assertNotNull(assembler.offer(observation(1), reference(1)).decoded)
+        assertNull(assembler.offer(observation(1), reference(1)).decoded)
+        assertTrue(assembler.completed().isEmpty())
+        // A new capture can establish its own coherent full-week domain.
+        assembler.clear()
+        (0..2).forEach { assembler.offer(observation(it), reference(it)) }
+        assertEquals(1, assembler.completed().size)
         assertNull(assembler.offer(observation(0), reference(0).plusSeconds(121.0)).decoded)
     }
 
@@ -83,8 +88,11 @@ class GpsLnavAssemblerTest {
         assertTrue(assembler.completed().isEmpty())
     }
 
-    /** Independently encode Table 20-XIV equations after changing one TLM information bit. */
-    private fun conflictingTlm(observation: GnssNavigationObservation): GnssNavigationObservation {
+    private fun conflictingTlm(observation: GnssNavigationObservation) = reencoded(observation, flipTlm = true)
+
+    /** Independently encode Table 20-XIV parity after editing information fields. */
+    private fun reencoded(observation: GnssNavigationObservation, flipTlm: Boolean = false,
+        shiftSeconds: Int = 0, unhealthy: Boolean = false): GnssNavigationObservation {
         val frame = GpsLnavWords.decode(observation).subframe!!
         val equations = listOf(
             listOf(29,1,2,3,5,6,10,11,12,13,14,17,18,20,23),
@@ -97,7 +105,9 @@ class GpsLnavAssemblerTest {
         val bytes = ByteArray(40)
         repeat(10) { index ->
             var data = frame.unsigned(index * 24, 24).toInt()
-            if (index == 0) data = data xor 0x1000
+            if (index == 0 && flipTlm) data = data xor 0x1000
+            if (index == 1) data = (((data ushr 7) + shiftSeconds / 6) shl 7) or (data and 127)
+            if (index == 2 && frame.id == 1 && unhealthy) data = data or 4
             fun encoded(value: Int): Int {
                 var parity = 0
                 equations.forEach { terms ->
@@ -120,15 +130,32 @@ class GpsLnavAssemblerTest {
         return observation.copy(dataBase64 = Base64.getEncoder().encodeToString(bytes))
     }
 
-    @Test fun boundedCacheEvictsOldCandidatesAndNeverSplicesDifferentEpochs() {
+    @Test fun capacityRejectsNewCandidatesAndNeverRehabilitatesConflictOrFallsBackToOldOutput() {
         val assembler = GpsLnavAssembler()
         assertNull(assembler.offer(observation(0), reference(0)).decoded)
-        // The same raw TOW in distinct trusted weeks must not alias; bounded state evicts first.
+        assembler.offer(conflictingTlm(observation(0)), reference(0))
+        // Distinct full weeks fill the bounded state without evicting the original poison.
         for (week in 1317..1381) {
             assertNull(assembler.offer(observation(0), GpsTime(week, reference(0).secondsOfWeek)).decoded)
         }
+        assertTrue(assembler.offer(observation(0), GpsTime(1382, reference(0).secondsOfWeek)).reason!!.contains("capacity"))
         assertNull(assembler.offer(observation(1), reference(1)).decoded)
         assertNull(assembler.offer(observation(2), reference(2)).decoded)
-        assertNotNull(assembler.offer(observation(0), reference(0)).decoded)
+        assertTrue(assembler.offer(observation(0), reference(0)).reason!!.contains("conflicting"))
+        assertTrue(assembler.completed().isEmpty())
+    }
+
+    @Test fun incompleteNewerFrameWithdrawsOldCompletedOutputAndLateOldPagesCannotRestoreIt() {
+        val assembler = GpsLnavAssembler()
+        (0..2).forEach { assembler.offer(observation(it), reference(it)) }
+        assertEquals(1, assembler.completed().size)
+        val newer = reencoded(observation(0), shiftSeconds = 30, unhealthy = true)
+        assertNotNull(GpsLnavWords.decode(newer).subframe)
+        assembler.offer(newer, reference(0).plusSeconds(30.0))
+        assertTrue(assembler.completed().isEmpty())
+        (0..2).forEach { assertNull(assembler.offer(observation(it), reference(it)).decoded) }
+        assertTrue(assembler.completed().isEmpty())
+        (1..2).forEach { assembler.offer(reencoded(observation(it), shiftSeconds = 30), reference(it).plusSeconds(30.0)) }
+        assertTrue(assembler.completed().isEmpty())
     }
 }

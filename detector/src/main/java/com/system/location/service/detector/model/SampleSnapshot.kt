@@ -28,8 +28,8 @@ data class GnssFrameSnapshot(
 )
 
 data class NmeaSentenceSnapshot(
-    /** elapsedRealtimeNanos from OnNmeaMessageListener, not wall-clock millis. */
-    val capturedAtNanos: Long,
+    /** UTC epoch milliseconds supplied by OnNmeaMessageListener. */
+    val timestampMillis: Long,
     val sentence: String,
 )
 

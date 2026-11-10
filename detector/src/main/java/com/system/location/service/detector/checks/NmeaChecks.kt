@@ -289,7 +289,7 @@ private sealed interface ParseOutcome {
 
 private data class ParsedNmea(
     val sequence: Int,
-    val capturedAtNanos: Long,
+    val timestampMillis: Long,
     val talker: String,
     val type: String,
     val fields: List<String>,
@@ -341,7 +341,7 @@ private data class NmeaAnalysis(
 /** 同一接收时刻内 $xxGSV 的连续块；按卫星编号是否重置划分。 */
 private class GsvBurst(
     val index: Int,
-    val anchorNanos: Long,
+    val anchorMillis: Long,
     val firstSequence: Int,
     val sentences: MutableList<ParsedNmea> = mutableListOf(),
     val byTalker: MutableMap<String, MutableList<ParsedNmea>> = linkedMapOf(),
@@ -448,7 +448,7 @@ private fun parseSentence(snapshot: NmeaSentenceSnapshot, sequence: Int): ParseO
     return ParseOutcome.Parsed(
         ParsedNmea(
             sequence = sequence,
-            capturedAtNanos = snapshot.capturedAtNanos,
+            timestampMillis = snapshot.timestampMillis,
             talker = sentenceId.substring(0, 2),
             type = sentenceId.substring(2),
             fields = parts.drop(1),
@@ -472,7 +472,7 @@ private fun groupGsvBursts(sentences: List<ParsedNmea>): List<GsvBurst> {
                     (number == 1 || (number != null && number <= previousNumber))
                 val startNew = current == null || epochMarkerSeen || restart
                 val burst = if (startNew) {
-                    GsvBurst(bursts.size, sentence.capturedAtNanos, sentence.sequence).also {
+                    GsvBurst(bursts.size, sentence.timestampMillis, sentence.sequence).also {
                         bursts += it
                         current = it
                     }
@@ -551,10 +551,10 @@ private fun validateGsvBursts(bursts: List<GsvBurst>): GsvValidation {
 
 private fun nearestBurst(bursts: List<GsvBurst>, gga: ParsedNmea): GsvBurst? {
     if (bursts.isEmpty()) return null
-    if (gga.capturedAtNanos == 0L || bursts.all { it.anchorNanos == 0L }) {
+    if (gga.timestampMillis == 0L || bursts.all { it.anchorMillis == 0L }) {
         return bursts.minByOrNull { burst -> abs(burst.firstSequence.toLong() - gga.sequence.toLong()) }
     }
-    return bursts.minByOrNull { burst -> abs(burst.anchorNanos - gga.capturedAtNanos) }
+    return bursts.minByOrNull { burst -> abs(burst.anchorMillis - gga.timestampMillis) }
 }
 
 private fun gsvSatelliteGroups(sentence: ParsedNmea): List<List<String>> {

@@ -243,6 +243,23 @@ object FakeLoc {
     private var movementSpeed = 0f
 
     @Synchronized
+    fun startRuntime(start: com.system.location.service.core.runtime.RuntimeStart,
+        nowNanos: Long = SystemClock.elapsedRealtimeNanos()): RuntimeSnapshot {
+        require(nowNanos >= 0L)
+        val state = runtimeSnapshots.update(start::applyTo)
+        movementSpeed = 0f
+        lastMovementNanos = nowNanos
+        externallyDriven = false
+        return state
+    }
+
+    @Synchronized
+    fun stopRuntime(): RuntimeSnapshot = runtimeSnapshots.update {
+        it.copy(configuration = it.configuration.copy(enabled = false), hasBearings = false,
+            configRevision = Math.addExact(it.configRevision, 1L))
+    }
+
+    @Synchronized
     fun updateCoordinates(lat: Double, lon: Double, movingSpeed: Float = 0f, nowNanos: Long = SystemClock.elapsedRealtimeNanos()) {
         require(lat in -90.0..90.0 && lon in -180.0..180.0)
         runtimeSnapshots.update { it.copy(latitude = lat, longitude = lon, sample = null, provider = null) }

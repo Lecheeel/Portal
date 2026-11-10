@@ -51,8 +51,8 @@ object ListenerRouting {
 
     fun shouldDeliver(listener: android.os.IInterface): Boolean = route(listener) !is Route.Denied
 
-    fun route(listener: android.os.IInterface): Route {
-        val config = FakeLoc.routingConfig ?: return Route.Default
+    fun route(listener: android.os.IInterface, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): Route {
+        val config = routing ?: return Route.Default
         if (config.mode == RoutingMode.GLOBAL) return Route.Default
         val uid = callerUids[listener.asBinder()] ?: return Route.Default
         if (uid < 10_000) return Route.Default

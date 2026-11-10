@@ -171,6 +171,8 @@ Galileo、北斗 MEO/IGSO/GEO、GLONASS 必须分别核对接口规范和系统�
 
 后续将同一集成用例扩展为七星座、28 个合成身份，加入 QZSS 的 Android 193–196 到 GQ 1–4、NavIC 到 GI、SBAS 的 Android 120–123 到 GP 33–36 映射。GPS/SBAS 共用 GP，GSV 分为两页并核对总数，GSA 使用 system ID 1–6；真实 Android GnssStatus、NMEA 和 extras 一致性检查通过。另用临时 PER_APP 规则把控制器包路由到与全局不同的固定点，Location 和 GGA 均报告该固定点，卫星/CN0/DOP 仍一致；结束后核对路由恢复。两个用例通过，但仍是自身 UID 与合成画像测试，不证明独立第三方的路由或真实分布。
 
+有效合成画像下的 raw 注册回归又发现一个框架层缺陷：void 注册接口通过抛出 UnsupportedOperationException 拒绝，但两组 Hook 安装默认使用 PROTECTIVE，libxposed 会吞掉 Hook 主动抛出的异常并继续原始注册。分别修复 GnssManagerService 与 LocationManagerService 入口，将这组原始测量/导航/天线注册和注销 Hook 明确设为 PASSTHROUGH，保留有意的 API 异常及原系统异常；移除仍必达 Android。相关 JVM 回归、Xposed 全套和 App 编译通过。更新模块并重启后，全局与固定点两项 ART 集成回归通过：关闭真实 raw 许可且已有有效帧时，新测量注册明确失败且系统不新增条目；启用模拟前的已有测量监听仍可在运行中注销，登记归零。该结果只覆盖该机的测量入口，不宣称导航/天线的真实载荷、运行中状态通知或所有厂商签名均验收。
+
 ## Galileo 星历基础与缺口
 
 按 OS SIS ICD 2.2 实现独立完整 GST、GTRF 广播传播和双频参考钟差，I/NAV E1/E5b 与 F/NAV E1/E5a 参考显式区分。模型不把 GPS 与 GST 直接互换。解码器按 Galileo OS SDD 1.3 第 17 页与 Annex C.4.4.1 脚注 22，从解析后的完整 toe 建立 `0 ≤ t−toe ≤ 14400s` 年龄上限，附加独立限制只能缩短；这不是以 toe 为中心的 ±2 小时，也不证明服务状态未来四小时持续有效。BGD 和逐信号 SHS/DVS 独立保留，不能将数学轨道可计算等同于信号可用。

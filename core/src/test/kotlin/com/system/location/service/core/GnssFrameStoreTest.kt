@@ -72,4 +72,22 @@ class GnssFrameStoreTest {
         assertNull(store.current(62000, point, 10.0, 0, 0.0, 0.0))
     }
 
+    @Test fun firstSampleAfterCaptureCompletionDoesNotFallBackIntoTheUnfinishedWindow() {
+        val source = capture().copy(endedAtMillis = 61_450L)
+        val store = GnssFrameStore().apply { configure(source) }
+        val first = store.current(61_500L, point, 10.0, 0, 0.0, 0.0, route = GnssFrameRoute.Global)
+        assertNotNull("A completed capture must be usable in the same wall-clock second", first)
+        assertEquals(61_500L, first!!.frame.generatedAtMillis)
+        assertSame(first, store.current(61_999L, point, 10.0, 0, 1.0, 90.0, route = GnssFrameRoute.Global))
+        assertEquals(62_050L, store.current(62_050L, point, 10.0, 0, 0.0, 0.0,
+            route = GnssFrameRoute.Global)!!.frame.generatedAtMillis)
+    }
+
+    @Test fun delayedSampleBeforeCaptureCompletionCannotPoisonTheFollowingSampleInTheSameSecond() {
+        val store = GnssFrameStore().apply { configure(capture().copy(endedAtMillis = 61_450L)) }
+        assertNull(store.current(61_400L, point, 10.0, 0, 0.0, 0.0, validationAtMillis = 61_500L,
+            route = GnssFrameRoute.Global))
+        assertNotNull(store.current(61_500L, point, 10.0, 0, 0.0, 0.0, route = GnssFrameRoute.Global))
+    }
+
 }

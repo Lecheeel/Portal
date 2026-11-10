@@ -44,6 +44,9 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
         require(currentBootCount == null || currentBootCount >= 0)
         val source = capture ?: return null
         if (!GnssCaptureValidator.validate(source, validationAtMillis).eligible) { cache.clear(); return null }
+        // A delayed provider sample cannot use evidence that had not finished at its epoch.
+        // Do not cache this rejection: a later sample in the same second can be eligible.
+        if (atMillis < source.endedAtMillis) return null
         val bearing = ((bearingDeg % 360) + 360) % 360
         // Null is for explicit sample previews; production must supply its stable route.
         val identity = route?.let(ObserverIdentity::Routed)
@@ -59,10 +62,9 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
             receiverSecond,
             if (hasBroadcast) currentBootCount else null)
         if (cache.containsKey(key)) return cache[key]
-        // Physical time uses the first sample's exact elapsed epoch, so its UTC label must
-        // retain that same sample's milliseconds. Only the statistical legacy path is rounded.
-        val frameAtMillis = if (receiverSecond != null) atMillis else utcEpochMillis
-        val frame = model?.frame(frameAtMillis, observer, altitudeMeters, minimumSatellites,
+        // The second identifies a cache bucket, not the observation epoch. Keep the first
+        // sample's exact time for every source; rounding could precede capture completion.
+        val frame = model?.frame(atMillis, observer, altitudeMeters, minimumSatellites,
             elapsedRealtimeNanos, currentBootCount)
         val published = frame?.let { PublishedGnssFrame(sequence.incrementAndGet(), it, speedMps, bearing) }
         cache[key] = published

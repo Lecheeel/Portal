@@ -9,14 +9,7 @@ import com.system.location.service.detector.model.CheckContext
 import com.system.location.service.detector.model.CheckIds
 import com.system.location.service.detector.model.CheckResult
 
-/**
- * C05 · Location 字段、extras、MSL、不确定度与 LocationAvailability。
- *
- * 期望：satellites/meanCn0/maxCn0 extras、MSL 高度与精度、垂直/速度/航向精度、
- * elapsedRealtimeUncertaintyNanos 完整，且与 hasSpeed/hasBearing 自洽。
- * `android.location.LocationAvailability` 不是公开 SDK API，本版用 isLocationEnabled +
- * isProviderEnabled 做可用性一致性判断，P1-05 接入 Hook 后再补逐 provider 的 availability。
- */
+/** C05 validates supplied Location fields; optional Android fields are never mandatory. */
 @SuppressLint("MissingPermission")
 class LocationFieldsCheck : Check {
     override val id = CheckIds.LOCATION_FIELDS
@@ -58,60 +51,39 @@ class LocationFieldsCheck : Check {
         val meanCn0 = extras?.getFloat("meanCn0", -1f) ?: -1f
         val maxCn0 = extras?.getFloat("maxCn0", -1f) ?: -1f
         lines += "extras: keys=${extras?.keySet()?.sorted() ?: "null"} satellites=$satellites meanCn0=$meanCn0 maxCn0=$maxCn0"
-        if (satellites <= 0) issues += "extras 缺少有效 satellites"
-        if (!meanCn0.isFinite() || meanCn0 <= 0f) issues += "extras 缺少有效 meanCn0"
-        if (!maxCn0.isFinite() || maxCn0 < meanCn0) issues += "extras 缺少有效 maxCn0"
-
+        val optional = linkedMapOf<String, Double>()
+        fun supplied(name: String, present: Boolean, value: Double) {
+            if (present) optional[name] = value
+        }
+        supplied("satellites", extras?.containsKey("satellites") == true, satellites.toDouble())
+        supplied("meanCn0", extras?.containsKey("meanCn0") == true, meanCn0.toDouble())
+        supplied("maxCn0", extras?.containsKey("maxCn0") == true, maxCn0.toDouble())
+        supplied("accuracy", location.hasAccuracy(), location.accuracy.toDouble())
+        supplied("altitude", location.hasAltitude(), location.altitude)
+        supplied("verticalAccuracy", location.hasVerticalAccuracy(), location.verticalAccuracyMeters.toDouble())
+        supplied("speed", location.hasSpeed(), location.speed.toDouble())
+        supplied("speedAccuracy", location.hasSpeedAccuracy(), location.speedAccuracyMetersPerSecond.toDouble())
+        supplied("bearing", location.hasBearing(), location.bearing.toDouble())
+        supplied("bearingAccuracy", location.hasBearingAccuracy(), location.bearingAccuracyDegrees.toDouble())
+        supplied("elapsedUncertainty", location.hasElapsedRealtimeUncertaintyNanos(), location.elapsedRealtimeUncertaintyNanos)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            lines += "msl has=${location.hasMslAltitude()} value=${location.mslAltitudeMeters} " +
-                "accHas=${location.hasMslAltitudeAccuracy()} acc=${location.mslAltitudeAccuracyMeters}"
-            if (!location.hasMslAltitude() || !location.mslAltitudeMeters.isFinite()) issues += "缺少 MSL 高度"
-            if (!location.hasMslAltitudeAccuracy() || location.mslAltitudeAccuracyMeters <= 0f) {
-                issues += "缺少 MSL 高度精度"
-            }
-        } else {
-            lines += "msl: API ${Build.VERSION.SDK_INT} < 34，无公开 MSL 字段，跳过"
+            supplied("mslAltitude", location.hasMslAltitude(), location.mslAltitudeMeters)
+            supplied("mslAccuracy", location.hasMslAltitudeAccuracy(), location.mslAltitudeAccuracyMeters.toDouble())
         }
-
-        lines += "vertical has=${location.hasVerticalAccuracy()} value=${location.verticalAccuracyMeters}"
-        if (!location.hasVerticalAccuracy() || location.verticalAccuracyMeters <= 0f) issues += "缺少垂直精度"
-
-        lines += "speedAcc has=${location.hasSpeedAccuracy()} value=${location.speedAccuracyMetersPerSecond}"
-        if (location.hasSpeed() && (!location.hasSpeedAccuracy() || location.speedAccuracyMetersPerSecond <= 0f)) {
-            issues += "有速度但缺少速度精度"
-        }
-
-        lines += "bearingAcc has=${location.hasBearingAccuracy()} value=${location.bearingAccuracyDegrees}"
-        if (location.hasBearing() && (!location.hasBearingAccuracy() || location.bearingAccuracyDegrees < 0f)) {
-            issues += "有航向但缺少航向精度"
-        }
-
-        lines += "uncertainty has=${location.hasElapsedRealtimeUncertaintyNanos()} value=${location.elapsedRealtimeUncertaintyNanos}"
-        if (!location.hasElapsedRealtimeUncertaintyNanos() || location.elapsedRealtimeUncertaintyNanos < 0.0) {
-            issues += "缺少 elapsedRealtimeUncertaintyNanos"
-        }
-
-        if (location.speed == 0f && location.hasBearing()) {
-            issues += "静止时仍输出 bearing=${location.bearing}（应为 hasBearing=false）"
-        }
+        issues += LocationFieldValidation.issues(location.latitude, location.longitude, optional)
+        lines += "已提供可选字段：$optional；未提供的字段不作为异常"
 
         val manager = context.locationManager
         val locationEnabled = runCatching { manager?.isLocationEnabled }.getOrNull()
         val gpsEnabled = runCatching { manager?.isProviderEnabled(LocationManager.GPS_PROVIDER) }.getOrNull()
         lines += "availability: isLocationEnabled=$locationEnabled gpsProviderEnabled=$gpsEnabled " +
             "sampledAvailability=${context.snapshot.availability.size}"
-        if (locationEnabled == false) issues += "已收到位置但系统定位总开关为关闭"
-        if (gpsEnabled == false && location.provider == LocationManager.GPS_PROVIDER) {
-            issues += "GPS provider 已关闭却仍返回 gps 位置"
-        }
-        if (context.snapshot.availability.isEmpty()) {
-            lines += "note: LocationAvailability 不是公开 SDK API；P1-05 后再逐 provider 校验"
-        }
+        lines += "可用性是当前状态；缓存位置不因 provider 后来关闭而成为无效样本"
 
         return if (issues.isEmpty()) {
-            pass("Location 字段完整且自洽。", limited(lines))
+            pass("已提供的 Location 字段取值有效；可选字段缺失不构成异常。", limited(lines))
         } else {
-            fail("Location 字段缺失/矛盾 ${issues.size} 项：${issues.joinToString("；")}", limited(lines + issues))
+            fail("Location 字段非法/矛盾 ${issues.size} 项：${issues.joinToString("；")}", limited(lines + issues))
         }
     }
 
@@ -121,5 +93,28 @@ class LocationFieldsCheck : Check {
     private companion object {
         const val MAX_EVIDENCE_LINES = 20
         const val MAX_EVIDENCE_CHARS = 299
+    }
+}
+
+/** Independent numeric validation, deliberately separate from production sanitization. */
+internal object LocationFieldValidation {
+    fun issues(latitude: Double, longitude: Double, supplied: Map<String, Double>): List<String> {
+        val issues = mutableListOf<String>()
+        if (!latitude.isFinite() || latitude !in -90.0..90.0) issues += "纬度非法"
+        if (!longitude.isFinite() || longitude !in -180.0..180.0) issues += "经度非法"
+        supplied.forEach { (name, value) ->
+            val valid = value.isFinite() && when (name) {
+                "altitude", "mslAltitude" -> true
+                "bearing" -> value >= 0 && value < 360
+                "meanCn0", "maxCn0" -> value in 0.0..63.0
+                "satellites" -> value >= 0 && value % 1.0 == 0.0
+                else -> value >= 0
+            }
+            if (!valid) issues += "$name 字段非法：$value"
+        }
+        val mean = supplied["meanCn0"]
+        val max = supplied["maxCn0"]
+        if (mean != null && max != null && mean > max) issues += "meanCn0 超过 maxCn0"
+        return issues
     }
 }

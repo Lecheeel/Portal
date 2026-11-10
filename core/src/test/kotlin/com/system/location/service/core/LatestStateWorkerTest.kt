@@ -8,6 +8,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LatestStateWorkerTest {
+    @Test fun oneWorkerThreadServesSuccessivePublicationsWithoutOverlappingDelivery() {
+        val threads = CopyOnWriteArrayList<Thread>()
+        val completed = java.util.concurrent.LinkedBlockingQueue<Int>()
+        val worker = LatestStateWorker<Int>({ state ->
+            threads.add(Thread.currentThread())
+            completed.put(state)
+        }, { throw AssertionError(it) })
+        try {
+            repeat(100) { state ->
+                assertTrue(worker.offer(state))
+                assertEquals(state, completed.poll(5, TimeUnit.SECONDS))
+            }
+            assertEquals(1, threads.toSet().size)
+        } finally { worker.close() }
+    }
+
     @Test fun blockedReceiverOnlyGetsInFlightAndLatestCompleteState() {
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)

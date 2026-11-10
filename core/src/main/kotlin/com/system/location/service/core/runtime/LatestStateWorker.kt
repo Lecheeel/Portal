@@ -5,7 +5,7 @@ class LatestStateWorker<T : Any>(
     private val deliver: (T) -> Unit,
     private val onFailure: (Throwable) -> Unit,
 ) : AutoCloseable {
-    private val monitor = Any()
+    private val monitor = Object()
     private var pending: T? = null
     private var running = false
     private var closed = false
@@ -14,6 +14,7 @@ class LatestStateWorker<T : Any>(
     fun offer(state: T): Boolean = synchronized(monitor) {
         if (closed) return false
         pending = state
+        monitor.notifyAll()
         if (!running) {
             running = true
             Thread(::drain, "RuntimePeerDelivery").apply { isDaemon = true }.start()
@@ -24,12 +25,10 @@ class LatestStateWorker<T : Any>(
     private fun drain() {
         while (true) {
             val next = synchronized(monitor) {
-                val state = pending
+                while (!closed && pending == null) monitor.wait()
+                if (closed) return
+                val state = checkNotNull(pending)
                 pending = null
-                if (closed || state == null) {
-                    running = false
-                    return
-                }
                 state
             }
             try {
@@ -45,5 +44,6 @@ class LatestStateWorker<T : Any>(
     override fun close() = synchronized(monitor) {
         closed = true
         pending = null
+        monitor.notifyAll()
     }
 }

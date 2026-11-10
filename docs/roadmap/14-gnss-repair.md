@@ -52,7 +52,7 @@
 
 - [x] 旧 AGPS 存储与配置键保留，代码和当前 UI 改称允许真实原始 GNSS 数据；从围栏、地理编码、test provider、batching 中移除 AGPS 旁路。NMEA 不再控制 raw 注册。
 - [x] Wi-Fi 开关改称模拟 Wi-Fi 环境，说明扫描/连接信息替换，保留旧存储键和布尔含义。
-- [x] 启动突发说明仅标准 Mock Provider 支持、下次场景启动生效。
+- [x] 启动突发对所有定位后端统一生效，并在下次场景启动时创建；暂停、停止或切换场景会使剩余突发失效。
 - [x] 删除没有消费者的 Hook loopBroadcastLocation 字段；原偏好保留，当前 UI 改为按设定间隔广播，说明 Xposed/Native、关闭时最小 500ms 的实际行为。
 - [x] 未保存的 accuracy 默认值统一为公共 25m，保留用户已存数值；AP 数在 Schema/Runtime/旧配置归一化/命令/调试入口/场景启动统一为 EnvironmentConfig 的 3–8。
 - [x] 旧 GNSS、Settings、Environment、Simulation Fragment 与布局已删除；三个未接线且使用伪数据的 raw 测量、导航、天线策略及占位测试、HAL 死方法和旧模型配置字段已删除。

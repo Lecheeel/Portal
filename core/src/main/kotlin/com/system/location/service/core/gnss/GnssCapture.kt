@@ -21,6 +21,8 @@ data class GnssCapture(
     val gpsBroadcastEvidence: GpsBroadcastEvidence? = null,
     /** Per-signal GPS L1/unknown-carrier calibration retained when raw status signals leave IPC. */
     val gpsSignalCalibration: GpsSignalCalibration? = null,
+    /** Optional Galileo evidence; requires independently decoded GGTO and GST validity. */
+    val galileoBroadcastEvidence: GalileoBroadcastEvidence? = null,
 ) {
     init {
         require(schemaVersion == 1) { "unsupported GNSS capture version" }
@@ -30,6 +32,16 @@ data class GnssCapture(
             val observedGps = GpsBroadcastEvidence.visibleGpsIdentities(frames)
             require(evidence.ephemerides.all { it.ephemeris.svid in observedGps }) {
                 "GPS evidence contains a satellite without valid visible status"
+            }
+        }
+        galileoBroadcastEvidence?.let { evidence ->
+            require(evidence.clock.bootCount == bootCount) { "Galileo evidence belongs to another boot" }
+            val observedGalileo = frames.flatMap { it.satellites }.filter {
+                it.constellation == Constellation.GALILEO && it.elevationDeg >= 0f &&
+                    it.azimuthDeg in 0f..<360f && it.cn0DbHz > 0f
+            }.map { it.svid }.toSet()
+            require(evidence.identities.all { it in observedGalileo }) {
+                "Galileo evidence contains a satellite without valid visible status"
             }
         }
         require(deviceModel.isNotBlank() && osVersion.isNotBlank()) { "missing device metadata" }

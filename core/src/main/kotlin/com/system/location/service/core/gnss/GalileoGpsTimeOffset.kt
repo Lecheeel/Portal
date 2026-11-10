@@ -1,5 +1,7 @@
 package com.system.location.service.core.gnss
 
+import kotlinx.serialization.Serializable
+
 data class GpsToGalileoResult(val time: GalileoTime?, val reason: String? = null)
 data class GalileoToGpsResult(val time: GpsTime?, val reason: String? = null)
 
@@ -13,6 +15,7 @@ data class GalileoToGpsResult(val time: GpsTime?, val reason: String? = null)
  * applying GGTO. No UTC/leap-second constant, satellite-clock correction, or receiver bias
  * is folded into this inter-system time conversion. It does not establish time accuracy.
  */
+@Serializable
 data class GalileoGpsTimeOffset(
     val referenceWeek: Int,
     val referenceHour: Int,

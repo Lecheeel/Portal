@@ -2,7 +2,9 @@ package com.system.location.service.core.gnss
 
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class DecodedGalileoFnav(
     val ephemeris: GalileoBroadcastEphemeris,
     val transmissionTimeOfPageOne: GalileoTime,

@@ -2,12 +2,15 @@ package com.system.location.service.core.gnss
 
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class GalileoSignalStatus(val health: Int, val dataValidity: Int) {
     init { require(health in 0..3 && dataValidity in 0..1) }
     val usable: Boolean get() = health == 0 && dataValidity == 0
 }
 
+@Serializable
 data class DecodedGalileoInav(
     val ephemeris: GalileoBroadcastEphemeris,
     val transmissionTimeOfWordFive: GalileoTime,

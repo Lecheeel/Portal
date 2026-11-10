@@ -1,6 +1,9 @@
 package com.system.location.service.core.gnss
 
+import kotlinx.serialization.Serializable
+
 /** Full Galileo System Time (GST) week/seconds, never a GPS-week or UTC alias. */
+@Serializable
 data class GalileoTime(val week: Int, val secondsOfWeek: Double) {
     init { require(week >= 0 && secondsOfWeek.isFinite() && secondsOfWeek >= 0 && secondsOfWeek < 604800) }
     fun secondsSince(other: GalileoTime) = (week.toLong() - other.week.toLong()) * 604800.0 + secondsOfWeek - other.secondsOfWeek
@@ -13,6 +16,7 @@ data class GalileoTime(val week: Int, val secondsOfWeek: Double) {
     }
 }
 
+@Serializable
 enum class GalileoClockReference { INAV_E1_E5B, FNAV_E1_E5A }
 
 /**
@@ -22,6 +26,7 @@ enum class GalileoClockReference { INAV_E1_E5B, FNAV_E1_E5A }
  * Reference epochs toe/toc need not lie inside a shortened operational interval.
  * All angular parameters are radians; rates use seconds. No GPS/GST/UTC conversion is implicit.
  */
+@Serializable
 data class GalileoBroadcastEphemeris(
     val svid: Int,
     val toe: GalileoTime,

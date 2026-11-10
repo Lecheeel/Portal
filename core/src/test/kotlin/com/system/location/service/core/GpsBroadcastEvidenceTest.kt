@@ -54,6 +54,21 @@ class GpsBroadcastEvidenceTest {
         }
     }
 
+    @Test fun belowHorizonOrMalformedStatusCannotAuthorizePhysicalGpsIdentity() {
+        val c = capture()
+        val hidden = c.copy(frames = c.frames.map { frame ->
+            frame.copy(satellites = frame.satellites.map { it.copy(elevationDeg = -0.1f) })
+        })
+        assertNull(GpsBroadcastEvidence.fromCapture(hidden))
+        assertThrows(IllegalArgumentException::class.java) {
+            c.frames.single().satellites.single().copy(cn0DbHz = 63.1f)
+        }
+        val invalidAzimuth = c.copy(frames = c.frames.map { frame ->
+            frame.copy(satellites = frame.satellites.map { it.copy(azimuthDeg = 360f) })
+        })
+        assertNull(GpsBroadcastEvidence.fromCapture(invalidAzimuth))
+    }
+
     @Test fun wireDecodesRawOnceAndRetainsCompactEvidenceAcrossPeerSynchronization() {
         val c = capture()
         val e = GpsBroadcastEvidence.fromCapture(c)!!

@@ -25,8 +25,11 @@ data class GpsBroadcastEvidence(
 
         fun fromCapture(capture: GnssCapture): GpsBroadcastEvidence? {
             val clock = GpsElapsedClockEvidence.fromCapture(capture) ?: return null
+            // A navigation message alone does not prove that the receiver observed the identity
+            // as visible. Only valid above-horizon status samples may authorize physical output.
             val observed = capture.frames.flatMap { it.satellites }.filter {
-                it.constellation == Constellation.GPS
+                it.constellation == Constellation.GPS && it.elevationDeg >= 0f &&
+                    it.azimuthDeg in 0f..<360f && it.cn0DbHz.isFinite() && it.cn0DbHz in 0f..63f
             }.map { it.svid }.toSet()
             val anchor = GpsTime(clock.gpsWeek, clock.gpsSecondsOfWeek)
             val decoded = GpsCaptureEphemerisDecoder.decode(capture).decoded.filter {

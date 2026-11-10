@@ -85,7 +85,7 @@ internal class GnssCallbackRegistry(
     fun deliverOnce(listener: IInterface, key: String, action: () -> Boolean) {
         val binder = listener.asBinder()
         val entry = synchronized(this) { entries[binder]?.takeUnless { it.lastDeliveryKey == key } } ?: return
-        if (!action()) return
+        if (!submit(binder, entry, action)) return
         synchronized(this) { if (entries[binder] === entry) entry.lastDeliveryKey = key }
     }
 
@@ -111,7 +111,7 @@ internal class GnssCallbackRegistry(
         for (index in start until itemCount) {
             if (Thread.currentThread().isInterrupted || !allowed()) return
             if (synchronized(this) { entries[binder] !== entry }) return
-            action(index)
+            submit(binder, entry) { action(index) }
             synchronized(this) {
                 if (entries[binder] !== entry) return
                 entry.nextDeliveryIndex = index + 1
@@ -125,6 +125,14 @@ internal class GnssCallbackRegistry(
             }
         }
     }
+
+    /** A failed old submission must never remove a replacement registration on this Binder. */
+    private inline fun <T> submit(binder: IBinder, entry: Entry, action: () -> T): T =
+        try { action() } catch (error: Exception) {
+            if (error is android.os.DeadObjectException || !binder.isBinderAlive)
+                unregisterBinder(binder, entry.token)
+            throw error
+        }
 
     fun routeFor(listener: Any?, routing: RoutingConfig? = FakeLoc.runtimeSnapshots.current().routing): GnssFrameRoute? {
         val entry = entry(listener) ?: return null

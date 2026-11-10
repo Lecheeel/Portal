@@ -10,6 +10,32 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssCallbackRegistryTest {
+    @Test fun submissionDeathOnlyUnlinksTheRegistrationThatSubmittedIt() {
+        for (batch in listOf(false, true)) for (replace in listOf(false, true)) {
+            val transport = Transport()
+            val registry = GnssCallbackRegistry()
+            val listener = transport.listener()
+            registry.register(listener, "old", 10001)
+            val failSubmission = {
+                if (replace) {
+                    registry.unregister(listener)
+                    assertTrue(registry.register(listener, "new", 10002))
+                }
+                throw android.os.DeadObjectException()
+            }
+            assertThrows(android.os.DeadObjectException::class.java) {
+                if (batch) registry.deliverBatch(listener, "epoch", 3, { true }) { failSubmission() }
+                else registry.deliverOnce(listener, "epoch") { failSubmission() }
+            }
+            if (replace) {
+                assertEquals(10002, registry.subscriptions().single().uid)
+                assertNull(registry.subscriptions().single().lastDeliveryKey)
+            } else assertTrue(registry.subscriptions().isEmpty())
+            registry.clear()
+            assertEquals(transport.links, transport.unlinks)
+        }
+    }
+
     @Test fun successfulFrameIsNotRepeatedAndCursorSurvivesRetirement() {
         val transport = Transport()
         val old = GnssCallbackRegistry()

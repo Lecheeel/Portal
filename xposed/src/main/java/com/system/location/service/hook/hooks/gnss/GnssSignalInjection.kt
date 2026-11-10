@@ -42,7 +42,7 @@ object GnssSignalInjection {
         if (!policy.enabled || !policy.gnssEnabled || policy.gnssSource == null) return
         val frames = ReceiverTickFrames { GnssReceiverRuntime.frameForRoute(it, context) }
         GnssListenerRouting.listeners().forEach { listener ->
-            deliver(listener, { GnssListenerRouting.unregister(listener) }) {
+            deliver(listener) {
                 val route = GnssListenerRouting.routeFor(listener, context.state.routing) ?: return@deliver
                 val publication = frames.forRoute(route) ?: return@deliver
                 val method = listener.javaClass.methods.firstOrNull {
@@ -58,7 +58,7 @@ object GnssSignalInjection {
         }
         if (!policy.nmeaEnabled) return
         NmeaListenerRouting.listeners().forEach { listener ->
-            deliver(listener, { NmeaListenerRouting.unregister(listener) }) {
+            deliver(listener) {
                 val route = NmeaListenerRouting.routeFor(listener, context.state.routing) ?: return@deliver
                 val publication = frames.forRoute(route) ?: return@deliver
                 val method = listener.javaClass.methods.firstOrNull {
@@ -79,11 +79,10 @@ object GnssSignalInjection {
         }
     }
 
-    private inline fun deliver(listener: IInterface, remove: () -> Unit, action: () -> Unit) {
+    private inline fun deliver(listener: IInterface, action: () -> Unit) {
         if (Thread.currentThread().isInterrupted) return
         try { action() } catch (error: Exception) {
             if (error is InterruptedException) { Thread.currentThread().interrupt(); return }
-            if (error is android.os.DeadObjectException || !listener.asBinder().isBinderAlive) remove()
             report(listener.javaClass.name, error)
         }
     }

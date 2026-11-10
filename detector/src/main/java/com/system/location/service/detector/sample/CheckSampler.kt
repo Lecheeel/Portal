@@ -109,10 +109,16 @@ class CheckSampler(
                         .getOrNull()?.let { lastKnown[provider] = Location(it) }
                 }
                 runCatching { locationManager.registerGnssStatusCallback(executor, gnssCallback) }
-                    .onSuccess { registeredGnss = true }
+                    .onSuccess {
+                        registeredGnss = it
+                        if (!it) notes += "GnssStatus 注册被系统拒绝（返回 false）"
+                    }
                     .onFailure { notes += "GnssStatus 注册失败：${it.javaClass.simpleName}" }
                 runCatching { locationManager.addNmeaListener(executor, nmeaListener) }
-                    .onSuccess { registeredNmea = true }
+                    .onSuccess {
+                        registeredNmea = it
+                        if (!it) notes += "NMEA 注册被系统拒绝（返回 false）"
+                    }
                     .onFailure { notes += "NMEA 注册失败：${it.javaClass.simpleName}" }
             }
 

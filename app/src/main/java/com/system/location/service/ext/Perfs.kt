@@ -92,7 +92,7 @@ var Context.reportDuration: Int
     }
 
 var Context.experimentalClearMockFlag: Boolean
-    get() = sharedPrefs.getBoolean("experimentalClearMockFlag", false)
+    get() = sharedPrefs.getBoolean("experimentalClearMockFlag", true)
     set(value) = sharedPrefs.edit { putBoolean("experimentalClearMockFlag", value) }
 
 var Context.experimentalOrbitMotion: Boolean
@@ -108,14 +108,14 @@ var Context.orbitPeriodSeconds: Double
     set(value) = sharedPrefs.edit { putFloat("orbitPeriodSeconds", value.toFloat()) }
 
 var Context.smoothRouteMotion: Boolean
-    get() = sharedPrefs.getBoolean("smoothRouteMotion", false)
+    get() = sharedPrefs.getBoolean("smoothRouteMotion", true)
     set(value) = sharedPrefs.edit { putBoolean("smoothRouteMotion", value) }
 
 var Context.gmsMockEnabled: Boolean
     get() = sharedPrefs.getBoolean("gmsMockEnabled", false)
     set(value) = sharedPrefs.edit { putBoolean("gmsMockEnabled", value) }
 var Context.platformFusedEnabled: Boolean
-    get() = sharedPrefs.getBoolean("platformFusedEnabled", false)
+    get() = sharedPrefs.getBoolean("platformFusedEnabled", true)
     set(value) = sharedPrefs.edit { putBoolean("platformFusedEnabled", value) }
 var Context.startupBurstEnabled: Boolean
     get() = sharedPrefs.getBoolean("startupBurstEnabled", true)

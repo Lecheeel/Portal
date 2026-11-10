@@ -12,7 +12,13 @@ object DiagnosticCommand {
     fun status(rely: Bundle, lastPublishMillis: Long): Boolean {
         rely.putInt("sample_version", SampleWire.VERSION)
         rely.putInt("sample_min_version", SampleWire.MIN_SUPPORTED)
-        rely.putBoolean("is_start", FakeLoc.enable)
+        val store = FakeLoc.runtimeSnapshots
+        val observed = store.observation()
+        // These three fields describe one atomic observation. A stopped response alone cannot
+        // detect a complete start/stop between real receiver collection checks.
+        rely.putBoolean("is_start", observed.state.configuration.enabled)
+        rely.putString("runtime_instance", store.instanceId)
+        rely.putLong("simulation_generation", observed.simulationGeneration)
         rely.putLong("last_publish", lastPublishMillis)
         val statuses = HookStatusRegistry.snapshot()
         val scope = HookStatusRegistry.scope()

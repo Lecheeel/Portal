@@ -124,9 +124,6 @@ object PortalSettingsSchema {
             SettingSpec("environment_source", SettingType.ENUM, "AUTO", choices = setOf(
                 "AUTO", "PROCEDURAL", "REPLAY",
             )),
-            SettingSpec("gnss_model", SettingType.ENUM, "ORBITAL", choices = setOf(
-                "ANALYTIC", "ORBITAL",
-            )),
         ),
     )
 }

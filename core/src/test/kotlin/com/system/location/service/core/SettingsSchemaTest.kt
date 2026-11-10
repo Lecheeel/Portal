@@ -16,7 +16,7 @@ class SettingsSchemaTest {
     @Test fun defaultsAreDeclared() {
         assertEquals("0.0", schema.defaultValue("altitude"))
         assertEquals("FULL_REPLAY", schema.defaultValue("cell_mode"))
-        assertEquals("ORBITAL", schema.defaultValue("gnss_model"))
+        assertNull(schema.spec("gnss_model"))
         assertEquals("true", schema.defaultValue("enable_nmea"))
         assertNull(schema.defaultValue("missing"))
     }
@@ -49,7 +49,6 @@ class SettingsSchemaTest {
     @Test fun coerceFallsBackForInvalidValues() {
         assertEquals("100", schema.coerce("report_interval", "1"))
         assertEquals("4", schema.coerce("environment_ap_count", "99"))
-        assertEquals("ORBITAL", schema.coerce("gnss_model", "BROKEN"))
         assertEquals("true", schema.coerce("sim_ready", "TRUE"))
     }
 

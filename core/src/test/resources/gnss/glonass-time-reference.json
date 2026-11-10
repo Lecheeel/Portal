@@ -1,0 +1,91 @@
+{
+  "reference": "https://github.com/tomojitakasu/RTKLIB/blob/71db0ffa0d9735697c6adfd06fdf766d0e5ce807/src/rcvraw.c",
+  "method": "Synthetic Android GLONASS-M string 5 payloads; independent C parity and raw sign-magnitude/unsigned extraction only. Not receiver data or a time conversion.",
+  "records": [
+    {
+      "rawUnits": {
+        "n4": 5,
+        "na": 800,
+        "tauC": 987654321,
+        "tauGps": -123457,
+        "ln": 0
+      },
+      "androidBase64": "BWQHW80WIsPEgn0=",
+      "expected": {
+        "n4": 5,
+        "na": 800,
+        "tauCRawUnits": 987654321,
+        "tauGpsRawUnits": -123457,
+        "ln": 0
+      }
+    },
+    {
+      "rawUnits": {
+        "n4": 31,
+        "na": 1461,
+        "tauC": 2147483647,
+        "tauGps": 2097151,
+        "ln": 1
+      },
+      "androidBase64": "Bbav////77///w0=",
+      "expected": {
+        "n4": 31,
+        "na": 1461,
+        "tauCRawUnits": 2147483647,
+        "tauGpsRawUnits": 2097151,
+        "ln": 1
+      }
+    },
+    {
+      "rawUnits": {
+        "n4": 1,
+        "na": 1,
+        "tauC": -2147483647,
+        "tauGps": -2097151,
+        "ln": 0
+      },
+      "androidBase64": "BQA/////8P///v0=",
+      "expected": {
+        "n4": 1,
+        "na": 1,
+        "tauCRawUnits": -2147483647,
+        "tauGpsRawUnits": -2097151,
+        "ln": 0
+      }
+    },
+    {
+      "rawUnits": {
+        "n4": 27,
+        "na": 1460,
+        "tauC": -1,
+        "tauGps": 1,
+        "ln": 1
+      },
+      "androidBase64": "BbaQAAAAPYAAA80=",
+      "expected": {
+        "n4": 27,
+        "na": 1460,
+        "tauCRawUnits": -1,
+        "tauGpsRawUnits": 1,
+        "ln": 1
+      }
+    },
+    {
+      "rawUnits": {
+        "n4": 1,
+        "na": 366,
+        "tauC": 0,
+        "tauGps": 0,
+        "ln": 0
+      },
+      "androidBase64": "BS3AAAAAAIAAABo=",
+      "expected": {
+        "n4": 1,
+        "na": 366,
+        "tauCRawUnits": 0,
+        "tauGpsRawUnits": 0,
+        "ln": 0
+      }
+    }
+  ]
+}

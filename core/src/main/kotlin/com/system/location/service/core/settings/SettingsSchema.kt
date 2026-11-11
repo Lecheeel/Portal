@@ -3,6 +3,7 @@ package com.system.location.service.core.settings
 import com.system.location.service.core.gnss.GnssSimulationMode
 import com.system.location.service.core.gnss.GnssMinimumPolicy
 import com.system.location.service.core.gnss.GnssSimulationEnvironment
+import com.system.location.service.core.gnss.GnssSimulationPolicy
 import com.system.location.service.core.location.LocationSanitizer
 
 import com.system.location.service.core.environment.EnvironmentConfig
@@ -99,9 +100,9 @@ object PortalSettingsSchema {
             SettingSpec("speed", SettingType.DOUBLE, "3.05", 0.0, 1_000.0),
             SettingSpec("accuracy", SettingType.FLOAT, LocationSanitizer.DEFAULT_HORIZONTAL_ACCURACY.toString(), 0.1, 10_000.0),
             SettingSpec("report_interval", SettingType.LONG, "100", 50.0, 1_000.0),
-            SettingSpec("min_satellites", SettingType.INT, "0", 0.0, 128.0),
+            SettingSpec("min_satellites", SettingType.INT, GnssSimulationPolicy.DEFAULT_MINIMUM_SATELLITES.toString(), 0.0, 128.0),
             SettingSpec("gnss_mode", SettingType.ENUM, "AUTO", choices = GnssSimulationMode.entries.map { it.name }.toSet()),
-            SettingSpec("gnss_minimum_policy", SettingType.ENUM, "PHYSICAL_FIRST", choices = GnssMinimumPolicy.entries.map { it.name }.toSet()),
+            SettingSpec("gnss_minimum_policy", SettingType.ENUM, GnssSimulationPolicy().minimumPolicy.name, choices = GnssMinimumPolicy.entries.map { it.name }.toSet()),
             SettingSpec("gnss_environment", SettingType.ENUM, "OPEN_SKY", choices = GnssSimulationEnvironment.entries.map { it.name }.toSet()),
             SettingSpec("gnss_virtual_seed", SettingType.LONG, "0"),
             SettingSpec("gnss_capture", SettingType.STRING, "", maxLength = 262_144),

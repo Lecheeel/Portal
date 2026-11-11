@@ -22,7 +22,7 @@ class FakeLocConfigurationTest {
             assertFalse(changed.configuration.nmeaEnabled)
             assertEquals(31.0 to 121.0, FakeLoc.coordinatePair())
             assertFalse(old.configuration.enabled)
-            assertEquals(0, old.configuration.minimumSatellites)
+            assertEquals(59, old.configuration.minimumSatellites)
             assertTrue(changed.configRevision > old.configRevision)
             FakeLoc.runtimeSnapshots.set(changed.copy(configuration = HookConfiguration(minimumSatellites = 5)))
             assertFalse(FakeLoc.enable)

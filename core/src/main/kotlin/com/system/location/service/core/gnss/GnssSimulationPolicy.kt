@@ -17,10 +17,12 @@ enum class GnssSimulationEnvironment { OPEN_SKY, URBAN, INDOOR }
 @Serializable
 data class GnssSimulationPolicy(
     val mode: GnssSimulationMode = GnssSimulationMode.AUTO,
-    val minimumPolicy: GnssMinimumPolicy = GnssMinimumPolicy.PHYSICAL_FIRST,
+    val minimumPolicy: GnssMinimumPolicy = GnssMinimumPolicy.GUARANTEE_QUANTITY,
     val environment: GnssSimulationEnvironment = GnssSimulationEnvironment.OPEN_SKY,
     val virtualSeed: Long = 0,
-)
+) {
+    companion object { const val DEFAULT_MINIMUM_SATELLITES = 59 }
+}
 
 enum class GnssOrbitSourceKind { BROADCAST_EPHEMERIS, ALMANAC, OFFLINE_ORBIT, VIRTUAL }
 

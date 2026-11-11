@@ -2,6 +2,7 @@ package com.system.location.service.data.persistence
 
 import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.gnss.GnssFrame
+import com.system.location.service.core.gnss.GnssSimulationPolicy
 import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.runtime.RuntimeSnapshot
 
@@ -55,7 +56,7 @@ object HookConfigurationPreferences {
         val policy = fallback.configuration.gnssSimulation
         fun text(key: String, default: String) = preferences[key]?.let { it as String } ?: default
         return mapOf(
-            "min_satellites" to (preferences["minSatelliteCount"]?.let { it as Int } ?: 0)
+            "min_satellites" to (preferences["minSatelliteCount"]?.let { it as Int } ?: GnssSimulationPolicy.DEFAULT_MINIMUM_SATELLITES)
                 .coerceIn(0, GnssFrame.MAX_SATELLITES),
             "gnss_mode" to text("gnssSimulationMode", policy.mode.name),
             "gnss_minimum_policy" to text("gnssMinimumPolicy", policy.minimumPolicy.name),

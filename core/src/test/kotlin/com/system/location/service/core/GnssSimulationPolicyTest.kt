@@ -12,7 +12,7 @@ class GnssSimulationPolicyTest {
     @Test fun missingPolicyFieldsSelectAutonomousCapableDefaults() {
         val policy = Json.decodeFromString<GnssSimulationPolicy>("{}")
         assertEquals(GnssSimulationMode.AUTO, policy.mode)
-        assertEquals(GnssMinimumPolicy.PHYSICAL_FIRST, policy.minimumPolicy)
+        assertEquals(GnssMinimumPolicy.GUARANTEE_QUANTITY, policy.minimumPolicy)
         assertEquals(GnssSimulationEnvironment.OPEN_SKY, policy.environment)
         val explicit = policy.copy(mode = GnssSimulationMode.AUTONOMOUS,
             minimumPolicy = GnssMinimumPolicy.GUARANTEE_QUANTITY,

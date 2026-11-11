@@ -28,7 +28,7 @@ data class HookConfiguration(
     val nmeaEnabled: Boolean = true,
     val hideMock: Boolean = true,
     val hookWifi: Boolean = true,
-    val minimumSatellites: Int = 0,
+    val minimumSatellites: Int = GnssSimulationPolicy.DEFAULT_MINIMUM_SATELLITES,
     val gnssSimulation: GnssSimulationPolicy = GnssSimulationPolicy(),
     val reportIntervalMs: Long = 100L,
     val sensorCadenceScale: Double = 1.0,

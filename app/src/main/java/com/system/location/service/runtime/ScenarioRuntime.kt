@@ -96,11 +96,23 @@ object ScenarioRuntime {
     private val journal by lazy { DiagnosticJournal(AtomicDocumentStore(File(context.noBackupFilesDir, "runtime-diagnostics.json"))) }
     private val configStore by lazy { FileConfigStore(File(context.noBackupFilesDir, "active-config.json")) }
     private val writer by lazy { DiagnosticWriter(journal) }
-    val controller = ScenarioController({ type ->
-        when (type) {
+    private val physicalRecovery by lazy {
+        com.system.location.service.backend.mock.AndroidPhysicalLocationRecovery(context, scope) { result, reason ->
+            commands.withLock { controller.note("PHYSICAL_RECOVERY", result, reason) }
+        }
+    }
+    val controller: ScenarioController = ScenarioController({ type ->
+        val backend = when (type) {
             BackendType.XPOSED -> XposedBackend(context)
-            BackendType.MOCK_PROVIDER -> FusedMockBackend(MockProviderBackend(AndroidMockProviderPort(context)), AndroidGmsMockPort(context))
+            BackendType.MOCK_PROVIDER -> com.system.location.service.backend.mock.RecoveringMockBackend(
+                FusedMockBackend(MockProviderBackend(AndroidMockProviderPort(context)), AndroidGmsMockPort(context)), physicalRecovery)
             BackendType.NATIVE -> com.system.location.service.backend.native.NativeBackend(context)
+        }
+        object : LocationBackend by backend {
+            override suspend fun prepare(): BackendResult {
+                physicalRecovery.cancel()
+                return backend.prepare()
+            }
         }
     }, object : RuntimeClock {
         override fun nanos() = SystemClock.elapsedRealtimeNanos()
@@ -172,6 +184,7 @@ object ScenarioRuntime {
 
     /** Caller holds commands; restore and start must not interleave with another accepted command. */
     private suspend fun startLocked(frozen: Scenario): Boolean {
+        physicalRecovery.cancel()
         return try {
             if (service == null) {
                 ready = CompletableDeferred()

@@ -99,9 +99,9 @@ class FakeLocation {
                 install("settings") { SettingsHook.hook(loader) }
             }
             com.system.location.service.hook.scope.HookScope.TARGET_APP -> {
-                // App-specific IPC is intentionally unavailable until a caller allowlist is configured.
-                status.record("target-app", com.system.location.service.hook.scope.HookStatus(
-                    skipped = true, reason = "Target-app IPC unsupported; use the system location backend"))
+                install("application-sensor") {
+                    com.system.location.service.hook.hooks.sensor.ApplicationSensorHook.install(loader)
+                }
             }
         }
     }

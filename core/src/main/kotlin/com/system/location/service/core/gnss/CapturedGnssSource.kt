@@ -1,7 +1,6 @@
 package com.system.location.service.core.gnss
 
 import com.system.location.service.core.location.LocationSample
-import java.util.concurrent.atomic.AtomicLong
 
 /**
  * One immutable receiver-evidence identity with its own synchronized publication cache.
@@ -9,17 +8,17 @@ import java.util.concurrent.atomic.AtomicLong
  * source, including its frame cache. No method can reconfigure an already published source.
  * This process-local handle is deliberately not serializable. Only GnssCaptureWire crosses IPC.
  */
-class CapturedGnssSource private constructor(private val payload: String) {
+class CapturedGnssSource private constructor(private val payload: String) : GnssFrameSource {
     private val capture = GnssCaptureWire.decode(payload)
     private val frames = GnssFrameStore(sequences).apply { configure(capture) }
-    val requiresBootIdentity: Boolean = capture.bootCount != null &&
+    override val requiresBootIdentity: Boolean = capture.bootCount != null &&
         (capture.gpsBroadcastEvidence != null || capture.galileoBroadcastEvidence != null ||
             capture.beiDouBroadcastEvidence != null ||
             capture.glonassBroadcastEvidence != null ||
             capture.measurements.isNotEmpty() || capture.navigation.isNotEmpty())
 
-    fun frame(sample: LocationSample, minimumSatellites: Int, route: GnssFrameRoute,
-        validationAtMillis: Long, currentBootCount: Int? = null): PublishedGnssFrame? =
+    override fun frame(sample: LocationSample, minimumSatellites: Int, route: GnssFrameRoute,
+        validationAtMillis: Long, currentBootCount: Int?): PublishedGnssFrame? =
         frames.current(sample.timeMillis, sample.coordinate, sample.altitude, minimumSatellites,
             sample.speed.toDouble(), sample.bearing.toDouble(), validationAtMillis, route,
             sample.elapsedNanos, currentBootCount)
@@ -28,7 +27,7 @@ class CapturedGnssSource private constructor(private val payload: String) {
     fun wirePayload(): String = payload
 
     companion object {
-        private val sequences = AtomicLong()
+        private val sequences = GnssPublicationSequences.counter
 
         fun prepare(payload: String?, previous: CapturedGnssSource? = null): CapturedGnssSource? = when {
             payload == null -> null

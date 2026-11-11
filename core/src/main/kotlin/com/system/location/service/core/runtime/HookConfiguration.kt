@@ -3,6 +3,8 @@ package com.system.location.service.core.runtime
 import com.system.location.service.core.gnss.CapturedGnssSource
 import com.system.location.service.core.gnss.GnssFrame
 import com.system.location.service.core.gnss.GnssSimulationPolicy
+import com.system.location.service.core.gnss.GnssSourceSelection
+import com.system.location.service.core.gnss.GnssFrameSource
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -37,6 +39,11 @@ data class HookConfiguration(
     val gnssCaptureRejected: Boolean = false,
     @Transient val gnssSource: CapturedGnssSource? = null,
 ) {
+    // Delegated process-local state is excluded from serialization and data-class equality.
+    private val selectedGnssSource: GnssFrameSource? by lazy { GnssSourceSelection.source(gnssSimulation, gnssSource) }
+
+    fun gnssFrameSource(): GnssFrameSource? = selectedGnssSource
+
     init {
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         require(reportIntervalMs in 50..1000)

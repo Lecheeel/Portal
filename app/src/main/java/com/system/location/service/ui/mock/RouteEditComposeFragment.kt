@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -46,6 +47,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -563,8 +565,10 @@ private fun RouteEditScreen(
             ) { Text("保存路线") }
         }
     }
-    val editorMap: @Composable () -> Unit = {
-        AndroidView(factory = { ctx -> createMap(ctx) }, modifier = Modifier.fillMaxSize())
+    val editorMap = remember {
+        movableContentOf {
+            AndroidView(factory = { ctx -> createMap(ctx) }, modifier = Modifier.fillMaxSize())
+        }
     }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -576,6 +580,20 @@ private fun RouteEditScreen(
                         editorActions()
                     }
                     Column(Modifier.weight(1f).fillMaxHeight()) { editorMap() }
+                }
+            } else if (maxHeight < 600.dp) {
+                // Scroll controls independently so a narrow screen still has a drawable map.
+                // The map itself stays outside scrolling parents to preserve drawing gestures.
+                val headerHeight = maxHeight * .38f
+                val actionsHeight = maxHeight * .34f
+                Column(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxWidth().heightIn(max = headerHeight).verticalScroll(rememberScrollState())) {
+                        editorHeader()
+                    }
+                    Column(Modifier.weight(1f).fillMaxWidth()) { editorMap() }
+                    Column(Modifier.fillMaxWidth().heightIn(max = actionsHeight).verticalScroll(rememberScrollState())) {
+                        editorActions()
+                    }
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {

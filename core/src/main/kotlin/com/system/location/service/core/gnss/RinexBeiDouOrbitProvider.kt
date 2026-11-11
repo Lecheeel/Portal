@@ -63,6 +63,7 @@ class RinexBeiDouOrbitProvider(file: RinexNavigationFile, private val provenance
         val clock = timeScale.getOrNull() ?: return unavailable("BeiDou: missing, damaged or conflicting BDUT correction")
         val time = clock.atUtcMillis(request.atMillis) ?: return unavailable("BeiDou: UTC/BDUT evidence outside application age limit")
         val messages = diagnostics.toMutableList()
+        messages += "BeiDou orbit class catalog: ${catalog.description}"
         messages += "BeiDou: approximate BDCS/WGS84 sky axes; ephemeris and BDUT age bounded by application policy, not an inferred broadcast fit"
         val blocked = mutableSetOf<Pair<Constellation, Int>>()
         fun applicable(upload: Upload): Boolean = upload.decoded?.ephemeris?.let {

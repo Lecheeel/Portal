@@ -16,6 +16,7 @@ class BeiDouSkyCatalog(
     fullCreationYear: Int,
     maximumOpenIntervalAgeSeconds: Long,
     private val utc: GnssUtcTimeScale,
+    val description: String = "caller-supplied IGS satellite metadata",
 ) {
     private val lastAcceptedLabel: LocalDateTime
     init {

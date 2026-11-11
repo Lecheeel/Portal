@@ -90,13 +90,7 @@ class RinexBeiDouOrbitProviderTest {
     }
 
     @Test fun downloadedBeiDouReachesProductionSkyWithReferenceTimeIndependentOfDownloadTime() {
-        fun fields(values: List<Double?>) = values.joinToString("") { value ->
-            value?.let { String.format(Locale.ROOT, "%19.12E", it) } ?: " ".repeat(19)
-        }
-        val text = "     3.05           NAVIGATION DATA     M".padEnd(60) + "RINEX VERSION / TYPE\n" +
-            header() + "TIME SYSTEM CORR\n" + "".padEnd(60) + "END OF HEADER\n" +
-            "C19 2026 11 08 00 00 00" + fields(record.clock) + "\n" +
-            record.orbit.joinToString("\n") { "    " + fields(it) } + "\n"
+        val text = navigationText(record)
         val resource = RinexNavigationResource.import(text, "https://example.org/navigation.rnx", epoch + 60000)
         val position = resource.beiDouProvider(utc, catalog, policy).positions(request).positions.single()
         assertEquals(epoch, position.provenance.referenceEpochMillis)
@@ -109,5 +103,40 @@ class RinexBeiDouOrbitProviderTest {
         val future = model.frame(request.copy(atMillis = Instant.parse("2028-01-01T00:00:00Z").toEpochMilli()))!!
         assertTrue(future.satellites.isNotEmpty())
         assertTrue(future.orbitProvenance.values.all { it.kind == GnssOrbitSourceKind.VIRTUAL })
+    }
+
+    @Test fun refreshedMetadataRestoresBroadcastAfterBundledCatalogExpiresWithoutExtendingItsAge() {
+        // Analytic circular orbit at a later native BDT week, not a retimed real observation.
+        val laterRecord = record.copy(epoch = RinexNavigationEpoch(LocalDate.of(2026, 11, 29), 0, 0, 0),
+            orbit = record.orbit.mapIndexed { row, values -> if (row == 4) listOf(0.0, null, 1091.0, null) else values })
+        val laterHeader = header().replace(" 1088", " 1091")
+        val at = Instant.parse("2026-11-28T23:59:55.750Z").toEpochMilli()
+        val navigation = RinexNavigationResource.import(navigationText(laterRecord, laterHeader),
+            "https://example.org/analytic-nav", at)
+        val request = GnssSkyRequest(at, Wgs84(0.0, 0.0), 0.0)
+        fun frame(resource: RinexNavigationResource) = GnssBundledOrbitResources.model(GnssSimulationPolicy(),
+            GnssOutputLimits(128, 36, 32), 604800.0, navigation = resource).frame(request)!!
+        assertNull(frame(navigation).orbitProvenance[Constellation.BEIDOU to 19])
+        val subset = requireNotNull(javaClass.getResource("/gnss/igs-beidou-metadata.snx")).readText()
+            .replace("26:295:28054", "26:331:28054")
+        val refreshed = BeiDouCatalogResource.import(subset, Instant.parse("2026-11-27T08:30:06Z").toEpochMilli())
+        val accepted = RinexNavigationResource.decodeWire(RinexNavigationResource.encodeWire(
+            navigation.copy(beiDouCatalog = refreshed)))
+        val result = frame(accepted)
+        assertEquals(GnssOrbitSourceKind.BROADCAST_EPHEMERIS,
+            result.orbitProvenance[Constellation.BEIDOU to 19]?.kind)
+        assertTrue(result.diagnostics.any { refreshed.manifest.originalSha256 in it })
+        assertNull(frame(navigation).orbitProvenance[Constellation.BEIDOU to 19])
+    }
+
+    private fun navigationText(record: RinexNavigationRecord, correction: String = header()): String {
+        fun fields(values: List<Double?>) = values.joinToString("") { value ->
+            value?.let { String.format(Locale.ROOT, "%19.12E", it) } ?: " ".repeat(19)
+        }
+        val date = record.epoch.date.toString().replace('-', ' ')
+        return "     3.05           NAVIGATION DATA     M".padEnd(60) + "RINEX VERSION / TYPE\n" +
+            correction + "TIME SYSTEM CORR\n" + "".padEnd(60) + "END OF HEADER\n" +
+            "C19 $date 00 00 00" + fields(record.clock) + "\n" +
+            record.orbit.joinToString("\n") { "    " + fields(it) } + "\n"
     }
 }

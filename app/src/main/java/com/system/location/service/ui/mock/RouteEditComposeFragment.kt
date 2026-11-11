@@ -19,6 +19,9 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -435,134 +438,151 @@ private fun RouteEditScreen(
         )
     }
 
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                DrawingMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = draft.mode == mode,
-                        enabled = !restoring,
-                        onClick = {
-                            if (mode != draft.mode) {
-                                if (hasGeometry) pendingMode = mode
-                                else { cancelSearch(); model.mode(mode) }
-                            }
-                        },
-                        label = { Text(editorModeLabel(mode)) },
-                    )
-                }
-            }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it; cancelSearch() },
+    val editorHeader: @Composable () -> Unit = {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DrawingMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = draft.mode == mode,
                     enabled = !restoring,
-                    singleLine = true,
-                    label = { Text("搜索地点") },
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    enabled = query.isNotBlank() && !restoring && !searching,
                     onClick = {
-                        suggestions = emptyList()
-                        searchMessage = null
-                        searching = true
-                        request = EditorSearch(query.trim(), draft.generation, draft.selecting, ++searchAttempt)
-                    },
-                ) { Text(if (searching) "搜索中" else "搜索") }
-            }
-            if (searching || planning || restoring) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp))
-            searchMessage?.let {
-                Text(it, Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall)
-            }
-            if (draft.mode == DrawingMode.PLAN) {
-                Row(Modifier.padding(horizontal = 16.dp)) {
-                    FilterChip(
-                        selected = draft.selecting == Endpoint.START,
-                        enabled = !restoring,
-                        onClick = { cancelSearch(); model.select(Endpoint.START) },
-                        label = { Text(if (draft.start == null) "选择起点" else "起点已选") },
-                    )
-                    Spacer(Modifier.padding(4.dp))
-                    FilterChip(
-                        selected = draft.selecting == Endpoint.END,
-                        enabled = !restoring,
-                        onClick = { cancelSearch(); model.select(Endpoint.END) },
-                        label = { Text(if (draft.end == null) "选择终点" else "终点已选") },
-                    )
-                }
-            }
-            AnimatedContent(targetState = draft.mode, label = "route-mode-hint",
-                transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) }) { mode ->
-                Text(
-                    text = when (mode) {
-                        DrawingMode.PLAN -> "点击地图设置起终点，沿道路规划步行路线"
-                        DrawingMode.POINTS -> "依次点击地图加点，按顺序连接"
-                        DrawingMode.FREEHAND -> "单指画线 · 双指移动/缩放并取消当前笔画 · 多笔之间直线连接"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
-            Column(Modifier.weight(1f).fillMaxWidth()) {
-                AndroidView(
-                    factory = { ctx -> createMap(ctx) },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            PortalCard(modifier = Modifier.padding(12.dp)) {
-                val status = if (planning) "正在规划步行路线…" else draft.message ?: if (draft.mode == DrawingMode.PLAN) {
-                    "起点${if (draft.start == null) "未选" else "已选"} · 终点${if (draft.end == null) "未选" else "已选"}"
-                } else "从地图开始绘制你的路线"
-                AnimatedContent(targetState = status to (draft.phase == DraftPhase.ERROR), label = "route-editor-status",
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                    transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) }) { (message, failed) ->
-                    Text(message, style = MaterialTheme.typography.bodySmall,
-                        color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.height(PortalSpacing.sm))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (draft.mode == DrawingMode.PLAN) {
-                        OutlinedButton(
-                            onClick = { cancelSearch(); model.plan() },
-                            enabled = actions.canPlan,
-                            modifier = Modifier.weight(1f),
-                        ) { Text(if (planning) "规划中…" else "规划") }
-                    } else {
-                        OutlinedButton(
-                            onClick = { cancelSearch(); model.undo() },
-                            enabled = actions.canUndo,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("撤销") }
-                    }
-                    OutlinedButton(
-                        onClick = { clearDialog = true },
-                        enabled = !restoring && hasGeometry,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("清空")
-                    }
-                }
-                Spacer(Modifier.height(PortalSpacing.sm))
-                Button(
-                    onClick = {
-                        val current = model.state.value
-                        if (RouteEditorActions.from(current).canSave) {
-                            saveSnapshot = current.route?.frozen()
-                            saveName = saveSnapshot?.name ?: "地图路线"
-                            saveMode = RouteMode.ONCE
+                        if (mode != draft.mode) {
+                            if (hasGeometry) pendingMode = mode
+                            else { cancelSearch(); model.mode(mode) }
                         }
                     },
-                    enabled = actions.canSave,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("保存路线") }
+                    label = { Text(editorModeLabel(mode)) },
+                )
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it; cancelSearch() },
+                enabled = !restoring,
+                singleLine = true,
+                label = { Text("搜索地点") },
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                enabled = query.isNotBlank() && !restoring && !searching,
+                onClick = {
+                    suggestions = emptyList()
+                    searchMessage = null
+                    searching = true
+                    request = EditorSearch(query.trim(), draft.generation, draft.selecting, ++searchAttempt)
+                },
+            ) { Text(if (searching) "搜索中" else "搜索") }
+        }
+        if (searching || planning || restoring) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp))
+        searchMessage?.let {
+            Text(it, Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall)
+        }
+        if (draft.mode == DrawingMode.PLAN) {
+            Row(Modifier.padding(horizontal = 16.dp)) {
+                FilterChip(
+                    selected = draft.selecting == Endpoint.START,
+                    enabled = !restoring,
+                    onClick = { cancelSearch(); model.select(Endpoint.START) },
+                    label = { Text(if (draft.start == null) "选择起点" else "起点已选") },
+                )
+                Spacer(Modifier.padding(4.dp))
+                FilterChip(
+                    selected = draft.selecting == Endpoint.END,
+                    enabled = !restoring,
+                    onClick = { cancelSearch(); model.select(Endpoint.END) },
+                    label = { Text(if (draft.end == null) "选择终点" else "终点已选") },
+                )
+            }
+        }
+        AnimatedContent(targetState = draft.mode, label = "route-mode-hint",
+            transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) }) { mode ->
+            Text(
+                text = when (mode) {
+                    DrawingMode.PLAN -> "点击地图设置起终点，沿道路规划步行路线"
+                    DrawingMode.POINTS -> "依次点击地图加点，按顺序连接"
+                    DrawingMode.FREEHAND -> "单指画线 · 双指移动/缩放并取消当前笔画 · 多笔之间直线连接"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+    }
+    val editorActions: @Composable () -> Unit = {
+        PortalCard(modifier = Modifier.padding(12.dp)) {
+            val status = if (planning) "正在规划步行路线…" else draft.message ?: if (draft.mode == DrawingMode.PLAN) {
+                "起点${if (draft.start == null) "未选" else "已选"} · 终点${if (draft.end == null) "未选" else "已选"}"
+            } else "从地图开始绘制你的路线"
+            AnimatedContent(targetState = status to (draft.phase == DraftPhase.ERROR), label = "route-editor-status",
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) }) { (message, failed) ->
+                Text(message, style = MaterialTheme.typography.bodySmall,
+                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(PortalSpacing.sm))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (draft.mode == DrawingMode.PLAN) {
+                    OutlinedButton(
+                        onClick = { cancelSearch(); model.plan() },
+                        enabled = actions.canPlan,
+                        modifier = Modifier.weight(1f),
+                    ) { Text(if (planning) "规划中…" else "规划") }
+                } else {
+                    OutlinedButton(
+                        onClick = { cancelSearch(); model.undo() },
+                        enabled = actions.canUndo,
+                        modifier = Modifier.weight(1f),
+                    ) { Text("撤销") }
+                }
+                OutlinedButton(
+                    onClick = { clearDialog = true },
+                    enabled = !restoring && hasGeometry,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("清空")
+                }
+            }
+            Spacer(Modifier.height(PortalSpacing.sm))
+            Button(
+                onClick = {
+                    val current = model.state.value
+                    if (RouteEditorActions.from(current).canSave) {
+                        saveSnapshot = current.route?.frozen()
+                        saveName = saveSnapshot?.name ?: "地图路线"
+                        saveMode = RouteMode.ONCE
+                    }
+                },
+                enabled = actions.canSave,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("保存路线") }
+        }
+    }
+    val editorMap: @Composable () -> Unit = {
+        AndroidView(factory = { ctx -> createMap(ctx) }, modifier = Modifier.fillMaxSize())
+    }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            // Keep a usable map viewport when the toolbar, keyboard or large text reduces height.
+            if (maxHeight < 480.dp && maxWidth >= 600.dp) {
+                Row(Modifier.fillMaxSize()) {
+                    Column(Modifier.width(320.dp).fillMaxHeight().verticalScroll(rememberScrollState())) {
+                        editorHeader()
+                        editorActions()
+                    }
+                    Column(Modifier.weight(1f).fillMaxHeight()) { editorMap() }
+                }
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    editorHeader()
+                    Column(Modifier.weight(1f).fillMaxWidth()) { editorMap() }
+                    editorActions()
+                }
             }
         }
     }

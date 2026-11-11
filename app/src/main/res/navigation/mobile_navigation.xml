@@ -91,6 +91,9 @@
         android:label="{title}">
         <argument android:name="title" app:argType="string" android:defaultValue="选择应用" />
     </fragment>
+    <fragment android:id="@+id/nav_sensor_packages"
+        android:name="com.system.location.service.ui.settings.PackageEditorFragment"
+        android:label="传感器包名" />
 </navigation>
 
 

@@ -21,6 +21,11 @@ object RemoteCommandHandler {
     @Synchronized
     fun handleInstruction(command: String, rely: Bundle): Boolean {
         val uid = BinderUtils.getCallerUid()
+        if (command == com.system.location.service.hook.hooks.sensor.SensorSnapshotCommand.COMMAND) {
+            return runCatching {
+                com.system.location.service.hook.hooks.sensor.SensorSnapshotCommand.read(uid, rely)
+            }.getOrDefault(false)
+        }
         val role = BinderUtils.callerRole(uid)
         if (command == "exchange_key") {
             val key = security.exchange(uid, role) ?: return false

@@ -60,7 +60,8 @@ internal fun GnssPolicyControls(enabled: Boolean, onChanged: () -> Unit) {
         val (key, title, options) = settings[index]
         val value = preferences[key] as? String ?: defaults.getValue(key)
         val label = options.firstOrNull { it.first == value }?.second ?: "未知设置：$value"
-        PortalActionRow(title, label, onClick = { selection = key }, enabled = enabled, modifier = rowModifier)
+        PortalActionRow(title, label, onClick = { selection = key }, enabled = enabled, modifier = rowModifier,
+            status = "运行中尝试立即应用")
     }
     if (selection != null) {
         val (key, title, options) = settings.single { it.first == selection }

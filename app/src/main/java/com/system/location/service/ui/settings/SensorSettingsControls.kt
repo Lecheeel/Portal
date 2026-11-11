@@ -15,8 +15,8 @@ fun SensorSettingsControls(targets: Set<String>, onPick: () -> Unit, onEdit: () 
         PortalSettingGroup("应用传感器（实验）", 2) { index, rowModifier ->
             when (index) {
                 0 -> PortalActionRow("选择应用", if (targets.isEmpty()) "未启用" else "已选择 ${targets.size} 个应用",
-                    onPick, modifier = rowModifier)
-                1 -> PortalActionRow("编辑包名", "支持无启动图标的应用；清空可关闭", onEdit, modifier = rowModifier)
+                    onPick, modifier = rowModifier, status = "需重启目标应用")
+                1 -> PortalActionRow("编辑包名", "支持无启动图标的应用；清空可关闭", onEdit, modifier = rowModifier, status = "需重启目标应用")
             }
         }
     }

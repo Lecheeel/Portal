@@ -2,6 +2,7 @@ package com.system.location.service.core.gnss
 
 import com.system.location.service.core.location.LocationSample
 import java.util.concurrent.atomic.AtomicLong
+import java.lang.ref.WeakReference
 
 /** Process-local immutable source handle. Runtime IPC carries data and policy, not frame caches. */
 interface GnssFrameSource {
@@ -17,8 +18,8 @@ class AutonomousGnssSource internal constructor(policy: GnssSimulationPolicy,
     override val requiresBootIdentity = false
     private val frames = GnssFrameStore(GnssPublicationSequences.counter).apply {
         configureAutonomous(GnssBundledOrbitResources.model(policy,
-            // Exercised through legacy status arrays and complete NMEA reconstruction.
-            // Public GnssStatus.Builder and independent device receivers remain release gates.
+            // Legacy arrays/NMEA and Xiaomi Android 14 Builder/independent-receiver coverage.
+            // Other platform/vendor receiver limits still need their own device validation.
             GnssOutputLimits(maxVisible = 128, maxPerTalker = 36, maxUsed = 32),
             // GPS-only application budget for approximate sky geometry, not an accuracy claim.
             gpsAlmanacAgeBudgetSeconds = 7 * 86400.0, navigation = navigation, signalCalibration = calibration))
@@ -31,12 +32,16 @@ class AutonomousGnssSource internal constructor(policy: GnssSimulationPolicy,
             sample.elapsedNanos, currentBootCount)
 }
 
-/** Stable policy copies reuse publications; old configuration readers keep their original handle. */
+/**
+ * Live immutable configurations own their source handles. The registry only interns sources:
+ * it must not pin up to 64 obsolete navigation resources and their 4096-publication caches.
+ * Old configuration readers still retain their original publications through their own handles.
+ */
 object GnssSourceSelection {
     private data class Key(val policy: GnssSimulationPolicy, val navigationDigest: String?, val navigationSource: String?,
-        val capture: CapturedGnssSource?)
-    private val autonomous = object : LinkedHashMap<Key, AutonomousGnssSource>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, AutonomousGnssSource>?) = size > 64
+        val captureDigest: String?)
+    private val autonomous = object : LinkedHashMap<Key, WeakReference<AutonomousGnssSource>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, WeakReference<AutonomousGnssSource>>?) = size > 64
     }
 
     @Synchronized
@@ -49,9 +54,9 @@ object GnssSourceSelection {
             navigation.let { resource ->
                 resource?.validate()
                 val signalSource = capture.takeIf { policy.mode == GnssSimulationMode.AUTO }
-                autonomous.getOrPut(Key(policy, resource?.sha256, resource?.sourceUrl, signalSource)) {
-                    AutonomousGnssSource(policy, resource, signalSource?.signalCalibration)
-                }
+                val key = Key(policy, resource?.sha256, resource?.sourceUrl, signalSource?.digest)
+                autonomous[key]?.get() ?: AutonomousGnssSource(policy, resource, signalSource?.signalCalibration)
+                    .also { autonomous[key] = WeakReference(it) }
             }
     }
 }

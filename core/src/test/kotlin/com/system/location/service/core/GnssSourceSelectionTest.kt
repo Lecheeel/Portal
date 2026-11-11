@@ -9,6 +9,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssSourceSelectionTest {
+    @Test fun identicalCaptureTransfersReuseLiveSourceAndRegistryTurnoverDoesNotInvalidateOwnedFrames() {
+        val policy = GnssSimulationPolicy(virtualSeed = 906)
+        val firstCapture = capture()
+        val secondCapture = CapturedGnssSource.prepare(firstCapture.wirePayload())!!
+        assertNotSame(firstCapture, secondCapture)
+        val configuration = HookConfiguration(gnssSimulation = policy, gnssSource = firstCapture)
+        val source = configuration.gnssFrameSource()!!
+        val publication = source.frame(sample, 0, GnssFrameRoute.Global, sample.timeMillis)!!
+        assertSame(source, GnssSourceSelection.source(policy, secondCapture))
+        // Immutable live configurations retain their handles even after registry LRU turnover.
+        repeat(80) { GnssSourceSelection.source(policy.copy(virtualSeed = 10000L + it), null) }
+        assertSame(source, configuration.gnssFrameSource())
+        assertSame(publication, source.frame(sample, 0, GnssFrameRoute.Global, sample.timeMillis))
+    }
+
     @Test fun autoTransfersSignalsOnlyAndKeepsGeneratingAfterCaptureExpiryWithFrozenTargetTime() {
         val at = sample.timeMillis
         val recording = CapturedGnssSource.prepare(GnssCaptureWire.encode(GnssCapture(

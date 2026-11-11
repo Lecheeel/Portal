@@ -1,6 +1,7 @@
 package com.system.location.service.core.gnss
 
 import com.system.location.service.core.location.LocationSample
+import java.security.MessageDigest
 
 /**
  * One immutable receiver-evidence identity with its own synchronized publication cache.
@@ -10,6 +11,11 @@ import com.system.location.service.core.location.LocationSample
  */
 class CapturedGnssSource private constructor(private val payload: String) : GnssFrameSource {
     private val capture = GnssCaptureWire.decode(payload)
+    /** Small registry key; a cache must not retain an obsolete capture just to identify it. */
+    internal val digest: String by lazy {
+        MessageDigest.getInstance("SHA-256").digest(payload.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 255) }
+    }
     val signalCalibration by lazy { GnssAutonomousSignalCalibration(capture) }
     private val frames = GnssFrameStore(sequences).apply { configure(capture) }
     override val requiresBootIdentity: Boolean = capture.bootCount != null &&

@@ -20,6 +20,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -91,7 +94,6 @@ class SettingsComposeFragment : Fragment() {
     private val captureModel by viewModels<GnssCaptureViewModel>()
     private val revision = MutableStateFlow(0)
     private var updateRequest = 0L
-    private var numberDialog: androidx.appcompat.app.AlertDialog? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         parentFragmentManager.setFragmentResultListener(AppSelectionFragment.RESULT, this) { _, result ->
@@ -126,6 +128,7 @@ class SettingsComposeFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             val revisionState = revision.collectAsStateWithLifecycle()
+            var numberSetting by rememberSaveable { mutableStateOf<NumberSetting?>(null) }
             PortalTheme {
                 SettingsScreen(
                     category = arguments?.getString("category")?.let(SettingsCategory::valueOf),
@@ -133,49 +136,11 @@ class SettingsComposeFragment : Fragment() {
                     captureModel = captureModel,
                     revision = revisionState.value,
                     onMapProvider = ::showMapProvider,
-                    onEditAltitude = {
-                        editNumber("设置海拔高度", context.altitude.toString()) { raw ->
-                            val value = raw.toDoubleOrNull() ?: error("海拔高度不合法")
-                            require(value in 0.0..10_000.0) { "海拔需在 0–10000 米之间" }
-                            context.altitude = value
-                            refresh()
-                        }
-                    },
-                    onEditAccuracy = {
-                        editNumber("设置精度", context.accuracy.toString()) { raw ->
-                            val value = raw.toFloatOrNull() ?: error("精度不合法")
-                            require(value > 0f && value <= 1_000f) { "精度需在 0–1000 米之间" }
-                            context.accuracy = value
-                            refresh()
-                        }
-                    },
-                    onEditReportInterval = {
-                        editNumber("设置上报间隔", context.reportDuration.toString(), decimal = false) { raw ->
-                            val value = raw.toIntOrNull() ?: error("上报间隔不合法")
-                            require(value in 50..1_000) { "上报间隔需在 50–1000 ms 之间" }
-                            context.reportDuration = value
-                            refresh()
-                        }
-                    },
-                    onEditSpeed = {
-                        editNumber("设置速度", context.speed.toString()) { raw ->
-                            val value = raw.toDoubleOrNull() ?: error("速度不合法")
-                            require(value in 0.0..1_000.0) { "速度需在 0–1000 米/秒之间" }
-                            lifecycleScope.launch {
-                                val accepted = ScenarioRuntime.setSpeed(value).await()
-                                showToast(if (accepted) "速度已更新" else "速度更新失败，请重试")
-                            }
-                        }
-                    },
-                    onEditSatelliteCount = {
-                        editNumber("可见卫星下限（0 为自动）", context.minSatelliteCount.toString(), decimal = false) { raw ->
-                            val value = raw.toIntOrNull() ?: error("数量不合法")
-                            require(value in 0..128) { "卫星数量需在 0–128 之间；0 表示按所选模式和目标天空自动生成" }
-                            context.minSatelliteCount = value
-                            refresh()
-                            applyConfigNowWithToast()
-                        }
-                    },
+                    onEditAltitude = { numberSetting = NumberSetting.ALTITUDE },
+                    onEditAccuracy = { numberSetting = NumberSetting.ACCURACY },
+                    onEditReportInterval = { numberSetting = NumberSetting.INTERVAL },
+                    onEditSpeed = { numberSetting = NumberSetting.SPEED },
+                    onEditSatelliteCount = { numberSetting = NumberSetting.SATELLITES },
                     onAppRouting = ::showAppRouting,
                     onSensorTargets = {
                         val context = requireContext()
@@ -196,6 +161,17 @@ class SettingsComposeFragment : Fragment() {
                     onRestartRequired = { showToast("已保存，停止后重新启动场景生效") },
                     refresh = ::refresh,
                 )
+                numberSetting?.let { setting ->
+                    val initial = when (setting) {
+                        NumberSetting.ALTITUDE -> context.altitude.toString()
+                        NumberSetting.ACCURACY -> context.accuracy.toString()
+                        NumberSetting.INTERVAL -> context.reportDuration.toString()
+                        NumberSetting.SPEED -> context.speed.toString()
+                        NumberSetting.SATELLITES -> context.minSatelliteCount.toString()
+                    }
+                    NumberSettingDialog(setting, initial, onDismiss = { numberSetting = null },
+                        onSave = { raw -> saveNumber(setting, raw) })
+                }
             }
         }
     }
@@ -209,38 +185,44 @@ class SettingsComposeFragment : Fragment() {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
-    override fun onDestroyView() {
-        numberDialog?.dismiss()
-        numberDialog = null
-        super.onDestroyView()
-    }
-
-    private fun editNumber(title: String, initial: String, decimal: Boolean = true, onValue: (String) -> Unit) {
-        numberDialog?.dismiss()
-        val input = android.widget.EditText(requireContext()).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
-                if (decimal) android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL else 0
-            setText(initial)
-            setSelectAllOnFocus(true)
-            isSingleLine = true
-        }
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle(title)
-            .setView(input)
-            .setPositiveButton("保存", null)
-            .setNegativeButton("取消", null)
-            .create()
-        numberDialog = dialog
-        dialog.setOnShowListener {
-            dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
-                runCatching { onValue(input.text.toString().trim()) }
-                    .onSuccess { dialog.dismiss() }
-                    .onFailure { input.error = it.message ?: "输入不合法"; input.requestFocus() }
+    private fun saveNumber(setting: NumberSetting, raw: String): String? = runCatching {
+        val context = requireContext()
+        when (setting) {
+            NumberSetting.ALTITUDE -> {
+                val value = raw.toDoubleOrNull() ?: error("海拔高度不合法")
+                require(value in 0.0..10_000.0) { "海拔需在 0–10000 米之间" }
+                context.altitude = value
+                refresh()
+            }
+            NumberSetting.ACCURACY -> {
+                val value = raw.toFloatOrNull() ?: error("精度不合法")
+                require(value > 0f && value <= 1_000f) { "精度需大于 0 且不超过 1000 米" }
+                context.accuracy = value
+                refresh()
+            }
+            NumberSetting.INTERVAL -> {
+                val value = raw.toIntOrNull() ?: error("上报间隔不合法")
+                require(value in 50..1_000) { "上报间隔需在 50–1000 ms 之间" }
+                context.reportDuration = value
+                refresh()
+            }
+            NumberSetting.SPEED -> {
+                val value = raw.toDoubleOrNull() ?: error("速度不合法")
+                require(value in 0.0..1_000.0) { "速度需在 0–1000 米/秒之间" }
+                lifecycleScope.launch {
+                    val accepted = ScenarioRuntime.setSpeed(value).await()
+                    showToast(if (accepted) "速度已更新" else "速度更新失败，请重试")
+                }
+            }
+            NumberSetting.SATELLITES -> {
+                val value = raw.toIntOrNull() ?: error("数量不合法")
+                require(value in 0..128) { "卫星数量需在 0–128 之间；0 表示自动生成" }
+                context.minSatelliteCount = value
+                refresh()
+                applyConfigNowWithToast()
             }
         }
-        dialog.show()
-        input.requestFocus()
-    }
+    }.exceptionOrNull()?.let { it.message ?: "输入不合法" }
 
     private fun showMapProvider() {
         val context = requireContext()

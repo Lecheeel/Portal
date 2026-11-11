@@ -35,6 +35,7 @@ class PortalModule : XposedModule() {
 
     override fun onModuleLoaded(param: XposedModuleInterface.ModuleLoadedParam) {
         processName = param.processName
+        moduleInfo = runCatching { getModuleApplicationInfo() }.getOrNull()
         HookRuntime.attach(this)
         lifecycle.moduleLoaded(param.processName, param.isSystemServer)
         android.util.Log.i("PortalModule", "Module loaded: process=${param.processName} system=${param.isSystemServer} api=$apiVersion")
@@ -57,6 +58,7 @@ class PortalModule : XposedModule() {
             return
         }
         android.util.Log.i("PortalModule", "Package ready: package=${param.packageName} first=${param.isFirstPackage}")
+        if (moduleInfo == null) moduleInfo = runCatching { getModuleApplicationInfo() }.getOrNull()
         lifecycle.packageReady(param.packageName, param.classLoader,
             param.applicationInfo.uid, param.applicationInfo.flags)
     }
@@ -154,6 +156,13 @@ class PortalModule : XposedModule() {
         rows("gnss").forEach { if (GnssListenerRouting.restore(it)) LocationServiceHook.installGnssStatusCallback(it.listener) }
         rows("nmea").forEach { if (NmeaListenerRouting.restore(it)) installNmeaCallback(it.listener) }
         rows("raw").forEach { if (RawGnssCallbacks.restore(it)) RawGnssCallbacks.installRestored(it.listener) }
+    }
+
+    companion object {
+        /** Module APK metadata; used to locate the opt-in anti-detect payload. */
+        @Volatile
+        var moduleInfo: android.content.pm.ApplicationInfo? = null
+            private set
     }
 
     private fun restorePeers(saved: Bundle?) {

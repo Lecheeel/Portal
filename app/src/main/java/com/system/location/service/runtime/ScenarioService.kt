@@ -11,6 +11,7 @@ import com.system.location.service.MainActivity
 import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
 import com.system.location.service.core.gnss.GnssSimulationMode
+import com.system.location.service.core.gnss.GnssSimulationPolicy
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.gnss.GnssNavigationRepository
 import com.system.location.service.gnss.GnssNavigationSyncStatus
@@ -69,7 +70,7 @@ class ScenarioService : Service() {
                 val navigation = GnssNavigationRepository(File(noBackupFilesDir, "gnss/navigation-resource.json"))
                 while (isActive) {
                     val state = ScenarioRuntime.state.value
-                    val mode = sharedPrefs.getString("gnssSimulationMode", GnssSimulationMode.AUTO.name)
+                    val mode = sharedPrefs.getString("gnssSimulationMode", GnssSimulationPolicy().mode.name)
                     if (!state.isActive || state.backend == BackendType.MOCK_PROVIDER ||
                         mode !in setOf(GnssSimulationMode.AUTO.name, GnssSimulationMode.AUTONOMOUS.name)) {
                         delay(5000)

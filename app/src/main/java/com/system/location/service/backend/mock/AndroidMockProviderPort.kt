@@ -5,6 +5,9 @@ import android.content.Context
 import android.location.Location
 import android.location.LocationManager
 import android.location.provider.ProviderProperties
+import android.os.CancellationSignal
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.util.Log
 import com.system.location.service.core.backend.BackendDiagnostic
@@ -96,5 +99,32 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
         // A denied/no-op removal must not discard the durable cleanup obligation.
         requireAuthorization("清理 $provider 后")
         record(pendingProviders() - provider)
+    }
+
+    /**
+     * Removing a test provider does not invalidate the platform's cached fix. Ask each real
+     * provider for one current location so a subsequent getLastKnownLocation is hardware-backed.
+     */
+    override fun flushRealLocation() {
+        val handler = Handler(Looper.getMainLooper())
+        listOf(
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.GPS_PROVIDER,
+            LocationManager.PASSIVE_PROVIDER,
+        ).forEach { provider ->
+            val enabled = runCatching { manager.isProviderEnabled(provider) }.getOrDefault(false)
+            if (!enabled) return@forEach
+            val signal = CancellationSignal()
+            handler.postDelayed({ runCatching { signal.cancel() } }, FLUSH_TIMEOUT_MS)
+            runCatching {
+                manager.getCurrentLocation(provider, signal, context.mainExecutor) { _ ->
+                    // The provider's own last-location cache is updated by the platform.
+                }
+            }
+        }
+    }
+
+    private companion object {
+        const val FLUSH_TIMEOUT_MS = 15_000L
     }
 }

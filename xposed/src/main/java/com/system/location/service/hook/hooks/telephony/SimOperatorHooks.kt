@@ -1,6 +1,5 @@
 package com.system.location.service.hook.hooks.telephony
 
-import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
@@ -8,8 +7,10 @@ import io.github.libxposed.api.XposedInterface.Hooker
 import com.system.location.service.hook.utils.hookAllMethods
 
 /**
- * P2-05: align SIM operator strings with the replayed cell profile for third-party callers.
- * Without a captured profile the real values are untouched, so this is a no-op by default.
+ * P2-05: align SIM operator strings with the device's real SIM (or the captured replay profile).
+ *
+ * The previous implementation returned the literal `"Portal"` for the operator name, which is a
+ * project fingerprint comparable to `kail_faked`; it must never be exposed to an application.
  */
 object SimOperatorHooks {
     fun hook(classLoader: ClassLoader) {
@@ -17,14 +18,13 @@ object SimOperatorHooks {
             .findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader) ?: return
 
         val numeric = Hooker { chain ->
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker chain.proceed()
-            if (!FakeLoc.simReady) {
-                return@Hooker ""
-            }
-            val profile = FakeLoc.replayEnvironment ?: return@Hooker chain.proceed()
-            val result = operatorNumeric(profile) ?: return@Hooker chain.proceed()
-            if (FakeLoc.enableDebugLog) Logger.debug("${chain.executable.name}: SIM operator $result")
-            result
+            val original = chain.proceed()
+            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker original
+            val sim = TelephonyFacade.sim()
+            if (!FakeLoc.simReady || !sim.ready) return@Hooker ""
+            val replay = FakeLoc.replayEnvironment?.cells?.firstOrNull()
+            val value = replay?.let { "%03d%02d".format(it.mcc, it.mnc) } ?: sim.numeric
+            value.ifBlank { original as? String ?: "" }
         }
         listOf(
             "getSimOperatorNumericForPhone",
@@ -33,25 +33,16 @@ object SimOperatorHooks {
         ).forEach { manager.hookAllMethods(it, numeric) }
 
         val name = Hooker { chain ->
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker chain.proceed()
-            if (!FakeLoc.simReady) {
-                return@Hooker ""
-            }
-            val profile = FakeLoc.replayEnvironment ?: return@Hooker chain.proceed()
-            if (operatorNumeric(profile) == null) return@Hooker chain.proceed()
-            if (FakeLoc.enableDebugLog) Logger.debug("${chain.executable.name}: SIM operator name Portal")
-            "Portal"
+            val original = chain.proceed()
+            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker original
+            val sim = TelephonyFacade.sim()
+            if (!FakeLoc.simReady || !sim.ready) return@Hooker ""
+            sim.name.ifBlank { original as? String ?: "" }
         }
         listOf(
             "getSimOperatorNameForPhone",
             "getSimOperatorNameForSubscriber",
             "getSimOperatorName",
         ).forEach { manager.hookAllMethods(it, name) }
-    }
-
-    private fun operatorNumeric(profile: EnvironmentProfile): String? {
-        val cell = profile.cells.firstOrNull() ?: return null
-        if (cell.mcc !in 1..999 || cell.mnc !in 0..999) return null
-        return "%03d%02d".format(cell.mcc, cell.mnc)
     }
 }

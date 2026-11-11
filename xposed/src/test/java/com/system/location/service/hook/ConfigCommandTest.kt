@@ -64,7 +64,7 @@ class ConfigCommandTest {
         val done = AtomicBoolean(false)
         val started = CountDownLatch(1)
         try {
-            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot())
+            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot(configuration = HookConfiguration(minimumSatellites = 0)))
             val reader = executor.submit {
                 started.countDown()
                 while (!done.get()) {

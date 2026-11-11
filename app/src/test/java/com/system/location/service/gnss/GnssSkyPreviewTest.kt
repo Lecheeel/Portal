@@ -43,7 +43,7 @@ class GnssSkyPreviewTest {
             frames = listOf(GnssObservationFrame(at, Wgs84(0.0, 0.0), satellites = listOf(
                 GnssSatellite(Constellation.GALILEO, 1, 0f, 0f, 25f, false, false, true, 1_575_420_000f),
                 GnssSatellite(Constellation.GALILEO, 2, 90f, 0f, 25f, false, false, true, 1_575_420_000f)))))))!!
-        val policy = GnssSimulationPolicy(virtualSeed = 1234568)
+        val policy = GnssSimulationPolicy(mode = GnssSimulationMode.AUTO, virtualSeed = 1234568)
         val preview = GnssSkyPreview()
         val predicted = preview.frame(sample, 0, policy, null, capture, at)!!
         val production = GnssSourceSelection.source(policy, capture)!!.frame(sample, 0,

@@ -22,6 +22,7 @@ class MockProviderBackendTest {
         var missing: String? = null
         var missingAlways = false
         var registrations = 0
+        var flushes = 0
         var optional = false
         var rejectUnauthorizedCleanup = false
         var afterPublish: ((String) -> Unit)? = null
@@ -50,8 +51,17 @@ class MockProviderBackendTest {
             if (failRemove) throw SecurityException("cleanup denied")
             registered -= provider
         }
+        override fun flushRealLocation() { flushes++ }
     }
     private val sample = LocationSample(Wgs84(25.123456789123, 119.12345678912), 15.0, 2f, 3f, 45f, 1, 1)
+    @Test fun stoppingTheTestProviderFlushesTheRealProviderCache() = runBlocking {
+        val port = Port()
+        val backend = MockProviderBackend(port)
+        backend.prepare(); backend.start()
+        assertEquals(BackendResult.Success, backend.stop())
+        assertEquals(1, port.flushes)
+    }
+
     @Test fun revokedAuthorizationStopsBeforeAnySubmissionAndRetainsCleanupForRetry() = runBlocking {
         val port = Port().apply { rejectUnauthorizedCleanup = true }
         val backend = MockProviderBackend(port)

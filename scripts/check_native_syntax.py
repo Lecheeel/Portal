@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = ("main.cpp", "sensor_hook.cpp")
+SOURCES = ("main.cpp", "sensor_hook.cpp", "antidetect/antidetect.cpp")
 LINK_SOURCES = ("main.cpp", "elf_util.cpp", "sensor_hook.cpp")
 ABIS = {
     "arm64-v8a": "aarch64-linux-android31",

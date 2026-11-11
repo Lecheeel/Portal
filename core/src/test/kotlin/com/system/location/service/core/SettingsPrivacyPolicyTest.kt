@@ -10,7 +10,10 @@ class SettingsPrivacyPolicyTest {
         assertTrue(SettingsPrivacyPolicy.isRestricted("GET_secure", "mock_location"))
         assertTrue(SettingsPrivacyPolicy.isRestricted("GET_secure", "allow_mock_location"))
         assertTrue(SettingsPrivacyPolicy.isRestricted("GET_global", "development_settings_enabled"))
+        // Developer options and adb are hidden together: reporting one real and one hidden would
+        // be a cross-checkable contradiction on a device with adb enabled.
         assertTrue(SettingsPrivacyPolicy.isRestricted("GET_system", "adb_enabled"))
+        assertTrue(SettingsPrivacyPolicy.isRestricted("GET_global", "adb_enabled"))
         assertFalse(SettingsPrivacyPolicy.isRestricted("GET_secure", "adb_enabled"))
         assertFalse(SettingsPrivacyPolicy.isRestricted("GET_global", "mock_location"))
         assertFalse(SettingsPrivacyPolicy.isRestricted("PUT_secure", "mock_location"))

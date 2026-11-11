@@ -5,7 +5,6 @@ import android.hardware.Sensor
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Handler
-import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
 import com.system.location.service.core.sensors.SensorEventValues
@@ -122,14 +121,17 @@ object ApplicationSensorHook {
 
     private fun startWorker() {
         if (worker != null) return
-        val thread = HandlerThread("PortalSensorMotion").apply { start() }
-        worker = Handler(thread.looper).also { it.post(tick) }
+        // Reuse an app-owned looper. A new named thread is enumerable through
+        // Thread.getAllStackTraces() and is a permanent fingerprint in the target process.
+        val handler = synchronized(lock) { registrations.firstOrNull()?.handler }
+            ?: Handler(Looper.getMainLooper())
+        worker = handler.also { it.post(tick) }
     }
 
     private fun stopWorkerIfIdle() {
         if (registrations.isNotEmpty()) return
-        worker?.removeCallbacksAndMessages(null)
-        worker?.looper?.quitSafely()
+        // The Handler belongs to the application; remove only our tick, never its messages.
+        worker?.removeCallbacks(tick)
         worker = null
         location = null
         lastPoll = 0L

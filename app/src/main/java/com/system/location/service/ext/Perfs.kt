@@ -318,6 +318,27 @@ var Context.enableNMEA: Boolean
  * `disableWifiScan` even though true enabled replacement; keep it as a
  * migration fallback but persist the unambiguous key for new writes.
  */
+var Context.hideMock: Boolean
+    get() = sharedPrefs.getBoolean("hideMock", FakeLoc.hideMock)
+    set(value) = sharedPrefs.edit {
+        putBoolean("hideMock", value)
+        FakeLoc.hideMock = value
+    }
+
+var Context.antiDetectEnabled: Boolean
+    get() = sharedPrefs.getBoolean("antiDetectEnabled", FakeLoc.antiDetectEnabled)
+    set(value) = sharedPrefs.edit {
+        putBoolean("antiDetectEnabled", value)
+        FakeLoc.antiDetectEnabled = value
+    }
+
+var Context.stackTraceCleanEnabled: Boolean
+    get() = sharedPrefs.getBoolean("stackTraceCleanEnabled", FakeLoc.stackTraceCleanEnabled)
+    set(value) = sharedPrefs.edit {
+        putBoolean("stackTraceCleanEnabled", value)
+        FakeLoc.stackTraceCleanEnabled = value
+    }
+
 var Context.mockWifiEnabled: Boolean
     get() = when {
         sharedPrefs.contains("enableMockWifi") -> sharedPrefs.getBoolean("enableMockWifi", FakeLoc.enableMockWifi)

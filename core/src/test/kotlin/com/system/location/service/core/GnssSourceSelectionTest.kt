@@ -26,7 +26,7 @@ class GnssSourceSelectionTest {
     }
 
     @Test fun identicalCaptureTransfersReuseLiveSourceAndRegistryTurnoverDoesNotInvalidateOwnedFrames() {
-        val policy = GnssSimulationPolicy(virtualSeed = 906)
+        val policy = GnssSimulationPolicy(mode = GnssSimulationMode.AUTO, virtualSeed = 906)
         val firstCapture = capture()
         val secondCapture = CapturedGnssSource.prepare(firstCapture.wirePayload())!!
         assertNotSame(firstCapture, secondCapture)
@@ -47,7 +47,7 @@ class GnssSourceSelectionTest {
             frames = listOf(GnssObservationFrame(at, Wgs84(-31.0, -59.0), satellites = listOf(
                 GnssSatellite(Constellation.GPS, 1, 0f, 100f, 25f, false, false, true, 1_575_420_000f),
                 GnssSatellite(Constellation.GPS, 2, 90f, 300f, 25f, false, false, true, 1_575_420_000f)))))))!!
-        val policy = GnssSimulationPolicy(virtualSeed = 905)
+        val policy = GnssSimulationPolicy(mode = GnssSimulationMode.AUTO, virtualSeed = 905)
         val baseline = GnssSourceSelection.source(policy, null)!!
         val source = GnssSourceSelection.source(policy, recording)!!
         val plain = baseline.frame(sample, 0, GnssFrameRoute.Global, at)!!.frame
@@ -95,7 +95,7 @@ class GnssSourceSelectionTest {
             GnssSatellite(Constellation.GPS, 1, 30f, 120f, 35f, false, true, true))) })))!!
 
     @Test fun autoDoesNotRequireCaptureAndExplicitReplayAndOffPreserveTheirMeaning() {
-        val policy = GnssSimulationPolicy(virtualSeed = 901)
+        val policy = GnssSimulationPolicy(mode = GnssSimulationMode.AUTO, virtualSeed = 901)
         val source = GnssSourceSelection.source(policy, null)!!
         assertNotNull(source.frame(sample, 0, GnssFrameRoute.Global, sample.timeMillis))
         val recording = capture()

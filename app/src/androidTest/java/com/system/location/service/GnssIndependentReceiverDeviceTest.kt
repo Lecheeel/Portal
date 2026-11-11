@@ -3,6 +3,7 @@ package com.system.location.service
 import android.Manifest
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.location.GnssStatus
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.Process
@@ -13,6 +14,9 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.runtime.RuntimeTransferWire
+import com.system.location.service.core.routing.AppRoute
+import com.system.location.service.core.routing.RoutingConfig
+import com.system.location.service.core.routing.RoutingMode
 import com.system.location.service.hook.RuntimeSyncCommand
 import com.system.location.service.hook.security.CommandClient
 import com.system.location.service.hook.security.SampleWire
@@ -21,6 +25,8 @@ import java.io.File
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.ConcurrentLinkedQueue
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -40,8 +46,10 @@ class GnssIndependentReceiverDeviceTest {
 
     @Test fun autonomousSkyWithoutCaptureReachesAnIndependentReceiver() = verifyReceiver(autonomous = true)
 
+    @Test fun autonomousRoutesDeliverTheirOwnSkyToTwoReceivers() = verifyReceiver(autonomous = true, routed = true)
+
     private fun verifyReceiver(terminateFirstRun: Boolean = false, realCapture: Boolean = false,
-        autonomous: Boolean = false) = runBlocking {
+        autonomous: Boolean = false, routed: Boolean = false) = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val arguments = InstrumentationRegistry.getArguments()
         assumeTrue("Explicit independent receiver run required",
@@ -89,6 +97,20 @@ class GnssIndependentReceiverDeviceTest {
         val original = RuntimeTransferWire.decode(checkNotNull(command("sync_config").getByteArray(RuntimeSyncCommand.PAYLOAD))).state
         assumeTrue("Preserve user routing and evidence", original.routing == null && original.configuration.gnssSource == null)
         val now = System.currentTimeMillis()
+        val localPoint = Wgs84(31.0, 121.0)
+        val remotePoint = Wgs84(-31.0, -59.0)
+        val localFrames = ConcurrentLinkedQueue<Pair<Long, List<GnssSatellite>>>()
+        val androidSystems = mapOf(1 to Constellation.GPS, 2 to Constellation.SBAS, 3 to Constellation.GLONASS,
+            4 to Constellation.QZSS, 5 to Constellation.BEIDOU, 6 to Constellation.GALILEO, 7 to Constellation.IRNSS)
+        val localCallback = object : GnssStatus.Callback() {
+            override fun onSatelliteStatusChanged(status: GnssStatus) {
+                localFrames += System.currentTimeMillis() to (0 until status.satelliteCount).map { index ->
+                    GnssSatellite(androidSystems.getValue(status.getConstellationType(index)), status.getSvid(index),
+                        status.getElevationDegrees(index), status.getAzimuthDegrees(index), status.getCn0DbHz(index),
+                        status.usedInFix(index), status.hasEphemerisData(index), status.hasAlmanacData(index))
+                }
+            }
+        }
         val captured = if (realCapture) {
             val file = File(context.cacheDir, "gnss-real-validation-source.json")
             check(file.length() in 1..GnssCaptureCodec.MAX_BYTES.toLong()) { "Supply bounded real capture evidence first" }
@@ -122,8 +144,11 @@ class GnssIndependentReceiverDeviceTest {
                     putString("gnss_minimum_policy", GnssMinimumPolicy.GUARANTEE_QUANTITY.name)
                     putString("gnss_environment", GnssSimulationEnvironment.OPEN_SKY.name)
                 }
+                if (routed) putString("routing_json", Json.encodeToString(RoutingConfig.serializer(),
+                    RoutingConfig(mode = RoutingMode.PER_APP, routes = listOf(
+                        AppRoute(context.packageName, point = localPoint), AppRoute(receiverPackage, point = remotePoint)))))
                 putBoolean("enable_nmea", true)
-                putBoolean("enable_physical_noise", true)
+                putBoolean("enable_physical_noise", !routed)
                 putInt("min_satellites", minimum)
             }
             configured = true
@@ -134,6 +159,7 @@ class GnssIndependentReceiverDeviceTest {
                 assertEquals(GnssSimulationMode.AUTONOMOUS, accepted.configuration.gnssSimulation.mode)
             }
             command("start_gnss_mock")
+            if (routed) assertTrue(manager.registerGnssStatusCallback({ it.run() }, localCallback))
             val startElapsed = SystemClock.elapsedRealtimeNanos()
             fun publish() {
                 val elapsed = SystemClock.elapsedRealtimeNanos()
@@ -195,7 +221,8 @@ class GnssIndependentReceiverDeviceTest {
                 }
                 request("POST", "/run", "{\"sampleSeconds\":$sampleSeconds}")
             }
-            val filename = if (autonomous) "autonomous-independent-gnss-min$minimum-report.json"
+            val filename = if (routed) "autonomous-routed-independent-gnss-min$minimum-report.json"
+                else if (autonomous) "autonomous-independent-gnss-min$minimum-report.json"
                 else if (realCapture) "captured-independent-gnss-min$minimum-report.json" else "synthetic-independent-gnss-report.json"
             File(context.getExternalFilesDir(null), filename).writeText(rawReport)
             val report = JSONObject(rawReport)
@@ -235,6 +262,42 @@ class GnssIndependentReceiverDeviceTest {
                     }
                 }
             }
+            if (routed) {
+                assertTrue("Local receiver did not run alongside independent receiver", localFrames.size >= sampleSeconds - 5)
+                val model = GnssBundledOrbitResources.model(original.configuration.gnssSimulation.copy(
+                    mode = GnssSimulationMode.AUTONOMOUS, minimumPolicy = GnssMinimumPolicy.GUARANTEE_QUANTITY,
+                    environment = GnssSimulationEnvironment.OPEN_SKY), GnssOutputLimits(128, 36, 32), 604800.0)
+                fun matchesSky(records: List<GnssSatellite>, at: Long, point: Wgs84): Boolean {
+                    // Android status callbacks carry arrival time only. Allow bounded delivery
+                    // latency; compare angular geometry, never claim arrival is the native epoch.
+                    val predicted = model.frame(GnssSkyRequest(at, point, 42.0), minimum)!!.satellites
+                        .associateBy { it.constellation to it.svid }
+                    return records.count { record ->
+                        predicted[record.constellation to record.svid]?.let { expected ->
+                            val azimuth = kotlin.math.abs(record.azimuthDeg - expected.azimuthDeg)
+                            kotlin.math.abs(record.elevationDeg - expected.elevationDeg) < .25 &&
+                                minOf(azimuth, 360f - azimuth) < .25
+                        } == true
+                    } >= records.size * .95
+                }
+                localFrames.forEach { (at, records) ->
+                    assertTrue("Local route sky does not match its target", matchesSky(records, at, localPoint))
+                    assertFalse("Local route reused the remote sky", matchesSky(records, at, remotePoint))
+                }
+                for (index in 0 until frames.length()) {
+                    val frame = frames.getJSONObject(index)
+                    val records = frame.getJSONArray("satellites")
+                    val satellites = (0 until records.length()).map { item -> records.getJSONObject(item).let {
+                        GnssSatellite(androidSystems.getValue(it.getInt("constellation")), it.getInt("svid"),
+                            it.getDouble("elevationDegrees").toFloat(), it.getDouble("azimuthDegrees").toFloat(),
+                            it.getDouble("cn0DbHz").toFloat(), it.getBoolean("usedInFix"),
+                            it.getBoolean("hasEphemeris"), it.getBoolean("hasAlmanac"))
+                    } }
+                    val at = frame.getLong("capturedAtMillis")
+                    assertTrue("Independent route sky does not match its target", matchesSky(satellites, at, remotePoint))
+                    assertFalse("Independent route reused the local sky", matchesSky(satellites, at, localPoint))
+                }
+            }
             val checks = report.getJSONArray("checks")
             val relevant = (0 until checks.length()).map { checks.getJSONObject(it) }.associateBy { it.getString("id") }
             for (id in listOf("C05", "C07")) {
@@ -252,7 +315,8 @@ class GnssIndependentReceiverDeviceTest {
             assertEquals("Every supplied GPS extras sample must be compared", suppliedGps, comparedGps)
             val distinctGps = lines.firstNotNullOfOrNull { Regex("GPS 不同坐标=(\\d+)").find(it) }
                 ?.groupValues?.get(1)?.toInt() ?: error("Detector did not report GPS movement coverage")
-            assertTrue("Independent GPS receiver did not observe movement/noise", distinctGps >= sampleSeconds * 5)
+            if (routed) assertEquals("Fixed route must not inherit global movement", 1, distinctGps)
+            else assertTrue("Independent GPS receiver did not observe movement/noise", distinctGps >= sampleSeconds * 5)
             val nmeaEvidence = checkNotNull(relevant["C07"]).getJSONArray("evidence")
             val nmeaLines = (0 until nmeaEvidence.length()).map { nmeaEvidence.getString(it) }
             val pairedGsv = nmeaLines.firstNotNullOfOrNull {
@@ -271,9 +335,11 @@ class GnssIndependentReceiverDeviceTest {
             assertEquals("Completed receiver run leaked a framework status registration", 0, statusRegistrations())
         } finally {
             renewal?.cancelAndJoin()
+            if (routed) manager.unregisterGnssStatusCallback(localCallback)
             command("stop")
             if (configured) {
                 command("put_config") {
+                    if (routed) putString("routing_json", null)
                     putString("gnss_capture", null)
                     putString("gnss_mode", original.configuration.gnssSimulation.mode.name)
                     if (autonomous) {
@@ -295,6 +361,7 @@ class GnssIndependentReceiverDeviceTest {
             assertEquals(original.configuration.gnssEnabled, restored.configuration.gnssEnabled)
             assertEquals(original.configuration.minimumSatellites, restored.configuration.minimumSatellites)
             assertEquals(original.configuration.gnssSimulation, restored.configuration.gnssSimulation)
+            assertEquals(original.routing, restored.routing)
         }
     }
 }

@@ -9,6 +9,7 @@ import androidx.core.content.edit
 import com.system.location.service.core.gnss.GnssMinimumPolicy
 import com.system.location.service.core.gnss.GnssSimulationEnvironment
 import com.system.location.service.core.gnss.GnssSimulationMode
+import com.system.location.service.core.gnss.GnssSimulationPolicy
 import com.system.location.service.designsystem.components.PortalActionRow
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.ui.preferenceRevision
@@ -40,8 +41,12 @@ internal fun GnssPolicyControls(enabled: Boolean, onChanged: () -> Unit) {
         Triple("gnssMinimumPolicy", "卫星数量策略", quantities),
         Triple("gnssSimulationEnvironment", "模拟接收环境", environments),
     )
+    val defaultPolicy = GnssSimulationPolicy()
+    val defaults = mapOf("gnssSimulationMode" to defaultPolicy.mode.name,
+        "gnssMinimumPolicy" to defaultPolicy.minimumPolicy.name,
+        "gnssSimulationEnvironment" to defaultPolicy.environment.name)
     for ((key, title, options) in settings) {
-        val value = preferences[key] as? String ?: options.first().first
+        val value = preferences[key] as? String ?: defaults.getValue(key)
         val label = options.firstOrNull { it.first == value }?.second ?: "未知设置：$value"
         PortalActionRow(title, label, onClick = { selection = key }, enabled = enabled)
     }

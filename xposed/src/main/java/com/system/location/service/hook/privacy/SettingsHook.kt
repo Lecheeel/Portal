@@ -44,10 +44,9 @@ object SettingsHook {
             val key = strings[1]
             if (!SettingsPrivacyPolicy.isRestricted(command, key)) return@Hooker original
             val reply = original as? Bundle ?: return@Hooker original
-            // SettingsProvider returns the value under "value"; keep the keyed entry as a
-            // fallback for clients that read the provider reply directly.
+            // AOSP SettingsProvider returns only the "value" entry. Adding the key name would
+            // make the Bundle itself a hook fingerprint.
             reply.putString("value", SettingsPrivacyPolicy.HIDDEN_VALUE)
-            reply.putString(key, SettingsPrivacyPolicy.HIDDEN_VALUE)
             if (FakeLoc.enableDebugLog) {
                 Logger.debug("Settings hidden $command/$key from uid=${Binder.getCallingUid()}")
             }
@@ -60,7 +59,9 @@ object SettingsHook {
             val uri = chain.args.filterIsInstance<Uri>().firstOrNull() ?: return@Hooker original
             val key = uri.lastPathSegment ?: return@Hooker original
             if (!SettingsPrivacyPolicy.isQueryKey(key)) return@Hooker original
-            MatrixCursor(arrayOf("value"), 0)
+            MatrixCursor(arrayOf("value"), 1).apply {
+                addRow(arrayOf<Any?>(SettingsPrivacyPolicy.HIDDEN_VALUE))
+            }
         })
 
         com.system.location.service.hook.runtime.HookRuntime.log(

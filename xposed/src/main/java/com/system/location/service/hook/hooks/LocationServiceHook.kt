@@ -4,6 +4,7 @@
 package com.system.location.service.hook.hooks
 
 import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
 import android.os.IInterface
 import android.os.Parcel
@@ -22,11 +23,13 @@ import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.hook.utils.LocationCallerGuard
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.hookAllMethods
 import com.system.location.service.hook.utils.hookMethod
 import com.system.location.service.hook.utils.onceHookAllMethod
 import com.system.location.service.hook.utils.ProviderView
+import com.system.location.service.core.sensors.SensorTargets
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
@@ -81,9 +84,21 @@ internal object LocationServiceHook : BaseLocationHook() {
 
                         if (!FakeLoc.enable) return@intercept8 result
 
-                        val location = result as? Location ?: Location("gps")
+                        val location = result as? Location ?: run {
+                            // Do not invent a fix while the platform location switch is off.
+                            if (!LocationCallerGuard.isLocationEnabled()) return@intercept8 null
+                            val provider = runCatching {
+                                Reflection.callMethod(args[0], "getProvider") as? String
+                            }.getOrNull() ?: LocationManager.GPS_PROVIDER
+                            Location(provider)
+                        }
 
-                        result = injectLocation(location)
+                        // Coarse-only callers must not receive a GPS-precision fix.
+                        result = if (LocationCallerGuard.isCoarse()) {
+                            runCatching { coarseLocation() }.getOrElse { injectLocation(location) }
+                        } else {
+                            injectLocation(location)
+                        }
 
                         if (FakeLoc.enableDebugLog) {
                             Logger.debug("getLastLocation: injected! $result")
@@ -120,12 +135,11 @@ internal object LocationServiceHook : BaseLocationHook() {
                     Logger.debug("requestLocationUpdates: injected! $listener")
                 }
 
-                if (FakeLoc.enable) {
-                    addLocationListenerInner(provider, listener)
-                    return@intercept9 null
-                }
+                // Run the framework path first: it performs the caller permission, AppOps and
+                // provider-enabled checks. Only then does synthetic delivery own the listener.
+                hookILocationListener(listener)
                 val result = chain.proceed(args)
-                if (result != false) addLocationListenerInner(provider, listener)
+                if (result != false && FakeLoc.enable) addLocationListenerInner(provider, listener)
                 result
             },
         )
@@ -171,13 +185,19 @@ internal object LocationServiceHook : BaseLocationHook() {
                     )
                 }
 
-                if (FakeLoc.enable && (FakeLoc.disableRegisterLocationListener ||
-                        (FakeLoc.disableFusedLocation && provider == "fused"))) {
+                val suppress = FakeLoc.enable && (FakeLoc.disableRegisterLocationListener ||
+                    (FakeLoc.disableFusedLocation && provider == "fused"))
+                if (suppress) {
+                    // The explicit suppression path still has to preserve the caller's permission
+                    // decision; otherwise a denied app receives updates from the hook instead.
+                    if (!LocationCallerGuard.canReadLocation()) return@intercept11 chain.proceed(args)
+                    hookILocationListener(listener)
                     addLocationListenerInner(provider, listener)
                     return@intercept11 null
                 }
+                hookILocationListener(listener)
                 val result = chain.proceed(args)
-                if (result != false) addLocationListenerInner(provider, listener)
+                if (result != false && FakeLoc.enable) addLocationListenerInner(provider, listener)
                 result
             },
         )
@@ -440,9 +460,10 @@ internal object LocationServiceHook : BaseLocationHook() {
                                 return@intercept26 chain.proceed(args)
                             }
 
+                    if (!LocationCallerGuard.canReadLocation()) return@intercept26 chain.proceed(args)
+                    hookILocationListener(listener)
                     addLocationListenerInner("gps", listener)
-                    if (FakeLoc.disableRegisterLocationListener || FakeLoc.enable)
-                        return@intercept26 null
+                    return@intercept26 null
                 }
 
                 chain.proceed(args)
@@ -462,9 +483,13 @@ internal object LocationServiceHook : BaseLocationHook() {
                 }
 
                 if (FakeLoc.disableGetCurrentLocation) {
+                    // A denied caller must still observe the framework's SecurityException.
+                    if (!LocationCallerGuard.canReadLocation()) return@intercept27 chain.proceed(args)
                     return@intercept27 null
                 }
 
+                // Capture the caller's access level before the callback runs on another thread.
+                val coarse = LocationCallerGuard.isCoarse()
                 val classCallback = callback.javaClass
                 classCallback.onceHookAllMethod(
                     "onLocation",
@@ -478,7 +503,11 @@ internal object LocationServiceHook : BaseLocationHook() {
                             Logger.debug("onLocation(getCurrentLocation): injected!")
                         }
 
-                        args[0] = injectLocation(location)
+                        args[0] = if (coarse) {
+                            runCatching { coarseLocation() }.getOrElse { injectLocation(location) }
+                        } else {
+                            injectLocation(location)
+                        }
 
                         chain.proceed(args)
                     },
@@ -505,14 +534,6 @@ internal object LocationServiceHook : BaseLocationHook() {
                     return@intercept29 false
                 }
 
-                if (provider == "gps" && FakeLoc.enable) {
-                    return@intercept29 false
-                }
-
-                if (provider == "LOCATION_BIG_DATA") {
-                    return@intercept29 false
-                }
-
                 if (provider != "fused_ext") {
                     if (FakeLoc.enableDebugLog)
                         Logger.debug(
@@ -521,6 +542,19 @@ internal object LocationServiceHook : BaseLocationHook() {
                     return@intercept29 chain.proceed(args)
                 }
                 if (outResult == null) return@intercept29 chain.proceed(args)
+
+                if (command == "get_anti_detect_state") {
+                    // Read-only experiment flags for an explicitly selected sensor target.
+                    val uid = BinderUtils.getCallerUid()
+                    val packages = runCatching {
+                        BinderUtils.getUidPackageNames(uid = uid)?.toSet().orEmpty()
+                    }.getOrDefault(emptySet())
+                    val targets = FakeLoc.runtimeSnapshots.current().configuration.sensorTargets
+                    if (!SensorTargets.allows(uid, packages, targets)) return@intercept29 false
+                    outResult.putBoolean("anti_detect", FakeLoc.antiDetectEnabled)
+                    outResult.putBoolean("stack_trace", FakeLoc.stackTraceCleanEnabled)
+                    return@intercept29 true
+                }
 
                 if (handleInstruction(command, outResult)) {
                     return@intercept29 true
@@ -545,8 +579,6 @@ internal object LocationServiceHook : BaseLocationHook() {
                                 userId = BinderUtils.getCallerUid()
                             }
                             return@intercept30 BinderUtils.isLocationProviderEnabled(userId)
-                        } else if (FakeLoc.enable && provider == "network") {
-                            return@intercept30 false
                         } else if (
                             FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused"
                         ) {
@@ -575,8 +607,6 @@ internal object LocationServiceHook : BaseLocationHook() {
                     val userId = BinderUtils.getCallerUid()
                     if (provider == "fused_ext" && BinderUtils.isLocationProviderEnabled(userId)) {
                         return@intercept31 true
-                    } else if (FakeLoc.enable && provider == "network") {
-                        return@intercept31 false
                     } else if (
                         FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused"
                     ) {
@@ -661,6 +691,10 @@ internal object LocationServiceHook : BaseLocationHook() {
 
                         if (args.isEmpty()) return@intercept34 chain.proceed(args)
                         if (!FakeLoc.enable) return@intercept34 chain.proceed(args)
+                        // Synthetic delivery invokes the original method directly, so a callback
+                        // that reaches this hook is a real provider update. Drop it for every
+                        // listener we own; otherwise the app sees two callbacks per epoch.
+                        if (listeners.contains(chain.thisObject)) return@intercept34 null
                         val context = ProviderView.capture()
 
                         when (args[0]) {
@@ -693,6 +727,15 @@ internal object LocationServiceHook : BaseLocationHook() {
     private fun addLocationListenerInner(provider: String, listener: IInterface) {
         listeners.register(provider, listener)
     }
+
+    internal fun isCoarse(listener: IInterface): Boolean = listeners.isCoarse(listener)
+
+    /** Network-provider view with the platform's coarse obfuscation magnitude. */
+    private fun coarseLocation(): Location =
+        locationForProvider(LocationManager.NETWORK_PROVIDER).also {
+            it.accuracy = maxOf(it.accuracy, COARSE_ACCURACY_METERS)
+            it.verticalAccuracyMeters = maxOf(it.verticalAccuracyMeters, it.accuracy * 2f)
+        }
 
     private fun removeLocationListenerInner(listener: IInterface) {
         listeners.unregister(listener)
@@ -762,4 +805,6 @@ internal object LocationServiceHook : BaseLocationHook() {
     private fun handleInstruction(command: String, rely: Bundle): Boolean {
         return RemoteCommandHandler.handleInstruction(command, rely)
     }
+
+    private const val COARSE_ACCURACY_METERS = 2_000f
 }

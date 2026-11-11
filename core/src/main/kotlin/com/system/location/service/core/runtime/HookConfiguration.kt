@@ -20,13 +20,17 @@ data class HookConfiguration(
     val disableGetCurrentLocation: Boolean = false,
     val disableRegisterLocationListener: Boolean = false,
     val disableFusedLocation: Boolean = false,
-    val disableNetworkLocation: Boolean = true,
+    val disableNetworkLocation: Boolean = false,
     val disableRequestGeofence: Boolean = false,
     val disableGetFromLocation: Boolean = false,
     val downgradeToCdma: Boolean = false,
     val allowPhysicalRawGnss: Boolean = false,
     val nmeaEnabled: Boolean = true,
     val hideMock: Boolean = true,
+    /** Experimental native path rewriting; default off and only applied to explicit targets. */
+    val antiDetectEnabled: Boolean = false,
+    /** Experimental global stack-frame filtering; default off, changes observable stack length. */
+    val stackTraceCleanEnabled: Boolean = false,
     val hookWifi: Boolean = true,
     val minimumSatellites: Int = GnssSimulationPolicy.DEFAULT_MINIMUM_SATELLITES,
     val gnssSimulation: GnssSimulationPolicy = GnssSimulationPolicy(),

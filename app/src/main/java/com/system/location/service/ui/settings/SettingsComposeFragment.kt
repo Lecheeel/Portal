@@ -53,8 +53,11 @@ import com.system.location.service.designsystem.components.PortalSwitchRow
 import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
+import com.system.location.service.ext.antiDetectEnabled
 import com.system.location.service.ext.debug
 import com.system.location.service.ext.disableFusedProvider
+import com.system.location.service.ext.hideMock
+import com.system.location.service.ext.stackTraceCleanEnabled
 import com.system.location.service.ext.disableGetCurrentLocation
 import com.system.location.service.ext.disableRegisterLocationListener
 import com.system.location.service.ext.mockWifiEnabled
@@ -404,6 +407,9 @@ private data class SettingsValues(
     val disableRegisterLocationListener: Boolean,
     val disableFusedProvider: Boolean,
     val needDowngradeToCdma: Boolean,
+    val hideMock: Boolean,
+    val antiDetectEnabled: Boolean,
+    val stackTraceCleanEnabled: Boolean,
     val mockWifiEnabled: Boolean,
     val loopBroadcastlocation: Boolean,
     val crashReporting: Boolean,
@@ -457,6 +463,9 @@ private fun SettingsScreen(
             disableRegisterLocationListener = context.disableRegisterLocationListener,
             disableFusedProvider = context.disableFusedProvider,
             needDowngradeToCdma = context.needDowngradeToCdma,
+            hideMock = context.hideMock,
+            antiDetectEnabled = context.antiDetectEnabled,
+            stackTraceCleanEnabled = context.stackTraceCleanEnabled,
             mockWifiEnabled = context.mockWifiEnabled,
             loopBroadcastlocation = context.loopBroadcastlocation,
             crashReporting = SdkPrivacy.crashReportingRequested,
@@ -604,6 +613,24 @@ private fun SettingsScreen(
                             subtitle = "向第三方应用提供模拟的扫描结果与连接信息。",
                             checked = values.mockWifiEnabled,
                             onCheckedChange = hookAction { context.mockWifiEnabled = it },
+                        )
+                        PortalSwitchRow(
+                            title = "隐藏模拟标记",
+                            subtitle = "开启后不向应用暴露 isMock；关闭可用于验证应用的降级逻辑。",
+                            checked = values.hideMock,
+                            onCheckedChange = hookAction { context.hideMock = it },
+                        )
+                        PortalSwitchRow(
+                            title = "实验性反检测（原生路径改写）",
+                            subtitle = "默认关闭；仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
+                            checked = values.antiDetectEnabled,
+                            onCheckedChange = hookAction { context.antiDetectEnabled = it },
+                        )
+                        PortalSwitchRow(
+                            title = "实验性堆栈清洗",
+                            subtitle = "默认关闭；从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
+                            checked = values.stackTraceCleanEnabled,
+                            onCheckedChange = hookAction { context.stackTraceCleanEnabled = it },
                         )
                         PortalSwitchRow(
                             title = "按设定间隔广播",

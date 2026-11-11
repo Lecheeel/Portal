@@ -26,14 +26,22 @@ internal object LocationListenerDelivery : BaseLocationHook() {
             if (route is ListenerRouting.Route.Denied) return@forEach
             val scenarioId = (route as? ListenerRouting.Route.Scenario)?.scenarioId
             val point = (route as? ListenerRouting.Route.Point)?.point
-            val location =
+            val coarse = LocationServiceHook.isCoarse(listener)
+            val location = runCatching {
                 locationForProvider(
-                        if (listenerWithProvider.first == "GnssBatch") "gps"
+                        if (coarse) "network"
+                        else if (listenerWithProvider.first == "GnssBatch") "gps"
                         else listenerWithProvider.first,
                         scenarioId,
                         point,
                         context,
-                    )
+                    ).also {
+                        if (coarse) {
+                            it.accuracy = maxOf(it.accuracy, 2_000f)
+                            it.verticalAccuracyMeters = maxOf(it.verticalAccuracyMeters, it.accuracy * 2f)
+                        }
+                    }
+            }.getOrNull() ?: return@forEach
             var called = false
             var error: Throwable? = null
             kotlin

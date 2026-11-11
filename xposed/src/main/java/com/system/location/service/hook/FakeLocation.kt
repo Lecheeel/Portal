@@ -16,6 +16,7 @@ import com.system.location.service.hook.hooks.provider.ProviderRegistryHook
 import com.system.location.service.hook.hooks.pkg.PackageMetadataHook
 import com.system.location.service.hook.privacy.AppOpsHook
 import com.system.location.service.hook.privacy.SettingsHook
+import com.system.location.service.hook.privacy.StackTraceCleanHook
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 
@@ -65,6 +66,9 @@ class FakeLocation {
                 Logger.error("Hook installation failed: $name", it)
             }
         }
+        // Opt-in and runtime-gated: install in every scope so a later configuration change takes
+        // effect without a process restart; the hook body checks the flag on every call.
+        install("stack-trace-clean") { StackTraceCleanHook.install(loader) }
         when (scope) {
             com.system.location.service.hook.scope.HookScope.SYSTEM_SERVER -> {
                 FakeLoc.isSystemServerProcess = true
@@ -101,6 +105,9 @@ class FakeLocation {
             com.system.location.service.hook.scope.HookScope.TARGET_APP -> {
                 install("application-sensor") {
                     com.system.location.service.hook.hooks.sensor.ApplicationSensorHook.install(loader)
+                }
+                install("application-anti-detect") {
+                    com.system.location.service.hook.antidetect.AntiDetectController.start()
                 }
             }
         }

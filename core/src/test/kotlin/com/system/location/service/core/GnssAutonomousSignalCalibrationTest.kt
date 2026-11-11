@@ -39,7 +39,7 @@ class GnssAutonomousSignalCalibrationTest {
             override val kind = GnssOrbitSourceKind.VIRTUAL
             override fun positions(request: GnssSkyRequest) = GnssOrbitBatch(emptyList())
         }
-        val model = ReceiverAutonomousSkyModel(listOf(provider), fallback, GnssSimulationPolicy(),
+        val model = ReceiverAutonomousSkyModel(listOf(provider), fallback, GnssSimulationPolicy(mode = GnssSimulationMode.AUTO),
             signalCalibration = calibration)
         val active = model.frame(request, validationAtMillis = at)!!
         val expired = model.frame(request, validationAtMillis = at + GnssCaptureValidator.MAX_AGE_MILLIS + 1)!!

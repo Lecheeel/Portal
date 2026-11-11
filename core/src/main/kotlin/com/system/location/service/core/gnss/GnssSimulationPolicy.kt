@@ -16,7 +16,7 @@ enum class GnssSimulationEnvironment { OPEN_SKY, URBAN, INDOOR }
 
 @Serializable
 data class GnssSimulationPolicy(
-    val mode: GnssSimulationMode = GnssSimulationMode.AUTO,
+    val mode: GnssSimulationMode = GnssSimulationMode.AUTONOMOUS,
     val minimumPolicy: GnssMinimumPolicy = GnssMinimumPolicy.GUARANTEE_QUANTITY,
     val environment: GnssSimulationEnvironment = GnssSimulationEnvironment.OPEN_SKY,
     val virtualSeed: Long = 0,

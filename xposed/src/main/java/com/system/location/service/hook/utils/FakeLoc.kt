@@ -102,6 +102,16 @@ object FakeLoc {
         get() = runtimeSnapshots.current().configuration.hideMock
         set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(hideMock = value)) } }
 
+    /** Experimental: rewrite root/framework paths in a selected application process. */
+    var antiDetectEnabled: Boolean
+        get() = runtimeSnapshots.current().configuration.antiDetectEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(antiDetectEnabled = value)) } }
+
+    /** Experimental: filter this module and framework frames from stack traces. */
+    var stackTraceCleanEnabled: Boolean
+        get() = runtimeSnapshots.current().configuration.stackTraceCleanEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(stackTraceCleanEnabled = value)) } }
+
     /**
      * may cause system to crash
      */

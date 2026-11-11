@@ -23,6 +23,7 @@ class HookConfigurationPreferencesTest {
         val wire = HookConfigurationPreferences.read(emptyMap<String, Any>(), RuntimeSnapshot())
         val result = PreparedRuntimeConfiguration.prepare(wire).applyTo(RuntimeSnapshot())
         assertEquals(59, result.configuration.minimumSatellites)
+        assertEquals(GnssSimulationMode.AUTONOMOUS, result.configuration.gnssSimulation.mode)
         assertEquals(GnssMinimumPolicy.GUARANTEE_QUANTITY, result.configuration.gnssSimulation.minimumPolicy)
         assertEquals(GnssSimulationEnvironment.OPEN_SKY, result.configuration.gnssSimulation.environment)
         assertEquals(2.5f, result.accuracyMeters)
@@ -89,9 +90,9 @@ class HookConfigurationPreferencesTest {
         assertEquals(32, result.configuration.minimumSatellites)
     }
 
-    @Test fun missingGnssPreferencesPreserveFallbackPolicyAndOldInstallDefaultsToAuto() {
+    @Test fun missingGnssPreferencesPreserveFallbackPolicyAndNewInstallDefaultsToAutonomous() {
         val auto = HookConfigurationPreferences.read(emptyMap<String, Any>(), RuntimeSnapshot())
-        assertEquals("AUTO", auto["gnss_mode"])
+        assertEquals("AUTONOMOUS", auto["gnss_mode"])
         val policy = GnssSimulationPolicy(mode = GnssSimulationMode.REPLAY, virtualSeed = 42)
         val fallback = RuntimeSnapshot(configuration = HookConfiguration(gnssSimulation = policy))
         val wire = HookConfigurationPreferences.read(emptyMap<String, Any>(), fallback)

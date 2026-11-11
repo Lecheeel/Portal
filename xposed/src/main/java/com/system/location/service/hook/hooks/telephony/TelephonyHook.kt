@@ -3,6 +3,7 @@ package com.system.location.service.hook.hooks.telephony
 import android.os.Build
 import android.os.Bundle
 import android.os.Parcel
+import android.os.SystemClock
 import android.telephony.CellIdentity
 import android.telephony.CellIdentityCdma
 import android.telephony.CellInfo
@@ -35,6 +36,7 @@ object TelephonyHook: BaseTelephonyHook() {
             ?: return
 
         val hookGetPhoneTyp = Hooker { chain ->
+            val original = chain.proceed()
             if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
                 if (FakeLoc.enableDebugLog) {
                     Logger.debug("getActivePhoneType: injected!")
@@ -42,7 +44,7 @@ object TelephonyHook: BaseTelephonyHook() {
 
                 return@Hooker 2
             }
-            chain.proceed()
+            original
         }
 
         if(cPhoneInterfaceManager.hookAllMethods("getActivePhoneType", hookGetPhoneTyp).isEmpty()) {
@@ -60,11 +62,12 @@ object TelephonyHook: BaseTelephonyHook() {
                 }
 
                 if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
+                    if (original !is List<*> || original.isEmpty()) return@Hooker original
                     val cResult = arrayListOf<CellInfo>()
                     val cellInfo = kotlin.runCatching {
                         CellInfoCdma::class.java.getConstructor().newInstance().also {
                             Reflection.callMethod(it, "setRegistered", true)
-                            Reflection.callMethod(it, "setTimeStamp", System.nanoTime())
+                            Reflection.callMethod(it, "setTimeStamp", SystemClock.elapsedRealtimeNanos())
                             Reflection.callMethod(it, "setCellConnectionStatus", 0)
                         }
                     }.getOrElse {
@@ -74,7 +77,7 @@ object TelephonyHook: BaseTelephonyHook() {
                             Long::class.java,
                             CellIdentityCdma::class.java,
                             CellSignalStrengthCdma::class.java
-                        ).newInstance(0, true, System.nanoTime(), CellIdentityCdma::class.java.newInstance(), CellSignalStrengthCdma::class.java.newInstance())
+                        ).newInstance(0, true, SystemClock.elapsedRealtimeNanos(), CellIdentityCdma::class.java.newInstance(), CellSignalStrengthCdma::class.java.newInstance())
                     }
                     cResult.add(cellInfo)
                     cResult
@@ -94,20 +97,26 @@ object TelephonyHook: BaseTelephonyHook() {
                     Logger.debug("${chain.executable.name}: injected!")
                 }
 
+                // A missing real cell (no permission, radio off, no neighbour) must stay missing.
+                if (original == null) return@Hooker null
+                if (original is Bundle && (original.getBoolean("empty") || original.getBoolean("emptyParcel"))) {
+                    return@Hooker original
+                }
+                val identity = cdmaIdentity()
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || original?.javaClass?.name == "android.os.Bundle") {
                     Bundle().apply {
-                        putInt("cid", Int.MAX_VALUE)
-                        putInt("lac", Int.MAX_VALUE)
-                        putInt("psc", Int.MAX_VALUE)
-                        putInt("baseStationLatitude", (FakeLoc.latitude * 14400.0).toInt())
-                        putInt("baseStationLongitude", (FakeLoc.longitude * 14400.0).toInt())
+                        putInt("cid", identity.cid)
+                        putInt("lac", identity.lac)
+                        putInt("psc", identity.psc)
+                        putInt("baseStationLatitude", identity.latitudeQuarterMinutes)
+                        putInt("baseStationLongitude", identity.longitudeQuarterMinutes)
                         putBoolean("empty", false)
                         putBoolean("emptyParcel", false)
                         putInt("mFlags", 1536)
                         putBoolean("parcelled", false)
-                        putInt("baseStationId", Int.MAX_VALUE)
-                        putInt("systemId", Int.MAX_VALUE)
-                        putInt("networkId", Int.MAX_VALUE)
+                        putInt("baseStationId", identity.baseStationId)
+                        putInt("systemId", identity.systemId)
+                        putInt("networkId", identity.networkId)
                         putInt("size", 0)
                     }
                 } else {
@@ -120,11 +129,11 @@ object TelephonyHook: BaseTelephonyHook() {
                         String::class.java,
                         String::class.java
                     ).newInstance(
-                        Int.MAX_VALUE,
-                        Int.MAX_VALUE,
-                        Int.MAX_VALUE,
-                        (FakeLoc.latitude * 14400.0).toInt(),
-                        (FakeLoc.longitude * 14400.0).toInt(),
+                        identity.networkId,
+                        identity.systemId,
+                        identity.baseStationId,
+                        identity.latitudeQuarterMinutes,
+                        identity.longitudeQuarterMinutes,
                         null, null
                     )
                 }
@@ -133,13 +142,14 @@ object TelephonyHook: BaseTelephonyHook() {
         }
 
         Hooker { chain ->
+            val original = chain.proceed()
             if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
                 if (FakeLoc.enableDebugLog) {
                     Logger.debug("getDataNetworkType: injected!")
                 }
                 return@Hooker 4
             }
-            chain.proceed()
+            original
         }.let {
             cPhoneInterfaceManager.hookAllMethods("getDataNetworkType", it)
             cPhoneInterfaceManager.hookAllMethods("getNetworkType", it)
@@ -149,17 +159,21 @@ object TelephonyHook: BaseTelephonyHook() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             if (cPhoneInterfaceManager.hookAllMethods("getNeighboringCellInfo", Hooker { chain ->
+                // Preserve the framework permission result before replacing the list.
+                val original = chain.proceed()
                 if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) {
-                    return@Hooker chain.proceed()
+                    return@Hooker original
                 }
+                if (original !is List<*> || original.isEmpty()) return@Hooker original
 
                 kotlin.runCatching {
+                    val identity = cdmaIdentity()
                     val nCellInfo = NeighboringCellInfo::class.java.getConstructor().newInstance()
-                    Reflection.setIntField(nCellInfo, "mRssi", -46)
-                    Reflection.setIntField(nCellInfo, "mCid", -1)
-                    Reflection.setIntField(nCellInfo, "mLac", -1)
-                    Reflection.setIntField(nCellInfo, "mPsc", -1)
-                    Reflection.setIntField(nCellInfo, "mNetworkType", 3)
+                    Reflection.setIntField(nCellInfo, "mRssi", -73)
+                    Reflection.setIntField(nCellInfo, "mCid", identity.cid)
+                    Reflection.setIntField(nCellInfo, "mLac", identity.lac)
+                    Reflection.setIntField(nCellInfo, "mPsc", identity.psc)
+                    Reflection.setIntField(nCellInfo, "mNetworkType", 4)
                     listOf(nCellInfo)
                 }.getOrElse {
                     arrayListOf()
@@ -179,6 +193,9 @@ object TelephonyHook: BaseTelephonyHook() {
     }
 
     fun hookTelephonyRegistry(cTelephonyRegistry: Class<*>) {
+        // The CDMA replacement is a legacy path. Leaving it active in LTE/5G mode makes callback
+        // consumers see CDMA cells while getAllCellInfo returns LTE/NR cells.
+        if (!FakeLoc.needDowngradeToCdma) return
         cTelephonyRegistry.declaredMethods.filter { (it.name == "listen" || it.name == "listenWithEventList") && !Modifier.isAbstract(it.modifiers) }
             .map {
                 it to it.parameterTypes.indexOfFirst { typ -> typ.simpleName == "IPhoneStateListener" }
@@ -197,6 +214,7 @@ object TelephonyHook: BaseTelephonyHook() {
                     val hasHookOnCellLocationChanged = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         listener.javaClass.onceHookMethod("onCellLocationChanged", CellIdentity::class.java, callback = Hooker callback@ { callbackChain ->
                             if (FakeLoc.enable) {
+                                val identity = cdmaIdentity()
                                 return@callback CellIdentityCdma::class.java.getConstructor(
                                     Int::class.java,
                                     Int::class.java,
@@ -206,11 +224,11 @@ object TelephonyHook: BaseTelephonyHook() {
                                     String::class.java,
                                     String::class.java
                                 ).newInstance(
-                                    Int.MAX_VALUE,
-                                    Int.MAX_VALUE,
-                                    Int.MAX_VALUE,
-                                    (FakeLoc.latitude * 14400.0).toInt(),
-                                    (FakeLoc.longitude * 14400.0).toInt(),
+                                    identity.networkId,
+                                    identity.systemId,
+                                    identity.baseStationId,
+                                    identity.latitudeQuarterMinutes,
+                                    identity.longitudeQuarterMinutes,
                                     null, null
                                 )
                             }
@@ -219,19 +237,20 @@ object TelephonyHook: BaseTelephonyHook() {
                     } else {
                         listener.javaClass.onceHookMethod("onCellLocationChanged", Bundle::class.java, callback = Hooker callback@ { callbackChain ->
                             if (FakeLoc.enable) {
+                                val identity = cdmaIdentity()
                                 return@callback Bundle().apply {
-                                    putInt("cid", Int.MAX_VALUE)
-                                    putInt("lac", Int.MAX_VALUE)
-                                    putInt("psc", Int.MAX_VALUE)
-                                    putInt("baseStationLatitude", (FakeLoc.latitude * 14400.0).toInt())
-                                    putInt("baseStationLongitude", (FakeLoc.longitude * 14400.0).toInt())
+                                    putInt("cid", identity.cid)
+                                    putInt("lac", identity.lac)
+                                    putInt("psc", identity.psc)
+                                    putInt("baseStationLatitude", identity.latitudeQuarterMinutes)
+                                    putInt("baseStationLongitude", identity.longitudeQuarterMinutes)
                                     putBoolean("empty", false)
                                     putBoolean("emptyParcel", false)
                                     putInt("mFlags", 1536)
                                     putBoolean("parcelled", false)
-                                    putInt("baseStationId", Int.MAX_VALUE)
-                                    putInt("systemId", Int.MAX_VALUE)
-                                    putInt("networkId", Int.MAX_VALUE)
+                                    putInt("baseStationId", identity.baseStationId)
+                                    putInt("systemId", identity.systemId)
+                                    putInt("networkId", identity.networkId)
                                     putInt("size", 0)
                                 }
                             }
@@ -264,7 +283,7 @@ object TelephonyHook: BaseTelephonyHook() {
             val cellInfo = kotlin.runCatching {
                 CellInfoCdma::class.java.getConstructor().newInstance().also {
                     Reflection.callMethod(it, "setRegistered", true)
-                    Reflection.callMethod(it, "setTimeStamp", System.nanoTime())
+                    Reflection.callMethod(it, "setTimeStamp", SystemClock.elapsedRealtimeNanos())
                     Reflection.callMethod(it, "setCellConnectionStatus", 0)
                 }
             }.getOrElse {
@@ -274,7 +293,7 @@ object TelephonyHook: BaseTelephonyHook() {
                     Long::class.java,
                     CellIdentityCdma::class.java,
                     CellSignalStrengthCdma::class.java
-                ).newInstance(0, true, System.nanoTime(), CellIdentityCdma::class.java.newInstance(), CellSignalStrengthCdma::class.java.newInstance())
+                ).newInstance(0, true, SystemClock.elapsedRealtimeNanos(), CellIdentityCdma::class.java.newInstance(), CellSignalStrengthCdma::class.java.newInstance())
             }
             cellInfos.add(cellInfo)
 
@@ -296,7 +315,7 @@ object TelephonyHook: BaseTelephonyHook() {
             val cellInfo = kotlin.runCatching {
                 CellInfoCdma::class.java.getConstructor().newInstance().also {
                     Reflection.callMethod(it, "setRegistered", true)
-                    Reflection.callMethod(it, "setTimeStamp", System.nanoTime())
+                    Reflection.callMethod(it, "setTimeStamp", SystemClock.elapsedRealtimeNanos())
                     Reflection.callMethod(it, "setCellConnectionStatus", 0)
                 }
             }.getOrElse {
@@ -306,7 +325,7 @@ object TelephonyHook: BaseTelephonyHook() {
                     Long::class.java,
                     CellIdentityCdma::class.java,
                     CellSignalStrengthCdma::class.java
-                ).newInstance(0, true, System.nanoTime(), CellIdentityCdma::class.java.newInstance(), CellSignalStrengthCdma::class.java.newInstance())
+                ).newInstance(0, true, SystemClock.elapsedRealtimeNanos(), CellIdentityCdma::class.java.newInstance(), CellSignalStrengthCdma::class.java.newInstance())
             }
             cellInfos.add(cellInfo)
 
@@ -324,19 +343,20 @@ object TelephonyHook: BaseTelephonyHook() {
                 Logger.debug("notifyCellLocation: injected!")
             }
 
+            val identity = cdmaIdentity()
             args[0] = Bundle().apply {
-                putInt("cid", Int.MAX_VALUE)
-                putInt("lac", Int.MAX_VALUE)
-                putInt("psc", Int.MAX_VALUE)
-                putInt("baseStationLatitude", (FakeLoc.latitude * 14400.0).toInt())
-                putInt("baseStationLongitude", (FakeLoc.longitude * 14400.0).toInt())
+                putInt("cid", identity.cid)
+                putInt("lac", identity.lac)
+                putInt("psc", identity.psc)
+                putInt("baseStationLatitude", identity.latitudeQuarterMinutes)
+                putInt("baseStationLongitude", identity.longitudeQuarterMinutes)
                 putBoolean("empty", false)
                 putBoolean("emptyParcel", false)
                 putInt("mFlags", 1536)
                 putBoolean("parcelled", false)
-                putInt("baseStationId", Int.MAX_VALUE)
-                putInt("systemId", Int.MAX_VALUE)
-                putInt("networkId", Int.MAX_VALUE)
+                putInt("baseStationId", identity.baseStationId)
+                putInt("systemId", identity.systemId)
+                putInt("networkId", identity.networkId)
                 putInt("size", 0)
             }
             chain.proceed(args)
@@ -351,19 +371,20 @@ object TelephonyHook: BaseTelephonyHook() {
                 Logger.debug("notifyCellLocationForSubscriber: injected!")
             }
 
+            val identity = cdmaIdentity()
             args[1] = Bundle().apply {
-                putInt("cid", Int.MAX_VALUE)
-                putInt("lac", Int.MAX_VALUE)
-                putInt("psc", Int.MAX_VALUE)
-                putInt("baseStationLatitude", (FakeLoc.latitude * 14400.0).toInt())
-                putInt("baseStationLongitude", (FakeLoc.longitude * 14400.0).toInt())
+                putInt("cid", identity.cid)
+                putInt("lac", identity.lac)
+                putInt("psc", identity.psc)
+                putInt("baseStationLatitude", identity.latitudeQuarterMinutes)
+                putInt("baseStationLongitude", identity.longitudeQuarterMinutes)
                 putBoolean("empty", false)
                 putBoolean("emptyParcel", false)
                 putInt("mFlags", 1536)
                 putBoolean("parcelled", false)
-                putInt("baseStationId", Int.MAX_VALUE)
-                putInt("systemId", Int.MAX_VALUE)
-                putInt("networkId", Int.MAX_VALUE)
+                putInt("baseStationId", identity.baseStationId)
+                putInt("systemId", identity.systemId)
+                putInt("networkId", identity.networkId)
                 putInt("size", 0)
             }
             chain.proceed(args)
@@ -414,28 +435,28 @@ object TelephonyHook: BaseTelephonyHook() {
                     data.enforceInterface(subClassName)
                     data.readInt()
                     reply.writeNoException()
-                    reply.writeInt(5)
+                    reply.writeInt(TelephonyFacade.simState())
                     return@Hooker true
                 }
                 TRANSACTION_getSimStateForSubscriber -> {
                     data.enforceInterface(subClassName)
                     data.readInt()
                     reply.writeNoException()
-                    reply.writeInt(5)
+                    reply.writeInt(TelephonyFacade.simState())
                     return@Hooker true
                 }
                 TRANSACTION_getSimStateForSlotIdx -> {
                     data.enforceInterface(subClassName)
                     data.readInt()
                     reply.writeNoException()
-                    reply.writeInt(5)
+                    reply.writeInt(TelephonyFacade.simState())
                     return@Hooker true
                 }
                 TRANSACTION_getNetworkCountryIsoForPhone -> {
                     data.enforceInterface(subClassName)
                     data.readInt()
                     reply.writeNoException()
-                    reply.writeString("CHN")
+                    reply.writeString(TelephonyFacade.countryIso())
                     return@Hooker true
                 }
                 TRANSACTION_getPhoneId -> {
@@ -452,5 +473,7 @@ object TelephonyHook: BaseTelephonyHook() {
             Logger.error("Hook ISub.Stub.onTransact failed")
         }
     }
+
+    private fun cdmaIdentity(): CdmaIdentity = currentCdmaIdentity()
 
 }

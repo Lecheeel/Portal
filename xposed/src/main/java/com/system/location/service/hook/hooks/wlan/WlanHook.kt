@@ -91,17 +91,23 @@ object WlanHook {
         if (!FakeLoc.hookWifi) return
 
         wifiClazz.hookAllMethods("getConnectionInfo", Hooker { chain ->
+            // Run the framework path first. It enforces the caller's location permission and
+            // returns a redacted/disconnected WifiInfo when the caller may not see SSID/BSSID.
+            val original = chain.proceed() as? WifiInfo ?: return@Hooker null
             val packageName = chain.args.firstOrNull() as? String
-            if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@Hooker chain.proceed()
-            val info = buildWifiInfo(currentProfile(packageName)) ?: return@Hooker chain.proceed()
+            if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@Hooker original
+            if (!isRealWifiConnected(original)) return@Hooker original
+            val info = buildWifiInfo(currentProfile(packageName), original) ?: return@Hooker original
             if (FakeLoc.enableDebugLog) Logger.debug("getConnectionInfo: procedural $packageName")
             info
         })
 
         wifiClazz.hookAllMethods("getScanResults", Hooker { chain ->
+            // Preserve an empty result: it carries the real permission/Wi-Fi-off state.
             val original = chain.proceed()
             val packageName = chain.args.firstOrNull() as? String
             if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@Hooker original
+            if (scanResultCount(original) == 0) return@Hooker original
             val generated = buildScanResults(currentProfile(packageName))
             if (generated.isEmpty()) return@Hooker original
             val result = when (val existing = original) {
@@ -120,19 +126,22 @@ object WlanHook {
             if (FakeLoc.enableDebugLog) Logger.debug("getScanResults: ${generated.size} procedural APs for $packageName")
             result
         })
+    }
 
-        wifiClazz.hookAllMethods("getDhcpInfo", Hooker { chain ->
-            val original = chain.proceed()
-            val packageName = chain.args.firstOrNull() as? String
-            val rewrite = if (packageName != null) {
-                shouldRewrite(packageName)
-            } else {
-                FakeLoc.enable && FakeLoc.enableMockWifi && Binder.getCallingUid() >= FIRST_APP_UID
-            }
-            if (!rewrite) return@Hooker original
-            if (FakeLoc.enableDebugLog) Logger.debug("getDhcpInfo: procedural DHCP info")
-            buildDhcpInfo()
-        })
+    private fun isRealWifiConnected(info: WifiInfo): Boolean =
+        info.supplicantState == SupplicantState.COMPLETED &&
+            !info.ssid.isNullOrBlank() &&
+            !info.ssid.contains("unknown ssid", ignoreCase = true) &&
+            !info.bssid.isNullOrBlank() &&
+            info.bssid != REDACTED_BSSID
+
+    private fun scanResultCount(value: Any?): Int = when (value) {
+        null -> 0
+        is List<*> -> value.size
+        is Array<*> -> value.size
+        else -> runCatching {
+            (Reflection.callMethod(value, "getList") as? List<*>)?.size ?: 1
+        }.getOrDefault(1)
     }
 
     private fun shouldRewrite(packageName: String): Boolean =
@@ -182,36 +191,55 @@ object WlanHook {
     }
 
     private fun buildScanResults(profile: EnvironmentProfile): List<ScanResult> {
-        val timestamp = SystemClock.elapsedRealtimeNanos() / 1_000L
-        return profile.wifi.map { ap ->
+        val baseTimestamp = SystemClock.elapsedRealtimeNanos() / 1_000L
+        return profile.wifi.mapIndexed { index, ap ->
             ScanResult().apply {
                 SSID = ap.ssid
-                BSSID = ap.bssid
+                // Android exposes BSSIDs in lower-case; the fake environment must not stand out.
+                BSSID = ap.bssid.lowercase()
                 capabilities = ap.capabilities
                 frequency = ap.frequencyMhz
                 level = ap.rssi
-                this.timestamp = timestamp
-                channelWidth = ScanResult.CHANNEL_WIDTH_20MHZ
-                centerFreq0 = ap.frequencyMhz
+                // Real scan results are observed at slightly different instants.
+                timestamp = baseTimestamp + index * 137L
+                channelWidth = if (ap.frequencyMhz >= 5_000) ScanResult.CHANNEL_WIDTH_80MHZ
+                    else ScanResult.CHANNEL_WIDTH_20MHZ
+                // A 5 GHz 80 MHz segment is reported around its centre, not the primary channel.
+                centerFreq0 = if (ap.frequencyMhz >= 5_000) ap.frequencyMhz + 30 else ap.frequencyMhz
                 centerFreq1 = 0
+                runCatching { Reflection.setIntField(this, "wifiStandard", standardFor(ap.frequencyMhz)) }
             }
         }
     }
 
-    private fun buildWifiInfo(profile: EnvironmentProfile): WifiInfo? {
+    private fun buildWifiInfo(profile: EnvironmentProfile, original: WifiInfo): WifiInfo? {
         val ap = profile.connectedWifi() ?: return null
         val info = runCatching { Reflection.newInstance(WifiInfo::class.java) as WifiInfo }.getOrNull()
             ?: return null
-        val values = listOf(
-            "setBSSID" to ap.bssid,
-            "setSSID" to ap.ssid,
-            "setMacAddress" to DEVICE_MAC,
-            "setNetworkId" to NETWORK_ID,
+        val linkSpeed = original.linkSpeed.takeIf { it > 0 }
+            ?: if (ap.frequencyMhz >= 5_000) 433 else 144
+        // Device-level facts belong to the real device. Only the environment (SSID/BSSID/RSSI/
+        // channel) is synthetic, so a detector cannot cluster every Portal user by one MAC/IP.
+        val mac = original.macAddress?.takeIf { it.isNotBlank() && it != REDACTED_BSSID }
+            ?: fallbackMac()
+        val values: List<Pair<String, Any>> = listOf<Pair<String, Any>>(
+            "setBSSID" to ap.bssid.lowercase(),
+            "setSSID" to "\"${ap.ssid}\"",
+            "setMacAddress" to mac,
+            "setNetworkId" to (original.networkId.takeIf { it >= 0 } ?: 0),
             "setRssi" to ap.rssi,
             "setFrequency" to ap.frequencyMhz,
-            "setLinkSpeed" to LINK_SPEED_MBPS,
-            "setIpAddress" to ipv4("192.168.1.100"),
+            "setLinkSpeed" to linkSpeed,
+            "setRxLinkSpeedMbps" to (original.rxLinkSpeedMbps.takeIf { it > 0 } ?: linkSpeed),
+            "setTxLinkSpeedMbps" to (original.txLinkSpeedMbps.takeIf { it > 0 } ?: linkSpeed),
+            "setMaxSupportedRxLinkSpeedMbps" to
+                (original.maxSupportedRxLinkSpeedMbps.takeIf { it > 0 } ?: linkSpeed),
+            "setMaxSupportedTxLinkSpeedMbps" to
+                (original.maxSupportedTxLinkSpeedMbps.takeIf { it > 0 } ?: linkSpeed),
+            "setWifiStandard" to standardFor(ap.frequencyMhz),
+            "setIpAddress" to original.ipAddress,
             "setSupplicantState" to SupplicantState.COMPLETED,
+            "setHiddenSSID" to false,
         )
         values.forEach { (method, value) ->
             runCatching { Reflection.callMethod(info, method, value) }
@@ -220,14 +248,21 @@ object WlanHook {
         return info
     }
 
-    private fun buildDhcpInfo(): DhcpInfo = DhcpInfo().apply {
-        ipAddress = ipv4("192.168.1.100")
-        gateway = ipv4("192.168.1.1")
-        netmask = ipv4("255.255.255.0")
-        dns1 = ipv4("192.168.1.1")
-        dns2 = ipv4("223.5.5.5")
-        serverAddress = gateway
-        leaseDuration = 86_400
+    /** Stable, locally-administered fallback MAC when the real value is redacted. */
+    private fun fallbackMac(): String {
+        val random = kotlin.random.Random(
+            FakeLoc.environmentSeed xor Build.FINGERPRINT.hashCode().toLong(),
+        )
+        return buildString {
+            append("02")
+            repeat(5) { append(':').append("%02x".format(random.nextInt(256))) }
+        }
+    }
+
+    private fun standardFor(frequencyMhz: Int): Int = when {
+        frequencyMhz >= 5_925 -> ScanResult.WIFI_STANDARD_11AX
+        frequencyMhz >= 5_000 -> ScanResult.WIFI_STANDARD_11AC
+        else -> ScanResult.WIFI_STANDARD_11N
     }
 
     private fun sliceOrNull(type: Class<*>, values: List<ScanResult>): Any? =
@@ -242,14 +277,5 @@ object WlanHook {
             null
         }
 
-    private fun ipv4(address: String): Int {
-        val parts = address.split('.')
-        require(parts.size == 4)
-        return parts.fold(0) { value, part -> (value shl 8) or part.toInt() }
-    }
-
-    private const val DEVICE_MAC = "A4:50:46:00:00:01"
-    private const val NETWORK_ID = 42
-    private const val LINK_SPEED_MBPS = 433
-    private const val FIRST_APP_UID = 10_000
+    private const val REDACTED_BSSID = "02:00:00:00:00:00"
 }

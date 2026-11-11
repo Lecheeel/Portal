@@ -39,6 +39,10 @@ object LocationAvailabilityHook {
                     service,
                     methodName,
                     XposedInterface.Hooker { chain ->
+                        val original = chain.proceed()
+                        // Never report a disabled platform switch as enabled: that is directly
+                        // cross-checkable through Settings.Secure.location_mode.
+                        if (original != true) return@Hooker original
                         if (
                             FakeLoc.enable &&
                                 LocationAvailabilityPolicy.shouldSynthesize(
@@ -50,7 +54,7 @@ object LocationAvailabilityHook {
                                 Logger.debug("$methodName: synthesized true for third-party caller")
                             true
                         } else {
-                            chain.proceed()
+                            original
                         }
                     },
                 )

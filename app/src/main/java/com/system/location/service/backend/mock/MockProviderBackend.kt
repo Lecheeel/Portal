@@ -15,6 +15,8 @@ interface MockProviderPort {
     fun enable(provider: String, enabled: Boolean)
     fun publish(provider: String, sample: LocationSample)
     fun remove(provider: String)
+    /** Ask the real hardware/network providers for one fresh fix after the test provider goes away. */
+    fun flushRealLocation() {}
 }
 
 class MissingMockProviderException(provider: String, cause: Exception? = null) : IllegalStateException("模拟 Provider 丢失: $provider", cause)
@@ -155,12 +157,16 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
     }
     private fun cleanup(): BackendResult {
         val errors = mutableListOf<String>()
+        val hadProviders = owned.isNotEmpty()
         owned.toList().asReversed().forEach { provider ->
             // Removal restores the original provider even when disabling it fails.
             runCatching { port.enable(provider, false) }
             try { port.remove(provider); owned.remove(provider) }
             catch (error: Exception) { errors += "$provider: ${error.message ?: error.javaClass.simpleName}" }
         }
+        // A test provider leaves its last fix in the platform cache. Wake the real providers so
+        // applications that read getLastKnownLocation after stopping do not keep the fake fix.
+        if (hadProviders) runCatching { port.flushRealLocation() }
         phase = if (errors.isEmpty()) Phase.STOPPED else Phase.ERROR
         return if (errors.isEmpty()) BackendResult.Success else failure("CLEANUP_PROVIDER", errors.joinToString("; "))
     }

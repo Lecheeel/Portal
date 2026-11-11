@@ -83,7 +83,7 @@ class ProceduralWifiSource(
         return hash * -0x61c8864680b583ebL
     }
 
-    private fun hex(value: Int): String = value.toString(16).uppercase().padStart(2, '0')
+    private fun hex(value: Int): String = value.toString(16).lowercase().padStart(2, '0')
 
     private class SplitMix64(seed: Long) {
         private var state = seed
@@ -121,14 +121,16 @@ class ProceduralWifiSource(
         )
 
         val OUIS = listOf(
-            "A4:50:46",
-            "00:1A:11",
-            "F0:9F:C2",
-            "AC:84:C6",
-            "D8:47:32",
-            "B8:27:EB",
-            "00:0C:29",
-            "3C:5A:B4",
+            "a4:50:46",
+            "00:1a:11",
+            "f0:9f:c2",
+            "ac:84:c6",
+            "d8:47:32",
+            "3c:5a:b4",
+            "f4:f2:6d",
+            "50:64:2b",
+            "e4:95:6e",
+            "c8:3a:35",
         )
 
         val SSIDS = listOf(
@@ -137,9 +139,10 @@ class ProceduralWifiSource(
             "TP-LINK",
             "Xiaomi",
             "HUAWEI",
-            "PortalLab",
             "Starbucks",
             "iPhone",
+            "MERCURY",
+            "Tenda",
         )
     }
 }

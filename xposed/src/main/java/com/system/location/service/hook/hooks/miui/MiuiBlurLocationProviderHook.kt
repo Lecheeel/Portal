@@ -1,6 +1,7 @@
 package com.system.location.service.hook.hooks.miui
 
 import android.os.Build
+import android.os.SystemClock
 import android.telephony.CellIdentity
 import android.telephony.CellIdentityCdma
 import android.telephony.CellInfo
@@ -8,6 +9,7 @@ import android.telephony.CellInfoCdma
 import android.telephony.CellSignalStrengthCdma
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
+import com.system.location.service.hook.hooks.telephony.currentCdmaIdentity
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
@@ -28,7 +30,9 @@ object MiuiBlurLocationProviderHook : BaseLocationHook() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val hooker =
                     XposedInterface.Hooker { chain ->
+                        val original = chain.proceed()
                         if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
+                            val identity = currentCdmaIdentity()
                             CellIdentityCdma::class
                                 .java
                                 .getConstructor(
@@ -41,15 +45,15 @@ object MiuiBlurLocationProviderHook : BaseLocationHook() {
                                     String::class.java,
                                 )
                                 .newInstance(
-                                    Int.MAX_VALUE,
-                                    Int.MAX_VALUE,
-                                    Int.MAX_VALUE,
-                                    (FakeLoc.latitude * 14400.0).toInt(),
-                                    (FakeLoc.longitude * 14400.0).toInt(),
+                                    identity.networkId,
+                                    identity.systemId,
+                                    identity.baseStationId,
+                                    identity.latitudeQuarterMinutes,
+                                    identity.longitudeQuarterMinutes,
                                     null,
                                     null,
                                 )
-                        } else chain.proceed()
+                        } else original
                     }
                 if (
                     cMiuiBlurLocationManagerImpl.onceHookMethod(
@@ -72,42 +76,49 @@ object MiuiBlurLocationProviderHook : BaseLocationHook() {
                 "getBlurryCellInfos",
                 XposedInterface.Hooker intercept69@{ chain ->
                     val args = chain.args.toTypedArray()
-
-                    if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
-                        val cellInfos = arrayListOf<CellInfo>()
-                        val cellInfo =
-                            kotlin
-                                .runCatching {
-                                    CellInfoCdma::class.java.getConstructor().newInstance().also {
-                                        Reflection.callMethod(it, "setRegistered", true)
-                                        Reflection.callMethod(it, "setTimeStamp", System.nanoTime())
-                                        Reflection.callMethod(it, "setCellConnectionStatus", 0)
-                                    }
-                                }
-                                .getOrElse {
-                                    CellInfoCdma::class
-                                        .java
-                                        .getConstructor(
-                                            Int::class.java,
-                                            Boolean::class.java,
-                                            Long::class.java,
-                                            CellIdentityCdma::class.java,
-                                            CellSignalStrengthCdma::class.java,
-                                        )
-                                        .newInstance(
-                                            0,
-                                            true,
-                                            System.nanoTime(),
-                                            CellIdentityCdma::class.java.newInstance(),
-                                            CellSignalStrengthCdma::class.java.newInstance(),
-                                        )
-                                }
-                        cellInfos.add(cellInfo)
-
-                        return@intercept69 cellInfos
-                    }
-
-                    chain.proceed(args)
+                    // Preserve the framework/blur query result first, then replace only on success.
+                    val original = chain.proceed(args)
+                    if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@intercept69 original
+                    val identity = currentCdmaIdentity()
+                    val cellInfo = kotlin.runCatching {
+                        val cellIdentity = CellIdentityCdma::class
+                            .java
+                            .getConstructor(
+                                Int::class.java,
+                                Int::class.java,
+                                Int::class.java,
+                                Int::class.java,
+                                Int::class.java,
+                                String::class.java,
+                                String::class.java,
+                            )
+                            .newInstance(
+                                identity.networkId,
+                                identity.systemId,
+                                identity.baseStationId,
+                                identity.latitudeQuarterMinutes,
+                                identity.longitudeQuarterMinutes,
+                                null,
+                                null,
+                            )
+                        CellInfoCdma::class
+                            .java
+                            .getConstructor(
+                                Int::class.java,
+                                Boolean::class.java,
+                                Long::class.java,
+                                CellIdentityCdma::class.java,
+                                CellSignalStrengthCdma::class.java,
+                            )
+                            .newInstance(
+                                0,
+                                true,
+                                SystemClock.elapsedRealtimeNanos(),
+                                cellIdentity,
+                                CellSignalStrengthCdma::class.java.newInstance(),
+                            )
+                    }.getOrNull() ?: return@intercept69 original
+                    arrayListOf<CellInfo>(cellInfo)
                 },
             )
         }

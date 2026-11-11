@@ -58,5 +58,6 @@ kotlin {
 // detector that cannot share code paths with the implementation it evaluates.
 dependencies {
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
     androidTestImplementation("androidx.test:runner:1.7.0")
 }

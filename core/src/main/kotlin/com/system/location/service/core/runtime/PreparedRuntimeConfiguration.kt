@@ -52,6 +52,8 @@ class PreparedRuntimeConfiguration private constructor(
             allowPhysicalRawGnss = value("enable_agps", old.allowPhysicalRawGnss),
             nmeaEnabled = value("enable_nmea", old.nmeaEnabled),
             hideMock = value("hide_mock", old.hideMock),
+            antiDetectEnabled = value("experimental_anti_detect", old.antiDetectEnabled),
+            stackTraceCleanEnabled = value("experimental_stack_trace", old.stackTraceCleanEnabled),
             hookWifi = value("hook_wifi", old.hookWifi),
             disableRequestGeofence = value("disable_request_geofence", old.disableRequestGeofence),
             disableGetFromLocation = value("disable_get_from_location", old.disableGetFromLocation),

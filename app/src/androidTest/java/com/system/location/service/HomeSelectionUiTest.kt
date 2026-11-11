@@ -198,7 +198,9 @@ class HomeSelectionUiTest {
                             }
                             visible
                         }
-                        onView(withText(label)).perform(click())
+                        // The picker uses TYPE_APPLICATION_OVERLAY, so Espresso's default root
+                        // can select the now-unfocused Activity instead of this separate window.
+                        onView(withText(label)).inRoot(withDecorView(hasDescendant(withText(label)))).perform(click())
                     }
                     choose(context.getString(R.string.overlay_target_route, route.route.name))
                     awaitRunning(route.route.name)

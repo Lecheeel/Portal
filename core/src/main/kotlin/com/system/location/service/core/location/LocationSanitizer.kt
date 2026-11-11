@@ -75,6 +75,8 @@ object LocationSanitizer {
     }
 
     const val STATIONARY_SPEED_MPS = 0.3f
+    /** Default requested simulation accuracy; separate from sanitizing invalid external samples. */
+    const val DEFAULT_HORIZONTAL_ACCURACY = 2.5f
     const val FALLBACK_HORIZONTAL_ACCURACY = 25f
     const val FALLBACK_ALTITUDE_METERS = 0.0
     const val DEFAULT_UNCERTAINTY_NANOS = 5_000_000L

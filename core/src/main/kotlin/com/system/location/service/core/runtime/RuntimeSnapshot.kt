@@ -5,6 +5,7 @@ import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentSourceMode
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.providers.ProviderKind
 import com.system.location.service.core.routing.RoutingConfig
 import java.util.concurrent.atomic.AtomicReference
@@ -31,7 +32,7 @@ data class RuntimeSnapshot(
     val longitude: Double = 0.0,
     val altitudeMeters: Double = 0.0,
     val speedMps: Double = 3.05,
-    val accuracyMeters: Float = 25f,
+    val accuracyMeters: Float = LocationSanitizer.DEFAULT_HORIZONTAL_ACCURACY,
     val bearingDeg: Double = 0.0,
     val hasBearings: Boolean = false,
     val configuration: HookConfiguration = HookConfiguration(),

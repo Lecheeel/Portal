@@ -3,6 +3,7 @@ package com.system.location.service.core.settings
 import com.system.location.service.core.gnss.GnssSimulationMode
 import com.system.location.service.core.gnss.GnssMinimumPolicy
 import com.system.location.service.core.gnss.GnssSimulationEnvironment
+import com.system.location.service.core.location.LocationSanitizer
 
 import com.system.location.service.core.environment.EnvironmentConfig
 
@@ -96,7 +97,7 @@ object PortalSettingsSchema {
         listOf(
             SettingSpec("altitude", SettingType.DOUBLE, "0.0", 0.0, 20_000.0),
             SettingSpec("speed", SettingType.DOUBLE, "3.05", 0.0, 1_000.0),
-            SettingSpec("accuracy", SettingType.FLOAT, "25.0", 0.1, 10_000.0),
+            SettingSpec("accuracy", SettingType.FLOAT, LocationSanitizer.DEFAULT_HORIZONTAL_ACCURACY.toString(), 0.1, 10_000.0),
             SettingSpec("report_interval", SettingType.LONG, "100", 50.0, 1_000.0),
             SettingSpec("min_satellites", SettingType.INT, "0", 0.0, 128.0),
             SettingSpec("gnss_mode", SettingType.ENUM, "AUTO", choices = GnssSimulationMode.entries.map { it.name }.toSet()),

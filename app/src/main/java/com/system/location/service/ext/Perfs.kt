@@ -161,7 +161,7 @@ var Context.altitude: Double
     }
 
 var Context.accuracy: Float
-    get() = sharedPrefs.getFloat("accuracy", com.system.location.service.core.location.LocationSanitizer.FALLBACK_HORIZONTAL_ACCURACY)
+    get() = sharedPrefs.getFloat("accuracy", com.system.location.service.core.location.LocationSanitizer.DEFAULT_HORIZONTAL_ACCURACY)
         .coerceIn(0.1f, 10_000f)
     set(value) = sharedPrefs.edit {
         putFloat("accuracy", value.coerceIn(0.1f, 10_000f))

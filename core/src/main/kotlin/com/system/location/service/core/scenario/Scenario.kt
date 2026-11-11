@@ -1,6 +1,7 @@
 package com.system.location.service.core.scenario
 
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.location.LocationSanitizer
 import kotlinx.serialization.Serializable
 import java.util.Collections
 
@@ -15,7 +16,7 @@ import java.util.Collections
 }
 
 @Serializable data class MovementProfile(val speedMps: Double = 3.05, val altitudeMeters: Double = 0.0,
-    val accuracyMeters: Float = 25f, val intervalMs: Long = 500, val smoothMotion: Boolean = false) {
+    val accuracyMeters: Float = LocationSanitizer.DEFAULT_HORIZONTAL_ACCURACY, val intervalMs: Long = 500, val smoothMotion: Boolean = false) {
     init {
         require(speedMps.isFinite() && speedMps in 0.0..1000.0)
         require(altitudeMeters.isFinite())

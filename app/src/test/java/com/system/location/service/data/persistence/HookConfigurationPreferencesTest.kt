@@ -23,7 +23,7 @@ class HookConfigurationPreferencesTest {
         val wire = HookConfigurationPreferences.read(emptyMap<String, Any>(), RuntimeSnapshot())
         val result = PreparedRuntimeConfiguration.prepare(wire).applyTo(RuntimeSnapshot())
         assertEquals(0, result.configuration.minimumSatellites)
-        assertEquals(25f, result.accuracyMeters)
+        assertEquals(2.5f, result.accuracyMeters)
         assertEquals(500L, result.configuration.reportIntervalMs)
         for (key in listOf("wifi_fingerprint_json", "routing_json", "environment_json")) {
             assertTrue(wire.containsKey(key))

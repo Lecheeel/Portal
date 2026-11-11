@@ -94,6 +94,9 @@
     <fragment android:id="@+id/nav_sensor_packages"
         android:name="com.system.location.service.ui.settings.PackageEditorFragment"
         android:label="传感器包名" />
+    <fragment android:id="@+id/nav_point_selection"
+        android:name="com.system.location.service.ui.settings.PointSelectionFragment"
+        android:label="选择固定位置" />
 </navigation>
 
 

@@ -218,8 +218,13 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 navController.addOnDestinationChangedListener { _, destination, _ ->
-                    val drawerDestination = if (destination.arguments.containsKey("category"))
-                        R.id.nav_settings else destination.id
+                    val drawerDestination = when {
+                        destination.arguments.containsKey("category") -> R.id.nav_settings
+                        destination.id == R.id.nav_gnss_mock -> R.id.nav_mock
+                        destination.id == R.id.nav_route_edit -> R.id.nav_route_gallery
+                        destination.id in setOf(R.id.nav_app_selection, R.id.nav_sensor_packages, R.id.nav_point_selection) -> R.id.nav_settings
+                        else -> destination.id
+                    }
                     navView.menu.findItem(drawerDestination)?.let { navView.setCheckedItem(it) }
                     // Show standard toolbar for secondary screens, hide for home full-screen map
                     if (destination.id == R.id.nav_home) {

@@ -82,7 +82,7 @@ class EnvironmentPreferencesUiTest {
                 compose.scrollToText(context.getString(R.string.environment_list_action)).performClick()
                 compose.waitUntil(5_000) { compose.onAllNodesWithText(name).fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithText(name).performClick()
-                compose.onNodeWithText(context.getString(R.string.environment_replay)).performClick()
+                compose.onNodeWithText("设置为回放环境").performClick()
                 compose.waitUntil(5_000) { context.environmentSourceMode == "REPLAY" }
                 compose.scrollToText(context.getString(R.string.environment_source_value, "已采集环境回放")).assertIsDisplayed()
                 assertEquals(profile, EnvironmentProfileCodec.decode(context.environmentReplayJson))

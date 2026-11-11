@@ -45,6 +45,9 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.system.location.service.R
@@ -78,7 +81,8 @@ import java.util.Locale
  * SAF launchers stay in the Fragment and Compose owns presentation/state.
  */
 class EnvironmentComposeFragment : Fragment() {
-    private val names = MutableStateFlow<List<String>>(emptyList())
+    private val library = MutableStateFlow(EnvironmentLibraryState())
+    private var libraryJob: Job? = null
     private var pendingExport: Pair<String, EnvironmentProfile>? = null
 
     private val locationPermission = registerForActivityResult(
@@ -171,17 +175,17 @@ class EnvironmentComposeFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             PortalTheme {
-                val environmentNames = names.collectAsStateWithLifecycle()
-                EnvironmentScreen(
-                    names = environmentNames.value,
+                val state by library.collectAsStateWithLifecycle()
+                if (arguments?.getBoolean("library") == true) {
+                    EnvironmentLibraryScreen(state, ::refreshNames, ::exportEnvironment,
+                        ::replayEnvironment, ::deleteEnvironment, ::renameEnvironment)
+                } else EnvironmentScreen(
+                    library = state,
+                    onOpenLibrary = { findNavController().navigate(R.id.nav_environment_library) },
                     onCapture = ::requestEnvironmentCapture,
                     onImport = { importEnvironmentDocument.launch(arrayOf("application/json", "text/plain", "*/*")) },
                     onImportFingerprint = { importWifiFingerprintDocument.launch(arrayOf("application/json", "text/plain", "*/*")) },
                     onApplyConfig = ::applyConfigNowWithToast,
-                    onExport = ::exportEnvironment,
-                    onReplay = ::replayEnvironment,
-                    onDelete = ::deleteEnvironment,
-                    onRename = ::renameEnvironment,
                 )
             }
         }
@@ -194,8 +198,15 @@ class EnvironmentComposeFragment : Fragment() {
 
     private fun refreshNames() {
         val appContext = requireContext().applicationContext
-        lifecycleScope.launch {
-            names.value = withContext(Dispatchers.IO) { EnvironmentStore(appContext).list() }
+        libraryJob?.cancel()
+        libraryJob = lifecycleScope.launch {
+            library.value = library.value.copy(loading = true, error = null)
+            runCatching { withContext(Dispatchers.IO) { EnvironmentStore(appContext).list() } }
+                .onSuccess { library.value = EnvironmentLibraryState(it, loading = false) }
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    library.value = EnvironmentLibraryState(loading = false, error = "无法读取环境列表，原有文件未修改")
+                }
         }
     }
 
@@ -268,6 +279,7 @@ class EnvironmentComposeFragment : Fragment() {
                 com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
             }
             showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
+            if (isAdded && arguments?.getBoolean("library") == true) findNavController().popBackStack()
         }
     }
 
@@ -275,7 +287,7 @@ class EnvironmentComposeFragment : Fragment() {
         val appContext = requireContext().applicationContext
         lifecycleScope.launch {
             val deleted = withContext(Dispatchers.IO) {
-                EnvironmentStore(appContext).delete(name)
+                runCatching { EnvironmentStore(appContext).delete(name) }.getOrDefault(false)
             }
             refreshNames()
             showToast(
@@ -313,15 +325,12 @@ class EnvironmentComposeFragment : Fragment() {
 
 @Composable
 private fun EnvironmentScreen(
-    names: List<String>,
+    library: EnvironmentLibraryState,
+    onOpenLibrary: () -> Unit,
     onCapture: () -> Unit,
     onImport: () -> Unit,
     onImportFingerprint: () -> Unit,
     onApplyConfig: () -> Unit,
-    onExport: (String) -> Unit,
-    onReplay: (String) -> Unit,
-    onDelete: (String) -> Unit,
-    onRename: (String, String) -> Unit,
 ) {
     val context = LocalContext.current
     val revision = preferenceRevision()
@@ -333,11 +342,6 @@ private fun EnvironmentScreen(
     var apInput by rememberSaveable { mutableStateOf(apCount.toString()) }
     var cellDialog by rememberSaveable { mutableStateOf(false) }
     var sourceDialog by rememberSaveable { mutableStateOf(false) }
-    var listDialog by rememberSaveable { mutableStateOf(false) }
-    var search by rememberSaveable { mutableStateOf("") }
-    var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
-    var renameInput by rememberSaveable { mutableStateOf("") }
-    var actionTarget by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun apply() {
         onApplyConfig()
@@ -399,90 +403,6 @@ private fun EnvironmentScreen(
         onDismiss = { sourceDialog = false },
     )
 
-    if (listDialog) {
-        AlertDialog(
-            onDismissRequest = { listDialog = false },
-            title = { Text(stringResource(R.string.environment_list_title)) },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = search,
-                        onValueChange = { search = it },
-                        singleLine = true,
-                        label = { Text(stringResource(R.string.environment_search_hint)) },
-                    )
-                    Spacer(Modifier.height(PortalSpacing.sm))
-                    val filtered = names.filter { it.contains(search, ignoreCase = true) }
-                    if (filtered.isEmpty()) {
-                        Text(stringResource(R.string.environment_list_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        LazyColumn(Modifier.height(300.dp)) {
-                            filtered.forEach { name ->
-                                item {
-                                    PortalActionRow(
-                                        title = name,
-                                        onClick = {
-                                            listDialog = false
-                                            actionTarget = name
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { listDialog = false }) { Text("关闭") } },
-        )
-    }
-
-    val action = actionTarget
-    if (action != null) {
-        AlertDialog(
-            onDismissRequest = { actionTarget = null },
-            title = { Text(action) },
-            text = {
-                Column {
-                    PortalActionRow(stringResource(R.string.environment_export), onClick = { actionTarget = null; onExport(action) })
-                    PortalActionRow(stringResource(R.string.environment_replay), onClick = { actionTarget = null; onReplay(action) })
-                    PortalActionRow(stringResource(R.string.environment_rename), onClick = {
-                        actionTarget = null
-                        renameTarget = action
-                        renameInput = action
-                    })
-                    PortalActionRow(stringResource(R.string.environment_delete), onClick = {
-                        actionTarget = null
-                        onDelete(action)
-                    })
-                }
-            },
-            confirmButton = { TextButton(onClick = { actionTarget = null }) { Text("取消") } },
-        )
-    }
-
-    val renaming = renameTarget
-    if (renaming != null) {
-        AlertDialog(
-            onDismissRequest = { renameTarget = null },
-            title = { Text(stringResource(R.string.environment_rename)) },
-            text = {
-                OutlinedTextField(
-                    value = renameInput,
-                    onValueChange = { renameInput = it },
-                    singleLine = true,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val next = renameInput.trim()
-                    renameTarget = null
-                    if (next.isNotEmpty()) onRename(renaming, next)
-                }) { Text("保存") }
-            },
-            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("取消") } },
-        )
-    }
-
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
             contentPadding = PaddingValues(20.dp, 24.dp, 20.dp, 32.dp),
@@ -501,8 +421,12 @@ private fun EnvironmentScreen(
                         0 -> PortalActionRow(stringResource(R.string.environment_capture_action),
                             "采集手机当前的无线环境，保存为独立配置", onCapture, modifier = rowModifier)
                         1 -> PortalActionRow(stringResource(R.string.environment_list_action),
-                            "共 ${names.size} 个环境；可回放、导出、重命名或删除",
-                            { listDialog = true }, modifier = rowModifier)
+                            when {
+                                library.loading -> "正在读取环境列表"
+                                library.error != null -> "列表读取失败，进入后可重试"
+                                else -> "共 ${library.names.size} 个环境；可回放、导出、重命名或删除"
+                            },
+                            onOpenLibrary, modifier = rowModifier)
                         2 -> PortalActionRow(stringResource(R.string.environment_import_action),
                             "从文件导入环境配置", onImport, modifier = rowModifier)
                     }

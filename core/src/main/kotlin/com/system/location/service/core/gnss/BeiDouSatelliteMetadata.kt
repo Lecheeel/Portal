@@ -26,7 +26,15 @@ class BeiDouSatelliteMetadata private constructor(
             (it.until == null || it.until.isAfter(earliestLabel)) }
         val match = intersecting.singleOrNull() ?: return null
         if (match.from.isAfter(earliestLabel) || (match.until != null && !match.until.isAfter(latestLabel))) return null
+        if (assignments.any { it.svn == match.svn && it.prn != prn && !it.from.isAfter(latestLabel) &&
+                (it.until == null || it.until.isAfter(earliestLabel)) }) return null
         return identities[match.svn]?.takeIf { it.orbitType != null }
+    }
+
+    /** Resolve the header's two-digit year only against independently supplied source-era evidence. */
+    fun creationAt(fullYear: Int): LocalDateTime {
+        require(fullYear in 1..9999 && fullYear % 100 == creationLabel.take(2).toInt())
+        return epoch("%04d:%s".format(java.util.Locale.ROOT, fullYear, creationLabel.drop(3)))
     }
 
     companion object {

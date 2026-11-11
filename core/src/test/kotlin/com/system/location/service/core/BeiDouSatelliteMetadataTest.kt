@@ -39,6 +39,8 @@ $extra
         assertNull(BeiDouSatelliteMetadata.parse(text(" C005 2026:100:57600 0000:000:00000 C06"))
             .identityAt(6, start))
         assertNull(BeiDouSatelliteMetadata.parse(text(block = "BDS-NEW" )).identityAt(6, start))
+        assertNull(BeiDouSatelliteMetadata.parse(text(" C220 2026:100:57600 0000:000:00000 C07"))
+            .identityAt(6, start))
         assertThrows(IllegalArgumentException::class.java) {
             BeiDouSatelliteMetadata.parse(text()).identityAt(6, start, old)
         }
@@ -55,6 +57,8 @@ $extra
     @Test fun bundledRealMetadataPreservesThe2026ReassignmentsAndOriginalReleaseLabel() {
         val metadata = BeiDouSatelliteMetadata.parse(requireNotNull(javaClass.getResource("/gnss/igs-beidou-metadata.snx")).readText())
         assertEquals("26:295:28054", metadata.creationLabel)
+        assertEquals(LocalDateTime.of(2026, 10, 22, 7, 47, 34), metadata.creationAt(2026))
+        assertThrows(IllegalArgumentException::class.java) { metadata.creationAt(2025) }
         val before = LocalDateTime.of(2026, 1, 1, 0, 0)
         val after = LocalDateTime.of(2026, 11, 11, 3, 0)
         assertEquals("C006", metadata.identityAt(4, before)?.svn)

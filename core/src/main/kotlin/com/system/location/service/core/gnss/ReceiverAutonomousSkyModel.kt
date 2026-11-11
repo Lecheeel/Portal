@@ -40,8 +40,7 @@ class ReceiverAutonomousSkyModel(
         val diagnostics = resolved.diagnostics.toMutableList()
         if (batch !== resolved) diagnostics += batch.diagnostics
         fun observe(orbit: GnssOrbitPosition): Pair<GnssOrbitPosition, GnssReceiverSignal>? {
-            val navigation = if (simulateNavigation && !orbit.hasEphemeris)
-                GnssSimulatedNavigation(request.atMillis, orbit.constellation, orbit.svid, orbit.position) else null
+            val navigation = orbit.simulatedNavigation.takeIf { simulateNavigation && !orbit.hasEphemeris }
             return receiver.observe(orbit, request, policy.environment, navigation)?.let { orbit to it }
         }
         val observations = batch.positions.mapNotNull(::observe).toMutableList()

@@ -10,7 +10,12 @@ class GnssSimulatedReceiverTest {
     private val orbit = GnssOrbitPosition(Constellation.GPS, 1, EcefPosition(26_560_000.0, 0.0, 0.0),
         GnssOrbitProvenance("fixture", "1", "test", 1000, GnssOrbitSourceKind.ALMANAC), false, true)
     private val receiver = GnssSimulatedReceiver(123)
-    private fun navigation() = GnssSimulatedNavigation(request.atMillis, orbit.constellation, orbit.svid, orbit.position)
+    private val virtualOrbit = orbit.copy(provenance = orbit.provenance.copy(kind = GnssOrbitSourceKind.VIRTUAL))
+    private fun navigation(from: Long = request.atMillis, until: Long = request.atMillis + 1000) =
+        GnssSimulatedNavigation(virtualOrbit.constellation, virtualOrbit.svid, virtualOrbit.provenance,
+            from, until, GnssVirtualClock(from)) { at ->
+            EcefPosition(orbit.position.xMeters, (at.atMillis - request.atMillis).toDouble(), 0.0)
+        }
 
     @Test fun strongAlmanacSignalDoesNotInventEphemerisOrUsage() {
         val signal = receiver.observe(orbit, request, GnssSimulationEnvironment.OPEN_SKY)!!
@@ -34,10 +39,10 @@ class GnssSimulatedReceiverTest {
     }
 
     @Test fun navigationKnowledgeAndSignalAreIndependentRequirements() {
-        val synthetic = receiver.observe(orbit, request, GnssSimulationEnvironment.OPEN_SKY, navigation())!!
+        val synthetic = receiver.observe(virtualOrbit, request, GnssSimulationEnvironment.OPEN_SKY, navigation())!!
         assertTrue(synthetic.satellite.usedInFix)
         assertTrue(synthetic.simulatedNavigation)
-        val indoors = receiver.observe(orbit, request, GnssSimulationEnvironment.INDOOR, navigation())!!
+        val indoors = receiver.observe(virtualOrbit, request, GnssSimulationEnvironment.INDOOR, navigation())!!
         assertEquals(synthetic.satellite.elevationDeg, indoors.satellite.elevationDeg, 0f)
         assertTrue(indoors.satellite.hasEphemeris)
         assertFalse(indoors.tracked)
@@ -49,8 +54,21 @@ class GnssSimulatedReceiverTest {
 
     @Test fun rejectsWrongEpochNavigationAndNeverLiftsBelowHorizonOrbit() {
         assertThrows(IllegalArgumentException::class.java) {
-            receiver.observe(orbit, request, GnssSimulationEnvironment.OPEN_SKY,
-                navigation().copy(atMillis = request.atMillis - 1000))
+            receiver.observe(virtualOrbit, request, GnssSimulationEnvironment.OPEN_SKY,
+                navigation(request.atMillis + 1))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            receiver.observe(orbit, request, GnssSimulationEnvironment.OPEN_SKY, navigation())
+        }
+        val model = navigation()
+        val next = request.copy(atMillis = request.atMillis + 1000)
+        val position = requireNotNull(model.positionAt(next))
+        assertNotEquals(virtualOrbit.position, position)
+        assertTrue(receiver.observe(virtualOrbit.copy(position = position), next,
+            GnssSimulationEnvironment.OPEN_SKY, model)!!.satellite.usedInFix)
+        assertNull(model.positionAt(next.copy(atMillis = next.atMillis + 1)))
+        assertThrows(IllegalArgumentException::class.java) {
+            receiver.observe(virtualOrbit, next, GnssSimulationEnvironment.OPEN_SKY, model)
         }
         assertNull(receiver.observe(orbit.copy(position = EcefPosition(-26_560_000.0, 0.0, 0.0)),
             request, GnssSimulationEnvironment.OPEN_SKY))

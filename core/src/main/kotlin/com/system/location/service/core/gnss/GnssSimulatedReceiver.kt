@@ -2,14 +2,6 @@ package com.system.location.service.core.gnss
 
 import kotlin.math.*
 
-/** Explicit synthetic navigation knowledge, distinct from a received broadcast ephemeris. */
-data class GnssSimulatedNavigation(
-    val atMillis: Long,
-    val constellation: Constellation,
-    val svid: Int,
-    val position: EcefPosition,
-)
-
 data class GnssReceiverSignal(
     val satellite: GnssSatellite,
     val tracked: Boolean,
@@ -24,9 +16,9 @@ data class GnssReceiverSignal(
 class GnssSimulatedReceiver(private val seed: Long) {
     fun observe(orbit: GnssOrbitPosition, request: GnssSkyRequest,
         environment: GnssSimulationEnvironment, navigation: GnssSimulatedNavigation? = null): GnssReceiverSignal? {
-        require(navigation == null || (navigation.atMillis == request.atMillis &&
-            navigation.constellation == orbit.constellation && navigation.svid == orbit.svid &&
-            navigation.position == orbit.position)) { "Synthetic navigation does not match this orbit epoch" }
+        require(navigation == null || navigation.matches(orbit, request)) {
+            "Synthetic trajectory/clock does not match this orbit source, identity or epoch"
+        }
         val line = GnssObserverGeometry.lineOfSight(request.observer, request.altitudeMeters, orbit.position)
             ?: return null
         if (!line.aboveHorizon) return null

@@ -29,10 +29,13 @@ class VirtualWalkerOrbitProviderTest {
     @Test fun restartSameSeedReproducesSkyAndAdjacentEpochsPreserveIdentityAndContinuity() {
         val provider = VirtualWalkerOrbitProvider(resource, 123)
         val before = provider.positions(request).positions
-        assertEquals(before, VirtualWalkerOrbitProvider(resource, 123).positions(request).positions)
+        val restarted = VirtualWalkerOrbitProvider(resource, 123).positions(request).positions
+        assertEquals(before.map { it.copy(simulatedNavigation = null) }, restarted.map { it.copy(simulatedNavigation = null) })
         assertNotEquals(before, VirtualWalkerOrbitProvider(resource, 124).positions(request).positions)
         val after = provider.positions(request.copy(atMillis = request.atMillis + 1000)).positions
         before.zip(after).forEach { (a, b) ->
+            assertEquals(b.position, requireNotNull(a.simulatedNavigation).positionAt(request.copy(atMillis = request.atMillis + 1000)))
+            assertEquals(0.0, a.simulatedNavigation!!.clock.offsetAt(request.atMillis), 0.0)
             assertEquals(a.constellation to a.svid, b.constellation to b.svid)
             val distance = sqrt((a.position.xMeters - b.position.xMeters).pow(2) +
                 (a.position.yMeters - b.position.yMeters).pow(2) + (a.position.zMeters - b.position.zMeters).pow(2))

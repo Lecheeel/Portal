@@ -38,6 +38,7 @@ class GnssVirtualSkySupplementTest {
         val later = supplement.supplement(request.copy(atMillis = request.atMillis + 1000),
             emptyList(), emptySet(), 10).positions
         smaller.zip(later).forEach { (a, b) ->
+            assertEquals(b.position, requireNotNull(a.simulatedNavigation).positionAt(request.copy(atMillis = request.atMillis + 1000)))
             assertEquals(a.constellation to a.svid, b.constellation to b.svid)
             val first = GnssObserverGeometry.lineOfSight(request.observer, 10.0, a.position)!!
             val second = GnssObserverGeometry.lineOfSight(request.observer, 10.0, b.position)!!

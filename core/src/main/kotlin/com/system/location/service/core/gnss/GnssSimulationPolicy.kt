@@ -56,6 +56,8 @@ data class GnssOrbitPosition(
     val hasAlmanac: Boolean,
     /** Signal selected by the adapter; a GLONASS slot does not itself establish an FCN. */
     val carrierHz: Float? = null,
+    /** Only explicit virtual-world trajectory/clock knowledge can supply synthetic navigation. */
+    val simulatedNavigation: GnssSimulatedNavigation? = null,
 ) {
     init {
         require(GnssSatelliteIds.nmeaId(constellation, svid) != null)

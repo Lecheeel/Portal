@@ -58,7 +58,7 @@ class VirtualWalkerOrbitProvider(resource: VirtualWalkerResource, seed: Long) : 
     private val orientation = resource.greenwichAngleRad
     private val provenance = GnssOrbitProvenance("virtual-walker", resource.revision,
         "Portal hypothetical circular Walker-delta model", resource.referenceEpochMillis, kind)
-    private data class Orbit(val constellation: Constellation, val svid: Int, val trajectory: KeplerOrbit)
+    private data class Orbit(val constellation: Constellation, val svid: Int, val navigation: GnssSimulatedNavigation)
     private val orbits: List<Orbit>
 
     init {
@@ -73,23 +73,26 @@ class VirtualWalkerOrbitProvider(resource: VirtualWalkerResource, seed: Long) : 
                 val node = nodeOffset + 2 * PI * plane / group.planes
                 val anomaly = anomalyOffset + 2 * PI * slot / perPlane +
                     2 * PI * group.phaseFactor * plane / group.svids.size
-                Orbit(group.constellation, svid, KeplerOrbit(KeplerElements(
-                    group.orbitalRadiusMeters, 0.0, group.inclinationRad, node, 0.0, anomaly, 0.0)))
+                val trajectory = KeplerOrbit(KeplerElements(
+                    group.orbitalRadiusMeters, 0.0, group.inclinationRad, node, 0.0, anomaly, 0.0))
+                val navigation = GnssSimulatedNavigation(group.constellation, svid, provenance,
+                    0, Long.MAX_VALUE, GnssVirtualClock(referenceEpochMillis)) { request ->
+                    val seconds = (request.atMillis.toDouble() - referenceEpochMillis.toDouble()) / 1000.0
+                    val angle = (orientation + GpsBroadcastPropagator.EARTH_ROTATION_RAD_PER_SECOND * seconds) % (2 * PI)
+                    val inertial = trajectory.positionAt(seconds)
+                    EcefPosition(cos(angle) * inertial.x + sin(angle) * inertial.y,
+                        -sin(angle) * inertial.x + cos(angle) * inertial.y, inertial.z)
+                }
+                Orbit(group.constellation, svid, navigation)
             }
         }
     }
 
     override fun positions(request: GnssSkyRequest): GnssOrbitBatch {
-        val seconds = (request.atMillis - referenceEpochMillis) / 1000.0
-        val angle = (orientation + GpsBroadcastPropagator.EARTH_ROTATION_RAD_PER_SECOND * seconds) % (2 * PI)
-        val cosine = cos(angle)
-        val sine = sin(angle)
         val positions = orbits.map { orbit ->
-            val inertial = orbit.trajectory.positionAt(seconds)
-            val ecef = EcefPosition(cosine * inertial.x + sine * inertial.y,
-                -sine * inertial.x + cosine * inertial.y, inertial.z)
+            val ecef = requireNotNull(orbit.navigation.positionAt(request))
             GnssOrbitPosition(orbit.constellation, orbit.svid, ecef, provenance,
-                hasEphemeris = false, hasAlmanac = false)
+                hasEphemeris = false, hasAlmanac = false, simulatedNavigation = orbit.navigation)
         }
         return GnssOrbitBatch(positions, listOf("虚拟轨道天空：假想星座，不代表真实在轨观测"))
     }

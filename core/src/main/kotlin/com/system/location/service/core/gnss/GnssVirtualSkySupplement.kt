@@ -26,6 +26,12 @@ class GnssVirtualSkySupplement(
     private val identities = identities.toList()
     private val provenance = GnssOrbitProvenance("virtual-quantity-sky", "1",
         "Portal observer-relative hypothetical quantity scenario", 0, GnssOrbitSourceKind.VIRTUAL)
+    private val navigationModels by lazy {
+        this.identities.associateWith { identity ->
+            GnssSimulatedNavigation(identity.first, identity.second, provenance,
+                0, Long.MAX_VALUE, GnssVirtualClock(0)) { at -> trajectory(at, identity) }
+        }
+    }
 
     init {
         require(identities.distinct().size == identities.size)
@@ -57,6 +63,12 @@ class GnssVirtualSkySupplement(
     }
 
     private fun position(request: GnssSkyRequest, identity: Pair<Constellation, Int>): GnssOrbitPosition {
+        val navigation = navigationModels.getValue(identity)
+        return GnssOrbitPosition(identity.first, identity.second, requireNotNull(navigation.positionAt(request)), provenance,
+            hasEphemeris = false, hasAlmanac = false, simulatedNavigation = navigation)
+    }
+
+    private fun trajectory(request: GnssSkyRequest, identity: Pair<Constellation, Int>): EcefPosition {
         val index = identities.indexOf(identity)
         val phase = java.util.Random(seed).nextDouble() * 2 * PI
         val longitude = Math.toRadians(request.observer.longitude)
@@ -70,13 +82,11 @@ class GnssVirtualSkySupplement(
         val north = range * cos(elevation) * cos(azimuth)
         val up = range * sin(elevation)
         val origin = GnssObserverGeometry.ecef(request.observer, request.altitudeMeters)
-        val position = EcefPosition(
+        return EcefPosition(
             origin.xMeters - sin(longitude) * east - sin(latitude) * cos(longitude) * north + cos(latitude) * cos(longitude) * up,
             origin.yMeters + cos(longitude) * east - sin(latitude) * sin(longitude) * north + cos(latitude) * sin(longitude) * up,
             origin.zMeters + cos(latitude) * north + sin(latitude) * up,
         )
-        return GnssOrbitPosition(identity.first, identity.second, position, provenance,
-            hasEphemeris = false, hasAlmanac = false)
     }
 
     private fun talker(constellation: Constellation) = when (constellation) {

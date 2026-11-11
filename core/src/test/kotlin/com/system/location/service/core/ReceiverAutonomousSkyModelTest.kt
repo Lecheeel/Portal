@@ -57,6 +57,8 @@ class ReceiverAutonomousSkyModelTest {
         val physical = model.frame(request)!!
         assertTrue(physical.satellites.isNotEmpty())
         assertTrue(physical.orbitProvenance.values.all { it.kind == GnssOrbitSourceKind.ALMANAC })
+        assertTrue(physical.satellites.none { it.hasEphemeris || it.usedInFix })
+        assertEquals(0, physical.simulatedNavigationSatelliteCount)
         val fallback = model.frame(request.copy(atMillis = request.atMillis + 8 * 86400000L))!!
         assertTrue(fallback.orbitProvenance.values.all { it.kind == GnssOrbitSourceKind.VIRTUAL })
         assertTrue(fallback.diagnostics.any { it.contains("age budget") })

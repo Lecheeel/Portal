@@ -51,4 +51,18 @@ $extra
             assertThrows(IllegalArgumentException::class.java) { BeiDouSatelliteMetadata.parse(invalid) }
         }
     }
+
+    @Test fun bundledRealMetadataPreservesThe2026ReassignmentsAndOriginalReleaseLabel() {
+        val metadata = BeiDouSatelliteMetadata.parse(requireNotNull(javaClass.getResource("/gnss/igs-beidou-metadata.snx")).readText())
+        assertEquals("26:295:28054", metadata.creationLabel)
+        val before = LocalDateTime.of(2026, 1, 1, 0, 0)
+        val after = LocalDateTime.of(2026, 11, 11, 3, 0)
+        assertEquals("C006", metadata.identityAt(4, before)?.svn)
+        assertEquals("C217", metadata.identityAt(4, after)?.svn)
+        assertEquals(BeiDouOrbitType.GEO, metadata.identityAt(4, after)?.orbitType)
+        assertEquals("C005", metadata.identityAt(6, before)?.svn)
+        assertEquals("C220", metadata.identityAt(6, after)?.svn)
+        assertEquals(BeiDouOrbitType.IGSO, metadata.identityAt(6, after)?.orbitType)
+        assertNull(metadata.identityAt(59, after))
+    }
 }

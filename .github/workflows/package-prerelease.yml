@@ -1,0 +1,103 @@
+# Manual packaging for changes already tested by the maintainer.
+# Full validation remains in build-apk.yml and ui-verification.yml.
+name: Package user-verified Pre-release
+
+"on":
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: Version name (for example 1.8.0-beta.1)
+        required: true
+        type: string
+        default: 2.3.0-beta.1
+      version_code:
+        description: Globally increasing Android version code
+        required: true
+        type: string
+        default: '1790000087'
+      release_channel:
+        description: stable or beta/canary/rc pre-release metadata
+        required: true
+        type: choice
+        options: [stable, beta]
+        default: beta
+
+permissions:
+  contents: read
+
+env:
+  JAVA_TOOL_OPTIONS: --enable-native-access=ALL-UNNAMED
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      APP_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '2.3.0-beta.1' }}
+      APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000087' }}
+      RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'beta' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install Android toolchain
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;30.0.16248370' 'cmake;4.1.2'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare required release signing
+        env:
+          SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
+          SIGN_KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
+          SIGN_ALIAS: ${{ secrets.SIGN_ALIAS }}
+          SIGN_KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in SIGN_KEYSTORE_BASE64 SIGN_KEYSTORE_PASSWORD SIGN_ALIAS SIGN_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing signing secret: $name"
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/portal-release.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/portal-release.jks" >> "$GITHUB_ENV"
+      - name: Native ABI syntax and link
+        run: python3 scripts/check_native_syntax.py --link
+      - name: Generate native payload from this revision
+        run: |
+          "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded .tmp/native-link/liblocationext-arm64-v8a.so
+          python3 scripts/encrypt_native_asset.py .tmp/native-link/liblocationext-arm64-v8a.so xposed/src/main/assets/liblocationext.bin
+      - name: Release APKs
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease :app:exportReleaseApks -PAPP_VERSION_NAME="$APP_VERSION_NAME" -PAPP_VERSION_CODE="$APP_VERSION_CODE" -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SIGN_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
+          AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
+          TENCENT_MAP_KEY: ${{ secrets.TENCENT_MAP_KEY }}
+      - name: Verify signed APKs and upgrade certificate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify_release_apks.py --version "$APP_VERSION_NAME" --version-code "$APP_VERSION_CODE" --channel "$RELEASE_CHANNEL"
+      - name: Verify modern Xposed APK packaging
+        run: python3 scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocationService-${{ github.sha }}
+          path: |
+            app/build/outputs/distribution/*.apk
+            app/build/outputs/distribution/SHA256SUMS
+            app/build/outputs/distribution/verification.json
+          if-no-files-found: error
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/portal-release.jks"

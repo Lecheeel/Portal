@@ -3,6 +3,17 @@ package com.system.location.service.ui.gnss
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.system.location.service.designsystem.components.PortalSettingGroup
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.edit
@@ -20,7 +31,7 @@ internal fun GnssPolicyControls(enabled: Boolean, onChanged: () -> Unit) {
     val context = LocalContext.current
     val revision = preferenceRevision()
     val preferences = remember(context, revision) { context.sharedPrefs.all }
-    var selection by remember { mutableStateOf<String?>(null) }
+    var selection by rememberSaveable { mutableStateOf<String?>(null) }
     val modes = listOf(
         GnssSimulationMode.AUTO.name to "自动：目标天空 + 可选实测信号校准",
         GnssSimulationMode.AUTONOMOUS.name to "自主：目标天空，不使用本机采集校准",
@@ -45,10 +56,11 @@ internal fun GnssPolicyControls(enabled: Boolean, onChanged: () -> Unit) {
     val defaults = mapOf("gnssSimulationMode" to defaultPolicy.mode.name,
         "gnssMinimumPolicy" to defaultPolicy.minimumPolicy.name,
         "gnssSimulationEnvironment" to defaultPolicy.environment.name)
-    for ((key, title, options) in settings) {
+    PortalSettingGroup("卫星生成策略", settings.size) { index, rowModifier ->
+        val (key, title, options) = settings[index]
         val value = preferences[key] as? String ?: defaults.getValue(key)
         val label = options.firstOrNull { it.first == value }?.second ?: "未知设置：$value"
-        PortalActionRow(title, label, onClick = { selection = key }, enabled = enabled)
+        PortalActionRow(title, label, onClick = { selection = key }, enabled = enabled, modifier = rowModifier)
     }
     if (selection != null) {
         val (key, title, options) = settings.single { it.first == selection }
@@ -58,11 +70,21 @@ internal fun GnssPolicyControls(enabled: Boolean, onChanged: () -> Unit) {
             text = {
                 androidx.compose.foundation.layout.Column {
                     options.forEach { (value, label) ->
-                        TextButton(enabled = enabled, onClick = {
-                            context.sharedPrefs.edit { putString(key, value) }
-                            selection = null
-                            onChanged()
-                        }) { Text(label) }
+                        val selectedValue = preferences[key] as? String ?: defaults.getValue(key)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().selectable(
+                                selected = value == selectedValue, enabled = enabled, role = Role.RadioButton,
+                                onClick = {
+                                    context.sharedPrefs.edit { putString(key, value) }
+                                    selection = null
+                                    onChanged()
+                                },
+                            ).padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = value == selectedValue, onClick = null, enabled = enabled)
+                            Text(label, Modifier.padding(start = 8.dp))
+                        }
                     }
                     if (key == "gnssSimulationEnvironment") Text("模拟环境与手机实际摆放环境相互独立；室内场景可能没有可用定位解。")
                     if (key == "gnssMinimumPolicy") Text("下限针对可见数量；跟踪数、参与定位数和 DOP 仍独立计算。实测回放不补入其他天空。")

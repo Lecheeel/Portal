@@ -2,6 +2,7 @@ package com.system.location.service.core.runtime
 
 import com.system.location.service.core.environment.WifiFingerprintImporter
 import com.system.location.service.core.gnss.CapturedGnssSource
+import com.system.location.service.core.gnss.RinexNavigationResource
 import com.system.location.service.core.location.LocationSample
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -54,11 +55,13 @@ object RuntimeTransferWire {
         val gnssCapture: String?,
         val movementSpeedMps: Float = 0f,
         val lastMovementNanos: Long = 0L,
+        val gnssNavigation: String? = null,
     )
 
     fun encode(transfer: RuntimeTransfer): ByteArray {
         val envelope = Envelope(VERSION, transfer.state, transfer.externallyDriven, transfer.scenarios,
-            transfer.state.configuration.gnssSource?.wirePayload(), transfer.movementSpeedMps, transfer.lastMovementNanos)
+            transfer.state.configuration.gnssSource?.wirePayload(), transfer.movementSpeedMps, transfer.lastMovementNanos,
+            transfer.state.configuration.gnssNavigation?.let(RinexNavigationResource::encodeWire))
         val raw = json.encodeToString(Envelope.serializer(), envelope).toByteArray(Charsets.UTF_8)
         require(raw.size <= MAX_DECODED_BYTES) { "Runtime transfer exceeds decoded budget" }
         val output = ByteArrayOutputStream()
@@ -92,8 +95,11 @@ object RuntimeTransferWire {
             captureRejected = true
             previousSource
         }
+        // Orbit resource corruption rejects this update atomically: peers must not silently
+        // switch to a different sky than the authenticated sender. Receiver capture is optional.
+        val navigation = envelope.gnssNavigation?.let(RinexNavigationResource::decodeWire)
         val state = envelope.state.copy(configuration = envelope.state.configuration.copy(
-            gnssSource = source, gnssCaptureRejected = captureRejected))
+            gnssSource = source, gnssCaptureRejected = captureRejected, gnssNavigation = navigation))
         return RuntimeTransfer(state, envelope.externallyDriven, envelope.scenarios.toMap(),
             envelope.movementSpeedMps, envelope.lastMovementNanos)
     }

@@ -12,6 +12,23 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RuntimeTransferWireTest {
+    @Test fun orbitResourceRoundTripPreservesExactSourceAndRejectsCorruptionAtomically() {
+        val resource = RinexNavigationResource.import(RinexNavigationResourceTest.navigation(),
+            "https://example.org/nav", 1794096000000)
+        val original = RuntimeTransfer(RuntimeSnapshot(configuration = HookConfiguration(gnssNavigation = resource)), false)
+        val encoded = RuntimeTransferWire.encode(original)
+        val restored = RuntimeTransferWire.decode(encoded)
+        assertEquals(resource, restored.state.configuration.gnssNavigation)
+        assertEquals(original, restored)
+        assertSame(original.state.configuration.gnssFrameSource(), restored.state.configuration.gnssFrameSource())
+        val raw = java.util.zip.GZIPInputStream(encoded.inputStream()).bufferedReader().use { it.readText() }
+        assertFalse(raw.contains("selectedGnssSource"))
+        val broken = raw.replace(RinexNavigationResource.encodeWire(resource), "broken")
+        val compressed = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(broken.toByteArray()) } }.toByteArray()
+        assertThrows(Exception::class.java) { RuntimeTransferWire.decode(compressed) }
+        assertEquals(resource, original.state.configuration.gnssNavigation)
+    }
+
     private val point = Wgs84(31.0, 121.0)
     private val sample = LocationSample(point, 10.0, 5f, 2f, 90f, 62000, 1_000_000_000)
     private fun source(): CapturedGnssSource = CapturedGnssSource.prepare(GnssCaptureWire.encode(GnssCapture(

@@ -1,6 +1,8 @@
 package com.system.location.service.hook.hooks.gnss
 
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.gnss.GnssSimulationMode
+import com.system.location.service.core.gnss.GnssSimulationPolicy
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.runtime.HookConfiguration
@@ -15,6 +17,17 @@ import org.junit.Test
 class ReceiverDeliveryPolicyTest {
     private val initial = RuntimeSnapshot(configRevision = 10,
         configuration = HookConfiguration(enabled = true, nmeaEnabled = true))
+
+    @Test fun autonomousDeliveryNeedsNoCaptureButOffAndEmptyReplayNeverOwnCallbacks() {
+        assertNull(initial.configuration.gnssSource)
+        assertTrue(receiverDeliveryAllowed(initial, 0, RuntimeSnapshotObservation(initial, 0)))
+        for (mode in listOf(GnssSimulationMode.OFF, GnssSimulationMode.REPLAY)) {
+            val inactive = initial.copy(configuration = initial.configuration.copy(
+                gnssSimulation = GnssSimulationPolicy(mode = mode)))
+            assertFalse(receiverDeliveryAllowed(inactive, 0, RuntimeSnapshotObservation(inactive, 0)))
+            assertFalse(receiverDeliveryAllowed(inactive, 0, RuntimeSnapshotObservation(inactive, 0), nmea = true))
+        }
+    }
 
     @Test fun sampleRenewalDoesNotSplitACapturedBatchButStopAndRestartInvalidateIt() {
         val store = RuntimeSnapshotStore(initial)

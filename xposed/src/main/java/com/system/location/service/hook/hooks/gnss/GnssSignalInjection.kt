@@ -13,7 +13,7 @@ import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.LogRateLimiter
 import com.system.location.service.hook.utils.ProviderView
 
-/** The only producer of simulated GNSS callbacks. Missing capture leaves the real stream intact. */
+/** The only producer of simulated GNSS callbacks, using the selected autonomous or replay source. */
 object GnssSignalInjection {
     private val failures = LogRateLimiter()
     private val worker = DeliveryWorker("GnssSignalInjection", { 1000 },
@@ -39,10 +39,10 @@ object GnssSignalInjection {
         // Avoid generating samples while inactive; the captured policy below is authoritative.
         val initial = FakeLoc.runtimeSnapshots.observation()
         val initialPolicy = initial.state.configuration
-        if (!initialPolicy.enabled || !initialPolicy.gnssEnabled || initialPolicy.gnssSource == null) return
+        if (!initialPolicy.enabled || !initialPolicy.gnssEnabled || initialPolicy.gnssFrameSource() == null) return
         val context = ProviderView.capture()
         val policy = context.state.configuration
-        if (!policy.enabled || !policy.gnssEnabled || policy.gnssSource == null) return
+        if (!policy.enabled || !policy.gnssEnabled || policy.gnssFrameSource() == null) return
         val frames = ReceiverTickFrames { GnssReceiverRuntime.frameForRoute(it, context) }
         GnssListenerRouting.listeners().forEach { listener ->
             deliver(listener) {
@@ -101,6 +101,7 @@ internal fun receiverDeliveryAllowed(captured: RuntimeSnapshot, simulationGenera
     current: RuntimeSnapshotObservation, nmea: Boolean = false): Boolean =
     current.simulationGeneration == simulationGeneration && current.state.configuration.enabled &&
     current.state.configuration.gnssEnabled && (!nmea || current.state.configuration.nmeaEnabled) &&
+    current.state.configuration.gnssFrameSource() != null &&
     current.state.configuration == captured.configuration && current.state.routing == captured.routing
 
 /** Freeze each route once per delivery tick, even if provider samples advance during callbacks. */

@@ -49,6 +49,9 @@ class UiInteractionFrameTest {
         grantUiPermissions()
         val draft = File(instrumentation.targetContext.filesDir, "route_draft.json")
         val original = draft.takeIf { it.exists() }?.readBytes()
+        val methodTrace = InstrumentationRegistry.getArguments().getString("methodTrace") == "true"
+        var tracing = false
+        fun save(probe: UiFrameProbe, name: String) = probe.save(if (methodTrace) "$name-traced" else name)
         try {
             check(!draft.exists() || draft.delete())
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -66,7 +69,14 @@ class UiInteractionFrameTest {
                         await { var open = true; scenario.onActivity { open = it.binding.drawerLayout.isDrawerVisible(GravityCompat.START) }; !open }
                         SystemClock.sleep(350)
                     }
-                    probe.save("drawer-transitions")
+                    save(probe, "drawer-transitions")
+                }
+                if (methodTrace) {
+                    // Diagnostic mode only: tracing perturbs timings, so reports use separate names.
+                    android.os.Debug.startMethodTracingSampling(
+                        File(instrumentation.targetContext.cacheDir, "ui-navigation.trace").absolutePath,
+                        32 * 1024 * 1024, 1_000)
+                    tracing = true
                 }
                 scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_settings, 0) }
                 await { findText("地图与定位") != null }
@@ -80,7 +90,7 @@ class UiInteractionFrameTest {
                         scenario.onActivity { it.onSupportNavigateUp() }
                         SystemClock.sleep(350)
                     }
-                    probe.save("settings-navigation")
+                    save(probe, "settings-navigation")
                 }
                 probe = UiFrameProbe(activity)
                 probe.use {
@@ -92,18 +102,19 @@ class UiInteractionFrameTest {
                         await { findText("地图与定位") != null }
                         SystemClock.sleep(350)
                     }
-                    probe.save("map-settings-roundtrips")
+                    save(probe, "map-settings-roundtrips")
                 }
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_edit) }
                 SystemClock.sleep(700)
                 probe = UiFrameProbe(activity)
                 probe.use {
                     repeat(4) { clickText("画线"); clickText("加点"); clickText("规划") }
-                    probe.save("route-mode-transitions")
+                    save(probe, "route-mode-transitions")
                 }
                 captureUi("route-editor-feedback")
             }
         } finally {
+            if (tracing) android.os.Debug.stopMethodTracing()
             if (original == null) check(!draft.exists() || draft.delete()) else draft.writeBytes(original)
         }
     }

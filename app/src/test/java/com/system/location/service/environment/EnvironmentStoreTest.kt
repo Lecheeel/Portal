@@ -30,6 +30,15 @@ class EnvironmentStoreTest {
         assertTrue(store.list().isEmpty())
     }
 
+    @Test fun missingDirectoryIsEmptyButAFileAtItsPathIsAnError() {
+        val path = java.io.File(directory, "blocked")
+        val other = EnvironmentStore(path)
+        assertEquals(emptyList<String>(), other.list())
+        path.writeText("preserve this file")
+        assertThrows(IllegalArgumentException::class.java) { other.list() }
+        assertEquals("preserve this file", path.readText())
+    }
+
     @Test fun unsafeNameIsSanitized() {
         val file = store.save("../evil name", profile)
         assertEquals(".._evil_name.json", file.name)

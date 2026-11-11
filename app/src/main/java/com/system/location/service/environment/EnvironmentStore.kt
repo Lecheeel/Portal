@@ -26,11 +26,13 @@ class EnvironmentStore(private val directory: File) {
     fun load(name: String): EnvironmentProfile =
         EnvironmentProfileCodec.decode(File(directory, "${sanitize(name)}$EXTENSION").readText(Charsets.UTF_8))
 
-    fun list(): List<String> =
-        directory.listFiles { file -> file.isFile && file.name.endsWith(EXTENSION) }
-            ?.map { it.name.removeSuffix(EXTENSION) }
-            ?.sorted()
-            .orEmpty()
+    fun list(): List<String> {
+        if (!directory.exists()) return emptyList()
+        require(directory.isDirectory) { "Environment path is not a directory" }
+        val files = directory.listFiles { file -> file.isFile && file.name.endsWith(EXTENSION) }
+            ?: error("Cannot read environment directory")
+        return files.map { it.name.removeSuffix(EXTENSION) }.sorted()
+    }
 
     fun delete(name: String): Boolean = File(directory, "${sanitize(name)}$EXTENSION").delete()
 

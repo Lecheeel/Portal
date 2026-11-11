@@ -35,6 +35,7 @@ object HookConfigurationPreferences {
             "enable_nmea" to flag("enableNMEA", true),
             "sensor_cadence_scale" to number("sensorCadenceScale", 1f).toDouble(),
             "sensor_variation" to number("sensorVariation", 0.15f).toDouble(),
+            "sensor_targets" to text("sensorTargetPackages"),
             "disable_request_geofence" to !flag("enableRequestGeofence", !policy.disableRequestGeofence),
             "disable_get_from_location" to !flag("enableGetFromLocation", !policy.disableGetFromLocation),
             "enable_physical_noise" to flag("physicalNoise", fallback.physicalNoise),

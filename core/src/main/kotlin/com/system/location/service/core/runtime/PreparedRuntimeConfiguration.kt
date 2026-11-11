@@ -58,6 +58,7 @@ class PreparedRuntimeConfiguration private constructor(
             reportIntervalMs = value("report_interval", old.reportIntervalMs),
             sensorCadenceScale = value("sensor_cadence_scale", old.sensorCadenceScale),
             sensorVariation = value("sensor_variation", old.sensorVariation),
+            sensorTargets = value("sensor_targets", old.sensorTargets),
             speedAmplitude = value("speed_amplitude", old.speedAmplitude),
             wifiFingerprintEnabled = value("wifi_fingerprint_enabled", old.wifiFingerprintEnabled),
             wifiFingerprintCatalogJson = value("wifi_fingerprint_json", old.wifiFingerprintCatalogJson),
@@ -133,6 +134,9 @@ class PreparedRuntimeConfiguration private constructor(
             (values["gnss_minimum_policy"] as String?)?.let { values["gnss_minimum_policy"] = GnssMinimumPolicy.valueOf(it) }
             (values["gnss_environment"] as String?)?.let { values["gnss_environment"] = GnssSimulationEnvironment.valueOf(it) }
             val navigation = (values["gnss_navigation"] as String?)?.let(RinexNavigationResource::decodeWire)
+            (values["sensor_targets"] as String?)?.let {
+                values["sensor_targets"] = com.system.location.service.core.sensors.SensorTargets.parse(it)
+            }
             return PreparedRuntimeConfiguration(values.toMap(), source, captureRejected, routing, environment, navigation)
         }
     }

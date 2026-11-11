@@ -18,6 +18,7 @@ data class SettingSpec(
     val max: Double? = null,
     val choices: Set<String> = emptySet(),
     val maxLength: Int? = null,
+    val allowBlank: Boolean = false,
 ) {
     init {
         require(key.isNotBlank()) { "key must not be blank" }
@@ -78,7 +79,7 @@ class SettingsSchema(specs: List<SettingSpec>) {
             inRange(spec, value)
         }
         SettingType.STRING -> when {
-            raw.isBlank() -> "blank string"
+            raw.isBlank() && !spec.allowBlank -> "blank string"
             spec.maxLength != null && raw.length > spec.maxLength -> "string too long"
             else -> null
         }
@@ -127,6 +128,7 @@ object PortalSettingsSchema {
             SettingSpec("speed_amplitude", SettingType.DOUBLE, "1.0", 0.0, 10.0),
             SettingSpec("sensor_cadence_scale", SettingType.DOUBLE, "1.0", 0.5, 2.0),
             SettingSpec("sensor_variation", SettingType.DOUBLE, "0.15", 0.0, 0.5),
+            SettingSpec("sensor_targets", SettingType.STRING, "", maxLength = 32768, allowBlank = true),
             SettingSpec("environment_ap_count", SettingType.INT, "4",
                 EnvironmentConfig.MIN_AP_PER_CELL.toDouble(), EnvironmentConfig.MAX_AP_PER_CELL.toDouble()),
             SettingSpec("cell_mode", SettingType.ENUM, "FULL_REPLAY", choices = setOf(

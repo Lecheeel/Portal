@@ -33,6 +33,7 @@ data class HookConfiguration(
     val reportIntervalMs: Long = 100L,
     val sensorCadenceScale: Double = 1.0,
     val sensorVariation: Double = 0.15,
+    val sensorTargets: Set<String> = emptySet(),
     val wifiFingerprintEnabled: Boolean = false,
     val wifiFingerprintCatalogJson: String? = null,
     val speedAmplitude: Double = 1.0,
@@ -52,6 +53,7 @@ data class HookConfiguration(
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         require(reportIntervalMs in 50..1000)
         require(sensorCadenceScale in 0.5..2.0 && sensorVariation in 0.0..0.5)
+        com.system.location.service.core.sensors.SensorTargets.validate(sensorTargets)
         require(speedAmplitude in 0.0..10.0)
     }
 }

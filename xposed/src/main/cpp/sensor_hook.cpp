@@ -101,7 +101,9 @@ void applyEvent(void *dst) {
             event->data[0] = frame.barometerHpa;
             break;
         case 19: // step counter
-            event->data[0] = static_cast<float>(frame.stepCount);
+            // HAL/NDK events store uint64_t here. JNI converts it to float only when
+            // delivering SensorEvent.values; writing float bits corrupts the count.
+            event->u64.step_counter = static_cast<uint64_t>(std::max<int64_t>(0, frame.stepCount));
             break;
         case 18: // step detector
             event->data[0] = frame.stepCadence > 0 ? 1.0f : 0.0f;

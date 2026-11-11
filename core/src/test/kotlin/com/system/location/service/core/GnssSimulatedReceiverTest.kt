@@ -24,6 +24,15 @@ class GnssSimulatedReceiverTest {
         assertEquals(90f, signal.satellite.elevationDeg, 0f)
     }
 
+    @Test fun fdmaCarrierComesFromTheSelectedOrbitSignalAndIsUnknownWithoutAChannel() {
+        val glonass = orbit.copy(constellation = Constellation.GLONASS, hasEphemeris = true)
+        assertNull(receiver.observe(glonass, request, GnssSimulationEnvironment.OPEN_SKY)!!.satellite.carrierHz)
+        val frequency = 1_602_000_000f + -7 * 562_500f
+        assertEquals(frequency, receiver.observe(glonass.copy(carrierHz = frequency), request,
+            GnssSimulationEnvironment.OPEN_SKY)!!.satellite.carrierHz)
+        assertThrows(IllegalArgumentException::class.java) { glonass.copy(carrierHz = Float.NaN) }
+    }
+
     @Test fun navigationKnowledgeAndSignalAreIndependentRequirements() {
         val synthetic = receiver.observe(orbit, request, GnssSimulationEnvironment.OPEN_SKY, navigation())!!
         assertTrue(synthetic.satellite.usedInFix)

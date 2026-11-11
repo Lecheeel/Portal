@@ -54,8 +54,13 @@ data class GnssOrbitPosition(
     val provenance: GnssOrbitProvenance,
     val hasEphemeris: Boolean,
     val hasAlmanac: Boolean,
+    /** Signal selected by the adapter; a GLONASS slot does not itself establish an FCN. */
+    val carrierHz: Float? = null,
 ) {
-    init { require(GnssSatelliteIds.nmeaId(constellation, svid) != null) }
+    init {
+        require(GnssSatelliteIds.nmeaId(constellation, svid) != null)
+        require(carrierHz == null || (carrierHz.isFinite() && carrierHz > 0))
+    }
 }
 
 /**

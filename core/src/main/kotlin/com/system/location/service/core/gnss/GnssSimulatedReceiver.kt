@@ -55,7 +55,7 @@ class GnssSimulatedReceiver(private val seed: Long) {
         val usedCandidate = tracked && cn0 >= 25f && elevation >= 5.0 && hasNavigation
         val displayAzimuth = azimuth.toFloat().let { if (it >= 360f) 0f else it }
         val satellite = GnssSatellite(orbit.constellation, orbit.svid, elevation.toFloat(), displayAzimuth,
-            cn0, usedCandidate, hasNavigation, orbit.hasAlmanac, carrier(orbit.constellation))
+            cn0, usedCandidate, hasNavigation, orbit.hasAlmanac, orbit.carrierHz ?: carrier(orbit.constellation))
         return GnssReceiverSignal(satellite, tracked, navigation != null)
     }
 

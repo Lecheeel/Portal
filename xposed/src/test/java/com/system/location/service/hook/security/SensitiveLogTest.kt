@@ -14,6 +14,7 @@ class SensitiveLogTest {
             "routing_json" to "{\"mode\":\"PER_APP\"}",
             "key" to "secret",
             "runtime_transfer" to "full-private-state",
+            "gnss_navigation" to "compressed-navigation-payload",
             "proxy_session" to "private-session",
             "mode" to "=",
         ))
@@ -22,6 +23,7 @@ class SensitiveLogTest {
         assertFalse(line.contains("{\"wifi\":1}"))
         assertFalse(line.contains("secret"))
         assertFalse(line.contains("full-private-state"))
+        assertFalse(line.contains("compressed-navigation-payload"))
         assertFalse(line.contains("private-session"))
         assertTrue(line.contains("mode=="))
         assertTrue(line.contains("<redacted>"))

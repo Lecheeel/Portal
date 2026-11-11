@@ -13,16 +13,23 @@ class GnssNavigationRepositoryTest {
     @Test fun failedDownloadsAndValidationDoNotReplaceCacheAndIdenticalUploadsDoNotRestartSky() = runBlocking {
         val file = temporary.root.resolve("navigation.json")
         var fail = false
+        val status = GnssNavigationSyncStatus()
         val repository = GnssNavigationRepository(file, GnssNavigationDownload {
             if (fail) error("network down") else archive()
-        })
+        }, status)
         assertTrue(repository.refresh(1794369600000))
+        assertEquals(1794369600000L, status.state.value.acceptedAtMillis)
         val old = file.readBytes()
         fail = true
         try { repository.refresh(1794369601000); fail("refresh should fail") } catch (_: IllegalStateException) { }
         assertArrayEquals(old, file.readBytes())
+        assertFalse(status.state.value.refreshing)
+        assertNotNull(status.state.value.problem)
+        assertEquals(1794369600000L, status.state.value.acceptedAtMillis)
         fail = false
         assertFalse(repository.refresh(1794369602000))
+        assertNull(status.state.value.problem)
+        assertEquals(1794369602000L, status.state.value.acceptedAtMillis)
         val resource = RinexNavigationResourceStore(file).load()!!
         assertEquals(1794369602000, resource.downloadedAtMillis)
         val broken = GnssNavigationRepository(file, GnssNavigationDownload { "corrupt" })

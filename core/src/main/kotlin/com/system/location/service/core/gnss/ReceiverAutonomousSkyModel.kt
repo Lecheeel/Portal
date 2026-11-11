@@ -49,6 +49,13 @@ class ReceiverAutonomousSkyModel(
             return receiver.observe(orbit, request, policy.environment, navigation, calibration)?.let { orbit to it }
         }
         val observations = batch.positions.mapNotNull(::observe).toMutableList()
+        quantitySupplement?.outputLimits?.let { limits ->
+            val talkerCounts = observations.groupingBy {
+                if (it.first.constellation == Constellation.SBAS) Constellation.GPS else it.first.constellation
+            }.eachCount()
+            if (observations.size > limits.maxVisible || talkerCounts.values.any { it > limits.maxPerTalker })
+                diagnostics += "原始天空超出已验证输出能力（总数 ${limits.maxVisible}，每 talker ${limits.maxPerTalker}）；保留完整天空，输出端兼容性未保证"
+        }
         var capacity = observations.size
         if (policy.minimumPolicy == GnssMinimumPolicy.GUARANTEE_QUANTITY && quantitySupplement != null) {
             val addition = quantitySupplement.supplement(request, observations.map { it.first },

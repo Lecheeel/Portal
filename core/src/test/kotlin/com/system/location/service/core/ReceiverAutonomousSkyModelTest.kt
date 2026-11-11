@@ -6,6 +6,18 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ReceiverAutonomousSkyModelTest {
+    @Test fun physicalPolicyReportsOutputEnvelopeOverflowWithoutSilentlyTruncatingSky() {
+        val provider = almanac.provider(utc, 604800.0)
+        val original = ReceiverAutonomousSkyModel(listOf(provider), virtual, GnssSimulationPolicy()).frame(request)!!
+        assertTrue(original.satellites.size > 1)
+        for (limits in listOf(GnssOutputLimits(1, 36, 1), GnssOutputLimits(128, 1, 32))) {
+            val frame = ReceiverAutonomousSkyModel(listOf(provider), virtual, GnssSimulationPolicy(),
+                quantitySupplement = GnssVirtualSkySupplement(emptyList(), limits, 123)).frame(request)!!
+            assertEquals(original.satellites, frame.satellites)
+            assertTrue(frame.diagnostics.any { "超出已验证输出能力" in it })
+        }
+    }
+
     @Test fun emptyRealPoolKeepsUnhealthyAndStaleReservationsThroughFallbackAndSupplement() {
         val reserved = (1..32).map { Constellation.GPS to it }.toSet()
         for (blocked in listOf(reserved, emptySet())) {

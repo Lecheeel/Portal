@@ -8,9 +8,9 @@
     <color name="accent">#A6D99B</color>
     <color name="status_success">#6EE7B7</color>
     <color name="status_error">#FDA4AF</color>
-    <color name="lse_mini_title_color">#CBD5E1</color>
-    <color name="lse_hint_color">#94A3B8</color>
-    <color name="lse_text_color">#F1F5F9</color>
-    <color name="lse_location_detail_background">#1E293B</color>
-    <color name="lse_location_detail_block">#1B2230</color>
+    <color name="lse_mini_title_color">#BFCFBC</color>
+    <color name="lse_hint_color">#8E9F8A</color>
+    <color name="lse_text_color">#E5EEE1</color>
+    <color name="lse_location_detail_background">#354B37</color>
+    <color name="lse_location_detail_block">#1B281D</color>
 </resources>

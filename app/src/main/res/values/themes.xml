@@ -5,6 +5,8 @@
         <item name="colorPrimaryInverse">@color/primary_dark</item>
         <item name="colorSecondary">@color/accent</item>
         <item name="colorSurface">@color/surface</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_variant</item>
+        <item name="colorSurfaceContainerHighest">@color/surface_container_highest</item>
         <item name="colorOnSurface">@color/text_primary</item>
         <item name="colorOnPrimary">@color/on_primary</item>
         <item name="colorOnSurfaceVariant">@color/text_secondary</item>

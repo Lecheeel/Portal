@@ -7,6 +7,35 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssSkyPreviewTest {
+    @Test fun metadataOnlyRefreshRebuildsPreviewToMatchProductionSource() {
+        fun fields(values: List<Double?>) = values.joinToString("") { value ->
+            value?.let { "%19.12E".format(java.util.Locale.ROOT, it) } ?: " ".repeat(19)
+        }
+        val at = java.time.Instant.parse("2026-11-07T23:59:55.750Z").toEpochMilli()
+        val header = "BDUT %17.10E%16.9E %6d%5d".format(java.util.Locale.ROOT, .25, 0.0, 0, 1088).padEnd(60)
+        val orbit = listOf(listOf(7.0, 0.0, 0.0, 0.0), listOf(0.0, 0.0, 0.0, kotlin.math.sqrt(27800000.0)),
+            listOf(0.0, 0.0, 0.0, 0.0), listOf(0.95, 0.0, 0.0, 0.0),
+            listOf(0.0, null, 1088.0, null), listOf(2.4, 0.0, 0.0, 0.0), listOf(-30.0, 7.0, null, null))
+        val text = "     3.05           NAVIGATION DATA     M".padEnd(60) + "RINEX VERSION / TYPE\n" +
+            header + "TIME SYSTEM CORR\n" + "".padEnd(60) + "END OF HEADER\n" +
+            "C19 2026 11 08 00 00 00" + fields(listOf(0.0, 0.0, 0.0)) + "\n" +
+            orbit.joinToString("\n", postfix = "\n") { "    " + fields(it) }
+        val navigation = RinexNavigationResource.import(text, "https://example.org/nav", at)
+        val preview = GnssSkyPreview()
+        val policy = GnssSimulationPolicy()
+        val location = sample.copy(coordinate = Wgs84(0.0, 0.0), timeMillis = at)
+        val before = preview.frame(location, 0, policy, navigation)!!
+        val subset = requireNotNull(javaClass.getResource("/gnss/igs-beidou-metadata.snx")).readText()
+            .replace("26:295:28054", "26:296:28054")
+        val catalog = BeiDouCatalogResource.import(subset, at)
+        val updated = navigation.copy(beiDouCatalog = catalog)
+        val after = preview.frame(location, 0, policy, updated)!!
+        assertNotEquals(before.diagnostics, after.diagnostics)
+        assertTrue(after.diagnostics.any { catalog.manifest.originalSha256 in it })
+        assertEquals(GnssSourceSelection.source(policy, null, updated)!!.frame(location, 0,
+            GnssFrameRoute.Global, at)!!.frame, after)
+    }
+
     @Test fun previewMatchesAutoSignalCalibrationAndUsesRealValidationTimeForExpiry() {
         val at = sample.timeMillis
         val capture = CapturedGnssSource.prepare(GnssCaptureWire.encode(GnssCapture(

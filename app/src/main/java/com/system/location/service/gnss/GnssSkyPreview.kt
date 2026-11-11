@@ -10,7 +10,7 @@ import com.system.location.service.core.location.LocationSample
  */
 internal class GnssSkyPreview {
     private data class Key(val policy: GnssSimulationPolicy, val digest: String?, val source: String?,
-        val calibration: GnssAutonomousSignalCalibration?)
+        val calibration: GnssAutonomousSignalCalibration?, val catalog: BeiDouCatalogManifest?)
     private var key: Key? = null
     private var model: ReceiverAutonomousSkyModel? = null
 
@@ -20,7 +20,8 @@ internal class GnssSkyPreview {
         if (policy.mode == GnssSimulationMode.OFF || policy.mode == GnssSimulationMode.REPLAY) return null
         navigation?.validate()
         val calibration = capture?.signalCalibration.takeIf { policy.mode == GnssSimulationMode.AUTO }
-        val next = Key(policy, navigation?.sha256, navigation?.sourceUrl, calibration)
+        val next = Key(policy, navigation?.sha256, navigation?.sourceUrl, calibration,
+            navigation?.beiDouCatalog?.manifest)
         if (key != next) {
             model = GnssBundledOrbitResources.model(policy, GnssOutputLimits(128, 36, 32),
                 gpsAlmanacAgeBudgetSeconds = 7 * 86400.0, navigation = navigation, signalCalibration = calibration)

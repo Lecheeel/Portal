@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.system.location.service.ui.gnss.GnssCaptureStatus
+import com.system.location.service.ui.gnss.GnssPolicyControls
 import com.system.location.service.ui.viewmodel.GnssCaptureViewModel
 import com.system.location.service.ui.viewmodel.SettingsViewModel
 import com.system.location.service.ui.viewmodel.RestoreConfigState
@@ -569,10 +570,11 @@ private fun SettingsScreen(
                             checked = values.needDowngradeToCdma,
                             onCheckedChange = hookAction { context.needDowngradeToCdma = it },
                         )
+                        GnssPolicyControls(enabled = hooksEnabled, onChanged = { refresh(); onConfigChanged() })
                         PortalActionRow(
                             title = "最少卫星数",
-                            subtitle = if (values.minSatelliteCount == 0) "自动：按本机真实画像生成"
-                                else "可见卫星下限 ${values.minSatelliteCount} 颗；受有效实测池容量限制",
+                            subtitle = if (values.minSatelliteCount == 0) "自动数量：按所选模式和目标天空生成"
+                                else "可见卫星下限 ${values.minSatelliteCount} 颗；按所选数量策略处理不足",
                             onClick = onEditSatelliteCount,
                             enabled = hooksEnabled,
                         )

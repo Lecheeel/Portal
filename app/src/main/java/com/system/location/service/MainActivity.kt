@@ -53,6 +53,8 @@ import com.system.location.service.privacy.SdkPrivacy
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import com.system.location.service.android.permission.RequestPermissions
 import com.system.location.service.android.root.ShellUtils
@@ -63,6 +65,8 @@ import com.system.location.service.ui.notification.NotificationUtils
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 import com.system.location.service.update.StartupUpdateViewModel
+import com.system.location.service.runtime.ScenarioRuntime
+import com.system.location.service.ui.displayLabel
 import com.system.location.service.update.UpdateDialogFragment
 
 class MainActivity : AppCompatActivity() {
@@ -153,6 +157,15 @@ class MainActivity : AppCompatActivity() {
 
                 setupActionBarWithNavController(navController, appBarConfiguration)
                 navView.setupWithNavController(navController)
+                lifecycleScope.launch {
+                    repeatOnLifecycle(Lifecycle.State.STARTED) {
+                        ScenarioRuntime.state.map { state ->
+                            "${state.phase.displayLabel()} · ${state.backend.displayLabel()}"
+                        }.distinctUntilChanged().collect { summary ->
+                            navView.getHeaderView(0).findViewById<android.widget.TextView>(R.id.textView).text = summary
+                        }
+                    }
+                }
                 // Drawer items name an exact screen. Restoring a saved top-level stack
                 // could instead restore the library opened from the mock screen.
                 navView.setNavigationItemSelectedListener { item ->
@@ -190,6 +203,9 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 navController.addOnDestinationChangedListener { _, destination, _ ->
+                    val drawerDestination = if (destination.arguments.containsKey("category"))
+                        R.id.nav_settings else destination.id
+                    navView.menu.findItem(drawerDestination)?.let { navView.setCheckedItem(it) }
                     // Show standard toolbar for secondary screens, hide for home full-screen map
                     if (destination.id == R.id.nav_home) {
                         binding.appBarMain.appBarLayout.visibility = View.GONE

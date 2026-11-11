@@ -1,25 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    tools:showIn="navigation_view">
-
-    <group android:checkableBehavior="single">
-        <item android:id="@+id/nav_runtime" android:icon="@drawable/baseline_play_24" android:title="@string/ui_runtime_title" />
-        <item
-            android:id="@+id/nav_home"
-            android:icon="@drawable/baseline_edit_location_alt_24"
-            android:title="@string/menu_home" />
-        <item
-            android:id="@+id/nav_mock"
-            android:icon="@drawable/baseline_location_on_24"
-            android:title="@string/simulation_title" />
-        <item
-            android:id="@+id/nav_route_gallery"
-            android:icon="@drawable/baseline_route_24"
-            android:title="@string/menu_route_mock" />
-        <item
-            android:id="@+id/nav_settings"
-            android:icon="@drawable/baseline_settings_24"
-            android:title="@string/menu_setting" />
-    </group>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:title="定位">
+        <menu><group android:checkableBehavior="single">
+            <item android:id="@+id/nav_home" android:icon="@drawable/ic_portal_map" android:title="@string/menu_home" />
+        </group></menu>
+    </item>
+    <item android:title="模拟">
+        <menu><group android:checkableBehavior="single">
+            <item android:id="@+id/nav_mock" android:icon="@drawable/ic_portal_location" android:title="@string/simulation_title" />
+            <item android:id="@+id/nav_route_gallery" android:icon="@drawable/ic_portal_route" android:title="@string/menu_route_mock" />
+        </group></menu>
+    </item>
+    <item android:title="运行">
+        <menu><group android:checkableBehavior="single">
+            <item android:id="@+id/nav_runtime" android:icon="@drawable/ic_portal_run" android:title="@string/ui_runtime_title" />
+        </group></menu>
+    </item>
+    <item android:title="其他">
+        <menu><group android:checkableBehavior="single">
+            <item android:id="@+id/nav_settings" android:icon="@drawable/ic_portal_settings" android:title="@string/menu_setting" />
+        </group></menu>
+    </item>
 </menu>

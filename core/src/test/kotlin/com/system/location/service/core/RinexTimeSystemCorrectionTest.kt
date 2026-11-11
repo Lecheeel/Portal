@@ -51,4 +51,22 @@ class RinexTimeSystemCorrectionTest {
             wrongSystem.gpsToGalileo(GpsTime(2444, 0.0), GalileoTime(1420, 0.0), GalileoTime(1420, 1.0))
         }
     }
+
+    @Test fun agreesWithIndependentlyDecodedBroadcastCoefficientsWithoutQuantizingRinexAgain() {
+        val from = GalileoTime(1420, 0.0)
+        val until = GalileoTime(1420, 604799.0)
+        val decoded = GalileoGpsTimeOffset(1420, 72, 31, -17, from, until)
+        val rinex = RinexTimeSystemCorrection("GAGP", decoded.a0Seconds, decoded.a1SecondsPerSecond,
+            259200, 2444, "E01", null)
+        for (seconds in listOf(1.0, 100000.25, 259200.0, 600000.0)) {
+            val gps = GpsTime(2444, seconds)
+            val expected = decoded.gpsToGalileo(gps).time!!
+            val actual = rinex.gpsToGalileo(gps, from, until)!!
+            assertEquals(0.0, actual.secondsSince(expected), 1e-12)
+            assertEquals(0.0, rinex.galileoToGps(actual, from, until)!!.secondsSince(gps), 1e-10)
+        }
+        val singular = rinex.copy(a1SecondsPerSecond = 1.0)
+        assertNull(singular.gpsToGalileo(GpsTime(2444, 100.0), from, until))
+        assertNull(singular.galileoToGps(GalileoTime(1420, 100.0), from, until))
+    }
 }

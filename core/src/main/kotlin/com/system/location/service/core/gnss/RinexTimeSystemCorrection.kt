@@ -1,7 +1,5 @@
 package com.system.location.service.core.gnss
 
-import kotlin.math.abs
-
 /**
  * RINEX 3.05 Table A5 fractional time difference, excluding leap seconds. It is not an
  * arbitrary UTC offset. The producer supplies reference time/week in the specified native
@@ -31,7 +29,9 @@ data class RinexTimeSystemCorrection(
     fun gpsToGalileo(time: GpsTime, validFrom: GalileoTime, validUntil: GalileoTime): GalileoTime? {
         require(type == "GAGP")
         require(validUntil.secondsSince(validFrom) > 0)
-        if (a1SecondsPerSecond >= 1 || abs(a0Seconds) >= 1 || abs(a1SecondsPerSecond) >= 1e-6) return null
+        // This is the polynomial solver, not validation of a particular broadcast bit capacity.
+        // Require an invertible, positively advancing target scale; the source adapter owns bounds.
+        if (a1SecondsPerSecond >= 1) return null
         val delta = (time.week.toLong() - referenceWeek) * 604800.0 + time.secondsOfWeek - referenceSeconds
         val offset = (a0Seconds + a1SecondsPerSecond * delta) / (1 - a1SecondsPerSecond)
         val normalized = GnssWeekTime.normalize(time.week.toLong() - 1024, time.secondsOfWeek + offset) ?: return null
@@ -43,7 +43,7 @@ data class RinexTimeSystemCorrection(
         require(type == "GAGP")
         require(validUntil.secondsSince(validFrom) > 0)
         if (time.secondsSince(validFrom) < 0 || validUntil.secondsSince(time) < 0 ||
-            abs(a0Seconds) >= 1 || abs(a1SecondsPerSecond) >= 1e-6) return null
+            a1SecondsPerSecond >= 1) return null
         val delta = (time.week.toLong() + 1024 - referenceWeek) * 604800.0 + time.secondsOfWeek - referenceSeconds
         val offset = a0Seconds + a1SecondsPerSecond * delta
         val normalized = GnssWeekTime.normalize(time.week.toLong() + 1024, time.secondsOfWeek - offset) ?: return null

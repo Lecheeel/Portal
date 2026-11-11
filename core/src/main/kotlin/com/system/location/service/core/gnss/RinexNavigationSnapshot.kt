@@ -20,26 +20,10 @@ object RinexNavigationSnapshot {
             val count = 1 + record.orbit.size
             val text = lines.subList(cursor, cursor + count).toList()
             cursor += count
-            val order = when (record.system) {
-                RinexNavigationSystem.GPS, RinexNavigationSystem.GALILEO, RinexNavigationSystem.BEIDOU,
-                RinexNavigationSystem.QZSS, RinexNavigationSystem.IRNSS -> {
-                    val week = record.orbit.getOrNull(4)?.getOrNull(2)
-                    val seconds = record.orbit.getOrNull(6)?.getOrNull(0)
-                    if (week != null && week >= 0 && week <= Int.MAX_VALUE && week == week.toInt().toDouble() &&
-                        seconds != null && seconds >= -604800 && seconds < 1209600) week * 604800 + seconds else null
-                }
-                // State-vector records use their native UTC reference epoch; no inferred ±3h.
-                RinexNavigationSystem.GLONASS, RinexNavigationSystem.SBAS -> record.epoch.let {
-                    it.date.toEpochDay() * 86400.0 + it.hour * 3600 + it.minute * 60 + it.second
-                }
-            }
+            val order = RinexNavigationUploadOrder.seconds(record)
             Entry(record, text, order)
         }
-        val selected = entries.groupBy { entry ->
-            val r = entry.record
-            // Galileo I/NAV and F/NAV describe different clocks/health; retain both histories.
-            Triple(r.system, r.svid, if (r.system == RinexNavigationSystem.GALILEO) r.orbit[4][1] else null)
-        }.values.flatMap { history ->
+        val selected = entries.groupBy { RinexNavigationUploadOrder.identity(it.record) }.values.flatMap { history ->
             val known = history.filter { it.order != null }.map { it.order!! }.distinct().sortedDescending()
             val accepted = known.take(uploadsPerIdentity).toSet()
             history.filter { it.order == null || it.order in accepted }

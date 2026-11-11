@@ -47,7 +47,8 @@ object GnssBundledOrbitResources {
             // the BDUT header reference, and a dated catalog with a 30-day freshness policy.
             // None is an inferred broadcast fit duration or the capture expiry setting.
             runCatching {
-                val catalog = listOfNotNull(beiDouCatalog.getOrNull(), navigation.beiDouCatalog?.validate())
+                // Prefer accepted upstream corrections when creation labels tie with the bundle.
+                val catalog = listOfNotNull(navigation.beiDouCatalog?.validate(), beiDouCatalog.getOrNull())
                     .maxByOrNull { it.creationLabel } ?: error("No valid BeiDou identity catalog")
                 navigation.beiDouProvider(timeScale, catalog.catalog(timeScale, 30 * 86400L),
                     RinexBeiDouSkyPolicy(3600.0, 7 * 86400.0, true))

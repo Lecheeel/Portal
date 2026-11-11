@@ -26,7 +26,7 @@ class GnssSkyPreviewTest {
         val location = sample.copy(coordinate = Wgs84(0.0, 0.0), timeMillis = at)
         val before = preview.frame(location, 0, policy, navigation)!!
         val subset = requireNotNull(javaClass.getResource("/gnss/igs-beidou-metadata.snx")).readText()
-            .replace("26:295:28054", "26:296:28054")
+        // Same creation epoch as the bundle; accepted upstream provenance still takes priority.
         val catalog = BeiDouCatalogResource.import(subset, at)
         val updated = navigation.copy(beiDouCatalog = catalog)
         val after = preview.frame(location, 0, policy, updated)!!

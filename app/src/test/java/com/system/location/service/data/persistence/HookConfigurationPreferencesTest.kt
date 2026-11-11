@@ -6,6 +6,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HookConfigurationPreferencesTest {
+    @Test fun localSkyReadsTheSameGnssBatchWithoutParsingUnrelatedPreferences() {
+        val preferences = mapOf("gnssSimulationMode" to "AUTONOMOUS", "gnssVirtualSeed" to 12L,
+            "minSatelliteCount" to 32)
+        val fallback = RuntimeSnapshot()
+        val gnss = HookConfigurationPreferences.readGnss(preferences + ("accuracy" to "invalid"), fallback)
+        val full = HookConfigurationPreferences.read(preferences, fallback)
+        assertEquals(full.filterKeys { it in gnss }, gnss)
+        assertEquals(32, PreparedRuntimeConfiguration.prepare(gnss).applyTo(fallback).configuration.minimumSatellites)
+        assertThrows(ClassCastException::class.java) {
+            HookConfigurationPreferences.readGnss(mapOf("minSatelliteCount" to "32"), fallback)
+        }
+    }
+
     @Test fun emptyPreferencesUseStableDefaultsAndExplicitlyClearOptionalPayloads() {
         val wire = HookConfigurationPreferences.read(emptyMap<String, Any>(), RuntimeSnapshot())
         val result = PreparedRuntimeConfiguration.prepare(wire).applyTo(RuntimeSnapshot())

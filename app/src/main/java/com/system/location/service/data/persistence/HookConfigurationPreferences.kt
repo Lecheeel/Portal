@@ -12,7 +12,6 @@ object HookConfigurationPreferences {
         fun flag(key: String, default: Boolean) = preferences[key]?.let { it as Boolean } ?: default
         fun number(key: String, default: Float) = preferences[key]?.let { it as Float } ?: default
         fun integer(key: String, default: Int) = preferences[key]?.let { it as Int } ?: default
-        fun long(key: String, default: Long) = preferences[key]?.let { it as Long } ?: default
         fun text(key: String, default: String = "") = preferences[key]?.let { it as String } ?: default
         val interval = integer("reportDuration", 100).toLong().coerceIn(50, 1000)
         return mapOf(
@@ -31,11 +30,6 @@ object HookConfigurationPreferences {
             "disable_register_location_listener" to flag("disableRegitserLocationListener", policy.disableRegisterLocationListener),
             "disable_fused_location" to flag("disableFusedProvider", policy.disableFusedLocation),
             "need_downgrade_to_2g" to flag("needDowngradeToCdma", policy.downgradeToCdma),
-            "min_satellites" to integer("minSatelliteCount", 0).coerceIn(0, GnssFrame.MAX_SATELLITES),
-            "gnss_mode" to text("gnssSimulationMode", policy.gnssSimulation.mode.name),
-            "gnss_minimum_policy" to text("gnssMinimumPolicy", policy.gnssSimulation.minimumPolicy.name),
-            "gnss_environment" to text("gnssSimulationEnvironment", policy.gnssSimulation.environment.name),
-            "gnss_virtual_seed" to long("gnssVirtualSeed", policy.gnssSimulation.virtualSeed),
             "enable_agps" to flag("enableAGPS", policy.allowPhysicalRawGnss),
             "enable_nmea" to flag("enableNMEA", true),
             "sensor_cadence_scale" to number("sensorCadenceScale", 1f).toDouble(),
@@ -53,6 +47,20 @@ object HookConfigurationPreferences {
             "wifi_fingerprint_json" to text("wifiFingerprintCatalogJson").takeIf { it.isNotBlank() },
             "routing_json" to text("routingJson").takeIf { it.isNotBlank() },
             "environment_json" to text("environmentReplayJson").takeIf { it.isNotBlank() },
+        ) + readGnss(preferences, fallback)
+    }
+
+    /** Same wire defaults for local prediction and configuration, independent of unrelated settings. */
+    fun readGnss(preferences: Map<String, *>, fallback: RuntimeSnapshot): Map<String, Any> {
+        val policy = fallback.configuration.gnssSimulation
+        fun text(key: String, default: String) = preferences[key]?.let { it as String } ?: default
+        return mapOf(
+            "min_satellites" to (preferences["minSatelliteCount"]?.let { it as Int } ?: 0)
+                .coerceIn(0, GnssFrame.MAX_SATELLITES),
+            "gnss_mode" to text("gnssSimulationMode", policy.mode.name),
+            "gnss_minimum_policy" to text("gnssMinimumPolicy", policy.minimumPolicy.name),
+            "gnss_environment" to text("gnssSimulationEnvironment", policy.environment.name),
+            "gnss_virtual_seed" to (preferences["gnssVirtualSeed"]?.let { it as Long } ?: policy.virtualSeed),
         )
     }
 }

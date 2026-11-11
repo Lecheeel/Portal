@@ -53,6 +53,8 @@ class AndroidPhysicalLocationRecovery(
             "$provider:NO_PERMISSION"
         } catch (_: IllegalArgumentException) {
             "$provider:UNAVAILABLE"
+        } catch (error: RuntimeException) {
+            "$provider:ERROR_${error.javaClass.simpleName}"
         } finally {
             runCatching { manager.removeUpdates(listener) }
             fixes.close()

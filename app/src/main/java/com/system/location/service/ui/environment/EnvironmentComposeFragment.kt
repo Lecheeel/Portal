@@ -48,8 +48,7 @@ import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentProfileCodec
 import com.system.location.service.core.environment.WifiFingerprintImporter
 import com.system.location.service.designsystem.components.PortalActionRow
-import com.system.location.service.designsystem.components.PortalCard
-import com.system.location.service.designsystem.components.PortalSectionTitle
+import com.system.location.service.designsystem.components.PortalSettingGroup
 import com.system.location.service.designsystem.components.PortalSwitchRow
 import com.system.location.service.designsystem.theme.PortalSpacing
 import com.system.location.service.designsystem.theme.PortalTheme
@@ -491,57 +490,55 @@ private fun EnvironmentScreen(
                 )
             }
             item {
-                PortalCard {
-                    PortalSectionTitle(stringResource(R.string.environment_capture_title))
-                    Spacer(Modifier.height(PortalSpacing.sm))
-                    Button(onClick = onCapture, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.environment_capture_action))
-                    }
-                    Spacer(Modifier.height(PortalSpacing.sm))
-                    OutlinedButton(
-                        onClick = { listDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(R.string.environment_list_action)) }
-                    Spacer(Modifier.height(PortalSpacing.sm))
-                    OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.environment_import_action))
+                PortalSettingGroup(stringResource(R.string.environment_capture_title), 3) { index, rowModifier ->
+                    when (index) {
+                        0 -> PortalActionRow(stringResource(R.string.environment_capture_action),
+                            "采集手机当前的无线环境，保存为独立配置", onCapture, modifier = rowModifier)
+                        1 -> PortalActionRow(stringResource(R.string.environment_list_action),
+                            "共 ${names.size} 个环境；可回放、导出、重命名或删除",
+                            { listDialog = true }, modifier = rowModifier)
+                        2 -> PortalActionRow(stringResource(R.string.environment_import_action),
+                            "从文件导入环境配置", onImport, modifier = rowModifier)
                     }
                 }
             }
             item {
-                PortalCard {
-                    PortalSectionTitle(stringResource(R.string.settings_environment_fingerprint))
-                    PortalSwitchRow(
-                        title = stringResource(R.string.wifi_fingerprint_enable),
-                        checked = fingerprintEnabled,
-                        onCheckedChange = {
-                            context.wifiFingerprintEnabled = it
-                            onApplyConfig()
-                        },
-                    )
-                    OutlinedButton(onClick = onImportFingerprint, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.wifi_fingerprint_import))
+                PortalSettingGroup(stringResource(R.string.settings_environment_fingerprint), 2) { index, rowModifier ->
+                    when (index) {
+                        0 -> PortalSwitchRow(
+                            title = stringResource(R.string.wifi_fingerprint_enable),
+                            subtitle = "仅 Xposed / Native 模拟输出有效",
+                            checked = fingerprintEnabled,
+                            onCheckedChange = {
+                                context.wifiFingerprintEnabled = it
+                                onApplyConfig()
+                            },
+                            modifier = rowModifier,
+                        )
+                        1 -> PortalActionRow(stringResource(R.string.wifi_fingerprint_import),
+                            "从文件导入 Wi-Fi 指纹库", onImportFingerprint, modifier = rowModifier)
                     }
                 }
             }
             item {
-                PortalCard {
-                    PortalSectionTitle(stringResource(R.string.settings_environment_replay))
-                    PortalActionRow(
-                        title = stringResource(R.string.environment_ap_value, apCount),
-                        onClick = {
-                            apInput = apCount.toString()
-                            apDialog = true
-                        },
-                    )
-                    PortalActionRow(
-                        title = stringResource(R.string.cell_mode_value, cellMode),
-                        onClick = { cellDialog = true },
-                    )
-                    PortalActionRow(
-                        title = stringResource(R.string.environment_source_value, sourceMode),
-                        onClick = { sourceDialog = true },
-                    )
+                PortalSettingGroup(stringResource(R.string.settings_environment_replay), 3) { index, rowModifier ->
+                    when (index) {
+                        0 -> PortalActionRow(
+                            title = stringResource(R.string.environment_ap_value, apCount),
+                            onClick = { apInput = apCount.toString(); apDialog = true },
+                            modifier = rowModifier,
+                        )
+                        1 -> PortalActionRow(
+                            title = stringResource(R.string.cell_mode_value, cellMode),
+                            onClick = { cellDialog = true },
+                            modifier = rowModifier,
+                        )
+                        2 -> PortalActionRow(
+                            title = stringResource(R.string.environment_source_value, sourceMode),
+                            onClick = { sourceDialog = true },
+                            modifier = rowModifier,
+                        )
+                    }
                 }
             }
             item {

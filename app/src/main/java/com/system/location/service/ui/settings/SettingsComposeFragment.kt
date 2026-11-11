@@ -513,52 +513,62 @@ private fun SettingsScreen(
                 }
                 if (category == SettingsCategory.MOTION) {
                     item(key = "motion") {
-                        PortalCard {
-                            PortalSectionTitle("运动与摇杆")
-                            PortalActionRow("摇杆速度", "%.2f 米/秒 · 即时更新".format(values.speed), onEditSpeed)
-                            PortalSwitchRow(
-                                title = "路线平滑运动",
-                                subtitle = "弯道减速、平滑加减速，下次启动生效。",
-                                checked = values.smoothRouteMotion,
-                                onCheckedChange = { context.smoothRouteMotion = it; refresh() },
-                            )
-                            PortalSwitchRow(
-                                title = "物理漂移噪声",
-                                subtitle = "仅 Xposed/Native：为位置、海拔和精度添加有界微漂移。",
-                                checked = values.physicalNoise,
-                                onCheckedChange = hookAction { context.physicalNoise = it },
-                            )
+                        PortalSettingGroup("运动与摇杆", 3) { index, rowModifier ->
+                            when (index) {
+                                0 -> PortalActionRow("摇杆速度", "%.2f 米/秒 · 即时更新".format(values.speed), onEditSpeed,
+                                    modifier = rowModifier,
+                                )
+                                1 -> PortalSwitchRow(
+                                    title = "路线平滑运动",
+                                    subtitle = "弯道减速、平滑加减速，下次启动生效。",
+                                    checked = values.smoothRouteMotion,
+                                    onCheckedChange = { context.smoothRouteMotion = it; refresh() },
+                                    modifier = rowModifier,
+                                )
+                                2 -> PortalSwitchRow(
+                                    title = "物理漂移噪声",
+                                    subtitle = "仅 Xposed/Native：为位置、海拔和精度添加有界微漂移。",
+                                    checked = values.physicalNoise,
+                                    onCheckedChange = hookAction { context.physicalNoise = it },
+                                    modifier = rowModifier,
+                                )
+                            }
                         }
                     }
                 }
                 if (category == SettingsCategory.ADVANCED) {
                     item(key = "channels") {
-                        PortalCard {
-                            PortalSectionTitle("定位通道与实验")
-                            PortalSwitchRow(
-                                title = "Google 融合定位（实验）",
-                                subtitle = "需 Google Play 服务；下次启动场景生效，失败时继续使用 GPS/Network。",
-                                checked = values.gmsMockEnabled,
-                                onCheckedChange = { context.gmsMockEnabled = it; onRestartRequired(); refresh() },
-                            )
-                            PortalSwitchRow(
-                                title = "系统 Fused 通道（实验）",
-                                subtitle = "额外注册系统 fused 模拟 Provider，下次启动场景生效。",
-                                checked = values.platformFusedEnabled,
-                                onCheckedChange = { context.platformFusedEnabled = it; onRestartRequired(); refresh() },
-                            )
-                            PortalSwitchRow(
-                                title = "启动突发",
-                                subtitle = "启动时密集上报定位，适用于当前后端；下次启动场景生效。",
-                                checked = values.startupBurstEnabled,
-                                onCheckedChange = { context.startupBurstEnabled = it; refresh() },
-                            )
-                            PortalSwitchRow(
-                                title = "清除模拟标记（实验）",
-                                subtitle = "仅标准 Mock 模式；系统可能重新标记。",
-                                checked = values.experimentalClearMockFlag,
-                                onCheckedChange = { context.experimentalClearMockFlag = it; refresh() },
-                            )
+                        PortalSettingGroup("定位通道与实验", 4) { index, rowModifier ->
+                            when (index) {
+                                0 -> PortalSwitchRow(
+                                    title = "Google 融合定位（实验）",
+                                    subtitle = "需 Google Play 服务；下次启动场景生效，失败时继续使用 GPS/Network。",
+                                    checked = values.gmsMockEnabled,
+                                    onCheckedChange = { context.gmsMockEnabled = it; onRestartRequired(); refresh() },
+                                    modifier = rowModifier,
+                                )
+                                1 -> PortalSwitchRow(
+                                    title = "系统 Fused 通道（实验）",
+                                    subtitle = "额外注册系统 fused 模拟 Provider，下次启动场景生效。",
+                                    checked = values.platformFusedEnabled,
+                                    onCheckedChange = { context.platformFusedEnabled = it; onRestartRequired(); refresh() },
+                                    modifier = rowModifier,
+                                )
+                                2 -> PortalSwitchRow(
+                                    title = "启动突发",
+                                    subtitle = "启动时密集上报定位，适用于当前后端；下次启动场景生效。",
+                                    checked = values.startupBurstEnabled,
+                                    onCheckedChange = { context.startupBurstEnabled = it; refresh() },
+                                    modifier = rowModifier,
+                                )
+                                3 -> PortalSwitchRow(
+                                    title = "清除模拟标记（实验）",
+                                    subtitle = "仅标准 Mock 模式；系统可能重新标记。",
+                                    checked = values.experimentalClearMockFlag,
+                                    onCheckedChange = { context.experimentalClearMockFlag = it; refresh() },
+                                    modifier = rowModifier,
+                                )
+                            }
                         }
                     }
                 }
@@ -662,33 +672,47 @@ private fun SettingsScreen(
                 }
                 if (category == SettingsCategory.APPS) {
                     item(key = "apps") {
-                        PortalCard {
-                            PortalSectionTitle("分应用规则")
-                            PortalActionRow("分应用路由（实验）", "仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled)
-                            PortalActionRow("分应用固定点（实验）", "仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled)
+                        PortalSettingGroup("分应用规则", 2) { index, rowModifier ->
+                            when (index) {
+                                0 -> PortalActionRow("分应用路由（实验）", "仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled,
+                                    modifier = rowModifier,
+                                )
+                                1 -> PortalActionRow("分应用固定点（实验）", "仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled,
+                                    modifier = rowModifier,
+                                )
+                            }
                         }
                     }
                 }
                 if (category == SettingsCategory.PRIVACY) {
                     item(key = "privacy") {
-                        PortalCard {
-                            PortalSectionTitle("后台与隐私")
-                            PortalSwitchRow(
-                                title = "发送崩溃报告",
-                                subtitle = "默认关闭；通过 Bugly 发送崩溃堆栈。关闭后重新开启需重启，不撤回已发送或待上传的报告。",
-                                checked = values.crashReporting,
-                                onCheckedChange = onCrashReporting,
-                            )
-                            PortalActionRow("后台运行", "权限与电池优化检查", onBackgroundGuidance)
+                        PortalSettingGroup("后台与隐私", 2) { index, rowModifier ->
+                            when (index) {
+                                0 -> PortalSwitchRow(
+                                    title = "发送崩溃报告",
+                                    subtitle = "默认关闭；通过 Bugly 发送崩溃堆栈。关闭后重新开启需重启，不撤回已发送或待上传的报告。",
+                                    checked = values.crashReporting,
+                                    onCheckedChange = onCrashReporting,
+                                    modifier = rowModifier,
+                                )
+                                1 -> PortalActionRow("后台运行", "权限与电池优化检查", onBackgroundGuidance,
+                                    modifier = rowModifier,
+                                )
+                            }
                         }
                     }
                 }
                 if (category == SettingsCategory.UPDATES) {
                     item(key = "updates") {
-                        PortalCard {
-                            PortalSectionTitle("版本更新", "当前版本 ${UpdateChecker.parseLocalVersion().versionName}")
-                            PortalActionRow("检查更新", onClick = onCheckUpdate)
-                            PortalActionRow("更新通道", values.updateChannelLabel, onUpdateChannel)
+                        PortalSettingGroup("版本更新 · ${UpdateChecker.parseLocalVersion().versionName}", 2) { index, rowModifier ->
+                            when (index) {
+                                0 -> PortalActionRow("检查更新", onClick = onCheckUpdate,
+                                    modifier = rowModifier,
+                                )
+                                1 -> PortalActionRow("更新通道", values.updateChannelLabel, onUpdateChannel,
+                                    modifier = rowModifier,
+                                )
+                            }
                         }
                     }
                 }

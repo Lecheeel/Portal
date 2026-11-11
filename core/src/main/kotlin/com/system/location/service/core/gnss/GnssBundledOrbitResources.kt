@@ -27,6 +27,11 @@ object GnssBundledOrbitResources {
             runCatching { navigation.gpsProvider(timeScale) }
                 .onSuccess { providers += it }
                 .onFailure { diagnostics += "RINEX GPS 广播来源不可用，保留历书与虚拟兜底" }
+            // Sky-only approximation, explicitly separate from capture's 24-hour eligibility.
+            // This limits header extrapolation; it is not a claimed broadcast GGTO expiry.
+            runCatching { navigation.galileoProvider(timeScale, RinexGalileoSkyPolicy(86400.0, true)) }
+                .onSuccess { providers += it }
+                .onFailure { diagnostics += "RINEX Galileo 广播来源不可用：${it.message}；保留其他来源与虚拟兜底" }
         }
         val candidates = listOfNotNull(downloadedGps, gps.getOrNull())
             .sortedByDescending { it.referenceEpochMillis }

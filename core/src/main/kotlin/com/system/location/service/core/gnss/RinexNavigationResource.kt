@@ -49,6 +49,24 @@ data class RinexNavigationResource(
             GnssOrbitSourceKind.BROADCAST_EPHEMERIS), utc)
     }
 
+    fun galileoProvider(utc: GnssUtcTimeScale, policy: RinexGalileoSkyPolicy): RinexGalileoOrbitProvider {
+        val correction = parsed.timeSystemCorrections.mapNotNull {
+            runCatching { RinexTimeSystemCorrection.parse(it) }.getOrNull()
+        }.filter { it.type == "GAGP" }.distinct().singleOrNull()
+        require(correction != null && correction.referenceWeek >= 1024) { "Missing or conflicting Galileo GAGP" }
+        val reference = GalileoTime(correction.referenceWeek - 1024, correction.referenceSeconds.toDouble())
+        val from = reference.plusSeconds(-policy.maximumTimeCorrectionDistanceSeconds)
+        val until = reference.plusSeconds(policy.maximumTimeCorrectionDistanceSeconds)
+        val epochs = parsed.records.filter { it.system == RinexNavigationSystem.GALILEO }.mapNotNull {
+            runCatching { RinexGalileoImporter.decode(it).ephemeris.toe }.getOrNull()
+                ?.let { toe -> correction.galileoToGps(toe, from, until) }
+                ?.let { time -> utc.utcAtGpsTime(time).utcMillis }
+        }
+        val epoch = requireNotNull(epochs.maxOrNull()) { "No convertible Galileo reference epoch" }
+        return RinexGalileoOrbitProvider(parsed, GnssOrbitProvenance("rinex-galileo", sha256, sourceUrl, epoch,
+            GnssOrbitSourceKind.BROADCAST_EPHEMERIS), utc, policy)
+    }
+
     /** Native clock-calendar high-water marks; never compare them as inter-system UTC instants. */
     internal fun epochLabels(): Map<RinexNavigationSystem, String> = parsed.records.groupBy { it.system }.mapValues { (_, records) ->
         records.maxOf { r -> "%04d-%02d-%02dT%02d:%02d:%02d".format(java.util.Locale.ROOT,

@@ -30,6 +30,28 @@ class RinexGalileoOrbitProviderTest {
         policy: RinexGalileoSkyPolicy = RinexGalileoSkyPolicy(86400.0, true)) =
         RinexGalileoOrbitProvider(RinexNavigationFile("3.05", headers, emptyList(), records), provenance, utc, policy)
 
+    @Test fun downloadedResourceReachesBundledProductionModelAndExpiresIntoIndependentFallback() {
+        fun fields(values: List<Double?>) = values.joinToString("") { value ->
+            value?.let { String.format(Locale.ROOT, "%19.12E", it) } ?: " ".repeat(19)
+        }
+        val text = "     3.05           NAVIGATION DATA     M".padEnd(60) + "RINEX VERSION / TYPE\n" +
+            header() + "TIME SYSTEM CORR\n" + "".padEnd(60) + "END OF HEADER\n" +
+            "E01 2026 11 08 00 00 00" + fields(record.clock) + "\n" +
+            record.orbit.joinToString("\n") { "    " + fields(it) } + "\n"
+        val resource = RinexNavigationResource.import(text, "https://example.org/navigation.rnx", epoch + 60000)
+        val position = resource.galileoProvider(utc, RinexGalileoSkyPolicy(86400.0, true)).positions(request).positions.single()
+        assertEquals(epoch - 250, position.provenance.referenceEpochMillis)
+        assertNotEquals(resource.downloadedAtMillis, position.provenance.referenceEpochMillis)
+        val model = GnssBundledOrbitResources.model(GnssSimulationPolicy(), GnssOutputLimits(128, 36, 32),
+            604800.0, navigation = resource)
+        val frame = model.frame(request.copy(observer = Wgs84(0.0, 0.0)))!!
+        assertEquals(GnssOrbitSourceKind.BROADCAST_EPHEMERIS,
+            frame.orbitProvenance[Constellation.GALILEO to 1]?.kind)
+        val expired = model.frame(request.copy(atMillis = Instant.parse("2028-01-01T00:00:00Z").toEpochMilli()))!!
+        assertTrue(expired.satellites.isNotEmpty())
+        assertTrue(expired.orbitProvenance.values.all { it.kind == GnssOrbitSourceKind.VIRTUAL })
+    }
+
     @Test fun nonzeroGagpAndGstOrbitUseNativeEpochAndIndependentCircularReference() {
         val result = provider().positions(request)
         val position = result.positions.single()

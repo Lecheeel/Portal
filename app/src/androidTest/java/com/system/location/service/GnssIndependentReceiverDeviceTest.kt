@@ -28,7 +28,7 @@ import org.junit.Assume.*
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Opt-in lab integration with the independent Detector debug application, never real sky data. */
+/** Opt-in integration with a separate Detector UID; synthetic and captured sources stay explicit. */
 @RunWith(AndroidJUnit4::class)
 class GnssIndependentReceiverDeviceTest {
     @Test fun movingNoisySamplesRemainCoherentForAnIndependentReceiver() = verifyReceiver()
@@ -36,10 +36,18 @@ class GnssIndependentReceiverDeviceTest {
     @Test fun receiverDeathClearsFrameworkRegistrationAndRestartDoesNotDuplicateFrames() =
         verifyReceiver(terminateFirstRun = true)
 
-    private fun verifyReceiver(terminateFirstRun: Boolean = false) = runBlocking {
+    @Test fun capturedProfileRemainsCoherentForAnIndependentReceiver() = verifyReceiver(realCapture = true)
+
+    private fun verifyReceiver(terminateFirstRun: Boolean = false, realCapture: Boolean = false) = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val arguments = InstrumentationRegistry.getArguments()
         assumeTrue("Explicit independent receiver run required",
-            InstrumentationRegistry.getArguments().getString("independentDetector") == "true")
+            arguments.getString("independentDetector") == "true")
+        if (realCapture) assumeTrue("Explicit real evidence run required", arguments.getString("realCapturedProfile") == "true")
+        val sampleSeconds = if (realCapture) arguments.getString("receiverSeconds")?.toInt() ?: 120 else 20
+        require(sampleSeconds in 20..240)
+        val minimum = if (realCapture) arguments.getString("receiverMinimum")?.toInt() ?: 0 else 0
+        require(minimum in 0..128)
         val context = instrumentation.targetContext
         val manager = context.getSystemService(LocationManager::class.java)
         ScenarioRuntime.awaitInitialized()
@@ -77,7 +85,15 @@ class GnssIndependentReceiverDeviceTest {
         val original = RuntimeTransferWire.decode(checkNotNull(command("sync_config").getByteArray(RuntimeSyncCommand.PAYLOAD))).state
         assumeTrue("Preserve user routing and evidence", original.routing == null && original.configuration.gnssSource == null)
         val now = System.currentTimeMillis()
-        val observer = Wgs84(31.230416, 121.473701)
+        val captured = if (realCapture) {
+            val file = File(context.cacheDir, "gnss-real-validation-source.json")
+            check(file.length() in 1..GnssCaptureCodec.MAX_BYTES.toLong()) { "Supply bounded real capture evidence first" }
+            GnssCaptureCodec.decode(file.readText()).also {
+                val quality = GnssCaptureValidator.validate(it, now)
+                check(quality.eligible) { "Rejected real profile: ${quality.issues}" }
+            }
+        } else null
+        val observer = captured?.frames?.firstNotNullOf { it.observer } ?: Wgs84(31.230416, 121.473701)
         val satellites = Constellation.entries.flatMap { system -> (0..3).map { index ->
             val svid = when (system) {
                 Constellation.QZSS -> 193 + index
@@ -87,7 +103,7 @@ class GnssIndependentReceiverDeviceTest {
             GnssSatellite(system, svid, if (index == 3) 75f else 20f, index * 90f,
                 32f + index, true, true, true)
         } }
-        val fixture = GnssCapture(deviceModel = "SYNTHETIC INDEPENDENT RECEIVER TEST", osVersion = "transport fixture",
+        val fixture = captured ?: GnssCapture(deviceModel = "SYNTHETIC INDEPENDENT RECEIVER TEST", osVersion = "transport fixture",
             startedAtMillis = now - 60_000L, endedAtMillis = now,
             frames = (0..60).map { index -> GnssObservationFrame(now - 60_000L + index * 1_000L,
                 observer = observer, satellites = satellites) })
@@ -98,7 +114,7 @@ class GnssIndependentReceiverDeviceTest {
                 putString("gnss_capture", GnssCaptureWire.encode(fixture))
                 putBoolean("enable_nmea", true)
                 putBoolean("enable_physical_noise", true)
-                putInt("min_satellites", 0)
+                putInt("min_satellites", minimum)
             }
             configured = true
             command("start_gnss_mock")
@@ -120,7 +136,7 @@ class GnssIndependentReceiverDeviceTest {
                 // Raw loopback HTTP is limited to the explicitly enabled lab debug bridge.
                 fun request(method: String, path: String, body: String = ""): String = Socket().use { socket ->
                     socket.connect(InetSocketAddress("127.0.0.1", 8766), 500)
-                    socket.soTimeout = 60_000
+                    socket.soTimeout = (sampleSeconds + 40) * 1_000
                     socket.getOutputStream().apply {
                         write(("$method $path HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\n" +
                             "Content-Length: ${body.toByteArray().size}\r\nConnection: close\r\n\r\n$body").toByteArray())
@@ -161,19 +177,35 @@ class GnssIndependentReceiverDeviceTest {
                     assertFalse(bridgeReady().getBoolean("running"))
                     assertNotEquals("Receiver process was not replaced", oldPid, shell("pidof $receiverPackage").trim())
                 }
-                request("POST", "/run", "{\"sampleSeconds\":20}")
+                request("POST", "/run", "{\"sampleSeconds\":$sampleSeconds}")
             }
-            File(context.getExternalFilesDir(null), "synthetic-independent-gnss-report.json").writeText(rawReport)
+            val filename = if (realCapture) "captured-independent-gnss-min$minimum-report.json" else "synthetic-independent-gnss-report.json"
+            File(context.getExternalFilesDir(null), filename).writeText(rawReport)
             val report = JSONObject(rawReport)
             val frames = report.getJSONObject("gnssEvidence").getJSONArray("frames")
-            assertTrue("Independent receiver did not see the GNSS stream", frames.length() >= 15)
-            assertTrue("Duplicate 1 Hz GNSS deliveries in a 20 second window", frames.length() <= 22)
+            assertTrue("Independent receiver did not see the GNSS stream", frames.length() >= sampleSeconds - 5)
+            assertTrue("Duplicate 1 Hz GNSS deliveries", frames.length() <= sampleSeconds + 2)
             val expectedCounts = mapOf(1 to 4, 2 to 4, 3 to 4, 4 to 4, 5 to 4, 6 to 4, 7 to 4)
+            val androidTypes = mapOf(Constellation.GPS to 1, Constellation.SBAS to 2, Constellation.GLONASS to 3,
+                Constellation.QZSS to 4, Constellation.BEIDOU to 5, Constellation.GALILEO to 6, Constellation.IRNSS to 7)
+            val realIdentities = captured?.frames?.flatMap { it.satellites }?.filter(GnssCaptureValidator::isUsableSatellite)
+                ?.map { androidTypes.getValue(it.constellation) to it.svid }?.toSet()
             for (index in 0 until frames.length()) {
                 val records = frames.getJSONObject(index).getJSONArray("satellites")
                 val counts = (0 until records.length()).map { records.getJSONObject(it).getInt("constellation") }.groupingBy { it }.eachCount()
-                assertEquals(expectedCounts, counts)
-                for (record in 0 until records.length()) assertTrue(records.getJSONObject(record).getBoolean("usedInFix"))
+                if (!realCapture) assertEquals(expectedCounts, counts)
+                for (record in 0 until records.length()) {
+                    val satellite = records.getJSONObject(record)
+                    if (!realCapture) assertTrue(satellite.getBoolean("usedInFix"))
+                    else {
+                        assertTrue("Invented satellite identity", checkNotNull(realIdentities).contains(
+                            satellite.getInt("constellation") to satellite.getInt("svid")))
+                        assertTrue(satellite.getDouble("elevationDegrees") in 0.0..90.0)
+                        val azimuth = satellite.getDouble("azimuthDegrees")
+                        assertTrue(azimuth >= 0.0 && azimuth < 360.0)
+                        assertTrue(satellite.getDouble("cn0DbHz") > 0.0)
+                    }
+                }
             }
             val checks = report.getJSONArray("checks")
             val relevant = (0 until checks.length()).map { checks.getJSONObject(it) }.associateBy { it.getString("id") }
@@ -188,11 +220,11 @@ class GnssIndependentReceiverDeviceTest {
             } ?: error("Detector did not report GPS extras comparison coverage")
             val suppliedGps = coverage.groupValues[1].toInt()
             val comparedGps = coverage.groupValues[2].toInt()
-            assertTrue("GPS callbacks did not exercise the high-rate stream", suppliedGps >= 100)
+            assertTrue("GPS callbacks did not exercise the high-rate stream", suppliedGps >= sampleSeconds * 5)
             assertEquals("Every supplied GPS extras sample must be compared", suppliedGps, comparedGps)
             val distinctGps = lines.firstNotNullOfOrNull { Regex("GPS 不同坐标=(\\d+)").find(it) }
                 ?.groupValues?.get(1)?.toInt() ?: error("Detector did not report GPS movement coverage")
-            assertTrue("Independent GPS receiver did not observe movement/noise", distinctGps >= 100)
+            assertTrue("Independent GPS receiver did not observe movement/noise", distinctGps >= sampleSeconds * 5)
             val nmeaEvidence = checkNotNull(relevant["C07"]).getJSONArray("evidence")
             val nmeaLines = (0 until nmeaEvidence.length()).map { nmeaEvidence.getString(it) }
             val pairedGsv = nmeaLines.firstNotNullOfOrNull {
@@ -200,7 +232,10 @@ class GnssIndependentReceiverDeviceTest {
             } ?: error("Detector did not report per-epoch GSV identity comparison coverage")
             val bursts = nmeaLines.firstNotNullOfOrNull { Regex("GSV：(\\d+) 组 burst").find(it) }
                 ?.groupValues?.get(1)?.toInt() ?: error("Detector did not report GSV burst count")
-            assertTrue("Insufficient independent NMEA/GNSS comparisons", bursts >= 15)
+            val expectedBursts = if (realCapture) (0 until frames.length()).count {
+                frames.getJSONObject(it).getJSONArray("satellites").length() > 0
+            } - 2 else sampleSeconds - 5
+            assertTrue("Insufficient independent NMEA/GNSS comparisons", bursts >= expectedBursts)
             assertEquals("Every GSV epoch must be compared", bursts, pairedGsv.groupValues[1].toInt())
             assertEquals("GSV identities differ from status", 0, pairedGsv.groupValues[2].toInt())
             assertEquals("GSV count differs from status", 0, pairedGsv.groupValues[3].toInt())

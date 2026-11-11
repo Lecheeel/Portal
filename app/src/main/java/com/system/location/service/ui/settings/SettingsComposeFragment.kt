@@ -46,8 +46,6 @@ import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.data.repository.LibraryRepositories
 import com.system.location.service.designsystem.components.PortalActionRow
 import com.system.location.service.designsystem.components.PortalSettingGroup
-import com.system.location.service.designsystem.components.PortalCard
-import com.system.location.service.designsystem.components.PortalSectionTitle
 import com.system.location.service.designsystem.components.PortalSwitchRow
 import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.ext.accuracy
@@ -181,6 +179,11 @@ class SettingsComposeFragment : Fragment() {
                     onSensorTargets = {
                         val context = requireContext()
                         openAppSelection("sensors", "传感器目标应用", context.sensorTargetPackages)
+                    },
+                    onEditSensorPackages = {
+                        findNavController().navigate(R.id.nav_sensor_packages, Bundle().apply {
+                            putStringArrayList("selected", ArrayList(requireContext().sensorTargetPackages.sorted()))
+                        })
                     },
                     onAppPoint = ::showAppPoint,
                     onBackgroundGuidance = { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) },
@@ -426,6 +429,7 @@ private fun SettingsScreen(
     onEditSatelliteCount: () -> Unit,
     onAppRouting: () -> Unit,
     onSensorTargets: () -> Unit,
+    onEditSensorPackages: () -> Unit,
     onAppPoint: () -> Unit,
     onBackgroundGuidance: () -> Unit,
     onCrashReporting: (Boolean) -> Unit,
@@ -574,99 +578,146 @@ private fun SettingsScreen(
                 }
                 if (category == SettingsCategory.APPS) {
                     item(key = "sensors") {
-                        SensorSettingsControls(sensorTargets, onSensorTargets) {
-                            context.sensorTargetPackages = it
-                            refresh()
-                            onConfigChanged()
+                        SensorSettingsControls(sensorTargets, onSensorTargets, onEditSensorPackages)
+                    }
+                }
+                if (category == SettingsCategory.SYSTEM) {
+                    item(key = "system-hooks") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("仅 Xposed/Native 后端有效", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val controls: List<@Composable (Modifier) -> Unit> = listOf(
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "SIM 就绪",
+                                        subtitle = "关闭时模拟无 SIM / 仅 Wi-Fi。",
+                                        checked = values.simReady,
+                                        onCheckedChange = hookAction { context.simReady = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "网络降级为 CDMA",
+                                        checked = values.needDowngradeToCdma,
+                                        onCheckedChange = hookAction { context.needDowngradeToCdma = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "模拟 Wi-Fi 环境",
+                                        subtitle = "向第三方应用提供模拟的扫描结果与连接信息。",
+                                        checked = values.mockWifiEnabled,
+                                        onCheckedChange = hookAction { context.mockWifiEnabled = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                            )
+                            PortalSettingGroup(category.title, controls.size) { index, rowModifier ->
+                                controls[index](rowModifier)
+                            }
                         }
                     }
                 }
-                if (category in setOf(SettingsCategory.SYSTEM, SettingsCategory.ADVANCED, SettingsCategory.GNSS)) {
-                    item(key = "hooks") {
-                        PortalCard {
-                            PortalSectionTitle(category!!.title, "以下选项仅 Xposed/Native 后端有效")
-                            if (category == SettingsCategory.SYSTEM) {
-                                PortalSwitchRow(
-                                    title = "SIM 就绪",
-                                    subtitle = "关闭时模拟无 SIM / 仅 Wi-Fi。",
-                                    checked = values.simReady,
-                                    onCheckedChange = hookAction { context.simReady = it },
-                                )
+                if (category == SettingsCategory.ADVANCED) {
+                    item(key = "advanced-hooks") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("仅 Xposed/Native 后端有效", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val controls: List<@Composable (Modifier) -> Unit> = listOf(
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "调试模式",
+                                        checked = values.debug,
+                                        onCheckedChange = hookAction { context.debug = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "允许获取当前位置",
+                                        checked = !values.disableGetCurrentLocation,
+                                        onCheckedChange = hookAction { context.disableGetCurrentLocation = !it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "允许注册位置监听器",
+                                        checked = !values.disableRegisterLocationListener,
+                                        onCheckedChange = hookAction { context.disableRegisterLocationListener = !it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "禁用融合定位",
+                                        checked = values.disableFusedProvider,
+                                        onCheckedChange = hookAction { context.disableFusedProvider = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "隐藏模拟标记",
+                                        subtitle = "开启后不向应用暴露 isMock；关闭可用于验证应用的降级逻辑。",
+                                        checked = values.hideMock,
+                                        onCheckedChange = hookAction { context.hideMock = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "实验性反检测（原生路径改写）",
+                                        subtitle = "默认关闭；仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
+                                        checked = values.antiDetectEnabled,
+                                        onCheckedChange = hookAction { context.antiDetectEnabled = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "实验性堆栈清洗",
+                                        subtitle = "默认关闭；从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
+                                        checked = values.stackTraceCleanEnabled,
+                                        onCheckedChange = hookAction { context.stackTraceCleanEnabled = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                                { rowModifier ->
+                                    PortalSwitchRow(
+                                        title = "按设定间隔广播",
+                                        subtitle = "仅 Xposed/Native：开启时采用设定间隔，关闭时广播间隔至少为 500 ms。",
+                                        checked = values.loopBroadcastlocation,
+                                        onCheckedChange = hookAction { context.loopBroadcastlocation = it },
+                                        modifier = rowModifier,
+                                    )
+                                },
+                            )
+                            PortalSettingGroup(category.title, controls.size) { index, rowModifier ->
+                                controls[index](rowModifier)
                             }
-                            if (category == SettingsCategory.ADVANCED) {
-                                PortalSwitchRow(
-                                    title = "调试模式",
-                                    checked = values.debug,
-                                    onCheckedChange = hookAction { context.debug = it },
-                                )
-                                PortalSwitchRow(
-                                    title = "允许获取当前位置",
-                                    checked = !values.disableGetCurrentLocation,
-                                    onCheckedChange = hookAction { context.disableGetCurrentLocation = !it },
-                                )
-                                PortalSwitchRow(
-                                    title = "允许注册位置监听器",
-                                    checked = !values.disableRegisterLocationListener,
-                                    onCheckedChange = hookAction { context.disableRegisterLocationListener = !it },
-                                )
-                                PortalSwitchRow(
-                                    title = "禁用融合定位",
-                                    checked = values.disableFusedProvider,
-                                    onCheckedChange = hookAction { context.disableFusedProvider = it },
-                                )
-                            }
-                            if (category == SettingsCategory.SYSTEM) {
-                                PortalSwitchRow(
-                                    title = "网络降级为 CDMA",
-                                    checked = values.needDowngradeToCdma,
-                                    onCheckedChange = hookAction { context.needDowngradeToCdma = it },
-                                )
-                            }
-                            if (category == SettingsCategory.GNSS) {
-                                GnssPolicyControls(enabled = hooksEnabled, onChanged = { refresh(); onConfigChanged() })
+                        }
+                    }
+                }
+                if (category == SettingsCategory.GNSS) {
+                    item(key = "gnss-policy") {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("仅 Xposed/Native 后端有效", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            GnssPolicyControls(enabled = hooksEnabled, onChanged = { refresh(); onConfigChanged() })
+                            PortalSettingGroup("卫星数量", 1) { _, rowModifier ->
                                 PortalActionRow(
                                     title = "最少卫星数",
                                     subtitle = if (values.minSatelliteCount == 0) "自动数量：按所选模式和目标天空生成"
-                                    else "可见卫星下限 ${values.minSatelliteCount} 颗；按所选数量策略处理不足",
+                                        else "可见卫星下限 ${values.minSatelliteCount} 颗；按所选数量策略处理不足",
                                     onClick = onEditSatelliteCount,
                                     enabled = hooksEnabled,
-                                )
-                                GnssCaptureStatus(captureModel, values.minSatelliteCount)
-                            }
-                            if (category == SettingsCategory.SYSTEM) {
-                                PortalSwitchRow(
-                                    title = "模拟 Wi-Fi 环境",
-                                    subtitle = "向第三方应用提供模拟的扫描结果与连接信息。",
-                                    checked = values.mockWifiEnabled,
-                                    onCheckedChange = hookAction { context.mockWifiEnabled = it },
+                                    modifier = rowModifier,
                                 )
                             }
-                            if (category == SettingsCategory.ADVANCED) {
-                                PortalSwitchRow(
-                                    title = "隐藏模拟标记",
-                                    subtitle = "开启后不向应用暴露 isMock；关闭可用于验证应用的降级逻辑。",
-                                    checked = values.hideMock,
-                                    onCheckedChange = hookAction { context.hideMock = it },
-                                )
-                                PortalSwitchRow(
-                                    title = "实验性反检测（原生路径改写）",
-                                    subtitle = "默认关闭；仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
-                                    checked = values.antiDetectEnabled,
-                                    onCheckedChange = hookAction { context.antiDetectEnabled = it },
-                                )
-                                PortalSwitchRow(
-                                    title = "实验性堆栈清洗",
-                                    subtitle = "默认关闭；从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
-                                    checked = values.stackTraceCleanEnabled,
-                                    onCheckedChange = hookAction { context.stackTraceCleanEnabled = it },
-                                )
-                                PortalSwitchRow(
-                                    title = "按设定间隔广播",
-                                    subtitle = "仅 Xposed/Native：开启时采用设定间隔，关闭时广播间隔至少为 500 ms。",
-                                    checked = values.loopBroadcastlocation,
-                                    onCheckedChange = hookAction { context.loopBroadcastlocation = it },
-                                )
-                            }
+                            GnssCaptureStatus(captureModel, values.minSatelliteCount)
                         }
                     }
                 }

@@ -15,6 +15,31 @@ import org.junit.runner.RunWith
 class AppSelectionUiTest {
     @get:Rule val compose = createEmptyComposeRule()
 
+    @Test fun packageEditorKeepsInvalidDraftAcrossRecreationAndSavesOnlyValidPackages() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val original = context.sensorTargetPackages
+        acceptSelectedMapForUiTest()
+        grantUiPermissions()
+        try {
+            context.sensorTargetPackages = setOf("dev.portal.original")
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                compose.openPage(scenario, R.id.nav_settings_apps)
+                compose.scrollToText("编辑包名").performClick()
+                compose.onNode(hasSetTextAction()).performTextReplacement("invalid")
+                compose.onNodeWithText("保存包名").performClick()
+                compose.onNodeWithText("请填写完整包名，最多 128 个").assertIsDisplayed()
+                assertEquals(setOf("dev.portal.original"), context.sensorTargetPackages)
+                scenario.recreate()
+                compose.onNode(hasSetTextAction()).assertTextContains("invalid")
+                compose.onNode(hasSetTextAction()).performTextReplacement("dev.portal.first\ndev.portal.second")
+                captureUi("settings-package-editor")
+                compose.onNodeWithText("保存包名").performClick()
+                compose.scrollToText("编辑包名").assertIsDisplayed()
+                assertEquals(setOf("dev.portal.first", "dev.portal.second"), context.sensorTargetPackages)
+            }
+        } finally { context.sensorTargetPackages = original }
+    }
+
     @Test fun savedPackagesSurviveSearchRecreationAndCancelUntilExplicitSave() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val original = context.sensorTargetPackages

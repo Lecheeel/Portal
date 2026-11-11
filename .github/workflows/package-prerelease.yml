@@ -67,6 +67,11 @@ jobs:
           umask 077
           printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/portal-release.jks"
           echo "KEYSTORE_PATH=$RUNNER_TEMP/portal-release.jks" >> "$GITHUB_ENV"
+      - name: Resolve native build dependencies
+        run: |
+          chmod +x ./gradlew
+          printf '%s\n' 'allprojects { tasks.register("resolveReleaseArtifacts") { doLast { configurations.findByName("releaseRuntimeClasspath")?.resolve() } } }' > "$RUNNER_TEMP/resolve-release.gradle"
+          ./gradlew -I "$RUNNER_TEMP/resolve-release.gradle" :xposed:resolveReleaseArtifacts --stacktrace
       - name: Native ABI syntax and link
         run: python3 scripts/check_native_syntax.py --link
       - name: Generate native payload from this revision

@@ -90,7 +90,22 @@ class RinexGpsOrbitProviderTest {
         val conflict = RinexGpsOrbitProvider(file(record, change(5, 1, 63.0)), provenance, utc).positions(request)
         assertTrue(conflict.positions.isEmpty())
         assertTrue(conflict.diagnostics.isNotEmpty())
+        assertEquals(setOf(Constellation.GPS to 1), conflict.blockedIdentities)
         assertEquals(1, RinexGpsOrbitProvider(file(record, record), provenance, utc).positions(request).positions.size)
+    }
+
+    @Test fun rejectingNewerMalformedPayloadNeverRestoresAnOlderHealthyBroadcast() {
+        val invalid = change(6, 1, null).let { raw -> raw.copy(orbit = raw.orbit.mapIndexed { row, values ->
+            if (row == 6) listOf(60.0, null, null, null) else values
+        }) }
+        val source = RinexGpsOrbitProvider(file(record, invalid), provenance, utc)
+        assertEquals(1, source.positions(request).positions.size)
+        val after = source.positions(request.copy(atMillis = epoch + 60000))
+        assertTrue(after.positions.isEmpty())
+        assertEquals(setOf(Constellation.GPS to 1), after.reservedIdentities)
+        val unknownOrder = RinexGpsOrbitProvider(file(record, change(6, 0, null)), provenance, utc).positions(request)
+        assertTrue(unknownOrder.positions.isEmpty())
+        assertTrue(unknownOrder.diagnostics.any { "ordering unavailable" in it })
     }
 
     @Test fun angularAndHarmonicParametersKeepTheirSpecifiedUnitsAndColumns() {

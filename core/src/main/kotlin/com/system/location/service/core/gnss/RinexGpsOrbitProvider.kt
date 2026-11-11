@@ -32,6 +32,15 @@ internal class RinexOrbitFields(private val record: RinexNavigationRecord) {
 
 data class RinexGpsBroadcast(val ephemeris: GpsLnavEphemeris, val availableFrom: GpsTime)
 
+/** Ordering survives an invalid orbit/clock payload; rejecting it must not revive an old upload. */
+internal fun RinexNavigationRecord.gpsAlignedTransmission(): GpsTime? = runCatching {
+    val fields = RinexOrbitFields(this)
+    val week = fields.integer(4, 2, 0..Int.MAX_VALUE)
+    val seconds = fields.orbit(6, 0)
+    require(seconds >= -604800 && seconds < 1209600)
+    GpsTime(week, 0.0).plusSeconds(seconds)
+}.getOrNull()
+
 /** IS-GPS-200N fit duration is supplied by RINEX A6 in HOURS, not a one-bit flag. */
 object RinexGpsImporter {
     fun decode(record: RinexNavigationRecord): RinexGpsBroadcast {
@@ -72,12 +81,13 @@ class RinexGpsOrbitProvider(file: RinexNavigationFile, private val provenance: G
     private val reserved = file.records.filter { it.system == RinexNavigationSystem.GPS && it.svid in 1..32 }
         .map { Constellation.GPS to it.svid }.toSet()
     private val diagnostics = mutableListOf<String>()
-    private val records = file.records.filter { it.system == RinexNavigationSystem.GPS }.mapNotNull { record ->
-        runCatching { RinexGpsImporter.decode(record) }.getOrElse {
+    private data class Upload(val transmittedAt: GpsTime?, val decoded: RinexGpsBroadcast?)
+    private val records = file.records.filter { it.system == RinexNavigationSystem.GPS }.groupBy { it.svid }.mapValues { (_, rows) ->
+        rows.map { record -> Upload(record.gpsAlignedTransmission(), runCatching { RinexGpsImporter.decode(record) }.getOrElse {
             diagnostics += "GPS:${record.svid}: ${it.message}"
             null
-        }
-    }.groupBy { it.ephemeris.svid }
+        }) }
+    }
 
     init { require(provenance.kind == kind) }
 
@@ -90,12 +100,20 @@ class RinexGpsOrbitProvider(file: RinexNavigationFile, private val provenance: G
         val positions = records.mapNotNull { (svid, candidates) ->
             // Do not look ahead to a future transmission or revive a prior healthy upload after
             // a newer applicable unhealthy one. Expired uploads can fall back to other sources.
-            val transmitted = candidates.filter { time.secondsSince(it.availableFrom) >= 0 }
+            if (candidates.any { it.transmittedAt == null }) {
+                messages += "GPS:$svid: upload ordering unavailable; no older broadcast may be revived"
+                return@mapNotNull null
+            }
+            val transmitted = candidates.filter { time.secondsSince(requireNotNull(it.transmittedAt)) >= 0 }
             val latestTime = transmitted.maxByOrNull {
-                it.availableFrom.week * 604800.0 + it.availableFrom.secondsOfWeek
-            }?.availableFrom
-            val latest = transmitted.filter { it.availableFrom == latestTime }.distinct()
-            val accepted = latest.singleOrNull()
+                requireNotNull(it.transmittedAt).let { stamp -> stamp.week * 604800.0 + stamp.secondsOfWeek }
+            }?.transmittedAt
+            val latest = transmitted.filter { it.transmittedAt == latestTime }.distinct()
+            val decoded = latest.mapNotNull { it.decoded }
+            if (decoded.any { time.secondsSince(it.ephemeris.validFrom) >= 0 &&
+                    it.ephemeris.validUntil.secondsSince(time) >= 0 && it.ephemeris.health != 0 })
+                blocked += Constellation.GPS to svid
+            val accepted = latest.singleOrNull()?.decoded
             if (accepted == null || time.secondsSince(accepted.ephemeris.validFrom) < 0 ||
                 accepted.ephemeris.validUntil.secondsSince(time) < 0) {
                 messages += "GPS:$svid: no applicable RINEX broadcast upload"

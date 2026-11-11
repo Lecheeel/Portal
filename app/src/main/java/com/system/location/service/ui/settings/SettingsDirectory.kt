@@ -19,7 +19,7 @@ internal enum class SettingsCategory(val title: String, val summary: String, val
     MOTION("运动与摇杆", "速度、路线平滑与物理漂移", R.id.nav_settings_motion, R.drawable.ic_portal_motion),
     GNSS("卫星与 GNSS", "卫星生成、数量策略与接收环境", R.id.nav_settings_gnss, R.drawable.ic_portal_satellite),
     APPS("分应用规则", "应用路由、固定点与传感器目标", R.id.nav_settings_apps, R.drawable.ic_portal_apps),
-    SYSTEM("系统与环境模拟", "SIM、Wi-Fi 与网络类型", R.id.nav_settings_system, R.drawable.ic_portal_system),
+    SYSTEM("系统与环境模拟", "SIM、Wi-Fi、网络类型与环境配置", R.id.nav_settings_system, R.drawable.ic_portal_system),
     ADVANCED("高级与实验", "定位通道、兼容选项与实验功能", R.id.nav_settings_advanced, R.drawable.ic_portal_experiment),
     PRIVACY("后台与隐私", "后台运行与崩溃报告", R.id.nav_settings_privacy, R.drawable.ic_portal_privacy),
     UPDATES("关于与更新", "检查更新与更新通道", R.id.nav_settings_updates, R.drawable.ic_portal_update),

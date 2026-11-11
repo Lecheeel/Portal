@@ -184,6 +184,7 @@ class SettingsComposeFragment : Fragment() {
                         })
                     },
                     onAppPoint = ::showAppPoint,
+                    onEnvironment = { findNavController().navigate(R.id.nav_environment) },
                     onBackgroundGuidance = { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) },
                     onCrashReporting = { enabled -> setCrashReporting(enabled) },
                     onUpdateChannel = ::showUpdateChannel,
@@ -398,6 +399,7 @@ private fun SettingsScreen(
     onSensorTargets: () -> Unit,
     onEditSensorPackages: () -> Unit,
     onAppPoint: () -> Unit,
+    onEnvironment: () -> Unit,
     onBackgroundGuidance: () -> Unit,
     onCrashReporting: (Boolean) -> Unit,
     onUpdateChannel: () -> Unit,
@@ -549,6 +551,12 @@ private fun SettingsScreen(
                     }
                 }
                 if (category == SettingsCategory.SYSTEM) {
+                    item(key = "environment-tools") {
+                        PortalSettingGroup("环境配置", 1) { _, rowModifier ->
+                            PortalActionRow("环境工具", "采集、导入、回放与 Wi-Fi 指纹；模拟输出需 Xposed / Native",
+                                onEnvironment, modifier = rowModifier)
+                        }
+                    }
                     item(key = "system-hooks") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("仅 Xposed/Native 后端有效", style = MaterialTheme.typography.bodySmall,

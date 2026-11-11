@@ -19,6 +19,24 @@ import java.util.UUID
 class EnvironmentPreferencesUiTest {
     @get:Rule val compose = createEmptyComposeRule()
 
+    @Test fun systemSettingsOpensEnvironmentAndReturnsToItsCategory() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        acceptSelectedMapForUiTest()
+        grantUiPermissions()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.openPage(scenario, R.id.nav_settings_system)
+            compose.scrollToText("环境工具").performClick()
+            compose.scrollToText(context.getString(R.string.environment_capture_action)).assertIsDisplayed()
+            compose.scrollToText(context.getString(R.string.wifi_fingerprint_enable)).assertIsDisplayed()
+            captureUi("settings-environment-groups")
+            scenario.recreate()
+            compose.scrollToText(context.getString(R.string.environment_capture_action)).assertIsDisplayed()
+            scenario.onActivity { it.onSupportNavigateUp() }
+            compose.scrollToText("SIM 就绪").assertIsDisplayed()
+            compose.scrollToText("环境工具").assertIsDisplayed()
+        }
+    }
+
     @Test fun replayOverridesProceduralSelectionAndUpdatesVisibleSource() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val source = context.environmentSourceMode

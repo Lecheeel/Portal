@@ -27,13 +27,21 @@ class RinexGalileoOrbitProvider(
         .map { Constellation.GALILEO to it.svid }.toSet()
     private val diagnostics = mutableListOf<String>()
     private val correction = runCatching { RinexTimeSystemCorrection.galileoCorrection(file.timeSystemCorrections) }
-    private val records = file.records.filter { it.system == RinexNavigationSystem.GALILEO }.mapNotNull { record ->
-        runCatching { RinexGalileoImporter.decode(record) }.getOrElse {
-            diagnostics += "Galileo:${record.svid}: ${it.message}"
-            null
-        }
-    }.filter { it.ephemeris.clockReference == GalileoClockReference.INAV_E1_E5B }
-        .groupBy { it.ephemeris.svid }
+    private data class Upload(val transmittedAt: GalileoTime?, val decoded: RinexGalileoBroadcast?)
+    private val records = file.records.filter { it.system == RinexNavigationSystem.GALILEO }
+        .filterNot {
+            // RINEX A8 bit 1 F/NAV plus bit 8 E1/E5a clock reference. Even a malformed
+            // F/NAV orbit cannot supersede E1 I/NAV; an unknown source cannot be ignored.
+            it.orbit.getOrNull(4)?.getOrNull(1) == 0x102.toDouble()
+        }.groupBy { it.svid }.mapValues { (_, rows) -> rows.map { record ->
+            val stamp = record.gpsAlignedTransmission()?.let {
+                if (it.week >= 1024) GalileoTime(it.week - 1024, it.secondsOfWeek) else null
+            }
+            Upload(stamp, runCatching { RinexGalileoImporter.decode(record) }.getOrElse {
+                diagnostics += "Galileo:${record.svid}: ${it.message}"
+                null
+            })
+        } }
 
     init { require(provenance.kind == kind) }
 
@@ -56,14 +64,20 @@ class RinexGalileoOrbitProvider(
         messages += "Galileo: approximate GTRF/WGS84 sky alignment; GAGP age limited by application policy, not guaranteed broadcast validity"
         val blocked = mutableSetOf<Pair<Constellation, Int>>()
         val positions = records.mapNotNull { (svid, candidates) ->
-            val transmitted = candidates.filter { time.secondsSince(it.availableFrom) >= 0 }
-            val latestTime = transmitted.maxByOrNull { it.availableFrom.week * 604800.0 + it.availableFrom.secondsOfWeek }?.availableFrom
-            val latest = transmitted.filter { it.availableFrom == latestTime }.distinct()
+            if (candidates.any { it.transmittedAt == null }) {
+                messages += "Galileo:$svid: upload ordering unavailable; no older broadcast may be revived"
+                return@mapNotNull null
+            }
+            val transmitted = candidates.filter { time.secondsSince(requireNotNull(it.transmittedAt)) >= 0 }
+            val latestTime = transmitted.maxByOrNull {
+                requireNotNull(it.transmittedAt).let { stamp -> stamp.week * 604800.0 + stamp.secondsOfWeek }
+            }?.transmittedAt
+            val latest = transmitted.filter { it.transmittedAt == latestTime }.distinct()
             fun applicable(record: RinexGalileoBroadcast) = time.secondsSince(record.ephemeris.validFrom) >= 0 &&
                 record.ephemeris.validUntil.secondsSince(time) >= 0
-            if (latest.any { applicable(it) && it.service.e1bHealthy == false })
+            if (latest.mapNotNull { it.decoded }.any { applicable(it) && it.service.e1bHealthy == false })
                 blocked += Constellation.GALILEO to svid
-            val accepted = latest.singleOrNull()
+            val accepted = latest.singleOrNull()?.decoded
             if (accepted == null || !applicable(accepted) || accepted.service.e1bHealthy != true ||
                 !accepted.service.accuracyAvailable) {
                 messages += "Galileo:$svid: no unique applicable healthy E1 RINEX upload with SISA"

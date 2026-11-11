@@ -98,4 +98,20 @@ class RinexGalileoOrbitProviderTest {
         assertEquals(setOf(Constellation.GALILEO to 1), conflict.blockedIdentities)
         assertTrue(provider(listOf(change(6, 0, 60.0))).positions(request).positions.isEmpty())
     }
+
+    @Test fun malformedLatestInavCannotResurrectOlderUploadButFnavDoesNotSupersedeE1() {
+        val invalid = change(1, 3, null).let { raw -> raw.copy(orbit = raw.orbit.mapIndexed { row, values ->
+            if (row == 6) listOf(60.0, null, null, null) else values
+        }) }
+        val source = provider(listOf(record, invalid))
+        assertEquals(1, source.positions(request).positions.size)
+        assertTrue(source.positions(request.copy(atMillis = epoch + 60000)).positions.isEmpty())
+        val fnav = invalid.copy(orbit = invalid.orbit.mapIndexed { row, values ->
+            if (row == 4) listOf(0.0, 258.0, 2444.0, null) else values
+        })
+        assertEquals(1, provider(listOf(record, fnav)).positions(request.copy(atMillis = epoch + 60000)).positions.size)
+        val unknown = provider(listOf(record, change(6, 0, null))).positions(request)
+        assertTrue(unknown.positions.isEmpty())
+        assertTrue(unknown.diagnostics.any { "ordering unavailable" in it })
+    }
 }

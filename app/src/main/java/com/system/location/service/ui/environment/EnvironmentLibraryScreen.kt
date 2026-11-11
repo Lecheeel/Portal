@@ -7,7 +7,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.system.location.service.R
 import com.system.location.service.designsystem.components.PortalActionRow
 import com.system.location.service.designsystem.components.PortalSettingGroup
 
@@ -52,10 +54,16 @@ internal fun EnvironmentLibraryScreen(
                         TextButton(onRetry) { Text("重新加载") }
                     }
                     state.names.isEmpty() -> item {
+                        Icon(painterResource(R.drawable.ic_portal_info), contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                         Text("还没有保存环境")
                         Text("返回环境工具，采集当前环境或从文件导入。", style = MaterialTheme.typography.bodyMedium)
                     }
-                    visible.isEmpty() -> item { Text("没有符合条件的环境") }
+                    visible.isEmpty() -> item {
+                        Icon(painterResource(R.drawable.ic_portal_info), contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                        Text("没有符合条件的环境")
+                    }
                     else -> items(visible, key = { it }) { name ->
                         PortalActionRow(name, onClick = { action = name })
                     }
@@ -70,7 +78,11 @@ internal fun EnvironmentLibraryScreen(
                     0 -> PortalActionRow("设置为回放环境", onClick = { action = null; onReplay(name) }, modifier = modifier)
                     1 -> PortalActionRow("导出环境 JSON", onClick = { action = null; onExport(name) }, modifier = modifier)
                     2 -> PortalActionRow("重命名", onClick = { action = null; renaming = name; nameInput = name }, modifier = modifier)
-                    3 -> PortalActionRow("删除", onClick = { action = null; deleting = name }, modifier = modifier)
+                    3 -> PortalActionRow("删除", onClick = { action = null; deleting = name }, modifier = modifier,
+                        leadingContent = {
+                            Icon(painterResource(R.drawable.ic_portal_delete), contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp))
+                        })
                 }
             }
         }, confirmButton = { TextButton({ action = null }) { Text("取消") } })

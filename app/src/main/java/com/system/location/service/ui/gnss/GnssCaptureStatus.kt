@@ -19,12 +19,12 @@ internal fun GnssCaptureStatus(model: GnssCaptureViewModel, minimumSatellites: I
     Column {
         val current = preview
         if (current == null) {
-            Text("正在读取本机画像…", style = MaterialTheme.typography.bodySmall)
+            Text("正在读取实测回放画像…", style = MaterialTheme.typography.bodySmall)
         } else when (current.state) {
-            GnssCapturePlaybackState.WAITING_FOR_CAPTURE -> Text("等待真实采集；无有效画像时透传真实卫星数据。",
+            GnssCapturePlaybackState.WAITING_FOR_CAPTURE -> Text("尚无实测回放画像；自动和自主模式无需本机采集。",
                 style = MaterialTheme.typography.bodySmall)
             GnssCapturePlaybackState.INVALID_CAPTURE -> {
-                Text("画像不可用；当前透传真实卫星数据，请重新采集。", style = MaterialTheme.typography.bodySmall,
+                Text("实测回放画像不可用；自动和自主模式可继续使用轨道资源或虚拟天空。", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error)
                 current.issues.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
@@ -35,13 +35,13 @@ internal fun GnssCaptureStatus(model: GnssCaptureViewModel, minimumSatellites: I
                     ReceiverGnssSource.HYBRID_BROADCAST_REPLAY -> "广播星历几何 + 统计回放"
                     ReceiverGnssSource.AUTONOMOUS -> "自主天空仿真"
                 }
-                Text("采集地点预览（$sourceLabel）：当前有效池 ${frame.availableSatelliteCapacity} 颗，可见 ${frame.satellites.size} 颗。",
+                Text("实测回放参考（$sourceLabel，采集地点）：有效池 ${frame.availableSatelliteCapacity} 颗，可见 ${frame.satellites.size} 颗；不代表模拟地点的当前天空。",
                     style = MaterialTheme.typography.bodySmall)
                 Text(if (minimumSatellites == 0) {
                     if (frame.source == ReceiverGnssSource.STATISTICAL_REPLAY) "自动：按实测数量分布回放。"
                     else "自动：按采集证据和当前可用几何生成。"
                 }
-                    else "可见卫星下限 $minimumSatellites 颗${if (frame.satellites.size >= minimumSatellites) "，已满足。" else "，当前无法满足。"}",
+                    else "回放参考下限 $minimumSatellites 颗${if (frame.satellites.size >= minimumSatellites) "，已满足。" else "，此实测池无法满足；自主模式可另选数量保证策略。"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (frame.satellites.size < minimumSatellites) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant)

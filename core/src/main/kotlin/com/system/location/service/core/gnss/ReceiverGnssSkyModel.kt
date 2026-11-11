@@ -3,7 +3,7 @@ package com.system.location.service.core.gnss
 import com.system.location.service.core.geo.Wgs84
 import kotlin.math.abs
 
-enum class ReceiverGnssSource { STATISTICAL_REPLAY, BROADCAST_EPHEMERIS, HYBRID_BROADCAST_REPLAY }
+enum class ReceiverGnssSource { STATISTICAL_REPLAY, BROADCAST_EPHEMERIS, HYBRID_BROADCAST_REPLAY, AUTONOMOUS }
 
 /** Candidate usage is retained until the final combined sky has been solved. */
 internal data class ReceiverGnssSelection(
@@ -24,6 +24,9 @@ data class ReceiverGnssFrame(
     val diagnostics: List<String> = emptyList(),
     val availableSatelliteCapacity: Int = satellites.size,
     val requestedMinimumSatellites: Int = 0,
+    val orbitProvenance: Map<Pair<Constellation, Int>, GnssOrbitProvenance> = emptyMap(),
+    val trackedSatelliteCount: Int? = null,
+    val simulatedNavigationSatelliteCount: Int = 0,
 ) {
     init {
         require(generatedAtMillis >= 0 && altitudeMeters.isFinite())
@@ -32,6 +35,9 @@ data class ReceiverGnssFrame(
         require(requestedMinimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         require(satellites.all { it.elevationDeg >= 0f && it.azimuthDeg < 360f })
         require(satellites.map { it.constellation to it.svid }.distinct().size == satellites.size)
+        require(orbitProvenance.isEmpty() || orbitProvenance.keys == satellites.map { it.constellation to it.svid }.toSet())
+        require(trackedSatelliteCount == null || trackedSatelliteCount in 0..satellites.size)
+        require(simulatedNavigationSatelliteCount in 0..satellites.size)
     }
 }
 

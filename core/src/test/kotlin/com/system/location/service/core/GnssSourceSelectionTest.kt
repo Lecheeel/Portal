@@ -9,6 +9,28 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssSourceSelectionTest {
+    @Test fun autoTransfersSignalsOnlyAndKeepsGeneratingAfterCaptureExpiryWithFrozenTargetTime() {
+        val at = sample.timeMillis
+        val recording = CapturedGnssSource.prepare(GnssCaptureWire.encode(GnssCapture(
+            deviceModel = "test", osVersion = "test", startedAtMillis = at, endedAtMillis = at,
+            frames = listOf(GnssObservationFrame(at, Wgs84(-31.0, -59.0), satellites = listOf(
+                GnssSatellite(Constellation.GPS, 1, 0f, 100f, 25f, false, false, true, 1_575_420_000f),
+                GnssSatellite(Constellation.GPS, 2, 90f, 300f, 25f, false, false, true, 1_575_420_000f)))))))!!
+        val policy = GnssSimulationPolicy(virtualSeed = 905)
+        val baseline = GnssSourceSelection.source(policy, null)!!
+        val source = GnssSourceSelection.source(policy, recording)!!
+        val plain = baseline.frame(sample, 0, GnssFrameRoute.Global, at)!!.frame
+        val calibrated = source.frame(sample, 0, GnssFrameRoute.Global, at)!!.frame
+        assertEquals(plain.satellites.map { Triple(it.svid, it.elevationDeg, it.azimuthDeg) },
+            calibrated.satellites.map { Triple(it.svid, it.elevationDeg, it.azimuthDeg) })
+        assertNotEquals(plain.satellites.map { it.cn0DbHz }, calibrated.satellites.map { it.cn0DbHz })
+        val next = sample.copy(elapsedNanos = sample.elapsedNanos + 1_000_000_000)
+        val expired = source.frame(next, 0, GnssFrameRoute.Global,
+            at + GnssCaptureValidator.MAX_AGE_MILLIS + 1)!!
+        assertEquals(plain.satellites, expired.frame.satellites)
+        assertTrue(expired.frame.diagnostics.any { it.contains("已过期") })
+    }
+
     @Test fun acceptedNavigationReachesAutonomousGeometryWithoutMutatingOldPublications() {
         val at = java.time.Instant.parse("2026-11-07T23:59:42Z").toEpochMilli()
         val location = sample.copy(coordinate = Wgs84(0.0, 0.0), timeMillis = at)
@@ -46,7 +68,14 @@ class GnssSourceSelectionTest {
         val source = GnssSourceSelection.source(policy, null)!!
         assertNotNull(source.frame(sample, 0, GnssFrameRoute.Global, sample.timeMillis))
         val recording = capture()
-        assertSame(source, GnssSourceSelection.source(policy, recording))
+        val calibratedSource = GnssSourceSelection.source(policy, recording)!!
+        assertNotSame(source, calibratedSource)
+        assertSame(calibratedSource, GnssSourceSelection.source(policy, recording))
+        val independent = policy.copy(mode = GnssSimulationMode.AUTONOMOUS)
+        assertSame(GnssSourceSelection.source(independent, null), GnssSourceSelection.source(independent, recording))
+        val expired = calibratedSource.frame(sample, 0, GnssFrameRoute.Global, sample.timeMillis)!!
+        assertTrue(expired.frame.diagnostics.any { it.contains("已过期") })
+        assertNotNull(expired.frame)
         assertSame(recording, GnssSourceSelection.source(policy.copy(mode = GnssSimulationMode.REPLAY), recording))
         assertNull(GnssSourceSelection.source(policy.copy(mode = GnssSimulationMode.REPLAY), null))
         assertNull(GnssSourceSelection.source(policy.copy(mode = GnssSimulationMode.OFF), recording))

@@ -21,7 +21,8 @@ object GnssBundledOrbitResources {
      */
     fun model(policy: GnssSimulationPolicy, outputLimits: GnssOutputLimits,
         gpsAlmanacAgeBudgetSeconds: Double, downloadedGps: GpsAlmanacResource? = null,
-        navigation: RinexNavigationResource? = null): ReceiverAutonomousSkyModel {
+        navigation: RinexNavigationResource? = null,
+        signalCalibration: GnssAutonomousSignalCalibration? = null): ReceiverAutonomousSkyModel {
         require(gpsAlmanacAgeBudgetSeconds.isFinite() && gpsAlmanacAgeBudgetSeconds >= 0)
         val providers = mutableListOf<GnssOrbitProvider>()
         val diagnostics = mutableListOf<String>()
@@ -67,6 +68,7 @@ object GnssBundledOrbitResources {
             GnssSatelliteIds.nmeaId(constellation, svid)?.let { constellation to svid }
         } }
         return ReceiverAutonomousSkyModel(providers, VirtualWalkerOrbitProvider(virtual, policy.virtualSeed), policy,
-            quantitySupplement = GnssVirtualSkySupplement(identities, outputLimits, policy.virtualSeed))
+            quantitySupplement = GnssVirtualSkySupplement(identities, outputLimits, policy.virtualSeed),
+            signalCalibration = signalCalibration)
     }
 }

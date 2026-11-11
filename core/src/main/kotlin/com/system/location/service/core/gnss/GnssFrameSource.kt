@@ -13,7 +13,7 @@ interface GnssFrameSource {
 internal object GnssPublicationSequences { val counter = AtomicLong() }
 
 class AutonomousGnssSource internal constructor(policy: GnssSimulationPolicy,
-    navigation: RinexNavigationResource? = null) : GnssFrameSource {
+    navigation: RinexNavigationResource? = null, calibration: GnssAutonomousSignalCalibration? = null) : GnssFrameSource {
     override val requiresBootIdentity = false
     private val frames = GnssFrameStore(GnssPublicationSequences.counter).apply {
         configureAutonomous(GnssBundledOrbitResources.model(policy,
@@ -21,7 +21,7 @@ class AutonomousGnssSource internal constructor(policy: GnssSimulationPolicy,
             // Public GnssStatus.Builder and independent device receivers remain release gates.
             GnssOutputLimits(maxVisible = 128, maxPerTalker = 36, maxUsed = 32),
             // GPS-only application budget for approximate sky geometry, not an accuracy claim.
-            gpsAlmanacAgeBudgetSeconds = 7 * 86400.0, navigation = navigation))
+            gpsAlmanacAgeBudgetSeconds = 7 * 86400.0, navigation = navigation, signalCalibration = calibration))
     }
 
     override fun frame(sample: LocationSample, minimumSatellites: Int, route: GnssFrameRoute,
@@ -33,7 +33,8 @@ class AutonomousGnssSource internal constructor(policy: GnssSimulationPolicy,
 
 /** Stable policy copies reuse publications; old configuration readers keep their original handle. */
 object GnssSourceSelection {
-    private data class Key(val policy: GnssSimulationPolicy, val navigationDigest: String?, val navigationSource: String?)
+    private data class Key(val policy: GnssSimulationPolicy, val navigationDigest: String?, val navigationSource: String?,
+        val capture: CapturedGnssSource?)
     private val autonomous = object : LinkedHashMap<Key, AutonomousGnssSource>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, AutonomousGnssSource>?) = size > 64
     }
@@ -47,8 +48,9 @@ object GnssSourceSelection {
             // Validate before key reuse: an asserted digest is not proof that bytes match.
             navigation.let { resource ->
                 resource?.validate()
-                autonomous.getOrPut(Key(policy, resource?.sha256, resource?.sourceUrl)) {
-                    AutonomousGnssSource(policy, resource)
+                val signalSource = capture.takeIf { policy.mode == GnssSimulationMode.AUTO }
+                autonomous.getOrPut(Key(policy, resource?.sha256, resource?.sourceUrl, signalSource)) {
+                    AutonomousGnssSource(policy, resource, signalSource?.signalCalibration)
                 }
             }
     }

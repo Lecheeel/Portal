@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.LaunchedEffect
 import com.system.location.service.ui.preferenceRevision
 import androidx.compose.runtime.getValue
@@ -325,15 +329,15 @@ private fun EnvironmentScreen(
     val cellMode = remember(revision) { context.cellMode }
     val sourceMode = remember(revision) { context.environmentSourceMode }
     val fingerprintEnabled = remember(revision) { context.wifiFingerprintEnabled }
-    var apDialog by remember { mutableStateOf(false) }
-    var apInput by remember { mutableStateOf(apCount.toString()) }
-    var cellDialog by remember { mutableStateOf(false) }
-    var sourceDialog by remember { mutableStateOf(false) }
-    var listDialog by remember { mutableStateOf(false) }
-    var search by remember { mutableStateOf("") }
-    var renameTarget by remember { mutableStateOf<String?>(null) }
-    var renameInput by remember { mutableStateOf("") }
-    var actionTarget by remember { mutableStateOf<String?>(null) }
+    var apDialog by rememberSaveable { mutableStateOf(false) }
+    var apInput by rememberSaveable { mutableStateOf(apCount.toString()) }
+    var cellDialog by rememberSaveable { mutableStateOf(false) }
+    var sourceDialog by rememberSaveable { mutableStateOf(false) }
+    var listDialog by rememberSaveable { mutableStateOf(false) }
+    var search by rememberSaveable { mutableStateOf("") }
+    var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var renameInput by rememberSaveable { mutableStateOf("") }
+    var actionTarget by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun apply() {
         onApplyConfig()
@@ -373,6 +377,7 @@ private fun EnvironmentScreen(
         title = stringResource(R.string.cell_mode_title),
         options = listOf("AUTO", "FULL_REPLAY", "NO_SIM_WIFI_ONLY", "LEGACY_CDMA"),
         selected = cellMode,
+        label = ::cellModeLabel,
         onSelect = {
             context.cellMode = it
             cellDialog = false
@@ -385,6 +390,7 @@ private fun EnvironmentScreen(
         title = stringResource(R.string.environment_source_title),
         options = listOf("AUTO", "PROCEDURAL", "REPLAY"),
         selected = sourceMode,
+        label = ::environmentSourceLabel,
         onSelect = {
             context.environmentSourceMode = it
             sourceDialog = false
@@ -508,6 +514,7 @@ private fun EnvironmentScreen(
                         0 -> PortalSwitchRow(
                             title = stringResource(R.string.wifi_fingerprint_enable),
                             subtitle = "仅 Xposed / Native 模拟输出有效",
+                            status = "运行中尝试立即应用",
                             checked = fingerprintEnabled,
                             onCheckedChange = {
                                 context.wifiFingerprintEnabled = it
@@ -525,16 +532,19 @@ private fun EnvironmentScreen(
                     when (index) {
                         0 -> PortalActionRow(
                             title = stringResource(R.string.environment_ap_value, apCount),
+                            status = "运行中尝试立即应用",
                             onClick = { apInput = apCount.toString(); apDialog = true },
                             modifier = rowModifier,
                         )
                         1 -> PortalActionRow(
-                            title = stringResource(R.string.cell_mode_value, cellMode),
+                            title = stringResource(R.string.cell_mode_value, cellModeLabel(cellMode)),
+                            status = "运行中尝试立即应用",
                             onClick = { cellDialog = true },
                             modifier = rowModifier,
                         )
                         2 -> PortalActionRow(
-                            title = stringResource(R.string.environment_source_value, sourceMode),
+                            title = stringResource(R.string.environment_source_value, environmentSourceLabel(sourceMode)),
+                            status = "运行中尝试立即应用",
                             onClick = { sourceDialog = true },
                             modifier = rowModifier,
                         )
@@ -558,6 +568,7 @@ private fun ChoiceDialog(
     title: String,
     options: List<String>,
     selected: String,
+    label: (String) -> String,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -569,15 +580,33 @@ private fun ChoiceDialog(
             Column {
                 options.forEach { option ->
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().selectable(
+                            selected = option == selected, role = Role.RadioButton,
+                            onClick = { onSelect(option) },
+                        ).padding(vertical = 8.dp),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
-                        RadioButton(selected = option == selected, onClick = { onSelect(option) })
-                        Text(option)
+                        RadioButton(selected = option == selected, onClick = null)
+                        Text(label(option), Modifier.padding(start = 8.dp))
                     }
                 }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
+}
+
+private fun cellModeLabel(value: String) = when (value) {
+    "AUTO" -> "自动选择"
+    "FULL_REPLAY" -> "完整回放"
+    "NO_SIM_WIFI_ONLY" -> "无 SIM / 仅 Wi-Fi"
+    "LEGACY_CDMA" -> "CDMA 网络"
+    else -> "未知模式（$value）"
+}
+
+private fun environmentSourceLabel(value: String) = when (value) {
+    "AUTO" -> "自动选择"
+    "PROCEDURAL" -> "按位置生成"
+    "REPLAY" -> "已采集环境回放"
+    else -> "未知来源（$value）"
 }

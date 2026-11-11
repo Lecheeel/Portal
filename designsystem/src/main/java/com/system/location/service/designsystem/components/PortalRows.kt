@@ -50,6 +50,7 @@ fun PortalActionRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    leadingContent: (@Composable () -> Unit)? = null,
 ) {
     val contentAlpha = if (enabled) 1f else 0.38f
     Row(
@@ -62,6 +63,7 @@ fun PortalActionRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        leadingContent?.invoke()
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 title,

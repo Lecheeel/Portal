@@ -1,6 +1,7 @@
 package com.system.location.service.data.persistence
 
 import com.system.location.service.core.runtime.*
+import com.system.location.service.core.gnss.*
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -61,5 +62,24 @@ class HookConfigurationPreferencesTest {
     @Test fun staleAccuracyPreferenceIsClampedAtTheWireBoundary() {
         assertEquals(0.1f, HookConfigurationPreferences.read(mapOf("accuracy" to -5f), RuntimeSnapshot())["accuracy"])
         assertEquals(10_000f, HookConfigurationPreferences.read(mapOf("accuracy" to 50_000f), RuntimeSnapshot())["accuracy"])
+    }
+
+    @Test fun persistedGnssPolicyReachesTypedRuntimeWithoutLosingOtherPreferences() {
+        val wire = HookConfigurationPreferences.read(mapOf("gnssSimulationMode" to "AUTONOMOUS",
+            "gnssMinimumPolicy" to "GUARANTEE_QUANTITY", "gnssSimulationEnvironment" to "INDOOR",
+            "gnssVirtualSeed" to Long.MIN_VALUE, "minSatelliteCount" to 32), RuntimeSnapshot())
+        val result = PreparedRuntimeConfiguration.prepare(wire).applyTo(RuntimeSnapshot())
+        assertEquals(GnssSimulationPolicy(GnssSimulationMode.AUTONOMOUS, GnssMinimumPolicy.GUARANTEE_QUANTITY,
+            GnssSimulationEnvironment.INDOOR, Long.MIN_VALUE), result.configuration.gnssSimulation)
+        assertEquals(32, result.configuration.minimumSatellites)
+    }
+
+    @Test fun missingGnssPreferencesPreserveFallbackPolicyAndOldInstallDefaultsToAuto() {
+        val auto = HookConfigurationPreferences.read(emptyMap<String, Any>(), RuntimeSnapshot())
+        assertEquals("AUTO", auto["gnss_mode"])
+        val policy = GnssSimulationPolicy(mode = GnssSimulationMode.REPLAY, virtualSeed = 42)
+        val fallback = RuntimeSnapshot(configuration = HookConfiguration(gnssSimulation = policy))
+        val wire = HookConfigurationPreferences.read(emptyMap<String, Any>(), fallback)
+        assertEquals(policy, PreparedRuntimeConfiguration.prepare(wire).applyTo(fallback).configuration.gnssSimulation)
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.system.location.service.R
 import com.system.location.service.designsystem.theme.PortalTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -111,7 +112,10 @@ class AppSelectionFragment : Fragment() {
                             parentFragmentManager.setFragmentResult(RESULT, Bundle(arguments).apply {
                                 putStringArrayList("selected", selected)
                             })
-                            findNavController().popBackStack()
+                            val nav = findNavController()
+                            if (nav.previousBackStackEntry?.destination?.id == R.id.nav_point_selection) {
+                                nav.popBackStack(R.id.nav_point_selection, true)
+                            } else nav.popBackStack()
                         }, enabled = !loading && error == null && !overLimit,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                             Text("保存选择（${selected.size}）")

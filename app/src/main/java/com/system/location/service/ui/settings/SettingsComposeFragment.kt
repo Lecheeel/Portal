@@ -39,11 +39,9 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.system.location.service.MainActivity
 import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
-import com.system.location.service.core.repository.SavedLocation
 import com.system.location.service.core.routing.withPointAssignments
 import com.system.location.service.core.routing.withDeniedPackages
 import com.system.location.service.core.routing.RoutingConfig
-import com.system.location.service.data.repository.LibraryRepositories
 import com.system.location.service.designsystem.components.PortalActionRow
 import com.system.location.service.designsystem.components.PortalSettingGroup
 import com.system.location.service.designsystem.components.PortalSwitchRow
@@ -103,7 +101,7 @@ class SettingsComposeFragment : Fragment() {
                 }
                 "excluded", "point" -> {
                     val existing = runCatching {
-                        Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
+                        readRoutingSettings(context.routingJson)
                     }.getOrElse { showToast("原有应用规则无法读取，未覆盖配置"); return@setFragmentResultListener }
                     val next = if (result.getString("purpose") == "excluded") existing.withDeniedPackages(selected)
                     else existing.withPointAssignments(
@@ -283,45 +281,14 @@ class SettingsComposeFragment : Fragment() {
     private fun showAppRouting() {
         val context = requireContext()
         val existing = runCatching {
-            Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
+            readRoutingSettings(context.routingJson)
         }.getOrNull()
         if (existing == null) { showToast("原有应用规则无法读取，未覆盖配置"); return }
         openAppSelection("excluded", "分应用排除", existing.deniedPackages)
     }
 
     private fun showAppPoint() {
-        lifecycleScope.launch {
-            val locations = withContext(Dispatchers.IO) {
-                runCatching {
-                    LibraryRepositories.ensureMigrated()
-                    LibraryRepositories.locations.list()
-                }.getOrDefault(emptyList())
-            }
-            if (!isAdded) return@launch
-            if (locations.isEmpty()) {
-                showToast(getString(R.string.per_app_no_locations))
-                return@launch
-            }
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.per_app_point_title)
-                .setItems(locations.map { it.name }.toTypedArray()) { _, index ->
-                    assignPoint(locations[index])
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
-    }
-
-    private fun assignPoint(location: SavedLocation) {
-        val context = requireContext()
-        val existing = runCatching {
-            Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
-        }.getOrNull() ?: RoutingConfig()
-        val initial = existing.routes.filter { it.point == location.coordinate }.map { it.packageName }.toSet()
-        openAppSelection("point", getString(R.string.per_app_point), initial, Bundle().apply {
-            putDouble("latitude", location.coordinate.latitude)
-            putDouble("longitude", location.coordinate.longitude)
-        })
+        findNavController().navigate(R.id.nav_point_selection)
     }
 
     private fun openAppSelection(purpose: String, title: String, selected: Set<String>, extra: Bundle = Bundle()) {

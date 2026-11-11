@@ -93,4 +93,20 @@ class LocationFieldValidationTest {
         assertEquals(10, result.comparedGpsCount)
     }
 
+    @Test fun receiverEpochKeepsLateSamplesWithTheirOwnSkyEvenWhenNextCallbackIsCloser() {
+        val first = frame(10120)
+        val next = first.copy(capturedAtMillis = 11120,
+            satellites = first.satellites + first.satellites.first().copy(svid = 3))
+        val epochs = listOf(GnssStatusEpoch(10000, first), GnssStatusEpoch(11000, next))
+        val samples = listOf(
+            LocationFieldSample("gps", 10800, 31.0, 121.0, mapOf("satellites" to 1.0)),
+            LocationFieldSample("gps", 11020, 31.0, 121.0, mapOf("satellites" to 2.0)))
+        val result = LocationWindowValidation.evaluate(samples, listOf(first, next), epochs)
+        assertTrue(result.discrepancies.toString(), result.discrepancies.isEmpty())
+        assertEquals(2, result.comparedGpsCount)
+        val wrong = LocationWindowValidation.evaluate(samples.map { it.copy(supplied = mapOf("satellites" to 9.0)) },
+            listOf(first, next), epochs)
+        assertEquals(2, wrong.discrepancies.size)
+    }
+
 }

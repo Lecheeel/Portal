@@ -62,10 +62,13 @@ class LocationFieldsCheck : Check {
             LocationFieldSample(sample.provider, sample.time, sample.latitude, sample.longitude,
                 if (sample === location) optional else suppliedFields(sample))
         }
-        val window = LocationWindowValidation.evaluate(samples, context.snapshot.gnssFrames)
+        val epochs = nmeaStatusEpochs(context.snapshot).takeIf { it.isNotEmpty() }
+        val window = LocationWindowValidation.evaluate(samples, context.snapshot.gnssFrames, epochs)
         issues += window.issues
         lines += "窗口字段检查：${samples.size} 个位置样本；GPS extras=${window.gpsExtrasCount}，同时间窗对账=${window.comparedGpsCount}"
         lines += "GPS 不同坐标=${samples.filter { it.provider == "gps" }.map { it.latitude to it.longitude }.toSet().size}"
+        lines += if (epochs != null) "GNSS 配对时间：NMEA 接收机历元（${epochs.size} 组）；位置属于本历元直到下一历元"
+            else "GNSS 配对时间：仅有回调到达时间，使用近邻窗口；不能确定精确接收机历元"
 
         val manager = context.locationManager
         val locationEnabled = runCatching { manager?.isLocationEnabled }.getOrNull()
@@ -123,7 +126,8 @@ internal data class LocationWindowResult(val issues: List<String>, val discrepan
     val gpsExtrasCount: Int, val comparedGpsCount: Int)
 
 internal object LocationWindowValidation {
-    fun evaluate(samples: List<LocationFieldSample>, frames: List<GnssFrameSnapshot>): LocationWindowResult {
+    fun evaluate(samples: List<LocationFieldSample>, frames: List<GnssFrameSnapshot>,
+        epochs: List<GnssStatusEpoch>? = null): LocationWindowResult {
         val issues = linkedSetOf<String>()
         val discrepancies = linkedSetOf<String>()
         var gpsExtrasCount = 0
@@ -133,9 +137,9 @@ internal object LocationWindowValidation {
                 .map { "${sample.provider}@${sample.timeMillis}: $it" }
             if (sample.provider == "gps" && sample.supplied.keys.any { it in GNSS_KEYS }) {
                 gpsExtrasCount++
-                if (LocationGnssReconciliation.nearestFrame(sample.timeMillis, frames) != null) comparedGpsCount++
+                if (LocationGnssReconciliation.frameFor(sample.timeMillis, frames, epochs) != null) comparedGpsCount++
             }
-            discrepancies += LocationGnssReconciliation.compare(sample.provider, sample.timeMillis, sample.supplied, frames)
+            discrepancies += LocationGnssReconciliation.compare(sample.provider, sample.timeMillis, sample.supplied, frames, epochs)
         }
         return LocationWindowResult(issues.toList(), discrepancies.toList(), gpsExtrasCount, comparedGpsCount)
     }
@@ -168,6 +172,14 @@ internal object LocationFieldValidation {
 
 /** Contemporaneous GPS-only comparison; network and stale status cannot contradict GPS extras. */
 internal object LocationGnssReconciliation {
+    fun frameFor(timeMillis: Long, frames: List<GnssFrameSnapshot>, epochs: List<GnssStatusEpoch>?): GnssFrameSnapshot? {
+        if (epochs == null) return nearestFrame(timeMillis, frames)
+        // Epochs define causal intervals. Selecting by the value of an extras field would hide
+        // contradictions; selecting the nearest arrival incorrectly chooses future epochs.
+        return epochs.lastOrNull { it.timeMillis <= timeMillis }
+            ?.takeIf { timeMillis - it.timeMillis <= 1000 }?.frame
+    }
+
     fun nearestFrame(timeMillis: Long, frames: List<GnssFrameSnapshot>): GnssFrameSnapshot? {
         if (timeMillis <= 0) return null
         return frames.minByOrNull { abs(it.capturedAtMillis - timeMillis) }
@@ -175,9 +187,9 @@ internal object LocationGnssReconciliation {
     }
 
     fun compare(provider: String?, timeMillis: Long, extras: Map<String, Double>,
-        frames: List<GnssFrameSnapshot>): List<String> {
+        frames: List<GnssFrameSnapshot>, epochs: List<GnssStatusEpoch>? = null): List<String> {
         if (provider != "gps" || timeMillis <= 0) return emptyList()
-        val frame = nearestFrame(timeMillis, frames) ?: return emptyList()
+        val frame = frameFor(timeMillis, frames, epochs) ?: return emptyList()
         val used = frame.satellites.filter { it.usedInFix }
         val uniqueUsed = used.map { it.constellation to it.svid }.toSet().size
         val differences = mutableListOf<String>()

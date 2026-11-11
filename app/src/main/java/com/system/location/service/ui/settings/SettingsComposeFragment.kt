@@ -28,13 +28,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import androidx.fragment.app.viewModels
 import com.system.location.service.ui.gnss.GnssCaptureStatus
 import com.system.location.service.ui.gnss.GnssPolicyControls
 import com.system.location.service.ui.viewmodel.GnssCaptureViewModel
-import com.system.location.service.ui.viewmodel.SettingsViewModel
-import com.system.location.service.ui.viewmodel.RestoreConfigState
-import com.system.location.service.core.runtime.RuntimePhase
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -47,6 +45,7 @@ import com.system.location.service.core.routing.withDeniedPackages
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.data.repository.LibraryRepositories
 import com.system.location.service.designsystem.components.PortalActionRow
+import com.system.location.service.designsystem.components.PortalSettingGroup
 import com.system.location.service.designsystem.components.PortalCard
 import com.system.location.service.designsystem.components.PortalSectionTitle
 import com.system.location.service.designsystem.components.PortalSwitchRow
@@ -90,7 +89,6 @@ import kotlinx.serialization.json.Json
 
 /** Settings presentation; preference writes continue through the existing configuration API. */
 class SettingsComposeFragment : Fragment() {
-    private val model by viewModels<SettingsViewModel>()
     private val captureModel by viewModels<GnssCaptureViewModel>()
     private val revision = MutableStateFlow(0)
     private var updateRequest = 0L
@@ -103,12 +101,12 @@ class SettingsComposeFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             val revisionState = revision.collectAsStateWithLifecycle()
-            val restoreState by model.restore.collectAsStateWithLifecycle()
             PortalTheme {
                 SettingsScreen(
+                    category = arguments?.getString("category")?.let(SettingsCategory::valueOf),
+                    onCategory = { findNavController().navigate(it.destination) },
                     captureModel = captureModel,
                     revision = revisionState.value,
-                    restoreState = restoreState,
                     onMapProvider = ::showMapProvider,
                     onEditAltitude = {
                         editNumber("设置海拔高度", context.altitude.toString()) { raw ->
@@ -165,7 +163,6 @@ class SettingsComposeFragment : Fragment() {
                         }
                     },
                     onAppPoint = ::showAppPoint,
-                    onRestoreConfig = model::restoreLastConfig,
                     onBackgroundGuidance = { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) },
                     onCrashReporting = { enabled -> setCrashReporting(enabled) },
                     onUpdateChannel = ::showUpdateChannel,
@@ -417,9 +414,10 @@ private data class SettingsValues(
 
 @Composable
 private fun SettingsScreen(
+    category: SettingsCategory?,
+    onCategory: (SettingsCategory) -> Unit,
     captureModel: GnssCaptureViewModel,
     revision: Int,
-    restoreState: RestoreConfigState,
     onMapProvider: () -> Unit,
     onEditAltitude: () -> Unit,
     onEditAccuracy: () -> Unit,
@@ -429,7 +427,6 @@ private fun SettingsScreen(
     onAppRouting: () -> Unit,
     onSensorTargets: () -> Unit,
     onAppPoint: () -> Unit,
-    onRestoreConfig: () -> Unit,
     onBackgroundGuidance: () -> Unit,
     onCrashReporting: (Boolean) -> Unit,
     onUpdateChannel: () -> Unit,
@@ -485,188 +482,214 @@ private fun SettingsScreen(
                 contentPadding = PaddingValues(20.dp, 16.dp, 20.dp, 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                item(key = "overview") {
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ) {
-                        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("偏好与服务", style = MaterialTheme.typography.titleLarge)
-                            Text("设置保存在本机", style = MaterialTheme.typography.bodyMedium)
+                if (category == null) {
+                    item(key = "directory") {
+                        SettingsDirectory(onCategory = onCategory, hooksEnabled = hooksEnabled,
+                            mapProvider = values.mapProviderLabel, updateChannel = values.updateChannelLabel)
+                    }
+                }
+                if (category == SettingsCategory.LOCATION) {
+                    item(key = "maps") {
+                        PortalSettingGroup("地图服务", 1) { _, rowModifier ->
+                            PortalActionRow("地图提供方", values.mapProviderLabel, onMapProvider, modifier = rowModifier)
+                        }
+                    }
+                    item(key = "location") {
+                        val parameters = listOf(
+                            Triple("定位海拔", "%.2f 米".format(values.altitude), onEditAltitude),
+                            Triple("定位精度", "%.2f 米".format(values.accuracy), onEditAccuracy),
+                            Triple("位置上报间隔", "${values.reportDuration} ms", onEditReportInterval),
+                        )
+                        Column {
+                            PortalSettingGroup("定位参数", parameters.size) { index, rowModifier ->
+                                val (title, value, edit) = parameters[index]
+                                PortalActionRow(title, value, edit, modifier = rowModifier)
+                            }
+                            Text("下次启动场景生效", Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
-                item(key = "maps") {
-                    PortalCard {
-                        PortalSectionTitle("地图服务")
-                        PortalActionRow("地图提供方", values.mapProviderLabel, onMapProvider)
+                if (category == SettingsCategory.MOTION) {
+                    item(key = "motion") {
+                        PortalCard {
+                            PortalSectionTitle("运动与摇杆")
+                            PortalActionRow("摇杆速度", "%.2f 米/秒 · 即时更新".format(values.speed), onEditSpeed)
+                            PortalSwitchRow(
+                                title = "路线平滑运动",
+                                subtitle = "弯道减速、平滑加减速，下次启动生效。",
+                                checked = values.smoothRouteMotion,
+                                onCheckedChange = { context.smoothRouteMotion = it; refresh() },
+                            )
+                            PortalSwitchRow(
+                                title = "物理漂移噪声",
+                                subtitle = "仅 Xposed/Native：为位置、海拔和精度添加有界微漂移。",
+                                checked = values.physicalNoise,
+                                onCheckedChange = hookAction { context.physicalNoise = it },
+                            )
+                        }
                     }
                 }
-                item(key = "location") {
-                    PortalCard {
-                        PortalSectionTitle("定位参数", "速度即时更新；海拔、精度和上报间隔下次启动场景生效。")
-                        PortalActionRow("定位海拔", "%.2f 米".format(values.altitude), onEditAltitude)
-                        PortalActionRow("定位精度", "%.2f 米".format(values.accuracy), onEditAccuracy)
-                        PortalActionRow("位置上报间隔", "${values.reportDuration} ms", onEditReportInterval)
-                        PortalActionRow("摇杆速度", "%.2f 米/秒".format(values.speed), onEditSpeed)
+                if (category == SettingsCategory.ADVANCED) {
+                    item(key = "channels") {
+                        PortalCard {
+                            PortalSectionTitle("定位通道与实验")
+                            PortalSwitchRow(
+                                title = "Google 融合定位（实验）",
+                                subtitle = "需 Google Play 服务；下次启动场景生效，失败时继续使用 GPS/Network。",
+                                checked = values.gmsMockEnabled,
+                                onCheckedChange = { context.gmsMockEnabled = it; onRestartRequired(); refresh() },
+                            )
+                            PortalSwitchRow(
+                                title = "系统 Fused 通道（实验）",
+                                subtitle = "额外注册系统 fused 模拟 Provider，下次启动场景生效。",
+                                checked = values.platformFusedEnabled,
+                                onCheckedChange = { context.platformFusedEnabled = it; onRestartRequired(); refresh() },
+                            )
+                            PortalSwitchRow(
+                                title = "启动突发",
+                                subtitle = "启动时密集上报定位，适用于当前后端；下次启动场景生效。",
+                                checked = values.startupBurstEnabled,
+                                onCheckedChange = { context.startupBurstEnabled = it; refresh() },
+                            )
+                            PortalSwitchRow(
+                                title = "清除模拟标记（实验）",
+                                subtitle = "仅标准 Mock 模式；系统可能重新标记。",
+                                checked = values.experimentalClearMockFlag,
+                                onCheckedChange = { context.experimentalClearMockFlag = it; refresh() },
+                            )
+                        }
                     }
                 }
-                item(key = "motion") {
-                    PortalCard {
-                        PortalSectionTitle("运动与摇杆")
-                        PortalSwitchRow(
-                            title = "路线平滑运动",
-                            subtitle = "弯道减速、平滑加减速，下次启动生效。",
-                            checked = values.smoothRouteMotion,
-                            onCheckedChange = { context.smoothRouteMotion = it; refresh() },
-                        )
-                        PortalSwitchRow(
-                            title = "物理漂移噪声",
-                            subtitle = "仅 Xposed/Native：为位置、海拔和精度添加有界微漂移。",
-                            checked = values.physicalNoise,
-                            onCheckedChange = hookAction { context.physicalNoise = it },
-                        )
+                if (category == SettingsCategory.APPS) {
+                    item(key = "sensors") {
+                        SensorSettingsControls(sensorTargets, onSensorTargets) {
+                            context.sensorTargetPackages = it
+                            refresh()
+                            onConfigChanged()
+                        }
                     }
                 }
-                item(key = "channels") {
-                    PortalCard {
-                        PortalSectionTitle("定位通道与实验")
-                        PortalSwitchRow(
-                            title = "Google 融合定位（实验）",
-                            subtitle = "需 Google Play 服务；下次启动场景生效，失败时继续使用 GPS/Network。",
-                            checked = values.gmsMockEnabled,
-                            onCheckedChange = { context.gmsMockEnabled = it; onRestartRequired(); refresh() },
-                        )
-                        PortalSwitchRow(
-                            title = "系统 Fused 通道（实验）",
-                            subtitle = "额外注册系统 fused 模拟 Provider，下次启动场景生效。",
-                            checked = values.platformFusedEnabled,
-                            onCheckedChange = { context.platformFusedEnabled = it; onRestartRequired(); refresh() },
-                        )
-                        PortalSwitchRow(
-                            title = "启动突发",
-                            subtitle = "启动时密集上报定位，适用于当前后端；下次启动场景生效。",
-                            checked = values.startupBurstEnabled,
-                            onCheckedChange = { context.startupBurstEnabled = it; refresh() },
-                        )
-                        PortalSwitchRow(
-                            title = "清除模拟标记（实验）",
-                            subtitle = "仅标准 Mock 模式；系统可能重新标记。",
-                            checked = values.experimentalClearMockFlag,
-                            onCheckedChange = { context.experimentalClearMockFlag = it; refresh() },
-                        )
+                if (category in setOf(SettingsCategory.SYSTEM, SettingsCategory.ADVANCED, SettingsCategory.GNSS)) {
+                    item(key = "hooks") {
+                        PortalCard {
+                            PortalSectionTitle(category!!.title, "以下选项仅 Xposed/Native 后端有效")
+                            if (category == SettingsCategory.SYSTEM) {
+                                PortalSwitchRow(
+                                    title = "SIM 就绪",
+                                    subtitle = "关闭时模拟无 SIM / 仅 Wi-Fi。",
+                                    checked = values.simReady,
+                                    onCheckedChange = hookAction { context.simReady = it },
+                                )
+                            }
+                            if (category == SettingsCategory.ADVANCED) {
+                                PortalSwitchRow(
+                                    title = "调试模式",
+                                    checked = values.debug,
+                                    onCheckedChange = hookAction { context.debug = it },
+                                )
+                                PortalSwitchRow(
+                                    title = "允许获取当前位置",
+                                    checked = !values.disableGetCurrentLocation,
+                                    onCheckedChange = hookAction { context.disableGetCurrentLocation = !it },
+                                )
+                                PortalSwitchRow(
+                                    title = "允许注册位置监听器",
+                                    checked = !values.disableRegisterLocationListener,
+                                    onCheckedChange = hookAction { context.disableRegisterLocationListener = !it },
+                                )
+                                PortalSwitchRow(
+                                    title = "禁用融合定位",
+                                    checked = values.disableFusedProvider,
+                                    onCheckedChange = hookAction { context.disableFusedProvider = it },
+                                )
+                            }
+                            if (category == SettingsCategory.SYSTEM) {
+                                PortalSwitchRow(
+                                    title = "网络降级为 CDMA",
+                                    checked = values.needDowngradeToCdma,
+                                    onCheckedChange = hookAction { context.needDowngradeToCdma = it },
+                                )
+                            }
+                            if (category == SettingsCategory.GNSS) {
+                                GnssPolicyControls(enabled = hooksEnabled, onChanged = { refresh(); onConfigChanged() })
+                                PortalActionRow(
+                                    title = "最少卫星数",
+                                    subtitle = if (values.minSatelliteCount == 0) "自动数量：按所选模式和目标天空生成"
+                                    else "可见卫星下限 ${values.minSatelliteCount} 颗；按所选数量策略处理不足",
+                                    onClick = onEditSatelliteCount,
+                                    enabled = hooksEnabled,
+                                )
+                                GnssCaptureStatus(captureModel, values.minSatelliteCount)
+                            }
+                            if (category == SettingsCategory.SYSTEM) {
+                                PortalSwitchRow(
+                                    title = "模拟 Wi-Fi 环境",
+                                    subtitle = "向第三方应用提供模拟的扫描结果与连接信息。",
+                                    checked = values.mockWifiEnabled,
+                                    onCheckedChange = hookAction { context.mockWifiEnabled = it },
+                                )
+                            }
+                            if (category == SettingsCategory.ADVANCED) {
+                                PortalSwitchRow(
+                                    title = "隐藏模拟标记",
+                                    subtitle = "开启后不向应用暴露 isMock；关闭可用于验证应用的降级逻辑。",
+                                    checked = values.hideMock,
+                                    onCheckedChange = hookAction { context.hideMock = it },
+                                )
+                                PortalSwitchRow(
+                                    title = "实验性反检测（原生路径改写）",
+                                    subtitle = "默认关闭；仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
+                                    checked = values.antiDetectEnabled,
+                                    onCheckedChange = hookAction { context.antiDetectEnabled = it },
+                                )
+                                PortalSwitchRow(
+                                    title = "实验性堆栈清洗",
+                                    subtitle = "默认关闭；从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
+                                    checked = values.stackTraceCleanEnabled,
+                                    onCheckedChange = hookAction { context.stackTraceCleanEnabled = it },
+                                )
+                                PortalSwitchRow(
+                                    title = "按设定间隔广播",
+                                    subtitle = "仅 Xposed/Native：开启时采用设定间隔，关闭时广播间隔至少为 500 ms。",
+                                    checked = values.loopBroadcastlocation,
+                                    onCheckedChange = hookAction { context.loopBroadcastlocation = it },
+                                )
+                            }
+                        }
                     }
                 }
-                item(key = "sensors") {
-                    SensorSettingsControls(sensorTargets, onSensorTargets) {
-                        context.sensorTargetPackages = it
-                        refresh()
-                        onConfigChanged()
+                if (category == SettingsCategory.APPS) {
+                    item(key = "apps") {
+                        PortalCard {
+                            PortalSectionTitle("分应用规则")
+                            PortalActionRow("分应用路由（实验）", "仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled)
+                            PortalActionRow("分应用固定点（实验）", "仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled)
+                        }
                     }
                 }
-                item(key = "hooks") {
-                    PortalCard {
-                        PortalSectionTitle("系统 Hook", "仅 Xposed/Native 后端有效")
-                        PortalSwitchRow(
-                            title = "SIM 就绪",
-                            subtitle = "关闭时模拟无 SIM / 仅 Wi-Fi。",
-                            checked = values.simReady,
-                            onCheckedChange = hookAction { context.simReady = it },
-                        )
-                        PortalSwitchRow(
-                            title = "调试模式",
-                            checked = values.debug,
-                            onCheckedChange = hookAction { context.debug = it },
-                        )
-                        PortalSwitchRow(
-                            title = "允许获取当前位置",
-                            checked = !values.disableGetCurrentLocation,
-                            onCheckedChange = hookAction { context.disableGetCurrentLocation = !it },
-                        )
-                        PortalSwitchRow(
-                            title = "允许注册位置监听器",
-                            checked = !values.disableRegisterLocationListener,
-                            onCheckedChange = hookAction { context.disableRegisterLocationListener = !it },
-                        )
-                        PortalSwitchRow(
-                            title = "禁用融合定位",
-                            checked = values.disableFusedProvider,
-                            onCheckedChange = hookAction { context.disableFusedProvider = it },
-                        )
-                        PortalSwitchRow(
-                            title = "网络降级为 CDMA",
-                            checked = values.needDowngradeToCdma,
-                            onCheckedChange = hookAction { context.needDowngradeToCdma = it },
-                        )
-                        GnssPolicyControls(enabled = hooksEnabled, onChanged = { refresh(); onConfigChanged() })
-                        PortalActionRow(
-                            title = "最少卫星数",
-                            subtitle = if (values.minSatelliteCount == 0) "自动数量：按所选模式和目标天空生成"
-                                else "可见卫星下限 ${values.minSatelliteCount} 颗；按所选数量策略处理不足",
-                            onClick = onEditSatelliteCount,
-                            enabled = hooksEnabled,
-                        )
-                        GnssCaptureStatus(captureModel, values.minSatelliteCount)
-                        PortalSwitchRow(
-                            title = "模拟 Wi-Fi 环境",
-                            subtitle = "向第三方应用提供模拟的扫描结果与连接信息。",
-                            checked = values.mockWifiEnabled,
-                            onCheckedChange = hookAction { context.mockWifiEnabled = it },
-                        )
-                        PortalSwitchRow(
-                            title = "隐藏模拟标记",
-                            subtitle = "开启后不向应用暴露 isMock；关闭可用于验证应用的降级逻辑。",
-                            checked = values.hideMock,
-                            onCheckedChange = hookAction { context.hideMock = it },
-                        )
-                        PortalSwitchRow(
-                            title = "实验性反检测（原生路径改写）",
-                            subtitle = "默认关闭；仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
-                            checked = values.antiDetectEnabled,
-                            onCheckedChange = hookAction { context.antiDetectEnabled = it },
-                        )
-                        PortalSwitchRow(
-                            title = "实验性堆栈清洗",
-                            subtitle = "默认关闭；从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
-                            checked = values.stackTraceCleanEnabled,
-                            onCheckedChange = hookAction { context.stackTraceCleanEnabled = it },
-                        )
-                        PortalSwitchRow(
-                            title = "按设定间隔广播",
-                            subtitle = "仅 Xposed/Native：开启时采用设定间隔，关闭时广播间隔至少为 500 ms。",
-                            checked = values.loopBroadcastlocation,
-                            onCheckedChange = hookAction { context.loopBroadcastlocation = it },
-                        )
+                if (category == SettingsCategory.PRIVACY) {
+                    item(key = "privacy") {
+                        PortalCard {
+                            PortalSectionTitle("后台与隐私")
+                            PortalSwitchRow(
+                                title = "发送崩溃报告",
+                                subtitle = "默认关闭；通过 Bugly 发送崩溃堆栈。关闭后重新开启需重启，不撤回已发送或待上传的报告。",
+                                checked = values.crashReporting,
+                                onCheckedChange = onCrashReporting,
+                            )
+                            PortalActionRow("后台运行", "权限与电池优化检查", onBackgroundGuidance)
+                        }
                     }
                 }
-                item(key = "apps") {
-                    PortalCard {
-                        PortalSectionTitle("分应用与配置")
-                        PortalActionRow("分应用路由（实验）", "仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled)
-                        PortalActionRow("分应用固定点（实验）", "仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled)
-                        PortalActionRow("恢复并启动上次场景", "恢复上次保存的参数，并立即启动模拟。", onRestoreConfig,
-                            enabled = runtime.phase in setOf(RuntimePhase.IDLE, RuntimePhase.STOPPED) && !restoreState.busy)
-                        restoreState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                    }
-                }
-                item(key = "privacy") {
-                    PortalCard {
-                        PortalSectionTitle("后台与隐私")
-                        PortalSwitchRow(
-                            title = "发送崩溃报告",
-                            subtitle = "默认关闭；通过 Bugly 发送崩溃堆栈。关闭后重新开启需重启，不撤回已发送或待上传的报告。",
-                            checked = values.crashReporting,
-                            onCheckedChange = onCrashReporting,
-                        )
-                        PortalActionRow("后台运行", "权限与电池优化检查", onBackgroundGuidance)
-                    }
-                }
-                item(key = "updates") {
-                    PortalCard {
-                        PortalSectionTitle("版本更新", "当前版本 ${UpdateChecker.parseLocalVersion().versionName}")
-                        PortalActionRow("检查更新", onClick = onCheckUpdate)
-                        PortalActionRow("更新通道", values.updateChannelLabel, onUpdateChannel)
+                if (category == SettingsCategory.UPDATES) {
+                    item(key = "updates") {
+                        PortalCard {
+                            PortalSectionTitle("版本更新", "当前版本 ${UpdateChecker.parseLocalVersion().versionName}")
+                            PortalActionRow("检查更新", onClick = onCheckUpdate)
+                            PortalActionRow("更新通道", values.updateChannelLabel, onUpdateChannel)
+                        }
                     }
                 }
             }

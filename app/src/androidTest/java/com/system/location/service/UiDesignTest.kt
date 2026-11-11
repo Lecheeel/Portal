@@ -296,7 +296,7 @@ class UiDesignTest {
                     }
                     for ((destination, name, marker) in listOf(
                         Triple(R.id.nav_mock, "point", "位置名称"),
-                        Triple(R.id.nav_settings, "settings", "定位海拔"),
+                        Triple(R.id.nav_settings, "settings", "地图与定位"),
                         Triple(R.id.nav_runtime, "runtime", "打开开发者选项"),
                         Triple(R.id.nav_route_gallery, "library", "搜索资料"),
                         Triple(R.id.nav_gnss_mock, "satellites", "星图信息"))) {
@@ -327,7 +327,7 @@ class UiDesignTest {
         try {
             fontScale(1.3f)
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_settings) }
+                scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_settings_location) }
                 compose.scrollToText("定位精度").assertIsDisplayed()
                 capture("settings-large-text")
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_gallery) }

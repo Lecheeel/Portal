@@ -40,15 +40,18 @@ class SimulationFeaturesTest {
         val old = context.gmsMockEnabled
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                compose.openPage(scenario, R.id.nav_settings)
+                compose.openPage(scenario, R.id.nav_settings_advanced)
                 compose.scrollToText("Google 融合定位（实验）").assertIsDisplayed()
                 compose.onNode(hasText("Google 融合定位（实验）") and isToggleable()).performClick()
                 assertEquals(!old, context.gmsMockEnabled)
                 compose.scrollToText("系统 Fused 通道（实验）").assertIsDisplayed()
                 compose.scrollToText("启动突发").assertIsDisplayed()
                 captureUi("settings-channels")
+                compose.openPage(scenario, R.id.nav_settings_motion)
                 compose.scrollToText("路线平滑运动").assertIsDisplayed()
+                compose.openPage(scenario, R.id.nav_settings_gnss)
                 compose.scrollToText("最少卫星数").assertIsDisplayed()
+                compose.openPage(scenario, R.id.nav_settings_privacy)
                 compose.scrollToText("后台运行").performClick()
                 onView(withText(R.string.background_guidance)).inRoot(isDialog()).check(matches(isDisplayed()))
                 captureUi("background-guidance")

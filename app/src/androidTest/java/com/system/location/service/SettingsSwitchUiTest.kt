@@ -80,7 +80,7 @@ class SettingsSwitchUiTest {
         val burst = context.startupBurstEnabled
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                compose.openPage(scenario, R.id.nav_settings)
+                compose.openPage(scenario, R.id.nav_settings_motion)
                 fun checkSwitch(title: String, read: () -> Boolean) {
                     compose.scrollToText(title)
                     val node = compose.onNode(hasText(title) and isToggleable())
@@ -102,8 +102,10 @@ class SettingsSwitchUiTest {
                     compose.scrollToText("物理漂移噪声")
                     compose.onNode(hasText("物理漂移噪声") and isToggleable()).assertIsNotEnabled()
                 } else checkSwitch("物理漂移噪声") { context.physicalNoise }
+                compose.openPage(scenario, R.id.nav_settings_advanced)
                 checkSwitch("启动突发") { context.startupBurstEnabled }
                 scenario.recreate()
+                compose.openPage(scenario, R.id.nav_settings_motion)
                 compose.scrollToText("路线平滑运动")
                 compose.onNode(hasText("路线平滑运动") and isToggleable()).assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.ToggleableState,
                     if (smooth) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off))

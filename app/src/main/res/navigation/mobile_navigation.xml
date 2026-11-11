@@ -46,6 +46,46 @@
         android:id="@+id/nav_settings"
         android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
         android:label="@string/menu_setting" />
+    <fragment android:id="@+id/nav_settings_location"
+        android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
+        android:label="地图与定位">
+        <argument android:name="category" app:argType="string" android:defaultValue="LOCATION" />
+    </fragment>
+    <fragment android:id="@+id/nav_settings_motion"
+        android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
+        android:label="运动与摇杆">
+        <argument android:name="category" app:argType="string" android:defaultValue="MOTION" />
+    </fragment>
+    <fragment android:id="@+id/nav_settings_gnss"
+        android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
+        android:label="卫星与 GNSS">
+        <argument android:name="category" app:argType="string" android:defaultValue="GNSS" />
+    </fragment>
+    <fragment android:id="@+id/nav_settings_apps"
+        android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
+        android:label="分应用规则">
+        <argument android:name="category" app:argType="string" android:defaultValue="APPS" />
+    </fragment>
+    <fragment android:id="@+id/nav_settings_system"
+        android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
+        android:label="系统与环境模拟">
+        <argument android:name="category" app:argType="string" android:defaultValue="SYSTEM" />
+    </fragment>
+    <fragment android:id="@+id/nav_settings_advanced"
+        android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
+        android:label="高级与实验">
+        <argument android:name="category" app:argType="string" android:defaultValue="ADVANCED" />
+    </fragment>
+    <fragment android:id="@+id/nav_settings_privacy"
+        android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
+        android:label="后台与隐私">
+        <argument android:name="category" app:argType="string" android:defaultValue="PRIVACY" />
+    </fragment>
+    <fragment android:id="@+id/nav_settings_updates"
+        android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
+        android:label="关于与更新">
+        <argument android:name="category" app:argType="string" android:defaultValue="UPDATES" />
+    </fragment>
 </navigation>
 
 

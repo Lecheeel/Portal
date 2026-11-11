@@ -7,6 +7,37 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 class RinexNavigationResourceStoreTest {
+    @Test fun perIdentityUploadWatermarksSurviveOmissionAndRestartAndLegacyMigration() {
+        val file = temporary.root.resolve("navigation.json")
+        val fixture = RinexNavigationResourceTest.navigation()
+        val header = fixture.substringBefore("G01")
+        val body = fixture.substringAfter("END OF HEADER\n")
+        fun upload(svid: String, transmission: Double) = body.replace("G01", "G$svid")
+            .replace("-3.000000000000D+01", "%19.12E".format(java.util.Locale.ROOT, transmission))
+        fun candidate(vararg bodies: String) = resource(header + bodies.joinToString("\n"))
+        val initial = candidate(upload("01", 100.0), upload("02", 200.0))
+        // Existing unwrapped cache files are read without retiming or losing upload order.
+        file.writeText(RinexNavigationResource.encode(initial))
+        val store = RinexNavigationResourceStore(file)
+        assertEquals(initial, store.load())
+        val omission = candidate(upload("02", 300.0))
+        store.update(RinexNavigationResource.encode(omission))
+        assertEquals(omission, RinexNavigationResourceStore(file).load())
+        val acceptedBytes = file.readBytes()
+        val regression = candidate(upload("01", 50.0), upload("02", 400.0))
+        assertThrows(IllegalArgumentException::class.java) {
+            RinexNavigationResourceStore(file).update(RinexNavigationResource.encode(regression))
+        }
+        assertArrayEquals(acceptedBytes, file.readBytes())
+        val unknown = candidate(upload("01", 9_999_999.0), upload("02", 400.0))
+        assertThrows(IllegalArgumentException::class.java) {
+            RinexNavigationResourceStore(file).update(RinexNavigationResource.encode(unknown))
+        }
+        val recovered = candidate(upload("01", 100.0), upload("02", 400.0))
+        assertEquals(recovered, RinexNavigationResourceStore(file).update(RinexNavigationResource.encode(recovered)))
+        assertEquals(recovered, RinexNavigationResourceStore(file).load())
+    }
+
     @get:Rule val temporary = TemporaryFolder()
     private fun resource(text: String = RinexNavigationResourceTest.navigation(), downloadedAt: Long = 1000) =
         RinexNavigationResource.import(text, "https://example.org/navigation.rnx", downloadedAt)

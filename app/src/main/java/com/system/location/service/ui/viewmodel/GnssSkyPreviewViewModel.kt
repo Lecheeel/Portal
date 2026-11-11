@@ -11,6 +11,7 @@ import com.system.location.service.core.runtime.PreparedRuntimeConfiguration
 import com.system.location.service.data.persistence.HookConfigurationPreferences
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.gnss.GnssSkyPreview
+import com.system.location.service.gnss.GnssNavigationSyncStatus
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.runtime.ScenarioRuntime
 import java.io.File
@@ -32,6 +33,7 @@ data class GnssSkyPreviewState(
 
 /** Visible-screen prediction only. Does not publish or advance a receiver route. */
 class GnssSkyPreviewViewModel(application: Application) : AndroidViewModel(application) {
+    internal val navigationSync = GnssNavigationSyncStatus.shared.state
     val state = flow {
         val engine = GnssSkyPreview()
         val file = File(application.noBackupFilesDir, "gnss/navigation-resource.json")

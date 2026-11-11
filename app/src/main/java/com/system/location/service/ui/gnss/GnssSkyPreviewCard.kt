@@ -23,12 +23,16 @@ import java.util.Locale
 @Composable
 internal fun GnssSkyPreviewCard(model: GnssSkyPreviewViewModel) {
     val state by model.state.collectAsStateWithLifecycle()
+    val synchronization by model.navigationSync.collectAsStateWithLifecycle()
     var details by remember { mutableStateOf(false) }
     PortalCard {
         Column(verticalArrangement = Arrangement.spacedBy(PortalSpacing.sm)) {
             PortalSectionTitle("模拟目标天空")
             Text(state.message, style = MaterialTheme.typography.bodySmall)
             state.resourceWarning?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            if (synchronization.refreshing) Text("正在更新导航资源，当前天空继续使用已接受来源",
+                style = MaterialTheme.typography.bodySmall)
+            synchronization.problem?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             state.frame?.let { frame ->
                 Text(String.format(Locale.getDefault(), "目标：%.5f, %.5f · 高程 %.1f m",
                     frame.observer.latitude, frame.observer.longitude, frame.altitudeMeters),
@@ -53,6 +57,10 @@ internal fun GnssSkyPreviewCard(model: GnssSkyPreviewViewModel) {
                     style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = { details = !details }) { Text(if (details) "收起来源与诊断" else "查看来源与诊断") }
                 if (details) {
+                    synchronization.acceptedAtMillis?.let { acceptedAt ->
+                        Text("最近缓存更新：${DateFormat.getDateTimeInstance().format(Date(acceptedAt))}\n${synchronization.sourceUrl.orEmpty()}",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     // Resource-level provenance, not hundreds of duplicate per-spacecraft lines.
                     frame.orbitProvenance.values.distinct().forEach { source ->
                         Text("${source.kind.label()} · ${source.resourceId}\n${source.source}\n参考时刻：${DateFormat.getDateTimeInstance().format(Date(source.referenceEpochMillis))}",

@@ -13,6 +13,7 @@ import com.system.location.service.core.backend.BackendType
 import com.system.location.service.core.gnss.GnssSimulationMode
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.gnss.GnssNavigationRepository
+import com.system.location.service.gnss.GnssNavigationSyncStatus
 import com.system.location.service.hook.utils.Logger
 import java.io.File
 import kotlinx.coroutines.*
@@ -74,14 +75,19 @@ class ScenarioService : Service() {
                         delay(5000)
                         continue
                     }
+                    var cached = false
                     val refreshed = try {
                         navigation.refresh()
+                        cached = true
                         // Retry config synchronization even if the file digest is unchanged.
                         // Runtime command serialization checks that a Hook session is still active.
-                        ScenarioRuntime.applyConfigNow()
+                        ScenarioRuntime.applyConfigNow().also { applied ->
+                            if (!applied) GnssNavigationSyncStatus.shared.synchronizationFailed()
+                        }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (error: Exception) {
+                        if (cached) GnssNavigationSyncStatus.shared.synchronizationFailed()
                         Logger.error("GNSS navigation refresh failed: ${error.javaClass.simpleName}")
                         false
                     }

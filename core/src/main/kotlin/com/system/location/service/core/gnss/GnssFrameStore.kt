@@ -78,7 +78,7 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
         if (cache.containsKey(key)) return cache[key]
         // The second identifies a cache bucket, not the observation epoch. Keep the first
         // sample's exact time for every source; rounding could precede capture completion.
-        val frame = if (sky != null) sky.frame(GnssSkyRequest(atMillis, observer, altitudeMeters), minimumSatellites)
+        val frame = if (sky != null) sky.frame(GnssSkyRequest(atMillis, observer, altitudeMeters), minimumSatellites, validationAtMillis)
             else model?.frame(atMillis, observer, altitudeMeters, minimumSatellites,
                 elapsedRealtimeNanos, currentBootCount)
         val published = frame?.let { PublishedGnssFrame(sequence.incrementAndGet(), it, speedMps, bearing) }

@@ -15,7 +15,8 @@ data class GnssReceiverSignal(
  */
 class GnssSimulatedReceiver(private val seed: Long) {
     fun observe(orbit: GnssOrbitPosition, request: GnssSkyRequest,
-        environment: GnssSimulationEnvironment, navigation: GnssSimulatedNavigation? = null): GnssReceiverSignal? {
+        environment: GnssSimulationEnvironment, navigation: GnssSimulatedNavigation? = null,
+        calibration: GnssAutonomousSignalCalibration? = null): GnssReceiverSignal? {
         require(navigation == null || navigation.matches(orbit, request)) {
             "Synthetic trajectory/clock does not match this orbit source, identity or epoch"
         }
@@ -38,7 +39,8 @@ class GnssSimulatedReceiver(private val seed: Long) {
             GnssSimulationEnvironment.URBAN -> 6.0 + 12.0 *
                 (0.5 + 0.5 * sin(Math.toRadians(azimuth) * 2 + environmentPhase)) * exp(-elevation / 25)
         }
-        val cn0 = (45.0 - 20 * log10(line.rangeMeters / 20_200_000.0) - atmosphericLoss -
+        val baseline = calibration?.cn0At(orbit, elevation) ?: (45.0 - atmosphericLoss)
+        val cn0 = (baseline - 20 * log10(line.rangeMeters / 20_200_000.0) -
             environmentLoss + fading).coerceIn(0.0, GnssFrame.MAX_CN0_DB_HZ.toDouble()).toFloat()
         val tracked = cn0 >= 18f
         val hasNavigation = orbit.hasEphemeris || navigation != null

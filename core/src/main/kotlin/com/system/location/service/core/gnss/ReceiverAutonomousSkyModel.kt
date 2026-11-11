@@ -12,6 +12,7 @@ class ReceiverAutonomousSkyModel(
     /** Steady simulated navigation knowledge; never a claim to emit raw navigation messages. */
     private val simulateNavigation: Boolean = true,
     private val quantitySupplement: GnssVirtualSkySupplement? = null,
+    private val signalCalibration: GnssAutonomousSignalCalibration? = null,
 ) {
     private val resolver = GnssOrbitResolver(providers)
     private val receiver = GnssSimulatedReceiver(policy.virtualSeed)
@@ -21,7 +22,8 @@ class ReceiverAutonomousSkyModel(
         require(virtualFallback.kind == GnssOrbitSourceKind.VIRTUAL)
     }
 
-    fun frame(request: GnssSkyRequest, minimumSatellites: Int = 0): ReceiverGnssFrame? {
+    fun frame(request: GnssSkyRequest, minimumSatellites: Int = 0,
+        validationAtMillis: Long = request.atMillis): ReceiverGnssFrame? {
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         if (policy.mode == GnssSimulationMode.OFF || policy.mode == GnssSimulationMode.REPLAY) return null
         val resolved = resolver.positions(request)
@@ -38,10 +40,13 @@ class ReceiverAutonomousSkyModel(
                 fallback.blockedIdentities + resolved.blockedIdentities)
         } else resolved
         val diagnostics = resolved.diagnostics.toMutableList()
+        val calibration = signalCalibration?.takeIf { policy.mode == GnssSimulationMode.AUTO && it.isCurrent(validationAtMillis) }
+        if (calibration != null) diagnostics += "AUTO 迁移采集信号环境：仅匹配频段与观测仰角范围；不代表目标地实测接收情况"
+        else if (signalCalibration != null) diagnostics += "采集信号校准未启用或已过期，继续自主信号模型"
         if (batch !== resolved) diagnostics += batch.diagnostics
         fun observe(orbit: GnssOrbitPosition): Pair<GnssOrbitPosition, GnssReceiverSignal>? {
             val navigation = orbit.simulatedNavigation.takeIf { simulateNavigation && !orbit.hasEphemeris }
-            return receiver.observe(orbit, request, policy.environment, navigation)?.let { orbit to it }
+            return receiver.observe(orbit, request, policy.environment, navigation, calibration)?.let { orbit to it }
         }
         val observations = batch.positions.mapNotNull(::observe).toMutableList()
         var capacity = observations.size

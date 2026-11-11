@@ -68,6 +68,7 @@ class RinexGalileoOrbitProviderTest {
 
     @Test fun missingConflictingStaleCorrectionsOrUnpermittedFrameCannotPretendGpsEqualsGst() {
         for (source in listOf(provider(headers = emptyList()), provider(headers = listOf(header(), header(.5))),
+            provider(headers = listOf(header(), "GAGP damaged")),
             provider(policy = RinexGalileoSkyPolicy(86400.0, false)))) {
             val rejected = source.positions(request)
             assertTrue(rejected.positions.isEmpty())

@@ -26,9 +26,7 @@ class RinexGalileoOrbitProvider(
     private val reserved = file.records.filter { it.system == RinexNavigationSystem.GALILEO && it.svid in 1..36 }
         .map { Constellation.GALILEO to it.svid }.toSet()
     private val diagnostics = mutableListOf<String>()
-    private val correction = file.timeSystemCorrections.mapNotNull {
-        runCatching { RinexTimeSystemCorrection.parse(it) }.getOrNull()
-    }.filter { it.type == "GAGP" }.distinct().singleOrNull()
+    private val correction = runCatching { RinexTimeSystemCorrection.galileoCorrection(file.timeSystemCorrections) }
     private val records = file.records.filter { it.system == RinexNavigationSystem.GALILEO }.mapNotNull { record ->
         runCatching { RinexGalileoImporter.decode(record) }.getOrElse {
             diagnostics += "Galileo:${record.svid}: ${it.message}"
@@ -43,7 +41,8 @@ class RinexGalileoOrbitProvider(
         fun unavailable(reason: String) = GnssOrbitBatch(emptyList(), diagnostics + reason, reserved)
         if (!policy.allowAlignedFrameApproximation)
             return unavailable("Galileo: approximate GTRF/WGS84 sky alignment was not permitted")
-        val c = correction ?: return unavailable("Galileo: missing or conflicting RINEX GAGP correction")
+        val c = correction.getOrNull()
+            ?: return unavailable("Galileo: missing, damaged or conflicting RINEX GAGP correction")
         if (c.referenceWeek < 1024) return unavailable("Galileo: GAGP reference precedes GST origin")
         val reference = GalileoTime(c.referenceWeek - 1024, c.referenceSeconds.toDouble())
         val interval = runCatching { reference.plusSeconds(-policy.maximumTimeCorrectionDistanceSeconds) to

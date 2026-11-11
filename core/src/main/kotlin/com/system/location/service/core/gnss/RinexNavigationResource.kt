@@ -50,9 +50,7 @@ data class RinexNavigationResource(
     }
 
     fun galileoProvider(utc: GnssUtcTimeScale, policy: RinexGalileoSkyPolicy): RinexGalileoOrbitProvider {
-        val correction = parsed.timeSystemCorrections.mapNotNull {
-            runCatching { RinexTimeSystemCorrection.parse(it) }.getOrNull()
-        }.filter { it.type == "GAGP" }.distinct().singleOrNull()
+        val correction = RinexTimeSystemCorrection.galileoCorrection(parsed.timeSystemCorrections)
         require(correction != null && correction.referenceWeek >= 1024) { "Missing or conflicting Galileo GAGP" }
         val reference = GalileoTime(correction.referenceWeek - 1024, correction.referenceSeconds.toDouble())
         val from = reference.plusSeconds(-policy.maximumTimeCorrectionDistanceSeconds)

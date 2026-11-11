@@ -54,6 +54,13 @@ data class RinexTimeSystemCorrection(
         private val TYPES = setOf("GPUT", "GLUT", "GAUT", "BDUT", "QZUT", "IRUT", "SBUT", "GLGP", "GAGP", "QZGP", "IRGP")
         private val NUMBER = Regex("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[EeDd][+-]?[0-9]+)?")
 
+        /** A damaged relevant correction cannot be ignored in favour of another healthy line. */
+        internal fun galileoCorrection(headers: List<String>): RinexTimeSystemCorrection? {
+            val corrections = headers.filter { it.take(4) in setOf("GAGP", "GPGA") }.map(::parse).distinct()
+            require(corrections.size <= 1) { "Conflicting Galileo GAGP corrections" }
+            return corrections.singleOrNull()
+        }
+
         /** Header content columns 1–60, retained by the navigation reader. */
         fun parse(header: String): RinexTimeSystemCorrection {
             require(header.length in 50..60 && header[4] == ' ' && header[38] == ' ')

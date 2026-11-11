@@ -21,6 +21,7 @@ import com.system.location.service.detector.model.SampleSnapshot
 import com.system.location.service.detector.model.SensorSeries
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Collects the evidence snapshot used by every check. Blocking by design: the caller runs it on a
@@ -40,6 +41,9 @@ class CheckSampler(
         val locations = Collections.synchronizedList(mutableListOf<Location>())
         val gnssFrames = Collections.synchronizedList(mutableListOf<GnssFrameSnapshot>())
         val nmeaSentences = Collections.synchronizedList(mutableListOf<NmeaSentenceSnapshot>())
+        val droppedLocations = AtomicInteger()
+        val droppedGnss = AtomicInteger()
+        val droppedNmea = AtomicInteger()
         val sensorSamples = ConcurrentHashMap<Int, MutableList<FloatArray>>()
         val lastKnown = LinkedHashMap<String, Location>()
 
@@ -52,11 +56,12 @@ class CheckSampler(
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 if (locations.size < MAX_LOCATIONS) locations.add(Location(location))
+                else droppedLocations.incrementAndGet()
             }
         }
         val gnssCallback = object : GnssStatus.Callback() {
             override fun onSatelliteStatusChanged(status: GnssStatus) {
-                if (gnssFrames.size >= MAX_GNSS_FRAMES) return
+                if (gnssFrames.size >= MAX_GNSS_FRAMES) { droppedGnss.incrementAndGet(); return }
                 val satellites = ArrayList<GnssSatelliteSnapshot>(status.satelliteCount)
                 for (index in 0 until status.satelliteCount) {
                     satellites += GnssSatelliteSnapshot(
@@ -77,7 +82,7 @@ class CheckSampler(
         val nmeaListener = OnNmeaMessageListener { message: String?, timestamp: Long ->
             if (message != null && nmeaSentences.size < MAX_NMEA) {
                 nmeaSentences.add(NmeaSentenceSnapshot(timestamp, message))
-            }
+            } else if (message != null) droppedNmea.incrementAndGet()
         }
         val sensorListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
@@ -158,6 +163,9 @@ class CheckSampler(
         val dhcpInfo = runCatching { wifiManager?.dhcpInfo }.getOrNull()
         val wifiEnabled = runCatching { wifiManager?.isWifiEnabled == true }.getOrDefault(false)
         val cellInfo = runCatching { telephonyManager?.allCellInfo.orEmpty() }.getOrDefault(emptyList())
+        if (droppedLocations.get() > 0) notes += "LocationManager 采样容量不足，丢弃 ${droppedLocations.get()} 个位置；不代表完整窗口"
+        if (droppedGnss.get() > 0) notes += "GNSS 采样容量不足，丢弃 ${droppedGnss.get()} 帧；不代表完整窗口"
+        if (droppedNmea.get() > 0) notes += "NMEA 采样容量不足，丢弃 ${droppedNmea.get()} 句；不代表完整窗口"
 
         return SampleSnapshot(
             startedAtMillis = startedAt,
@@ -178,9 +186,11 @@ class CheckSampler(
     }
 
     companion object {
-        private const val MAX_LOCATIONS = 2_000
-        private const val MAX_GNSS_FRAMES = 300
-        private const val MAX_NMEA = 2_000
+        // Explicit memory budgets for the longest selectable window, not assumptions about
+        // receiver rates. Overflow is counted and reported rather than silently truncating.
+        private const val MAX_LOCATIONS = DetectorSettings.MAX_SAMPLE_SECONDS * 100
+        private const val MAX_GNSS_FRAMES = DetectorSettings.MAX_SAMPLE_SECONDS * 10
+        private const val MAX_NMEA = DetectorSettings.MAX_SAMPLE_SECONDS * 160
         private const val MAX_SENSOR_SAMPLES = 500
         private val SENSOR_TYPES = listOf(
             Sensor.TYPE_ACCELEROMETER,

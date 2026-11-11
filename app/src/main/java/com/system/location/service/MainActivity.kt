@@ -178,7 +178,11 @@ class MainActivity : AppCompatActivity() {
                 // could instead restore the library opened from the mock screen.
                 navView.setNavigationItemSelectedListener { item ->
                     if (navController.currentDestination?.id != item.itemId) {
-                        navController.navigate(item.itemId, null, navOptions {
+                        // Return to the existing start screen instead of replacing its Fragment
+                        // through launchSingleTop, which would initialize the map SDK again.
+                        val returnedHome = item.itemId == navController.graph.findStartDestination().id &&
+                            navController.popBackStack(item.itemId, false)
+                        if (!returnedHome) navController.navigate(item.itemId, null, navOptions {
                             launchSingleTop = true
                             popUpTo(navController.graph.findStartDestination().id)
                             // Property animators follow system duration scale, including Back.

@@ -78,6 +78,7 @@ import kotlinx.coroutines.launch
 class GnssComposeFragment : Fragment() {
     private val model by viewModels<GnssViewModel>()
     private val captureModel by viewModels<com.system.location.service.ui.viewmodel.GnssCaptureViewModel>()
+    private val skyPreviewModel by viewModels<com.system.location.service.ui.viewmodel.GnssSkyPreviewViewModel>()
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -86,14 +87,15 @@ class GnssComposeFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             PortalTheme {
-                GnssScreen(model, captureModel)
+                GnssScreen(model, captureModel, skyPreviewModel)
             }
         }
     }
 }
 
 @Composable
-private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.service.ui.viewmodel.GnssCaptureViewModel) {
+private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.service.ui.viewmodel.GnssCaptureViewModel,
+    skyPreviewModel: com.system.location.service.ui.viewmodel.GnssSkyPreviewViewModel) {
     val context = LocalContext.current
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val locationManager = remember(context) { context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager }
@@ -219,6 +221,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                     Text(systems, style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            item(key = "target-sky") { GnssSkyPreviewCard(skyPreviewModel) }
             item(key = "capture") { GnssCaptureCard(captureModel, runtime.isActive) }
             item(key = "control") {
                 PortalCard(modifier = Modifier.animateContentSize()) {

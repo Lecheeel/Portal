@@ -39,7 +39,7 @@ class AutonomousGnssSource internal constructor(policy: GnssSimulationPolicy,
  */
 object GnssSourceSelection {
     private data class Key(val policy: GnssSimulationPolicy, val navigationDigest: String?, val navigationSource: String?,
-        val captureDigest: String?)
+        val captureDigest: String?, val catalog: BeiDouCatalogManifest?)
     private val autonomous = object : LinkedHashMap<Key, WeakReference<AutonomousGnssSource>>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, WeakReference<AutonomousGnssSource>>?) = size > 64
     }
@@ -54,7 +54,8 @@ object GnssSourceSelection {
             navigation.let { resource ->
                 resource?.validate()
                 val signalSource = capture.takeIf { policy.mode == GnssSimulationMode.AUTO }
-                val key = Key(policy, resource?.sha256, resource?.sourceUrl, signalSource?.digest)
+                val key = Key(policy, resource?.sha256, resource?.sourceUrl, signalSource?.digest,
+                    resource?.beiDouCatalog?.manifest)
                 autonomous[key]?.get() ?: AutonomousGnssSource(policy, resource, signalSource?.signalCalibration)
                     .also { autonomous[key] = WeakReference(it) }
             }

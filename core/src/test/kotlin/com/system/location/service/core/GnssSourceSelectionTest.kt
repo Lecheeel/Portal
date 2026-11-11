@@ -9,6 +9,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssSourceSelectionTest {
+    @Test fun metadataOnlyUpdateCreatesNewSourceAndLeavesExistingPublicationUntouched() {
+        val navigation = RinexNavigationResource.import(RinexNavigationResourceTest.navigation(),
+            "https://example.org/nav", sample.timeMillis)
+        val policy = GnssSimulationPolicy(virtualSeed = 907)
+        val before = GnssSourceSelection.source(policy, null, navigation)!!
+        val publication = before.frame(sample, 0, GnssFrameRoute.Global, sample.timeMillis)!!
+        val catalog = BeiDouCatalogResource.import(
+            requireNotNull(javaClass.getResource("/gnss/igs-beidou-metadata.snx")).readText(),
+            java.time.Instant.parse("2026-10-22T08:30:06Z").toEpochMilli())
+        val updated = navigation.copy(beiDouCatalog = catalog)
+        val after = GnssSourceSelection.source(policy, null, updated)!!
+        assertNotSame(before, after)
+        assertSame(after, GnssSourceSelection.source(policy, null, updated.copy(downloadedAtMillis = 1)))
+        assertSame(publication, before.frame(sample, 0, GnssFrameRoute.Global, sample.timeMillis))
+    }
+
     @Test fun identicalCaptureTransfersReuseLiveSourceAndRegistryTurnoverDoesNotInvalidateOwnedFrames() {
         val policy = GnssSimulationPolicy(virtualSeed = 906)
         val firstCapture = capture()

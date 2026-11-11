@@ -10,8 +10,8 @@ object GnssBundledOrbitResources {
     private val utc by lazy { runCatching { GnssUtcTimeScale.parseIers(read("leap-seconds.list")) } }
     private val gps by lazy { runCatching { GpsAlmanacResource.decode(read("gps-yuma.json")) } }
     private val beiDouCatalog by lazy { runCatching {
-        BeiDouCatalogManifest.decode(read("igs-beidou-metadata-source.json"))
-            .catalog(read("igs-beidou-metadata.snx"), utc.getOrThrow(), 30 * 86400L)
+        BeiDouCatalogResource(BeiDouCatalogManifest.decode(read("igs-beidou-metadata-source.json")),
+            read("igs-beidou-metadata.snx")).validate()
     } }
 
     /**
@@ -46,8 +46,12 @@ object GnssBundledOrbitResources {
             // These are separate sky-approximation budgets: one hour from toe, one week from
             // the BDUT header reference, and a dated catalog with a 30-day freshness policy.
             // None is an inferred broadcast fit duration or the capture expiry setting.
-            runCatching { navigation.beiDouProvider(timeScale, beiDouCatalog.getOrThrow(),
-                RinexBeiDouSkyPolicy(3600.0, 7 * 86400.0, true)) }
+            runCatching {
+                val catalog = listOfNotNull(beiDouCatalog.getOrNull(), navigation.beiDouCatalog?.validate())
+                    .maxByOrNull { it.creationLabel } ?: error("No valid BeiDou identity catalog")
+                navigation.beiDouProvider(timeScale, catalog.catalog(timeScale, 30 * 86400L),
+                    RinexBeiDouSkyPolicy(3600.0, 7 * 86400.0, true))
+            }
                 .onSuccess { providers += it }
                 .onFailure { diagnostics += "RINEX 北斗广播来源不可用：${it.message}；保留其他来源与虚拟兜底" }
         }

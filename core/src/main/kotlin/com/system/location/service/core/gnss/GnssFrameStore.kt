@@ -21,6 +21,7 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
         val receiverSecond: Long?, val bootCount: Int?)
     private var capture: GnssCapture? = null
     private var model: ReceiverBroadcastSkyModel? = null
+    private var autonomous: ReceiverAutonomousSkyModel? = null
     private val cache = object : LinkedHashMap<Key, PublishedGnssFrame?>(16, 0.75f, true) {
         // Covers adjacent seconds for all configured routes (RoutingConfig permits 1024).
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, PublishedGnssFrame?>?): Boolean = size > 4096
@@ -29,7 +30,17 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
     @Synchronized
     fun configure(observation: GnssCapture?, seed: Long = 0) {
         capture = observation
+        autonomous = null
         model = observation?.let { ReceiverBroadcastSkyModel(it, seed) }
+        cache.clear()
+    }
+
+    /** Autonomous geometry has its own resource lifecycle and never requires a capture. */
+    @Synchronized
+    fun configureAutonomous(sky: ReceiverAutonomousSkyModel) {
+        capture = null
+        model = null
+        autonomous = sky
         cache.clear()
     }
 
@@ -42,11 +53,14 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
         require(altitudeMeters.isFinite() && minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         require(elapsedRealtimeNanos == null || elapsedRealtimeNanos >= 0)
         require(currentBootCount == null || currentBootCount >= 0)
-        val source = capture ?: return null
-        if (!GnssCaptureValidator.validate(source, validationAtMillis).eligible) { cache.clear(); return null }
-        // A delayed provider sample cannot use evidence that had not finished at its epoch.
-        // Do not cache this rejection: a later sample in the same second can be eligible.
-        if (atMillis < source.endedAtMillis) return null
+        val sky = autonomous
+        if (sky == null) {
+            val source = capture ?: return null
+            if (!GnssCaptureValidator.validate(source, validationAtMillis).eligible) { cache.clear(); return null }
+            // A delayed provider sample cannot use evidence that had not finished at its epoch.
+            // Do not cache this rejection: a later sample in the same second can be eligible.
+            if (atMillis < source.endedAtMillis) return null
+        }
         val bearing = ((bearingDeg % 360) + 360) % 360
         // Null is for explicit sample previews; production must supply its stable route.
         val identity = route?.let(ObserverIdentity::Routed)
@@ -55,17 +69,18 @@ class GnssFrameStore(private val sequence: AtomicLong = AtomicLong()) {
         // expires. Missing or changed boot identity must not reuse a physically propagated frame.
         val hasBroadcast = model?.broadcastBootCount != null
         val utcEpochMillis = atMillis / 1000 * 1000
-        val receiverSecond = if (hasBroadcast) elapsedRealtimeNanos?.div(1_000_000_000L) else null
+        val receiverSecond = if (hasBroadcast || sky != null) elapsedRealtimeNanos?.div(1_000_000_000L) else null
         // Choose one clock boundary: intersecting UTC and elapsed seconds would publish twice
         // per receiver second when their boundaries differ. UTC remains the first sample's label.
         val key = Key(if (receiverSecond == null) utcEpochMillis else null, identity, minimumSatellites,
             receiverSecond,
-            if (hasBroadcast) currentBootCount else null)
+            if (hasBroadcast || sky != null) currentBootCount else null)
         if (cache.containsKey(key)) return cache[key]
         // The second identifies a cache bucket, not the observation epoch. Keep the first
         // sample's exact time for every source; rounding could precede capture completion.
-        val frame = model?.frame(atMillis, observer, altitudeMeters, minimumSatellites,
-            elapsedRealtimeNanos, currentBootCount)
+        val frame = if (sky != null) sky.frame(GnssSkyRequest(atMillis, observer, altitudeMeters), minimumSatellites)
+            else model?.frame(atMillis, observer, altitudeMeters, minimumSatellites,
+                elapsedRealtimeNanos, currentBootCount)
         val published = frame?.let { PublishedGnssFrame(sequence.incrementAndGet(), it, speedMps, bearing) }
         cache[key] = published
         return published

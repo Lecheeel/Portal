@@ -40,9 +40,9 @@ GPS/Network/Fused 定位结果
 
 卫星数量、编号与所属星座、卫星方位角、仰角
 
-信号强度 CN0、基带 CN0、载波频率、参与定位状态
+信号强度 CN0、载波频率、参与定位状态
 
-实验性 Kepler 轨道天空模型
+按目标地点与时间生成天空，支持广播星历、历书与虚拟兜底
 
 
 **接入 NMEA 数据**
@@ -82,7 +82,9 @@ GGA/RMC/GSA/GSV/GST/ZDA
 - GPS/北斗/GLONASS/Galileo/QZSS
 - 同源 GnssStatus/NMEA 生成与主动投递
 - GGA/RMC/GSA/GSV/GST/ZDA
-- Kepler 轨道天空模型（实验性）
+- 自动、自主仿真、实测回放与关闭模式
+- 多系统广播轨道、GPS 历书与离线虚拟天空
+- 可见卫星下限与虚拟补齐策略
 
 ### 环境与分应用
 

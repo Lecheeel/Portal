@@ -317,6 +317,40 @@ class UiDesignTest {
         }
     }
 
+    @Test fun homeControlsRemainSeparateInLargeTextLandscape() {
+        permissions()
+        val oldScale = android.provider.Settings.System.getFloat(instrumentation.targetContext.contentResolver, "font_scale", 1f)
+        fun fontScale(value: Float) {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
+                "settings put system font_scale $value")).use { it.readBytes() }
+        }
+        try {
+            fontScale(1.3f)
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+                await {
+                    var landscape = false
+                    scenario.onActivity { landscape = it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
+                    landscape
+                }
+                compose.onNodeWithText("开始模拟").assertIsDisplayed()
+                compose.onNodeWithContentDescription("选择模拟目标").assertIsDisplayed()
+                val search = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+                val panel = compose.onNodeWithTag("home-runtime-panel").fetchSemanticsNode().boundsInRoot
+                val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+                val tools = listOf("切换地图图层", "选择模拟目标", "输入坐标", "定位到真实位置").map {
+                    compose.onNodeWithContentDescription(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                }
+                assertTrue("Search must stay above runtime controls", search.bottom <= panel.top)
+                assertTrue("Runtime panel must fit on screen", panel.bottom <= root.bottom)
+                tools.forEach { assertTrue("Toolbar must have its own column", it.left >= panel.right) }
+                // Configuration changes arrive before MIUI's physical rotation animation finishes.
+                android.os.SystemClock.sleep(600)
+                capture("home-large-text-landscape")
+            }
+        } finally { fontScale(oldScale) }
+    }
+
     @Test fun settingsAndLibraryRemainUsableWithLargeTextAndLandscape() {
         permissions()
         val oldScale = android.provider.Settings.System.getFloat(instrumentation.targetContext.contentResolver, "font_scale", 1f)

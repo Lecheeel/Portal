@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -77,6 +78,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.onSizeChanged
@@ -865,7 +867,8 @@ private fun HomeScreen(
     val mapBottomInset = bottomPanelHeight + with(density) {
         (24.dp + WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()).roundToPx()
     }
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = maxHeight < 500.dp
         AndroidView(
             factory = { ctx -> createMap(ctx) },
             update = {
@@ -878,7 +881,8 @@ private fun HomeScreen(
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {}
         }
         Column(
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp),
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(start = 16.dp, end = if (compact) 80.dp else 16.dp, top = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Card(
@@ -905,7 +909,13 @@ private fun HomeScreen(
             }
             if (!runtime.isActive && (location.loading || location.issue != null || !location.mapVisible)) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (compact) Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (location.loading) "正在获取真实位置" else location.issue?.message ?: "可直接浏览地图",
+                            modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        location.issue?.let { issue -> TextButton(onClick = onLocationRecovery) { Text(issue.action) } }
+                        if (!location.mapVisible) TextButton(onClick = onBrowse) { Text("先浏览地图") }
+                    } else Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (location.loading) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
@@ -924,21 +934,9 @@ private fun HomeScreen(
                     }
                 }
             }
-            Column(
-                Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                HomeMapButton(R.drawable.ic_home_layers, "切换地图图层") { onMapType() }
-                HomeMapButton(R.drawable.ic_home_route, "选择模拟目标") {
-                    targetPicker = true
-                    onOpenTargets()
-                }
-                HomeMapButton(R.drawable.ic_home_coordinates, "输入坐标") { coordinateDialog = true }
-                HomeMapButton(R.drawable.ic_home_locate, if (runtime.isActive) "定位到模拟位置" else "定位到真实位置", onLocate)
-            }
             PortalCard(
                 modifier = Modifier
+                    .testTag("home-runtime-panel")
                     .onSizeChanged { bottomPanelHeight = it.height },
                 contentPadding = PaddingValues(12.dp),
             ) {
@@ -980,5 +978,20 @@ private fun HomeScreen(
                 )
             }
         }
+        Column(
+            Modifier.align(Alignment.CenterEnd).windowInsetsPadding(WindowInsets.safeDrawing).padding(end = 16.dp)
+                .testTag("home-map-tools"),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            HomeMapButton(R.drawable.ic_home_layers, "切换地图图层") { onMapType() }
+            HomeMapButton(R.drawable.ic_home_route, "选择模拟目标") {
+                targetPicker = true
+                onOpenTargets()
+            }
+            HomeMapButton(R.drawable.ic_home_coordinates, "输入坐标") { coordinateDialog = true }
+            HomeMapButton(R.drawable.ic_home_locate, if (runtime.isActive) "定位到模拟位置" else "定位到真实位置", onLocate)
+        }
+
     }
 }

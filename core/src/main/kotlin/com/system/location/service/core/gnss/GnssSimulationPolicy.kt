@@ -72,9 +72,12 @@ interface GnssOrbitProvider {
 data class GnssOrbitBatch(
     val positions: List<GnssOrbitPosition>,
     val diagnostics: List<String> = emptyList(),
+    /** Includes known unhealthy/stale identities omitted from positions; never reuse as additions. */
+    val reservedIdentities: Set<Pair<Constellation, Int>> = positions.map { it.constellation to it.svid }.toSet(),
 ) {
     init {
         require(positions.map { it.constellation to it.svid }.distinct().size == positions.size)
+        require(positions.all { (it.constellation to it.svid) in reservedIdentities })
     }
 }
 
@@ -85,16 +88,18 @@ class GnssOrbitResolver(providers: List<GnssOrbitProvider>) {
     fun positions(request: GnssSkyRequest): GnssOrbitBatch {
         val selected = linkedMapOf<Pair<Constellation, Int>, GnssOrbitPosition>()
         val diagnostics = mutableListOf<String>()
+        val reserved = mutableSetOf<Pair<Constellation, Int>>()
         for (provider in providers) {
             val batch = provider.positions(request)
             require(batch.positions.all { it.provenance.kind == provider.kind }) {
                 "Orbit provider returned an inconsistent source kind"
             }
             diagnostics += batch.diagnostics
+            reserved += batch.reservedIdentities
             for (position in batch.positions) {
                 selected.putIfAbsent(position.constellation to position.svid, position)
             }
         }
-        return GnssOrbitBatch(selected.values.toList(), diagnostics)
+        return GnssOrbitBatch(selected.values.toList(), diagnostics, reserved.toSet())
     }
 }

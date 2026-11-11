@@ -40,12 +40,14 @@ class GnssSimulationPolicyTest {
         val expired = object : GnssOrbitProvider {
             override val kind = GnssOrbitSourceKind.BROADCAST_EPHEMERIS
             override fun positions(request: GnssSkyRequest) =
-                GnssOrbitBatch(emptyList(), listOf("GPS:1 expired"))
+                GnssOrbitBatch(emptyList(), listOf("GPS:1 expired"),
+                    setOf(Constellation.GPS to 1, Constellation.GPS to 2))
         }
         val result = GnssOrbitResolver(listOf(expired, provider(GnssOrbitSourceKind.ALMANAC, 1)))
             .positions(request)
         assertEquals(GnssOrbitSourceKind.ALMANAC, result.positions.single().provenance.kind)
         assertEquals(listOf("GPS:1 expired"), result.diagnostics)
+        assertEquals(setOf(Constellation.GPS to 1, Constellation.GPS to 2), result.reservedIdentities)
     }
 
     @Test fun resolverPassesTargetTimeAndLocationToEveryAdapter() {

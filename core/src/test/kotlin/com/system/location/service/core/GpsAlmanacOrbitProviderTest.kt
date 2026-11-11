@@ -34,6 +34,7 @@ class GpsAlmanacOrbitProviderTest {
             provenance, utc, 604800.0)
         val oldCaptureAge = provider.positions(request.copy(atMillis = epoch + 2 * 86400000L))
         assertEquals(listOf(1), oldCaptureAge.positions.map { it.svid })
+        assertEquals(setOf(Constellation.GPS to 1, Constellation.GPS to 2), oldCaptureAge.reservedIdentities)
         assertTrue(oldCaptureAge.diagnostics.single().contains("GPS:2"))
         val expired = provider.positions(request.copy(atMillis = epoch + 8 * 86400000L))
         assertTrue(expired.positions.isEmpty())

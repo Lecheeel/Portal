@@ -22,8 +22,9 @@ class GpsAlmanacOrbitProvider(
     }
 
     override fun positions(request: GnssSkyRequest): GnssOrbitBatch {
+        val reserved = records.map { Constellation.GPS to it.svid }.toSet()
         val conversion = utc.gpsAtUtcMillis(request.atMillis)
-        val time = conversion.time ?: return GnssOrbitBatch(emptyList(), listOf(requireNotNull(conversion.reason)))
+        val time = conversion.time ?: return GnssOrbitBatch(emptyList(), listOf(requireNotNull(conversion.reason)), reserved)
         val diagnostics = mutableListOf<String>()
         val positions = records.mapNotNull { record ->
             val result = GpsAlmanacPropagator.position(record, time, maximumEpochDistanceSeconds)
@@ -34,6 +35,6 @@ class GpsAlmanacOrbitProvider(
             } else GnssOrbitPosition(Constellation.GPS, record.svid, position, provenance,
                 hasEphemeris = false, hasAlmanac = true)
         }
-        return GnssOrbitBatch(positions, diagnostics)
+        return GnssOrbitBatch(positions, diagnostics, reserved)
     }
 }

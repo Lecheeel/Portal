@@ -187,6 +187,14 @@ var Context.hookSensor: Boolean
     }
 
 /** Java-side cadence tuning; Native receives the resulting cadence and variation only. */
+var Context.sensorTargetPackages: Set<String>
+    get() = runCatching { com.system.location.service.core.sensors.SensorTargets.parse(
+        sharedPrefs.getString("sensorTargetPackages", "").orEmpty()) }.getOrDefault(emptySet())
+    set(value) {
+        val validated = com.system.location.service.core.sensors.SensorTargets.parse(value.joinToString(","))
+        sharedPrefs.edit { putString("sensorTargetPackages", validated.sorted().joinToString(",")) }
+    }
+
 var Context.sensorCadenceScale: Double
     get() = sharedPrefs.getFloat("sensorCadenceScale", 1.0f).toDouble()
     set(value) = sharedPrefs.edit {

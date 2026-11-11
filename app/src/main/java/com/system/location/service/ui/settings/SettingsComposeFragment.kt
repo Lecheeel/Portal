@@ -70,6 +70,7 @@ import com.system.location.service.ext.routingJson
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.smoothRouteMotion
 import com.system.location.service.ext.speed
+import com.system.location.service.ext.sensorTargetPackages
 import com.system.location.service.ext.startupBurstEnabled
 import com.system.location.service.maps.mapProvider
 import com.system.location.service.privacy.SdkPrivacy
@@ -150,6 +151,16 @@ class SettingsComposeFragment : Fragment() {
                         }
                     },
                     onAppRouting = ::showAppRouting,
+                    onSensorTargets = {
+                        val context = requireContext()
+                        showAppPicker("传感器目标应用", context.sensorTargetPackages) {
+                            if (it.size <= 128) {
+                                context.sensorTargetPackages = it
+                                refresh()
+                                applyConfigNowWithToast()
+                            } else showToast("最多选择 128 个应用")
+                        }
+                    },
                     onAppPoint = ::showAppPoint,
                     onRestoreConfig = model::restoreLastConfig,
                     onBackgroundGuidance = { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) },
@@ -410,6 +421,7 @@ private fun SettingsScreen(
     onEditSpeed: () -> Unit,
     onEditSatelliteCount: () -> Unit,
     onAppRouting: () -> Unit,
+    onSensorTargets: () -> Unit,
     onAppPoint: () -> Unit,
     onRestoreConfig: () -> Unit,
     onBackgroundGuidance: () -> Unit,
@@ -451,6 +463,7 @@ private fun SettingsScreen(
         )
     }
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
+    val sensorTargets = remember(context, revision, preferencesRevision) { context.sensorTargetPackages }
     val hooksEnabled = runtime.backend != BackendType.MOCK_PROVIDER
     fun hookAction(block: (Boolean) -> Unit): ((Boolean) -> Unit)? = if (hooksEnabled) {
         { checked -> block(checked); refresh(); onConfigChanged() }
@@ -534,6 +547,13 @@ private fun SettingsScreen(
                             checked = values.experimentalClearMockFlag,
                             onCheckedChange = { context.experimentalClearMockFlag = it; refresh() },
                         )
+                    }
+                }
+                item(key = "sensors") {
+                    SensorSettingsControls(sensorTargets, onSensorTargets) {
+                        context.sensorTargetPackages = it
+                        refresh()
+                        onConfigChanged()
                     }
                 }
                 item(key = "hooks") {

@@ -10,7 +10,7 @@ import com.system.location.service.core.location.LocationSample
  */
 class CapturedGnssSource private constructor(private val payload: String) : GnssFrameSource {
     private val capture = GnssCaptureWire.decode(payload)
-    internal val signalCalibration by lazy { GnssAutonomousSignalCalibration(capture) }
+    val signalCalibration by lazy { GnssAutonomousSignalCalibration(capture) }
     private val frames = GnssFrameStore(sequences).apply { configure(capture) }
     override val requiresBootIdentity: Boolean = capture.bootCount != null &&
         (capture.gpsBroadcastEvidence != null || capture.galileoBroadcastEvidence != null ||

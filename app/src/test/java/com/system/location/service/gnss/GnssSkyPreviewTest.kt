@@ -7,6 +7,26 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssSkyPreviewTest {
+    @Test fun previewMatchesAutoSignalCalibrationAndUsesRealValidationTimeForExpiry() {
+        val at = sample.timeMillis
+        val capture = CapturedGnssSource.prepare(GnssCaptureWire.encode(GnssCapture(
+            deviceModel = "test", osVersion = "test", startedAtMillis = at, endedAtMillis = at,
+            frames = listOf(GnssObservationFrame(at, Wgs84(0.0, 0.0), satellites = listOf(
+                GnssSatellite(Constellation.GALILEO, 1, 0f, 0f, 25f, false, false, true, 1_575_420_000f),
+                GnssSatellite(Constellation.GALILEO, 2, 90f, 0f, 25f, false, false, true, 1_575_420_000f)))))))!!
+        val policy = GnssSimulationPolicy(virtualSeed = 1234568)
+        val preview = GnssSkyPreview()
+        val predicted = preview.frame(sample, 0, policy, null, capture, at)!!
+        val production = GnssSourceSelection.source(policy, capture)!!.frame(sample, 0,
+            GnssFrameRoute.Global, at)!!.frame
+        assertEquals(production, predicted)
+        val expired = preview.frame(sample, 0, policy, null, capture,
+            at + GnssCaptureValidator.MAX_AGE_MILLIS + 1)!!
+        val uncalibrated = GnssSkyPreview().frame(sample, 0, policy, null)!!
+        assertEquals(uncalibrated.satellites, expired.satellites)
+        assertNotEquals(predicted.satellites.map { it.cn0DbHz }, expired.satellites.map { it.cn0DbHz })
+    }
+
     private val sample = LocationSample(Wgs84(31.0, 121.0), 20.0, 5f, 0f, 0f, 1830297600000, 1_000_000_000)
 
     @Test fun previewOfOfflineSkyReflectsTargetEnvironmentAndQuantityWithoutCapture() {

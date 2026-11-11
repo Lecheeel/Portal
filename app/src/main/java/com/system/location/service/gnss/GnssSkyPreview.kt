@@ -9,20 +9,23 @@ import com.system.location.service.core.location.LocationSample
  * to a different first sample or advance its publication sequence.
  */
 internal class GnssSkyPreview {
-    private data class Key(val policy: GnssSimulationPolicy, val digest: String?, val source: String?)
+    private data class Key(val policy: GnssSimulationPolicy, val digest: String?, val source: String?,
+        val calibration: GnssAutonomousSignalCalibration?)
     private var key: Key? = null
     private var model: ReceiverAutonomousSkyModel? = null
 
     fun frame(sample: LocationSample, minimum: Int, policy: GnssSimulationPolicy,
-        navigation: RinexNavigationResource?): ReceiverGnssFrame? {
+        navigation: RinexNavigationResource?, capture: CapturedGnssSource? = null,
+        validationAtMillis: Long = sample.timeMillis): ReceiverGnssFrame? {
         if (policy.mode == GnssSimulationMode.OFF || policy.mode == GnssSimulationMode.REPLAY) return null
         navigation?.validate()
-        val next = Key(policy, navigation?.sha256, navigation?.sourceUrl)
+        val calibration = capture?.signalCalibration.takeIf { policy.mode == GnssSimulationMode.AUTO }
+        val next = Key(policy, navigation?.sha256, navigation?.sourceUrl, calibration)
         if (key != next) {
             model = GnssBundledOrbitResources.model(policy, GnssOutputLimits(128, 36, 32),
-                gpsAlmanacAgeBudgetSeconds = 7 * 86400.0, navigation = navigation)
+                gpsAlmanacAgeBudgetSeconds = 7 * 86400.0, navigation = navigation, signalCalibration = calibration)
             key = next
         }
-        return model!!.frame(GnssSkyRequest(sample.timeMillis, sample.coordinate, sample.altitude), minimum)
+        return model!!.frame(GnssSkyRequest(sample.timeMillis, sample.coordinate, sample.altitude), minimum, validationAtMillis)
     }
 }

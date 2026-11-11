@@ -76,7 +76,8 @@ class GnssSkyPreviewViewModel(application: Application) : AndroidViewModel(appli
                     else -> GnssSkyPreviewState(
                         frame = withContext(Dispatchers.Default) {
                             engine.frame(sample, configuration.minimumSatellites,
-                                configuration.gnssSimulation, navigation)
+                                configuration.gnssSimulation, navigation, configuration.gnssSource,
+                                System.currentTimeMillis())
                         },
                         message = "运行场景目标 · 本地预测，不代表接收端已收到",
                         resourceWarning = resourceWarning,

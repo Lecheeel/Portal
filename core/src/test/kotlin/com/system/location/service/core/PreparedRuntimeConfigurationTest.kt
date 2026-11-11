@@ -28,6 +28,26 @@ class PreparedRuntimeConfigurationTest {
         assertEquals(initial.configuration.wifiFingerprintCatalogJson, result.configuration.wifiFingerprintCatalogJson)
     }
 
+    @Test fun gnssPolicyUpdatesAtomicallyAndSurvivesRuntimeSerialization() {
+        val changed = PreparedRuntimeConfiguration.prepare(mapOf("gnss_mode" to "AUTONOMOUS",
+            "gnss_minimum_policy" to "GUARANTEE_QUANTITY", "gnss_environment" to "INDOOR",
+            "gnss_virtual_seed" to 123L)).applyTo(initial)
+        val policy = changed.configuration.gnssSimulation
+        assertEquals(GnssSimulationMode.AUTONOMOUS, policy.mode)
+        assertEquals(GnssMinimumPolicy.GUARANTEE_QUANTITY, policy.minimumPolicy)
+        assertEquals(GnssSimulationEnvironment.INDOOR, policy.environment)
+        assertEquals(123L, policy.virtualSeed)
+        val partial = PreparedRuntimeConfiguration.prepare(mapOf("gnss_mode" to "REPLAY")).applyTo(changed)
+        assertEquals(policy.copy(mode = GnssSimulationMode.REPLAY), partial.configuration.gnssSimulation)
+        val wire = Json.encodeToString(HookConfiguration.serializer(), changed.configuration)
+        assertEquals(policy, Json.decodeFromString(HookConfiguration.serializer(), wire).gnssSimulation)
+        assertEquals(GnssSimulationPolicy(), Json.decodeFromString(HookConfiguration.serializer(), "{}").gnssSimulation)
+        for (invalid in listOf(mapOf("gnss_mode" to "UNKNOWN"), mapOf("gnss_minimum_policy" to "UNKNOWN"),
+            mapOf("gnss_environment" to true), mapOf("gnss_virtual_seed" to 123))) {
+            assertThrows(IllegalArgumentException::class.java) { PreparedRuntimeConfiguration.prepare(invalid) }
+        }
+    }
+
     @Test fun explicitNullClearsAndBlankLegacyStringsClear() {
         for (clear in listOf(null, "", " ")) {
             val result = PreparedRuntimeConfiguration.prepare(mapOf("routing_json" to clear,

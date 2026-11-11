@@ -6,6 +6,9 @@ import com.system.location.service.core.environment.EnvironmentProfileCodec
 import com.system.location.service.core.environment.EnvironmentSourceMode
 import com.system.location.service.core.environment.WifiFingerprintImporter
 import com.system.location.service.core.gnss.CapturedGnssSource
+import com.system.location.service.core.gnss.GnssSimulationMode
+import com.system.location.service.core.gnss.GnssMinimumPolicy
+import com.system.location.service.core.gnss.GnssSimulationEnvironment
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.settings.PortalSettingsSchema
 import com.system.location.service.core.settings.SettingType
@@ -38,6 +41,12 @@ class PreparedRuntimeConfiguration private constructor(
             disableFusedLocation = value("disable_fused_location", old.disableFusedLocation),
             downgradeToCdma = value("need_downgrade_to_2g", old.downgradeToCdma),
             minimumSatellites = value("min_satellites", old.minimumSatellites),
+            gnssSimulation = old.gnssSimulation.copy(
+                mode = value("gnss_mode", old.gnssSimulation.mode),
+                minimumPolicy = value("gnss_minimum_policy", old.gnssSimulation.minimumPolicy),
+                environment = value("gnss_environment", old.gnssSimulation.environment),
+                virtualSeed = value("gnss_virtual_seed", old.gnssSimulation.virtualSeed),
+            ),
             allowPhysicalRawGnss = value("enable_agps", old.allowPhysicalRawGnss),
             nmeaEnabled = value("enable_nmea", old.nmeaEnabled),
             hideMock = value("hide_mock", old.hideMock),
@@ -117,6 +126,9 @@ class PreparedRuntimeConfiguration private constructor(
             (values["wifi_fingerprint_json"] as String?)?.let { WifiFingerprintImporter.importJson(it) }
             (values["cell_mode"] as String?)?.let { values["cell_mode"] = CellMode.valueOf(it) }
             (values["environment_source"] as String?)?.let { values["environment_source"] = EnvironmentSourceMode.valueOf(it) }
+            (values["gnss_mode"] as String?)?.let { values["gnss_mode"] = GnssSimulationMode.valueOf(it) }
+            (values["gnss_minimum_policy"] as String?)?.let { values["gnss_minimum_policy"] = GnssMinimumPolicy.valueOf(it) }
+            (values["gnss_environment"] as String?)?.let { values["gnss_environment"] = GnssSimulationEnvironment.valueOf(it) }
             return PreparedRuntimeConfiguration(values.toMap(), source, captureRejected, routing, environment)
         }
     }

@@ -2,6 +2,7 @@ package com.system.location.service.core.runtime
 
 import com.system.location.service.core.gnss.CapturedGnssSource
 import com.system.location.service.core.gnss.GnssFrame
+import com.system.location.service.core.gnss.GnssSimulationPolicy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -25,6 +26,7 @@ data class HookConfiguration(
     val hideMock: Boolean = true,
     val hookWifi: Boolean = true,
     val minimumSatellites: Int = 0,
+    val gnssSimulation: GnssSimulationPolicy = GnssSimulationPolicy(),
     val reportIntervalMs: Long = 100L,
     val sensorCadenceScale: Double = 1.0,
     val sensorVariation: Double = 0.15,

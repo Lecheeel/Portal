@@ -1,5 +1,9 @@
 package com.system.location.service.core.settings
 
+import com.system.location.service.core.gnss.GnssSimulationMode
+import com.system.location.service.core.gnss.GnssMinimumPolicy
+import com.system.location.service.core.gnss.GnssSimulationEnvironment
+
 import com.system.location.service.core.environment.EnvironmentConfig
 
 enum class SettingType { BOOLEAN, INT, LONG, FLOAT, DOUBLE, STRING, ENUM }
@@ -95,6 +99,10 @@ object PortalSettingsSchema {
             SettingSpec("accuracy", SettingType.FLOAT, "25.0", 0.1, 10_000.0),
             SettingSpec("report_interval", SettingType.LONG, "100", 50.0, 1_000.0),
             SettingSpec("min_satellites", SettingType.INT, "0", 0.0, 128.0),
+            SettingSpec("gnss_mode", SettingType.ENUM, "AUTO", choices = GnssSimulationMode.entries.map { it.name }.toSet()),
+            SettingSpec("gnss_minimum_policy", SettingType.ENUM, "PHYSICAL_FIRST", choices = GnssMinimumPolicy.entries.map { it.name }.toSet()),
+            SettingSpec("gnss_environment", SettingType.ENUM, "OPEN_SKY", choices = GnssSimulationEnvironment.entries.map { it.name }.toSet()),
+            SettingSpec("gnss_virtual_seed", SettingType.LONG, "0"),
             SettingSpec("gnss_capture", SettingType.STRING, "", maxLength = 262_144),
             SettingSpec("enable_mock_wifi", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_debug_log", SettingType.BOOLEAN, "false"),

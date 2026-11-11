@@ -61,6 +61,12 @@ data class RinexTimeSystemCorrection(
             return corrections.singleOrNull()
         }
 
+        internal fun beiDouCorrection(headers: List<String>): RinexTimeSystemCorrection? {
+            val corrections = headers.filter { it.take(4) == "BDUT" }.map(::parse).distinct()
+            require(corrections.size <= 1) { "Conflicting BeiDou BDUT corrections" }
+            return corrections.singleOrNull()
+        }
+
         /** Header content columns 1–60, retained by the navigation reader. */
         fun parse(header: String): RinexTimeSystemCorrection {
             require(header.length in 50..60 && header[4] == ' ' && header[38] == ' ')

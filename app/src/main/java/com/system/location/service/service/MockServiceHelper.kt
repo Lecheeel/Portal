@@ -307,6 +307,16 @@ object MockServiceHelper {
             fallback.configuration.gnssSource?.wirePayload()
         }
         values["gnss_capture"] = capturePayload
+        // Download/import work stays outside the authenticated command. Only a complete cached
+        // resource crosses IPC; cache failures preserve the accepted in-memory resource.
+        val navigationFile = java.io.File(context.noBackupFilesDir, "gnss/navigation-resource.json")
+        values["gnss_navigation"] = runCatching {
+            com.system.location.service.core.gnss.RinexNavigationResourceStore(navigationFile).load()
+                ?.let(com.system.location.service.core.gnss.RinexNavigationResource::encodeWire)
+        }.getOrElse {
+            com.system.location.service.hook.utils.Logger.error("GNSS navigation unavailable: ${it.javaClass.simpleName}")
+            fallback.configuration.gnssNavigation?.let(com.system.location.service.core.gnss.RinexNavigationResource::encodeWire)
+        }
         val prepared = try {
             com.system.location.service.core.runtime.PreparedRuntimeConfiguration
                 .prepare(values, fallback.configuration.gnssSource)

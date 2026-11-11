@@ -21,8 +21,8 @@ internal fun GnssPolicyControls(enabled: Boolean, onChanged: () -> Unit) {
     val preferences = remember(context, revision) { context.sharedPrefs.all }
     var selection by remember { mutableStateOf<String?>(null) }
     val modes = listOf(
-        GnssSimulationMode.AUTO.name to "自动：按目标地点生成，自动选择来源",
-        GnssSimulationMode.AUTONOMOUS.name to "自主：无需本机采集",
+        GnssSimulationMode.AUTO.name to "自动：目标天空 + 可选实测信号校准",
+        GnssSimulationMode.AUTONOMOUS.name to "自主：目标天空，不使用本机采集校准",
         GnssSimulationMode.REPLAY.name to "实测回放：复现采集地点与时段",
         GnssSimulationMode.OFF.name to "关闭：保留真实卫星回调",
     )
@@ -61,6 +61,7 @@ internal fun GnssPolicyControls(enabled: Boolean, onChanged: () -> Unit) {
                     }
                     if (key == "gnssSimulationEnvironment") Text("模拟环境与手机实际摆放环境相互独立；室内场景可能没有可用定位解。")
                     if (key == "gnssMinimumPolicy") Text("下限针对可见数量；跟踪数、参与定位数和 DOP 仍独立计算。实测回放不补入其他天空。")
+                    if (key == "gnssSimulationMode") Text("自动和自主模式均无需采集。自动模式可迁移有效画像的信号特征，不搬用采集地天空，也不代表模拟地点的真实接收情况。")
                 }
             },
             confirmButton = {},

@@ -143,7 +143,7 @@ class SettingsComposeFragment : Fragment() {
                     onEditSatelliteCount = {
                         editNumber("可见卫星下限（0 为自动）", context.minSatelliteCount.toString(), decimal = false) { raw ->
                             val value = raw.toIntOrNull() ?: error("数量不合法")
-                            require(value in 0..128) { "卫星数量需在 0–128 之间；0 表示按真实画像自动生成" }
+                            require(value in 0..128) { "卫星数量需在 0–128 之间；0 表示按所选模式和目标天空自动生成" }
                             context.minSatelliteCount = value
                             refresh()
                             applyConfigNowWithToast()

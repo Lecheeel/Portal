@@ -38,8 +38,8 @@ internal fun GnssCaptureStatus(model: GnssCaptureViewModel, minimumSatellites: I
                 Text("实测回放参考（$sourceLabel，采集地点）：有效池 ${frame.availableSatelliteCapacity} 颗，可见 ${frame.satellites.size} 颗；不代表模拟地点的当前天空。",
                     style = MaterialTheme.typography.bodySmall)
                 Text(if (minimumSatellites == 0) {
-                    if (frame.source == ReceiverGnssSource.STATISTICAL_REPLAY) "自动：按实测数量分布回放。"
-                    else "自动：按采集证据和当前可用几何生成。"
+                    if (frame.source == ReceiverGnssSource.STATISTICAL_REPLAY) "回放数量：按实测分布生成。"
+                    else "回放数量：按采集证据和当前可用几何生成。"
                 }
                     else "回放参考下限 $minimumSatellites 颗${if (frame.satellites.size >= minimumSatellites) "，已满足。" else "，此实测池无法满足；自主模式可另选数量保证策略。"}",
                     style = MaterialTheme.typography.bodySmall,

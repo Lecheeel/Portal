@@ -1,9 +1,9 @@
 <resources>
     <bool name="light_system_bars">true</bool>
-    <color name="page_background">#F6F7FB</color>
+    <color name="page_background">#F3FAF0</color>
     <color name="card_surface">#FFFFFF</color>
-    <color name="primary_container">#EEF0FF</color>
-    <color name="on_primary">#FFFFFF</color>
+    <color name="primary_container">#DDF7D5</color>
+    <color name="on_primary">#163A18</color>
     <color name="status_success">#087F5B</color>
     <color name="status_error">#B42338</color>
     <dimen name="page_spacing">16dp</dimen>

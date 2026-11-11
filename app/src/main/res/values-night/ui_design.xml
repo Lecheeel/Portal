@@ -1,11 +1,11 @@
 <resources>
     <bool name="light_system_bars">false</bool>
-    <color name="page_background">#10141D</color>
-    <color name="card_surface">#1B2230</color>
-    <color name="primary_container">#2A3350</color>
-    <color name="on_primary">#172044</color>
-    <color name="primary">#A5B4FC</color>
-    <color name="accent">#C4B5FD</color>
+    <color name="page_background">#101A12</color>
+    <color name="card_surface">#1B281D</color>
+    <color name="primary_container">#285C2D</color>
+    <color name="on_primary">#DDF7D5</color>
+    <color name="primary">#8ED27F</color>
+    <color name="accent">#A6D99B</color>
     <color name="status_success">#6EE7B7</color>
     <color name="status_error">#FDA4AF</color>
     <color name="lse_mini_title_color">#CBD5E1</color>

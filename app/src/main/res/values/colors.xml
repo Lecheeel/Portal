@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Brand / Primary (Modern Indigo/Blue) -->
-    <color name="primary">#4F46E5</color>
-    <color name="primary_dark">#1D4ED8</color>
-    <color name="colorAccent">#6366F1</color>
-    <color name="accent">#4F46E5</color>
-    <color name="accentFallback">#6366F1</color>
-    <color name="colorPrimary">#3B82F6</color>
-    <color name="colorPrimaryDark">#1D4ED8</color>
+    <color name="primary">#4F9D45</color>
+    <color name="primary_dark">#2F6E35</color>
+    <color name="colorAccent">#6AAE5D</color>
+    <color name="accent">#4F9D45</color>
+    <color name="accentFallback">#6AAE5D</color>
+    <color name="colorPrimary">#4F9D45</color>
+    <color name="colorPrimaryDark">#2F6E35</color>
 
     <!-- Modern Material 3 Light Surface & Colors -->
     <color name="surface">#F8FAFC</color>
@@ -41,9 +41,9 @@
     <color name="theme_side_nav_end_color">#FFFFFF</color>
     <color name="theme_appbar_text_color">#0F172A</color>
     <color name="theme_appbar_icon_color">#0F172A</color>
-    <color name="theme_nav_icon_color">#3B82F6</color>
-    <color name="theme_active">#EFF6FF</color>
-    <color name="theme_focused_touch">#DBEAFE</color>
+    <color name="theme_nav_icon_color">#4F9D45</color>
+    <color name="theme_active">#DDF7D5</color>
+    <color name="theme_focused_touch">#CBECC2</color>
 
     <color name="lse_appbar_color">#FFFFFF</color>
     <color name="lse_appbar_color_center">#F8FAFC</color>

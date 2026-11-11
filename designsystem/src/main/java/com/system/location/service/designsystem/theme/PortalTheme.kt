@@ -15,16 +15,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val PortalPurple = Color(0xFF4F46E5)
-private val PortalPurpleDark = Color(0xFF818CF8)
-private val PortalLavender = Color(0xFFE0E7FF)
+private val PortalGreen = Color(0xFF4F9D45)
+private val PortalGreenDark = Color(0xFF8ED27F)
+private val PortalGreenContainer = Color(0xFFDDF7D5)
 private val PortalSurface = Color(0xFFFFFFFF)
-private val PortalSurfaceDark = Color(0xFF1E293B)
-private val PortalBackground = Color(0xFFF8FAFC)
-private val PortalBackgroundDark = Color(0xFF0F172A)
+private val PortalSurfaceDark = Color(0xFF1B281D)
+private val PortalBackground = Color(0xFFF3FAF0)
+private val PortalBackgroundDark = Color(0xFF101A12)
 private val PortalInk = Color(0xFF0F172A)
-private val PortalInkMuted = Color(0xFF64748B)
-private val PortalOutline = Color(0xFFE2E8F0)
+private val PortalInkMuted = Color(0xFF5F7160)
+private val PortalOutline = Color(0xFFD5E5D0)
 
 private val PortalTypography = Typography(
     headlineLarge = TextStyle(
@@ -89,22 +89,22 @@ object PortalSpacing {
 }
 
 private val LightColors = lightColorScheme(
-    primary = PortalPurple,
+    primary = PortalGreen,
     onPrimary = Color.White,
-    primaryContainer = PortalLavender,
-    onPrimaryContainer = Color(0xFF1E1B4B),
-    secondary = Color(0xFF6366F1),
+    primaryContainer = PortalGreenContainer,
+    onPrimaryContainer = Color(0xFF163A18),
+    secondary = Color(0xFF6AAE5D),
     surface = PortalSurface,
     onSurface = PortalInk,
-    surfaceVariant = Color(0xFFF1F5F9),
+    surfaceVariant = Color(0xFFEAF5E7),
     onSurfaceVariant = PortalInkMuted,
     outline = Color(0xFF7B8495),
     outlineVariant = PortalOutline,
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFF1F5F9),
-    surfaceContainer = Color(0xFFEDF1F7),
-    surfaceContainerHigh = Color(0xFFE7ECF4),
-    surfaceContainerHighest = Color(0xFFE2E8F0),
+    surfaceContainerLow = Color(0xFFEAF5E7),
+    surfaceContainer = Color(0xFFE5F0E2),
+    surfaceContainerHigh = Color(0xFFDDEBD9),
+    surfaceContainerHighest = Color(0xFFD5E5D0),
     background = PortalBackground,
     onBackground = PortalInk,
     error = Color(0xFFBA1A1A),
@@ -114,11 +114,11 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = PortalPurpleDark,
-    onPrimary = Color(0xFF1E1B4B),
-    primaryContainer = Color(0xFF3730A3),
-    onPrimaryContainer = Color(0xFFE0E7FF),
-    secondary = Color(0xFFA5B4FC),
+    primary = PortalGreenDark,
+    onPrimary = Color(0xFF143018),
+    primaryContainer = Color(0xFF285C2D),
+    onPrimaryContainer = Color(0xFFDDF7D5),
+    secondary = Color(0xFFA6D99B),
     surface = PortalSurfaceDark,
     onSurface = Color(0xFFF1F5F9),
     surfaceVariant = Color(0xFF334155),

@@ -21,11 +21,14 @@
         android:layout_height="match_parent"
         android:layout_gravity="start"
         app:itemRippleColor="@color/theme_active"
-        android:background="@color/card_surface"
+        android:background="@drawable/nav_drawer_background"
+        android:elevation="4dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
         app:itemIconTint="@color/primary"
         app:itemTextColor="@color/text_primary"
-        app:itemHorizontalPadding="24dp"
-        app:itemVerticalPadding="10dp"
+        app:itemHorizontalPadding="16dp"
+        app:itemVerticalPadding="8dp"
         app:headerLayout="@layout/nav_header_main"
         app:menu="@menu/activity_main_drawer" />
 

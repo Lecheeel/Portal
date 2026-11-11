@@ -35,6 +35,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.GravityCompat
 import androidx.core.view.updatePadding
+import androidx.core.view.doOnLayout
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Lifecycle
@@ -127,7 +128,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // super restores NavHost and its MapViews synchronously.
         // Discard old UI state unless consent is confirmed and the map SDK is ready.
-        super.onCreate(if (selectedMapsReady()) savedInstanceState else null)
+        val mapsReady = selectedMapsReady()
+        val restoreDrawerOpen = mapsReady && savedInstanceState?.getBoolean("portal.drawer.open") == true
+        super.onCreate(if (mapsReady) savedInstanceState else null)
 
         // Edge-to-Edge full immersion layout
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -225,6 +228,14 @@ class MainActivity : AppCompatActivity() {
                         binding.appBarMain.appBarLayout.visibility = View.VISIBLE
                     }
                     ViewCompat.requestApplyInsets(binding.appBarMain.root)
+                }
+                // Consent/permission checks can delay setContentView until after Android's
+                // automatic hierarchy restoration. Restore the drawer after its first layout.
+                drawerLayout.doOnLayout {
+                    if (restoreDrawerOpen) drawerLayout.openDrawer(GravityCompat.START, false)
+                    // Hierarchy restoration may already have opened it before the listener was
+                    // attached, so synchronize Back interception even without an opened event.
+                    drawerBack.isEnabled = drawerLayout.isDrawerVisible(GravityCompat.START)
                 }
                 startupUpdateViewModel.check()
             }
@@ -399,6 +410,13 @@ class MainActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        if (::binding.isInitialized) {
+            outState.putBoolean("portal.drawer.open", binding.drawerLayout.isDrawerVisible(GravityCompat.START))
+        }
+        super.onSaveInstanceState(outState)
     }
 
     companion object {

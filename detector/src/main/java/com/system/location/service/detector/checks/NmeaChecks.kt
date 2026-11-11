@@ -7,10 +7,26 @@ import com.system.location.service.detector.model.CheckIds
 import com.system.location.service.detector.model.CheckResult
 import com.system.location.service.detector.model.NmeaSentenceSnapshot
 import com.system.location.service.detector.model.SampleSnapshot
+import com.system.location.service.detector.model.GnssFrameSnapshot
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+
+/** NMEA carries the receiver epoch; GnssStatus only carries callback arrival time. */
+internal data class GnssStatusEpoch(val timeMillis: Long, val frame: GnssFrameSnapshot)
+
+internal fun nmeaStatusEpochs(snapshot: SampleSnapshot): List<GnssStatusEpoch> {
+    val bursts = groupGsvBursts(parseAll(snapshot.nmeaSentences).parsed.filter { it.type == "GSV" })
+        .filter { it.anchorMillis > 0 && it.isComplete() && validateGsvBursts(listOf(it)).issues.isEmpty() }
+    return bursts.mapNotNull { burst ->
+        val frame = LocationGnssReconciliation.nearestFrame(burst.anchorMillis, snapshot.gnssFrames)
+            ?: return@mapNotNull null
+        // Missing callbacks must not let two receiver epochs claim the same status frame.
+        if (bursts.minByOrNull { abs(it.anchorMillis - frame.capturedAtMillis) } !== burst) return@mapNotNull null
+        GnssStatusEpoch(burst.anchorMillis, frame)
+    }.sortedBy { it.timeMillis }
+}
 
 /**
  * C07 · NMEA 自洽性。

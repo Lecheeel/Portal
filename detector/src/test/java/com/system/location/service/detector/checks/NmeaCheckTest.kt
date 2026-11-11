@@ -5,6 +5,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NmeaCheckTest {
+    @Test fun statusEpochUsesNmeaTimestampRatherThanCallbackArrival() {
+        val satellite = GnssSatelliteSnapshot(1, 1, 30f, 40f, 50f, true, true, true, true)
+        val frame = GnssFrameSnapshot(10120, listOf(satellite))
+        val gsv = sentence("GPGSV,1,1,1,01,40,050,30", 10000)
+        val snapshot = SampleSnapshot(startedAtMillis = 9000, endedAtMillis = 12000,
+            gnssFrames = listOf(frame), nmeaSentences = listOf(gsv))
+        assertEquals(listOf(GnssStatusEpoch(10000, frame)), nmeaStatusEpochs(snapshot))
+        assertTrue(nmeaStatusEpochs(snapshot.copy(nmeaSentences = listOf(gsv.copy(sentence = "bad")))).isEmpty())
+        assertTrue(nmeaStatusEpochs(snapshot.copy(nmeaSentences = listOf(
+            sentence("GPGSV,2,1,5,01,40,050,30", 10000)))).isEmpty())
+        assertTrue(nmeaStatusEpochs(snapshot.copy(gnssFrames = listOf(frame.copy(capturedAtMillis = 15000)))).isEmpty())
+    }
+
     private fun sentence(body: String, at: Long = 10000): NmeaSentenceSnapshot {
         val checksum = body.fold(0) { value, char -> value xor char.code }
         return NmeaSentenceSnapshot(at, "$" + body + "*" + "%02X".format(checksum))

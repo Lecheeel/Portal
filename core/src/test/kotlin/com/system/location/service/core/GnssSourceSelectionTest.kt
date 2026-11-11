@@ -9,6 +9,31 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GnssSourceSelectionTest {
+    @Test fun acceptedNavigationReachesAutonomousGeometryWithoutMutatingOldPublications() {
+        val at = java.time.Instant.parse("2026-11-07T23:59:42Z").toEpochMilli()
+        val location = sample.copy(coordinate = Wgs84(0.0, 0.0), timeMillis = at)
+        val configuration = HookConfiguration(gnssSimulation = GnssSimulationPolicy(virtualSeed = 904))
+        val before = configuration.gnssFrameSource()!!
+        val previous = before.frame(location, 0, GnssFrameRoute.Global, at)!!
+        val resource = RinexNavigationResource.import(RinexNavigationResourceTest.navigation(),
+            "https://example.org/nav", at)
+        val updated = configuration.copy(gnssNavigation = resource)
+        val source = updated.gnssFrameSource()!!
+        val publication = source.frame(location, 0, GnssFrameRoute.Global, at)!!
+        val provenance = publication.frame.orbitProvenance[Constellation.GPS to 1]!!
+        assertEquals(GnssOrbitSourceKind.BROADCAST_EPHEMERIS, provenance.kind)
+        assertEquals(resource.sha256, provenance.revision)
+        assertTrue(publication.sequence > previous.sequence)
+        assertSame(previous, before.frame(location, 0, GnssFrameRoute.Global, at))
+        assertSame(source, updated.copy(gnssNavigation = resource.copy(downloadedAtMillis = at + 1000)).gnssFrameSource())
+        assertFalse(Json.encodeToString(HookConfiguration.serializer(), updated).contains("navigation.rnx"))
+        // Once the broadcast expires, the same source continues to select applicable fallbacks.
+        assertNotNull(source.frame(location.copy(timeMillis = at + 86400000), 0, GnssFrameRoute.Global, at + 86400000))
+        assertThrows(IllegalArgumentException::class.java) {
+            updated.copy(gnssNavigation = resource.copy(navigation = resource.navigation + "x")).gnssFrameSource()
+        }
+    }
+
     private val point = Wgs84(31.0, 121.0)
     private val sample = LocationSample(point, 10.0, 5f, 2f, 90f, 1794369600000, 1_000_000_000)
     private fun capture() = CapturedGnssSource.prepare(GnssCaptureWire.encode(GnssCapture(

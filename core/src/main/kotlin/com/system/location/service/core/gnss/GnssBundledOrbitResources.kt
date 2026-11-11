@@ -16,12 +16,18 @@ object GnssBundledOrbitResources {
      * Corrupt optional downloaded/bundled GPS data cannot disable the independent virtual model.
      */
     fun model(policy: GnssSimulationPolicy, outputLimits: GnssOutputLimits,
-        gpsAlmanacAgeBudgetSeconds: Double, downloadedGps: GpsAlmanacResource? = null): ReceiverAutonomousSkyModel {
+        gpsAlmanacAgeBudgetSeconds: Double, downloadedGps: GpsAlmanacResource? = null,
+        navigation: RinexNavigationResource? = null): ReceiverAutonomousSkyModel {
         require(gpsAlmanacAgeBudgetSeconds.isFinite() && gpsAlmanacAgeBudgetSeconds >= 0)
         val providers = mutableListOf<GnssOrbitProvider>()
         val diagnostics = mutableListOf<String>()
         val timeScale = utc.getOrNull()
         if (timeScale == null) diagnostics += "离线 UTC 资源不可用，真实轨道来源已降级"
+        if (timeScale != null && navigation != null) {
+            runCatching { navigation.gpsProvider(timeScale) }
+                .onSuccess { providers += it }
+                .onFailure { diagnostics += "RINEX GPS 广播来源不可用，保留历书与虚拟兜底" }
+        }
         val candidates = listOfNotNull(downloadedGps, gps.getOrNull())
             .sortedByDescending { it.referenceEpochMillis }
         if (gps.isFailure) diagnostics += "内置 GPS 历书资源损坏，保留其他来源"

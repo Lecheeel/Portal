@@ -5,6 +5,7 @@ import com.system.location.service.core.gnss.GnssFrame
 import com.system.location.service.core.gnss.GnssSimulationPolicy
 import com.system.location.service.core.gnss.GnssSourceSelection
 import com.system.location.service.core.gnss.GnssFrameSource
+import com.system.location.service.core.gnss.RinexNavigationResource
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -38,9 +39,12 @@ data class HookConfiguration(
     /** Optional receiver evidence failed decoding; other configuration remains usable. */
     val gnssCaptureRejected: Boolean = false,
     @Transient val gnssSource: CapturedGnssSource? = null,
+    @Transient val gnssNavigation: RinexNavigationResource? = null,
 ) {
     // Delegated process-local state is excluded from serialization and data-class equality.
-    private val selectedGnssSource: GnssFrameSource? by lazy { GnssSourceSelection.source(gnssSimulation, gnssSource) }
+    private val selectedGnssSource: GnssFrameSource? by lazy {
+        GnssSourceSelection.source(gnssSimulation, gnssSource, gnssNavigation)
+    }
 
     fun gnssFrameSource(): GnssFrameSource? = selectedGnssSource
 

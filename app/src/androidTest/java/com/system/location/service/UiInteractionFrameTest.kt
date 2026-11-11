@@ -68,19 +68,31 @@ class UiInteractionFrameTest {
                     }
                     probe.save("drawer-transitions")
                 }
+                scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_settings, 0) }
+                await { findText("地图与定位") != null }
+                SystemClock.sleep(350)
                 probe = UiFrameProbe(activity)
                 probe.use {
                     repeat(4) {
-                        scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_settings, 0) }
                         clickText("地图与定位")
                         clickText("定位精度")
                         clickText("取消")
                         scenario.onActivity { it.onSupportNavigateUp() }
                         SystemClock.sleep(350)
-                        scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_home, 0) }
-                        SystemClock.sleep(350)
                     }
                     probe.save("settings-navigation")
+                }
+                probe = UiFrameProbe(activity)
+                probe.use {
+                    repeat(4) {
+                        scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_home, 0) }
+                        await { findText("开始模拟") != null }
+                        SystemClock.sleep(350)
+                        scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_settings, 0) }
+                        await { findText("地图与定位") != null }
+                        SystemClock.sleep(350)
+                    }
+                    probe.save("map-settings-roundtrips")
                 }
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_edit) }
                 SystemClock.sleep(700)

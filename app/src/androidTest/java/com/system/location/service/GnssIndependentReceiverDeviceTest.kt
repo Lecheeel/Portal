@@ -112,6 +112,7 @@ class GnssIndependentReceiverDeviceTest {
         try {
             command("put_config") {
                 putString("gnss_capture", GnssCaptureWire.encode(fixture))
+                putString("gnss_mode", GnssSimulationMode.REPLAY.name)
                 putBoolean("enable_nmea", true)
                 putBoolean("enable_physical_noise", true)
                 putInt("min_satellites", minimum)
@@ -247,6 +248,7 @@ class GnssIndependentReceiverDeviceTest {
             if (configured) {
                 command("put_config") {
                     putString("gnss_capture", null)
+                    putString("gnss_mode", original.configuration.gnssSimulation.mode.name)
                     putBoolean("enable_nmea", original.configuration.nmeaEnabled)
                     putBoolean("enable_physical_noise", original.physicalNoise)
                     putInt("min_satellites", original.configuration.minimumSatellites)
@@ -260,6 +262,7 @@ class GnssIndependentReceiverDeviceTest {
             assertEquals(original.configuration.nmeaEnabled, restored.configuration.nmeaEnabled)
             assertEquals(original.configuration.gnssEnabled, restored.configuration.gnssEnabled)
             assertEquals(original.configuration.minimumSatellites, restored.configuration.minimumSatellites)
+            assertEquals(original.configuration.gnssSimulation, restored.configuration.gnssSimulation)
         }
     }
 }

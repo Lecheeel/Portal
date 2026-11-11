@@ -152,6 +152,7 @@ class GnssFrameDeliveryDeviceTest {
         try {
             command("put_config") {
                 putString("gnss_capture", GnssCaptureWire.encode(fixture))
+                putString("gnss_mode", GnssSimulationMode.REPLAY.name)
                 putBoolean("enable_nmea", true)
                 putBoolean("enable_physical_noise", false)
                 putBoolean("enable_agps", false)
@@ -353,6 +354,7 @@ class GnssFrameDeliveryDeviceTest {
                 if (configured) {
                     command("put_config") {
                         putString("gnss_capture", null)
+                        putString("gnss_mode", original.configuration.gnssSimulation.mode.name)
                         putBoolean("enable_nmea", original.configuration.nmeaEnabled)
                         putBoolean("enable_physical_noise", original.physicalNoise)
                         putBoolean("enable_agps", original.configuration.allowPhysicalRawGnss)

@@ -3,6 +3,7 @@ package com.system.location.service
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.findNavController
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -87,5 +88,47 @@ class MapUiTest {
         } finally {
             if (original == null) draft.delete() else draft.writeBytes(original)
         }
+    }
+
+    @Test fun routeEditorKeepsMapUsableInLargeTextLandscape() {
+        val resolver = instrumentation.targetContext.contentResolver
+        val oldScale = android.provider.Settings.System.getFloat(resolver, "font_scale", 1f)
+        fun fontScale(value: Float) {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
+                "settings put system font_scale $value")).use { it.readBytes() }
+        }
+        try {
+            fontScale(1.3f)
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity {
+                    it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_edit)
+                    it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                }
+                compose.waitUntil(10_000) {
+                    var ready = false
+                    scenario.onActivity { ready = it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
+                    ready
+                }
+                compose.onNodeWithText("搜索地点").assertIsDisplayed()
+                compose.onNodeWithText("保存路线").performScrollTo().assertIsDisplayed()
+                scenario.onActivity { activity ->
+                    val map = activity.window.decorView.descendantsOfType<com.system.location.service.maps.PortalMapView>()
+                        .single { it.isAttachedToWindow }
+                    val density = activity.resources.displayMetrics.density
+                    assertTrue("Map must retain at least 200dp height", map.height >= 200 * density)
+                    assertTrue("Map must retain at least 240dp width", map.width >= 240 * density)
+                }
+                android.os.SystemClock.sleep(600)
+                captureUi("route-editor-large-text-landscape")
+                scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+                compose.waitUntil(10_000) {
+                    var ready = false
+                    scenario.onActivity { ready = it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT }
+                    ready
+                }
+                compose.onNodeWithText("保存路线").assertIsDisplayed()
+                compose.onNodeWithText("搜索地点").assertIsDisplayed()
+            }
+        } finally { fontScale(oldScale) }
     }
 }

@@ -61,6 +61,9 @@ class PointSelectionUiTest {
                 }
                 compose.onNodeWithText("保存选择（0）").performClick()
                 compose.scrollToText("分应用固定点（实验）").assertIsDisplayed()
+                compose.waitUntil(10_000) {
+                    compose.onAllNodesWithText("已固定 1 个应用", substring = true).fetchSemanticsNodes().isNotEmpty()
+                }
                 assertEquals(initial.withPointAssignments(point.coordinate, emptySet()),
                     Json.decodeFromString(RoutingConfig.serializer(), context.routingJson))
             }

@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
@@ -79,6 +80,8 @@ import com.system.location.service.update.UpdateChecker
 import com.system.location.service.update.UpdateDialogFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -355,6 +358,9 @@ class SettingsComposeFragment : Fragment() {
     }
 }
 
+private const val NEXT_SCENE = "下次启动场景生效"
+private const val APPLY_WHILE_RUNNING = "运行中尝试立即应用"
+
 private data class SettingsValues(
     val altitude: Double,
     val accuracy: Float,
@@ -381,6 +387,8 @@ private data class SettingsValues(
     val mockWifiEnabled: Boolean,
     val loopBroadcastlocation: Boolean,
     val crashReporting: Boolean,
+    val crashReportingEnabled: Boolean,
+    val crashReportingPendingRestart: Boolean,
 )
 
 @Composable
@@ -439,11 +447,25 @@ private fun SettingsScreen(
             mockWifiEnabled = context.mockWifiEnabled,
             loopBroadcastlocation = context.loopBroadcastlocation,
             crashReporting = SdkPrivacy.crashReportingRequested,
+            crashReportingEnabled = SdkPrivacy.crashReportingEnabled,
+            crashReportingPendingRestart = SdkPrivacy.crashReportingPendingRestart,
         )
     }
-    val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
+    val backendFlow = remember { ScenarioRuntime.state.map { it.backend }.distinctUntilChanged() }
+    val backend by backendFlow.collectAsStateWithLifecycle(initialValue = ScenarioRuntime.state.value.backend)
     val sensorTargets = remember(context, revision, preferencesRevision) { context.sensorTargetPackages }
-    val hooksEnabled = runtime.backend != BackendType.MOCK_PROVIDER
+    val routingSummary by produceState("正在读取应用规则" to "正在读取应用规则", preferencesRevision, category) {
+        if (category == SettingsCategory.APPS) value = withContext(Dispatchers.IO) {
+            runCatching { readRoutingSettings(context.routingJson) }.fold(
+                onSuccess = { rules ->
+                    "已排除 ${rules.deniedPackages.size} 个应用" to
+                        "已固定 ${rules.routes.count { it.point != null }} 个应用"
+                },
+                onFailure = { "无法读取已有规则" to "无法读取已有规则" },
+            )
+        }
+    }
+    val hooksEnabled = backend != BackendType.MOCK_PROVIDER
     fun hookAction(block: (Boolean) -> Unit): ((Boolean) -> Unit)? = if (hooksEnabled) {
         { checked -> block(checked); refresh(); onConfigChanged() }
     } else null
@@ -464,7 +486,7 @@ private fun SettingsScreen(
                 if (category == SettingsCategory.LOCATION) {
                     item(key = "maps") {
                         PortalSettingGroup("地图服务", 1) { _, rowModifier ->
-                            PortalActionRow("地图提供方", values.mapProviderLabel, onMapProvider, modifier = rowModifier)
+                            PortalActionRow("地图提供方", values.mapProviderLabel, onMapProvider, modifier = rowModifier, status = "切换后重建地图")
                         }
                     }
                     item(key = "location") {
@@ -476,11 +498,8 @@ private fun SettingsScreen(
                         Column {
                             PortalSettingGroup("定位参数", parameters.size) { index, rowModifier ->
                                 val (title, value, edit) = parameters[index]
-                                PortalActionRow(title, value, edit, modifier = rowModifier)
+                                PortalActionRow(title, value, edit, modifier = rowModifier, status = NEXT_SCENE)
                             }
-                            Text("下次启动场景生效", Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -488,18 +507,20 @@ private fun SettingsScreen(
                     item(key = "motion") {
                         PortalSettingGroup("运动与摇杆", 3) { index, rowModifier ->
                             when (index) {
-                                0 -> PortalActionRow("摇杆速度", "%.2f 米/秒 · 即时更新".format(values.speed), onEditSpeed,
+                                0 -> PortalActionRow("摇杆速度", "%.2f 米/秒".format(values.speed), onEditSpeed, status = "保存后立即更新",
                                     modifier = rowModifier,
                                 )
                                 1 -> PortalSwitchRow(
                                     title = "路线平滑运动",
-                                    subtitle = "弯道减速、平滑加减速，下次启动生效。",
+                                    status = NEXT_SCENE,
+                                    subtitle = "弯道减速、平滑加减速。",
                                     checked = values.smoothRouteMotion,
                                     onCheckedChange = { context.smoothRouteMotion = it; refresh() },
                                     modifier = rowModifier,
                                 )
                                 2 -> PortalSwitchRow(
                                     title = "物理漂移噪声",
+                                    status = APPLY_WHILE_RUNNING,
                                     subtitle = "仅 Xposed/Native：为位置、海拔和精度添加有界微漂移。",
                                     checked = values.physicalNoise,
                                     onCheckedChange = hookAction { context.physicalNoise = it },
@@ -515,27 +536,31 @@ private fun SettingsScreen(
                             when (index) {
                                 0 -> PortalSwitchRow(
                                     title = "Google 融合定位（实验）",
-                                    subtitle = "需 Google Play 服务；下次启动场景生效，失败时继续使用 GPS/Network。",
+                                    status = NEXT_SCENE,
+                                    subtitle = "需 Google Play 服务；失败时继续使用 GPS/Network。",
                                     checked = values.gmsMockEnabled,
                                     onCheckedChange = { context.gmsMockEnabled = it; onRestartRequired(); refresh() },
                                     modifier = rowModifier,
                                 )
                                 1 -> PortalSwitchRow(
                                     title = "系统 Fused 通道（实验）",
-                                    subtitle = "额外注册系统 fused 模拟 Provider，下次启动场景生效。",
+                                    status = NEXT_SCENE,
+                                    subtitle = "额外注册系统 fused 模拟 Provider。",
                                     checked = values.platformFusedEnabled,
                                     onCheckedChange = { context.platformFusedEnabled = it; onRestartRequired(); refresh() },
                                     modifier = rowModifier,
                                 )
                                 2 -> PortalSwitchRow(
                                     title = "启动突发",
-                                    subtitle = "启动时密集上报定位，适用于当前后端；下次启动场景生效。",
+                                    status = NEXT_SCENE,
+                                    subtitle = "启动时密集上报定位，适用于当前后端。",
                                     checked = values.startupBurstEnabled,
                                     onCheckedChange = { context.startupBurstEnabled = it; refresh() },
                                     modifier = rowModifier,
                                 )
                                 3 -> PortalSwitchRow(
                                     title = "清除模拟标记（实验）",
+                                    status = NEXT_SCENE,
                                     subtitle = "仅标准 Mock 模式；系统可能重新标记。",
                                     checked = values.experimentalClearMockFlag,
                                     onCheckedChange = { context.experimentalClearMockFlag = it; refresh() },
@@ -559,12 +584,13 @@ private fun SettingsScreen(
                     }
                     item(key = "system-hooks") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("仅 Xposed/Native 后端有效", style = MaterialTheme.typography.bodySmall,
+                            Text("仅 Xposed/Native 后端有效；未运行或应用失败时，下次启动场景生效。", style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             val controls: List<@Composable (Modifier) -> Unit> = listOf(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "SIM 就绪",
+                                        status = APPLY_WHILE_RUNNING,
                                         subtitle = "关闭时模拟无 SIM / 仅 Wi-Fi。",
                                         checked = values.simReady,
                                         onCheckedChange = hookAction { context.simReady = it },
@@ -574,6 +600,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "网络降级为 CDMA",
+                                        status = APPLY_WHILE_RUNNING,
                                         checked = values.needDowngradeToCdma,
                                         onCheckedChange = hookAction { context.needDowngradeToCdma = it },
                                         modifier = rowModifier,
@@ -582,6 +609,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "模拟 Wi-Fi 环境",
+                                        status = APPLY_WHILE_RUNNING,
                                         subtitle = "向第三方应用提供模拟的扫描结果与连接信息。",
                                         checked = values.mockWifiEnabled,
                                         onCheckedChange = hookAction { context.mockWifiEnabled = it },
@@ -598,12 +626,13 @@ private fun SettingsScreen(
                 if (category == SettingsCategory.ADVANCED) {
                     item(key = "advanced-hooks") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("仅 Xposed/Native 后端有效", style = MaterialTheme.typography.bodySmall,
+                            Text("仅 Xposed/Native 后端有效；未运行或应用失败时，下次启动场景生效。", style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             val controls: List<@Composable (Modifier) -> Unit> = listOf(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "调试模式",
+                                        status = APPLY_WHILE_RUNNING,
                                         checked = values.debug,
                                         onCheckedChange = hookAction { context.debug = it },
                                         modifier = rowModifier,
@@ -612,6 +641,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "允许获取当前位置",
+                                        status = APPLY_WHILE_RUNNING,
                                         checked = !values.disableGetCurrentLocation,
                                         onCheckedChange = hookAction { context.disableGetCurrentLocation = !it },
                                         modifier = rowModifier,
@@ -620,6 +650,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "允许注册位置监听器",
+                                        status = APPLY_WHILE_RUNNING,
                                         checked = !values.disableRegisterLocationListener,
                                         onCheckedChange = hookAction { context.disableRegisterLocationListener = !it },
                                         modifier = rowModifier,
@@ -628,6 +659,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "禁用融合定位",
+                                        status = APPLY_WHILE_RUNNING,
                                         checked = values.disableFusedProvider,
                                         onCheckedChange = hookAction { context.disableFusedProvider = it },
                                         modifier = rowModifier,
@@ -636,6 +668,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "隐藏模拟标记",
+                                        status = APPLY_WHILE_RUNNING,
                                         subtitle = "开启后不向应用暴露 isMock；关闭可用于验证应用的降级逻辑。",
                                         checked = values.hideMock,
                                         onCheckedChange = hookAction { context.hideMock = it },
@@ -645,6 +678,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "实验性反检测（原生路径改写）",
+                                        status = "需重启目标应用",
                                         subtitle = "默认关闭；仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
                                         checked = values.antiDetectEnabled,
                                         onCheckedChange = hookAction { context.antiDetectEnabled = it },
@@ -654,6 +688,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "实验性堆栈清洗",
+                                        status = APPLY_WHILE_RUNNING,
                                         subtitle = "默认关闭；从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
                                         checked = values.stackTraceCleanEnabled,
                                         onCheckedChange = hookAction { context.stackTraceCleanEnabled = it },
@@ -663,6 +698,7 @@ private fun SettingsScreen(
                                 { rowModifier ->
                                     PortalSwitchRow(
                                         title = "按设定间隔广播",
+                                        status = APPLY_WHILE_RUNNING,
                                         subtitle = "仅 Xposed/Native：开启时采用设定间隔，关闭时广播间隔至少为 500 ms。",
                                         checked = values.loopBroadcastlocation,
                                         onCheckedChange = hookAction { context.loopBroadcastlocation = it },
@@ -679,12 +715,13 @@ private fun SettingsScreen(
                 if (category == SettingsCategory.GNSS) {
                     item(key = "gnss-policy") {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("仅 Xposed/Native 后端有效", style = MaterialTheme.typography.bodySmall,
+                            Text("仅 Xposed/Native 后端有效；未运行或应用失败时，下次启动场景生效。", style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             GnssPolicyControls(enabled = hooksEnabled, onChanged = { refresh(); onConfigChanged() })
                             PortalSettingGroup("卫星数量", 1) { _, rowModifier ->
                                 PortalActionRow(
                                     title = "最少卫星数",
+                                    status = APPLY_WHILE_RUNNING,
                                     subtitle = if (values.minSatelliteCount == 0) "自动数量：按所选模式和目标天空生成"
                                         else "可见卫星下限 ${values.minSatelliteCount} 颗；按所选数量策略处理不足",
                                     onClick = onEditSatelliteCount,
@@ -700,10 +737,10 @@ private fun SettingsScreen(
                     item(key = "apps") {
                         PortalSettingGroup("分应用规则", 2) { index, rowModifier ->
                             when (index) {
-                                0 -> PortalActionRow("分应用路由（实验）", "仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled,
+                                0 -> PortalActionRow("分应用路由（实验）", "${routingSummary.first}\n仅 Xposed/Native：选择不接收模拟定位的应用。", onAppRouting, enabled = hooksEnabled, status = APPLY_WHILE_RUNNING,
                                     modifier = rowModifier,
                                 )
-                                1 -> PortalActionRow("分应用固定点（实验）", "仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled,
+                                1 -> PortalActionRow("分应用固定点（实验）", "${routingSummary.second}\n仅 Xposed/Native：为选定应用指定已保存位置。", onAppPoint, enabled = hooksEnabled, status = APPLY_WHILE_RUNNING,
                                     modifier = rowModifier,
                                 )
                             }
@@ -716,6 +753,12 @@ private fun SettingsScreen(
                             when (index) {
                                 0 -> PortalSwitchRow(
                                     title = "发送崩溃报告",
+                                    status = when {
+                                        values.crashReportingPendingRestart -> "等待重启 Portal 后开启"
+                                        values.crashReportingEnabled -> "已开启"
+                                        values.crashReporting -> "已保存开启选择"
+                                        else -> "已关闭"
+                                    },
                                     subtitle = "默认关闭；通过 Bugly 发送崩溃堆栈。关闭后重新开启需重启，不撤回已发送或待上传的报告。",
                                     checked = values.crashReporting,
                                     onCheckedChange = onCrashReporting,
@@ -735,7 +778,7 @@ private fun SettingsScreen(
                                 0 -> PortalActionRow("检查更新", onClick = onCheckUpdate,
                                     modifier = rowModifier,
                                 )
-                                1 -> PortalActionRow("更新通道", values.updateChannelLabel, onUpdateChannel,
+                                1 -> PortalActionRow("更新通道", values.updateChannelLabel, onUpdateChannel, status = "立即用于后续更新检查",
                                     modifier = rowModifier,
                                 )
                             }

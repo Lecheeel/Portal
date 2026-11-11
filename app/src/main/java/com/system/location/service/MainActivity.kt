@@ -27,6 +27,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
@@ -147,6 +148,13 @@ class MainActivity : AppCompatActivity() {
 
                 val drawerLayout: DrawerLayout = binding.drawerLayout
                 val navView: NavigationView = binding.navView
+                val drawerBack = onBackPressedDispatcher.addCallback(this@MainActivity, enabled = false) {
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                }
+                drawerLayout.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
+                    override fun onDrawerOpened(drawerView: View) { drawerBack.isEnabled = true }
+                    override fun onDrawerClosed(drawerView: View) { drawerBack.isEnabled = false }
+                })
                 val navController = findNavController(R.id.nav_host_fragment_content_main)
 
                 appBarConfiguration = AppBarConfiguration(

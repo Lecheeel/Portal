@@ -15,11 +15,16 @@ data class MotionState(
     val speedMps: Double,
     val bearingDeg: Double,
     val altitudeMeters: Double,
+    val forwardAccelerationMps2: Double = 0.0,
+    val turnRateRadPerSec: Double = 0.0,
+    val rollDeg: Double = 0.0,
+    val pitchDeg: Double = 0.0,
 ) {
     init {
         require(speedMps.isFinite() && speedMps >= 0.0) { "speedMps must be non-negative" }
         require(bearingDeg.isFinite() && bearingDeg in 0.0..360.0) { "bearingDeg out of range" }
         require(altitudeMeters.isFinite() && altitudeMeters in -500.0..20_000.0) { "altitudeMeters out of range" }
+        require(listOf(forwardAccelerationMps2, turnRateRadPerSec, rollDeg, pitchDeg).all(Double::isFinite))
     }
 }
 
@@ -31,6 +36,10 @@ data class SensorFrame(
     val stepCount: Long,
     val stepCadence: Int,
     val activity: ActivityKind,
+    val gravity: FloatArray = floatArrayOf(0f, 0f, 9.81f),
+    val linearAcceleration: FloatArray = floatArrayOf(0f, 0f, 0f),
+    /** Android rotation-vector order: x, y, z, w. */
+    val rotationVector: FloatArray = floatArrayOf(0f, 0f, 0f, 1f),
 ) {
     init {
         require(accelerometer.size == 3 && gyroscope.size == 3 && magnetometer.size == 3) {
@@ -59,17 +68,19 @@ class SyntheticSensorModel(
     seed: Long = 0L,
     var tuning: SensorTuning = SensorTuning(seed = seed),
 ) : SensorModel {
-    private var random = SplitMix64(seed)
     private val seed = seed
     private var lastMillis: Long? = null
+    private var lastFrame: SensorFrame? = null
+    private var lastCadence = 0.0
     private var fractionalSteps = 0.0
     private var stepCount = 0L
     private var accelPhase = 0.0
     private var gyroPhase = 0.0
 
     fun reset(startStepCount: Long = 0L) {
-        random = SplitMix64(seed)
         lastMillis = null
+        lastFrame = null
+        lastCadence = 0.0
         fractionalSteps = 0.0
         stepCount = startStepCount.coerceAtLeast(0L)
         accelPhase = 0.0
@@ -79,24 +90,26 @@ class SyntheticSensorModel(
     override fun frame(state: MotionState, atMillis: Long): SensorFrame {
         require(atMillis >= 0L) { "atMillis must be non-negative" }
         val previous = lastMillis
+        if (previous != null && atMillis <= previous) return lastFrame!!
         lastMillis = atMillis
         val dt = if (previous == null) 0.0 else ((atMillis - previous) / 1_000.0).coerceIn(0.0, 5.0)
         val t = atMillis / 1_000.0
 
         val cadence = SensorCadence.cadence(state.mode, state.speedMps, tuning, atMillis)
-        if (cadence > 0.0 && dt > 0.0) {
-            fractionalSteps += cadence / 60.0 * dt
+        if (dt > 0.0) {
+            fractionalSteps += (cadence + lastCadence) / 120.0 * dt
             val whole = floor(fractionalSteps).toLong()
             if (whole > 0) {
                 stepCount += whole
                 fractionalSteps -= whole
             }
         }
+        lastCadence = cadence
 
         val stepHz = when (state.mode) {
             MotionMode.STILL -> 0.0
             MotionMode.VEHICLE -> 8.0
-            MotionMode.WALK, MotionMode.RUN -> cadence / 120.0
+            MotionMode.WALK, MotionMode.RUN -> cadence / 60.0
         }
         val gyroHz = when (state.mode) {
             MotionMode.STILL -> 0.0
@@ -109,6 +122,8 @@ class SyntheticSensorModel(
         val gyroSwing = sin(gyroPhase)
         val amplitude = 1.0 + tuning.variability * 0.15 * sin(2.0 * PI * 0.07 * t)
 
+        // Noise depends on the requested time, not on how many listeners sampled it.
+        val random = SplitMix64(seed xor atMillis)
         val noise = { scale: Double -> (random.nextGaussian() * scale).toFloat() }
         val (ax, az) = when (state.mode) {
             MotionMode.STILL -> 0.0 to 9.81 + random.nextGaussian() * 0.02
@@ -117,26 +132,55 @@ class SyntheticSensorModel(
             MotionMode.VEHICLE -> 0.2 * swing * amplitude to 9.81 + 0.15 * swing * amplitude
         }
         val gyroZ = when (state.mode) {
-            MotionMode.STILL -> 0.005
+            MotionMode.STILL -> 0.0
             MotionMode.WALK -> 0.08 * gyroSwing * amplitude
             MotionMode.RUN -> 0.22 * gyroSwing * amplitude
             MotionMode.VEHICLE -> 0.012 * gyroSwing
         }
-        val bearingRad = Math.toRadians(state.bearingDeg)
-        val magnetometerX = cos(bearingRad) * 25.0 + random.nextGaussian() * 0.3
-        val magnetometerY = sin(bearingRad) * 25.0 + random.nextGaussian() * 0.3
-        val magnetometerZ = -40.0 + random.nextGaussian() * 0.2
+        val roll = Math.toRadians(state.rollDeg)
+        val pitch = Math.toRadians(state.pitchDeg)
+        val yaw = -Math.toRadians(state.bearingDeg)
+        val cr = cos(roll); val sr = sin(roll)
+        val cp = cos(pitch); val sp = sin(pitch)
+        val cy = cos(yaw); val sy = sin(yaw)
+        // R^T maps the local world into the device axes. No gravity is integrated as motion.
+        fun body(x: Double, y: Double, z: Double) = floatArrayOf(
+            (cy * cp * x + sy * cp * y - sp * z).toFloat(),
+            ((cy * sp * sr - sy * cr) * x + (sy * sp * sr + cy * cr) * y + cp * sr * z).toFloat(),
+            ((cy * sp * cr + sy * sr) * x + (sy * sp * cr - cy * sr) * y + cp * cr * z).toFloat(),
+        )
+        val gravity = body(0.0, 0.0, 9.81)
+        val lateral = ax + state.speedMps * state.turnRateRadPerSec
+        val forward = state.forwardAccelerationMps2
+        val linear = body(cy * lateral - sy * forward, sy * lateral + cy * forward, az - 9.81)
+            .also { v -> for (i in 0..2) v[i] += noise(0.02) }
+        val angular = body(0.0, 0.0, -state.turnRateRadPerSec).also {
+            it[0] += noise(0.003); it[1] += noise(0.003); it[2] += gyroZ.toFloat() + noise(0.003)
+        }
+        val magnetic = body(0.0, 25.0, -40.0).also { v ->
+            for (i in 0..2) v[i] += noise(0.2)
+        }
+        val hr = roll / 2; val hp = pitch / 2; val hy = yaw / 2
+        val rotation = floatArrayOf(
+            (sin(hr) * cos(hp) * cos(hy) - cos(hr) * sin(hp) * sin(hy)).toFloat(),
+            (cos(hr) * sin(hp) * cos(hy) + sin(hr) * cos(hp) * sin(hy)).toFloat(),
+            (cos(hr) * cos(hp) * sin(hy) - sin(hr) * sin(hp) * cos(hy)).toFloat(),
+            (cos(hr) * cos(hp) * cos(hy) + sin(hr) * sin(hp) * sin(hy)).toFloat(),
+        )
         val pressure = 1013.25 * (1.0 - 2.25577e-5 * state.altitudeMeters).pow(5.25588)
 
         return SensorFrame(
-            accelerometer = floatArrayOf(ax.toFloat() + noise(0.02), noise(0.02), az.toFloat() + noise(0.02)),
-            gyroscope = floatArrayOf(noise(0.003), noise(0.003), gyroZ.toFloat() + noise(0.003)),
-            magnetometer = floatArrayOf(magnetometerX.toFloat(), magnetometerY.toFloat(), magnetometerZ.toFloat()),
+            accelerometer = FloatArray(3) { gravity[it] + linear[it] },
+            gyroscope = angular,
+            magnetometer = magnetic,
             barometerHpa = (pressure + random.nextGaussian() * 0.02).toFloat(),
             stepCount = stepCount,
             stepCadence = kotlin.math.round(cadence).toInt(),
             activity = state.mode.toActivity(),
-        )
+            gravity = gravity,
+            linearAcceleration = linear,
+            rotationVector = rotation,
+        ).also { lastFrame = it }
     }
 
     private fun MotionMode.toActivity(): ActivityKind = when (this) {

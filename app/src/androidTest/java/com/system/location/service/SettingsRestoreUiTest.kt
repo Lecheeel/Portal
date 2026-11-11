@@ -64,7 +64,7 @@ class SettingsRestoreUiTest {
                 context.speed = 9.0
                 context.reportDuration = 500
                 context.smoothRouteMotion = false
-                compose.openPage(activity, R.id.nav_settings)
+                compose.openPage(activity, R.id.nav_runtime)
                 compose.scrollToText("恢复并启动上次场景").assertIsEnabled().performClick()
                 compose.waitUntil(10_000) { ScenarioRuntime.state.value.phase == RuntimePhase.RUNNING }
                 compose.onNodeWithText("恢复并启动上次场景").assertIsNotEnabled()
@@ -73,9 +73,11 @@ class SettingsRestoreUiTest {
                 assertEquals(7f, context.accuracy)
                 assertEquals(120, context.reportDuration)
                 assertTrue(context.smoothRouteMotion)
+                compose.openPage(activity, R.id.nav_settings_location)
                 compose.scrollToText("定位海拔")
                 compose.onNodeWithText("%.2f 米".format(123.5)).assertIsDisplayed()
                 assertTrue(runBlocking { ScenarioRuntime.stop().await() })
+                compose.openPage(activity, R.id.nav_runtime)
                 compose.scrollToText("恢复并启动上次场景").assertIsEnabled()
             }
         } finally {

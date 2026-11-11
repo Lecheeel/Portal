@@ -51,6 +51,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.viewModels
+import com.system.location.service.ui.viewmodel.SettingsViewModel
+import com.system.location.service.ui.viewmodel.RestoreConfigState
+import com.system.location.service.designsystem.components.PortalActionRow
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -86,6 +90,7 @@ import java.util.Locale
  * system and Compose shell mature.
  */
 class RuntimeComposeFragment : Fragment() {
+    private val settingsModel by viewModels<SettingsViewModel>()
     private val exportLog = registerForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain"),
     ) { uri ->
@@ -115,8 +120,11 @@ class RuntimeComposeFragment : Fragment() {
     ): View = ComposeView(requireContext()).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
+            val restoreState by settingsModel.restore.collectAsStateWithLifecycle()
             PortalTheme {
                 RuntimeScreen(
+                    restoreState = restoreState,
+                    onRestoreConfig = settingsModel::restoreLastConfig,
                     onExport = { exportLog.launch("location-diagnostics.txt") },
                     onOpenProbe = {
                         startActivity(
@@ -143,6 +151,8 @@ class RuntimeComposeFragment : Fragment() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RuntimeScreen(
+    restoreState: RestoreConfigState,
+    onRestoreConfig: () -> Unit,
     onExport: () -> Unit,
     onOpenProbe: () -> Unit,
     onOpenDeveloperSettings: () -> Unit,
@@ -272,6 +282,11 @@ private fun RuntimeScreen(
 
             item {
                 PortalCard {
+                    PortalActionRow(
+                        "恢复并启动上次场景", "恢复上次保存的参数，并立即启动模拟。", onRestoreConfig,
+                        enabled = state.phase in setOf(RuntimePhase.IDLE, RuntimePhase.STOPPED) && !restoreState.busy,
+                    )
+                    restoreState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                     RuntimeSectionToggle("运行详情", detailsExpanded, { detailsExpanded = !detailsExpanded })
                     if (detailsExpanded) {
                         SelectionContainer {

@@ -42,6 +42,17 @@ internal object SensorQueueProbe {
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
         val errors = JSONArray()
+        val secondarySamples = mutableListOf<JSONObject>()
+        val secondary = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                if (secondarySamples.size < 2500) secondarySamples.add(JSONObject().apply {
+                    put("type", event.sensor.type)
+                    put("timestamp", event.timestamp)
+                    put("values", JSONArray(event.values.toList()))
+                })
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+        }
         var removedSensor: Sensor? = null
         try {
             listOf(1, 2, 4, 6, 9, 10, 11, 14, 15, 16, 18, 19, 20, 35).forEach { type ->
@@ -50,6 +61,11 @@ internal object SensorQueueProbe {
                 runCatching { manager.registerListener(listener, sensor, 10_000, Handler(thread.looper)) }
                     .onSuccess { if (it) registered.put(type) }
                     .onFailure { errors.put("$type:${it.javaClass.simpleName}") }
+            }
+            if (request.optBoolean("secondListener")) listOf(18, 19).forEach { type ->
+                manager.getDefaultSensor(type)?.let {
+                    manager.registerListener(secondary, it, 10_000, Handler(thread.looper))
+                }
             }
             SystemClock.sleep(removeAt)
             if (removeType >= 0 && removedSensor != null) {
@@ -65,7 +81,11 @@ internal object SensorQueueProbe {
             SystemClock.sleep(duration - removeAt)
         } finally {
             val done = java.util.concurrent.CountDownLatch(1)
-            Handler(thread.looper).post { manager.unregisterListener(listener); done.countDown() }
+            Handler(thread.looper).post {
+                manager.unregisterListener(listener)
+                manager.unregisterListener(secondary)
+                done.countDown()
+            }
             done.await(5, java.util.concurrent.TimeUnit.SECONDS)
             thread.quitSafely()
             thread.join(5000)
@@ -86,6 +106,7 @@ internal object SensorQueueProbe {
             put("grantAccepted", grantAccepted)
             put("grantKeys", JSONArray(grant.keySet().sorted()))
             put("controllerKeyGranted", controlAccepted && exchange.containsKey("key"))
+            put("secondary", JSONArray(secondarySamples))
             put("series", JSONObject().apply {
                 samples.entries.sortedBy { it.key }.forEach { (type, events) -> put(type.toString(), JSONArray(events)) }
             })

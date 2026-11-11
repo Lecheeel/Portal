@@ -36,6 +36,9 @@ class HomeMapLifetimeUiTest {
                         compose.waitForIdle()
                     }
                     fun currentMap(): PortalMapView {
+                        compose.waitUntil(5_000) {
+                            runCatching { compose.onNodeWithText("开始模拟").assertIsDisplayed(); true }.getOrDefault(false)
+                        }
                         compose.onNodeWithText("开始模拟").assertIsDisplayed()
                         lateinit var map: PortalMapView
                         scenario.onActivity { activity ->

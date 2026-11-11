@@ -11,6 +11,7 @@ import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.performance.PerformanceProbe
 import com.system.location.service.ext.mockWifiEnabled
+import com.system.location.service.ext.sensorTargetPackages
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
 
@@ -99,6 +100,9 @@ class XposedBackend(private val context: Context) : LocationBackend {
                 if (connected) Availability.AVAILABLE else Availability.REQUIRES_ACTION,
                 "需要在框架中启用 system_server 作用域；Hook 命中仍取决于设备")
             Capability.BACKGROUND_PLAYBACK -> CapabilityStatus(Availability.AVAILABLE, "由定位前台服务运行")
+            Capability.SENSOR_SIMULATION -> CapabilityStatus(
+                if (context.sensorTargetPackages.isEmpty()) Availability.REQUIRES_ACTION else Availability.EXPERIMENTAL,
+                "需在设置和框架中选择目标应用并重启应用；仅 Java 传感器队列，不需 Native")
             else -> CapabilityStatus(Availability.UNAVAILABLE, "当前后端未提供此能力")
         }
     }
@@ -110,6 +114,9 @@ class XposedBackend(private val context: Context) : LocationBackend {
         if (status?.getInt("sample_version")?.let(SampleWire::isCompatible) != true) {
             connected = false
             return BackendResult.Failure("PROTOCOL", "已加载的系统模块不支持统一定位快照", "安装当前版本并重启设备")
+        }
+        if (!MockServiceHelper.setNativeEnabled(manager, false)) {
+            return BackendResult.Failure("NATIVE_DISABLE", "无法关闭之前的 Native 传感器", "重新连接系统模块后重试")
         }
         return checked(MockServiceHelper.putConfig(manager, context), "CONFIGURE", "检查系统服务连接")
     }

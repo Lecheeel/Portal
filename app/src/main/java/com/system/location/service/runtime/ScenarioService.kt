@@ -9,6 +9,12 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.system.location.service.MainActivity
 import com.system.location.service.R
+import com.system.location.service.core.backend.BackendType
+import com.system.location.service.core.gnss.GnssSimulationMode
+import com.system.location.service.ext.sharedPrefs
+import com.system.location.service.gnss.GnssNavigationRepository
+import com.system.location.service.hook.utils.Logger
+import java.io.File
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.selects.select
@@ -54,6 +60,32 @@ class ScenarioService : Service() {
                         wakeLock?.acquire(600_000)
                         renewedAt = now
                     }
+                }
+            }
+            // Independent of location ticks: offline startup immediately uses bundled/fallback
+            // resources. The service owns cancellation; no detached network job survives stop.
+            scope.launch {
+                val navigation = GnssNavigationRepository(File(noBackupFilesDir, "gnss/navigation-resource.json"))
+                while (isActive) {
+                    val state = ScenarioRuntime.state.value
+                    val mode = sharedPrefs.getString("gnssSimulationMode", GnssSimulationMode.AUTO.name)
+                    if (!state.isActive || state.backend == BackendType.MOCK_PROVIDER ||
+                        mode !in setOf(GnssSimulationMode.AUTO.name, GnssSimulationMode.AUTONOMOUS.name)) {
+                        delay(5000)
+                        continue
+                    }
+                    val refreshed = try {
+                        navigation.refresh()
+                        // Retry config synchronization even if the file digest is unchanged.
+                        // Runtime command serialization checks that a Hook session is still active.
+                        ScenarioRuntime.applyConfigNow()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Logger.error("GNSS navigation refresh failed: ${error.javaClass.simpleName}")
+                        false
+                    }
+                    delay(if (refreshed) 30 * 60_000L else 5 * 60_000L)
                 }
             }
         } catch (error: Exception) {

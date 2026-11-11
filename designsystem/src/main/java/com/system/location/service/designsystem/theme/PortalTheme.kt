@@ -15,14 +15,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val PortalGreen = Color(0xFF4F9D45)
+private val PortalGreen = Color(0xFF326B2D)
 private val PortalGreenDark = Color(0xFF8ED27F)
 private val PortalGreenContainer = Color(0xFFDDF7D5)
 private val PortalSurface = Color(0xFFFFFFFF)
 private val PortalSurfaceDark = Color(0xFF1B281D)
 private val PortalBackground = Color(0xFFF3FAF0)
 private val PortalBackgroundDark = Color(0xFF101A12)
-private val PortalInk = Color(0xFF0F172A)
+private val PortalInk = Color(0xFF182018)
 private val PortalInkMuted = Color(0xFF5F7160)
 private val PortalOutline = Color(0xFFD5E5D0)
 
@@ -93,12 +93,12 @@ private val LightColors = lightColorScheme(
     onPrimary = Color.White,
     primaryContainer = PortalGreenContainer,
     onPrimaryContainer = Color(0xFF163A18),
-    secondary = Color(0xFF6AAE5D),
+    secondary = Color(0xFF416B3A),
     surface = PortalSurface,
     onSurface = PortalInk,
     surfaceVariant = Color(0xFFEAF5E7),
     onSurfaceVariant = PortalInkMuted,
-    outline = Color(0xFF7B8495),
+    outline = Color(0xFF73836F),
     outlineVariant = PortalOutline,
     surfaceContainerLowest = Color.White,
     surfaceContainerLow = Color(0xFFEAF5E7),
@@ -120,31 +120,37 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = Color(0xFFDDF7D5),
     secondary = Color(0xFFA6D99B),
     surface = PortalSurfaceDark,
-    onSurface = Color(0xFFF1F5F9),
-    surfaceVariant = Color(0xFF334155),
-    onSurfaceVariant = Color(0xFFCBD5E1),
-    outline = Color(0xFF8995A9),
-    outlineVariant = Color(0xFF334155),
-    surfaceContainerLowest = Color(0xFF0B1220),
-    surfaceContainerLow = Color(0xFF172235),
+    onSurface = Color(0xFFE5EEE1),
+    surfaceVariant = Color(0xFF354B37),
+    onSurfaceVariant = Color(0xFFBFCFBC),
+    outline = Color(0xFF8E9F8A),
+    outlineVariant = Color(0xFF354B37),
+    surfaceContainerLowest = Color(0xFF0B140D),
+    surfaceContainerLow = Color(0xFF152118),
     surfaceContainer = PortalSurfaceDark,
-    surfaceContainerHigh = Color(0xFF28364C),
-    surfaceContainerHighest = Color(0xFF334155),
+    surfaceContainerHigh = Color(0xFF293D2C),
+    surfaceContainerHighest = Color(0xFF354B37),
     background = PortalBackgroundDark,
-    onBackground = Color(0xFFF1F5F9),
+    onBackground = Color(0xFFE5EEE1),
     error = Color(0xFFFCA5A5),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
 )
 
+enum class PortalColorStyle { GREEN, CLASSIC }
+
 @Composable
 fun PortalTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    colorStyle: PortalColorStyle = PortalColorStyle.GREEN,
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = when (colorStyle) {
+            PortalColorStyle.GREEN -> if (darkTheme) DarkColors else LightColors
+            PortalColorStyle.CLASSIC -> if (darkTheme) ClassicDarkColors else ClassicLightColors
+        },
         typography = PortalTypography,
         shapes = PortalShapes,
         content = content,

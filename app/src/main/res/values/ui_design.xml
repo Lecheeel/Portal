@@ -3,7 +3,7 @@
     <color name="page_background">#F3FAF0</color>
     <color name="card_surface">#FFFFFF</color>
     <color name="primary_container">#DDF7D5</color>
-    <color name="on_primary">#163A18</color>
+    <color name="on_primary">#FFFFFF</color>
     <color name="status_success">#087F5B</color>
     <color name="status_error">#B42338</color>
     <dimen name="page_spacing">16dp</dimen>
@@ -46,5 +46,9 @@
         <item name="iconTint">@color/text_secondary</item>
         <item name="icon">@drawable/baseline_keyboard_arrow_down_24</item>
         <item name="cornerRadius">12dp</item>
+    </style>
+    <style name="Portal.NavigationItemShape" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">24dp</item>
     </style>
 </resources>

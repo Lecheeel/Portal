@@ -22,6 +22,7 @@ data class RinexNavigationResource(
     val sha256: String,
     val downloadedAtMillis: Long,
     val navigation: String,
+    val beiDouCatalog: BeiDouCatalogResource? = null,
 ) {
     init {
         require(formatVersion == 1 && sourceUrl.length <= 2048)
@@ -37,7 +38,7 @@ data class RinexNavigationResource(
         RinexNavigationReader.read(navigation)
     }
 
-    fun validate(): RinexNavigationResource = apply { parsed }
+    fun validate(): RinexNavigationResource = apply { parsed; beiDouCatalog?.validate() }
 
     fun gpsProvider(utc: GnssUtcTimeScale): RinexGpsOrbitProvider {
         val gps = parsed.records.filter { it.system == RinexNavigationSystem.GPS }

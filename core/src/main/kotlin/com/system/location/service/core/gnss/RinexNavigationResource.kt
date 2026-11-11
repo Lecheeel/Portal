@@ -65,6 +65,19 @@ data class RinexNavigationResource(
             GnssOrbitSourceKind.BROADCAST_EPHEMERIS), utc, policy)
     }
 
+    fun glonassProvider(utc: GnssUtcTimeScale, policy: RinexGlonassSkyPolicy): RinexGlonassOrbitProvider {
+        val epochs = parsed.records.filter { it.system == RinexNavigationSystem.GLONASS }.mapNotNull { record ->
+            runCatching {
+                require(record.epoch.second < 60)
+                record.epoch.date.atTime(record.epoch.hour, record.epoch.minute, record.epoch.second)
+                    .toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
+            }.getOrNull()
+        }
+        val epoch = requireNotNull(epochs.maxOrNull()) { "No representable GLONASS UTC reference epoch" }
+        return RinexGlonassOrbitProvider(parsed, GnssOrbitProvenance("rinex-glonass", sha256, sourceUrl, epoch,
+            GnssOrbitSourceKind.BROADCAST_EPHEMERIS), utc, policy)
+    }
+
     /** Native clock-calendar high-water marks; never compare them as inter-system UTC instants. */
     internal fun epochLabels(): Map<RinexNavigationSystem, String> = parsed.records.groupBy { it.system }.mapValues { (_, records) ->
         records.maxOf { r -> "%04d-%02d-%02dT%02d:%02d:%02d".format(java.util.Locale.ROOT,

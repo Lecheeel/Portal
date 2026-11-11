@@ -4,6 +4,7 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import java.time.Instant
 import java.time.LocalDate
+import java.util.Locale
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -80,5 +81,25 @@ class RinexGlonassOrbitProviderTest {
         assertEquals(1, provider(extended(null, 4.0)).positions(request).positions.size)
         assertEquals(1, provider(extended(0.0, 4.0)).positions(request).positions.size)
         assertEquals(1, provider(extended(128.0, 3.0)).positions(request).positions.size)
+    }
+
+    @Test fun downloadedGlonassReachesTheProductionSkyWithItsOwnCarrierAndOriginalEpoch() {
+        fun fields(values: List<Double?>) = values.joinToString("") { value ->
+            value?.let { String.format(Locale.ROOT, "%19.12E", it) } ?: " ".repeat(19)
+        }
+        val text = "     3.04           NAVIGATION DATA     M".padEnd(60) + "RINEX VERSION / TYPE\n" +
+            "".padEnd(60) + "END OF HEADER\n" + "R03 2026 11 08 00 15 00" + fields(record.clock) + "\n" +
+            record.orbit.joinToString("\n") { "    " + fields(it) } + "\n"
+        val resource = RinexNavigationResource.import(text, "https://example.org/navigation.rnx", epoch + 60000)
+        val position = resource.glonassProvider(utc, policy).positions(request).positions.single()
+        val model = GnssBundledOrbitResources.model(GnssSimulationPolicy(), GnssOutputLimits(128, 36, 32),
+            604800.0, navigation = resource)
+        val frame = model.frame(request)!!
+        assertEquals(GnssOrbitSourceKind.BROADCAST_EPHEMERIS, frame.orbitProvenance[Constellation.GLONASS to 3]?.kind)
+        assertEquals(epoch, frame.orbitProvenance[Constellation.GLONASS to 3]?.referenceEpochMillis)
+        assertEquals(position.carrierHz, frame.satellites.single { it.constellation == Constellation.GLONASS }.carrierHz)
+        val future = model.frame(request.copy(atMillis = Instant.parse("2028-01-01T00:00:00Z").toEpochMilli()))!!
+        assertTrue(future.satellites.isNotEmpty())
+        assertTrue(future.orbitProvenance.values.all { it.kind == GnssOrbitSourceKind.VIRTUAL })
     }
 }

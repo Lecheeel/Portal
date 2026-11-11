@@ -32,6 +32,12 @@ object GnssBundledOrbitResources {
             runCatching { navigation.galileoProvider(timeScale, RinexGalileoSkyPolicy(86400.0, true)) }
                 .onSuccess { providers += it }
                 .onFailure { diagnostics += "RINEX Galileo 广播来源不可用：${it.message}；保留其他来源与虚拟兜底" }
+            // EPSG:7679 identifies PZ-90.11 as replacing PZ-90.02 from 2014-01-15.
+            // Earlier/ambiguous-era archives are not silently treated as modern GLONASS.
+            runCatching { navigation.glonassProvider(timeScale, RinexGlonassSkyPolicy(
+                java.time.Instant.parse("2014-01-15T00:00:00Z").toEpochMilli(), true)) }
+                .onSuccess { providers += it }
+                .onFailure { diagnostics += "RINEX GLONASS 广播来源不可用：${it.message}；保留其他来源与虚拟兜底" }
         }
         val candidates = listOfNotNull(downloadedGps, gps.getOrNull())
             .sortedByDescending { it.referenceEpochMillis }

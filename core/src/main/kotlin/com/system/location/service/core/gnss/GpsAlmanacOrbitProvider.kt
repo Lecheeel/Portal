@@ -35,6 +35,9 @@ class GpsAlmanacOrbitProvider(
             } else GnssOrbitPosition(Constellation.GPS, record.svid, position, provenance,
                 hasEphemeris = false, hasAlmanac = true)
         }
-        return GnssOrbitBatch(positions, diagnostics, reserved)
+        val blocked = records.filter { it.health != 0 &&
+            kotlin.math.abs(time.secondsSince(it.referenceTime)) <= maximumEpochDistanceSeconds }
+            .map { Constellation.GPS to it.svid }.toSet()
+        return GnssOrbitBatch(positions, diagnostics, reserved, blocked)
     }
 }

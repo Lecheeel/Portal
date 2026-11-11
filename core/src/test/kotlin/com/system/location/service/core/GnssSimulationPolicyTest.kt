@@ -66,6 +66,22 @@ class GnssSimulationPolicyTest {
         assertEquals(listOf(request, other), requests)
     }
 
+    @Test fun applicableNegativeHealthBlocksFallbackButCannotOverrideHigherPriorityHealthyEvidence() {
+        val healthy = provider(GnssOrbitSourceKind.BROADCAST_EPHEMERIS, 2)
+        val negative = object : GnssOrbitProvider {
+            override val kind = GnssOrbitSourceKind.ALMANAC
+            override fun positions(request: GnssSkyRequest) = GnssOrbitBatch(emptyList(),
+                reservedIdentities = setOf(Constellation.GPS to 1, Constellation.GPS to 2),
+                blockedIdentities = setOf(Constellation.GPS to 1, Constellation.GPS to 2))
+        }
+        val older = provider(GnssOrbitSourceKind.OFFLINE_ORBIT, 1, 2, 3)
+        val result = GnssOrbitResolver(listOf(older, negative, healthy)).positions(request)
+        assertEquals(setOf(2, 3), result.positions.map { it.svid }.toSet())
+        assertEquals(GnssOrbitSourceKind.BROADCAST_EPHEMERIS,
+            result.positions.single { it.svid == 2 }.provenance.kind)
+        assertEquals(setOf(Constellation.GPS to 1), result.blockedIdentities)
+    }
+
     private fun provider(sourceKind: GnssOrbitSourceKind, vararg svids: Int) = object : GnssOrbitProvider {
         override val kind = sourceKind
         override fun positions(request: GnssSkyRequest) = GnssOrbitBatch(svids.map {

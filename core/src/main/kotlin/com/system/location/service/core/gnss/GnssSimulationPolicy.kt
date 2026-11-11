@@ -74,10 +74,14 @@ data class GnssOrbitBatch(
     val diagnostics: List<String> = emptyList(),
     /** Includes known unhealthy/stale identities omitted from positions; never reuse as additions. */
     val reservedIdentities: Set<Pair<Constellation, Int>> = positions.map { it.constellation to it.svid }.toSet(),
+    /** Applicable negative health/service evidence blocks lower-priority fallbacks. */
+    val blockedIdentities: Set<Pair<Constellation, Int>> = emptySet(),
 ) {
     init {
         require(positions.map { it.constellation to it.svid }.distinct().size == positions.size)
         require(positions.all { (it.constellation to it.svid) in reservedIdentities })
+        require(reservedIdentities.containsAll(blockedIdentities))
+        require(positions.none { (it.constellation to it.svid) in blockedIdentities })
     }
 }
 
@@ -89,6 +93,7 @@ class GnssOrbitResolver(providers: List<GnssOrbitProvider>) {
         val selected = linkedMapOf<Pair<Constellation, Int>, GnssOrbitPosition>()
         val diagnostics = mutableListOf<String>()
         val reserved = mutableSetOf<Pair<Constellation, Int>>()
+        val blocked = mutableSetOf<Pair<Constellation, Int>>()
         for (provider in providers) {
             val batch = provider.positions(request)
             require(batch.positions.all { it.provenance.kind == provider.kind }) {
@@ -97,9 +102,11 @@ class GnssOrbitResolver(providers: List<GnssOrbitProvider>) {
             diagnostics += batch.diagnostics
             reserved += batch.reservedIdentities
             for (position in batch.positions) {
-                selected.putIfAbsent(position.constellation to position.svid, position)
+                val identity = position.constellation to position.svid
+                if (identity !in blocked) selected.putIfAbsent(identity, position)
             }
+            blocked += batch.blockedIdentities
         }
-        return GnssOrbitBatch(selected.values.toList(), diagnostics, reserved.toSet())
+        return GnssOrbitBatch(selected.values.toList(), diagnostics, reserved.toSet(), blocked - selected.keys)
     }
 }

@@ -9,6 +9,7 @@ import com.system.location.service.core.gnss.CapturedGnssSource
 import com.system.location.service.core.gnss.GnssSimulationMode
 import com.system.location.service.core.gnss.GnssMinimumPolicy
 import com.system.location.service.core.gnss.GnssSimulationEnvironment
+import com.system.location.service.core.gnss.RinexNavigationResource
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.settings.PortalSettingsSchema
 import com.system.location.service.core.settings.SettingType
@@ -25,6 +26,7 @@ class PreparedRuntimeConfiguration private constructor(
     private val captureRejected: Boolean,
     private val routing: RoutingConfig?,
     private val environment: EnvironmentProfile?,
+    private val navigation: RinexNavigationResource?,
 ) {
     @Suppress("UNCHECKED_CAST")
     private fun <T> value(key: String, fallback: T): T =
@@ -61,6 +63,7 @@ class PreparedRuntimeConfiguration private constructor(
             wifiFingerprintCatalogJson = value("wifi_fingerprint_json", old.wifiFingerprintCatalogJson),
             gnssSource = if ("gnss_capture" in values) source else old.gnssSource,
             gnssCaptureRejected = if ("gnss_capture" in values) captureRejected else old.gnssCaptureRejected,
+            gnssNavigation = if ("gnss_navigation" in values) navigation else old.gnssNavigation,
         )
         return current.copy(
             configRevision = Math.addExact(current.configRevision, 1),
@@ -82,7 +85,7 @@ class PreparedRuntimeConfiguration private constructor(
     }
 
     companion object {
-        private val nullableStrings = setOf("gnss_capture", "routing_json", "environment_json", "wifi_fingerprint_json")
+        private val nullableStrings = setOf("gnss_capture", "gnss_navigation", "routing_json", "environment_json", "wifi_fingerprint_json")
         private val extraKeys = nullableStrings + "enable"
         val keys: Set<String> = PortalSettingsSchema.schema.keys() + extraKeys
 
@@ -129,7 +132,8 @@ class PreparedRuntimeConfiguration private constructor(
             (values["gnss_mode"] as String?)?.let { values["gnss_mode"] = GnssSimulationMode.valueOf(it) }
             (values["gnss_minimum_policy"] as String?)?.let { values["gnss_minimum_policy"] = GnssMinimumPolicy.valueOf(it) }
             (values["gnss_environment"] as String?)?.let { values["gnss_environment"] = GnssSimulationEnvironment.valueOf(it) }
-            return PreparedRuntimeConfiguration(values.toMap(), source, captureRejected, routing, environment)
+            val navigation = (values["gnss_navigation"] as String?)?.let(RinexNavigationResource::decodeWire)
+            return PreparedRuntimeConfiguration(values.toMap(), source, captureRejected, routing, environment, navigation)
         }
     }
 }

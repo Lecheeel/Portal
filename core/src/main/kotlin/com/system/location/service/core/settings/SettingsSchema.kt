@@ -104,6 +104,7 @@ object PortalSettingsSchema {
             SettingSpec("gnss_environment", SettingType.ENUM, "OPEN_SKY", choices = GnssSimulationEnvironment.entries.map { it.name }.toSet()),
             SettingSpec("gnss_virtual_seed", SettingType.LONG, "0"),
             SettingSpec("gnss_capture", SettingType.STRING, "", maxLength = 262_144),
+            SettingSpec("gnss_navigation", SettingType.STRING, "", maxLength = 131_072),
             SettingSpec("enable_mock_wifi", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_debug_log", SettingType.BOOLEAN, "false"),
             SettingSpec("sim_ready", SettingType.BOOLEAN, "true"),

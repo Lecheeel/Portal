@@ -11,6 +11,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PreparedRuntimeConfigurationTest {
+    @Test fun orbitUpdatesArePreparedAtomicallyAndAbsentKeyPreservesAcceptedResource() {
+        val resource = com.system.location.service.core.gnss.RinexNavigationResource.import(
+            RinexNavigationResourceTest.navigation(), "https://example.org/nav", 1794096000000)
+        val payload = com.system.location.service.core.gnss.RinexNavigationResource.encodeWire(resource)
+        val original = RuntimeSnapshot()
+        val prepared = PreparedRuntimeConfiguration.prepare(mapOf("gnss_navigation" to payload))
+        val updated = prepared.applyTo(original)
+        assertNull(original.configuration.gnssNavigation)
+        assertEquals(resource, updated.configuration.gnssNavigation)
+        assertSame(updated.configuration.gnssNavigation,
+            PreparedRuntimeConfiguration.prepare(mapOf("min_satellites" to 32)).applyTo(updated).configuration.gnssNavigation)
+        assertNull(PreparedRuntimeConfiguration.prepare(mapOf("gnss_navigation" to null)).applyTo(updated).configuration.gnssNavigation)
+        for (value in listOf<Any>("broken", 123, "x".repeat(131073))) {
+            assertThrows(Exception::class.java) { PreparedRuntimeConfiguration.prepare(mapOf("gnss_navigation" to value)) }
+        }
+        assertEquals(resource, updated.configuration.gnssNavigation)
+    }
+
     private val route = RoutingConfig(mode = RoutingMode.PER_APP, routes = listOf(AppRoute("test.app", point = Wgs84(1.0, 2.0))))
     private val environment = EnvironmentProfile(EnvironmentSourceType.REPLAY, generatedAtMillis = 100, seed = 42)
     private val initial = RuntimeSnapshot(configRevision = 7, environmentVersion = 3, routing = route,

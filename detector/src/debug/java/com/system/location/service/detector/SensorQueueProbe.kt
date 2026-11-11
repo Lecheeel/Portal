@@ -44,7 +44,7 @@ internal object SensorQueueProbe {
         val errors = JSONArray()
         var removedSensor: Sensor? = null
         try {
-            listOf(1, 2, 4, 6, 9, 10, 11, 15, 18, 19, 20).forEach { type ->
+            listOf(1, 2, 4, 6, 9, 10, 11, 14, 15, 16, 18, 19, 20, 35).forEach { type ->
                 val sensor = manager.getDefaultSensor(type) ?: return@forEach
                 if (type == removeType) removedSensor = sensor
                 runCatching { manager.registerListener(listener, sensor, 10_000, Handler(thread.looper)) }

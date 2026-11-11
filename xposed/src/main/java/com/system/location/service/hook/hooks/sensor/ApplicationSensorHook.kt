@@ -8,7 +8,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
-import com.system.location.service.core.sensors.SensorFrame
+import com.system.location.service.core.sensors.SensorEventValues
 import com.system.location.service.core.sensors.SensorPlayback
 import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.scope.HookInstaller
@@ -29,7 +29,7 @@ object ApplicationSensorHook {
     private var counterSessionActive = false
     private var session: String? = null
     private var generation = 0L
-    private val supported = setOf(1, 2, 4, 6, 9, 10, 11, 15, 18, 19, 20)
+    private val supported = SensorEventValues.continuousTypes + setOf(18, 19)
 
     private class Registration(val manager: Any, val listener: Any, val queue: Any,
         val handle: Int, val type: Int, val handler: Handler) {
@@ -98,7 +98,7 @@ object ApplicationSensorHook {
                 if (playback.frame(SystemClock.elapsedRealtimeNanos()) == null) return@synchronized 0
                 val frame = playback.frame(timestamp) ?: return@synchronized 0
                 if (reg.type == 18 || reg.type == 19) return@synchronized 2
-                val values = values(frame, reg.type, original.size) ?: return@synchronized 0
+                val values = SensorEventValues.from(frame, reg.type, original.size) ?: return@synchronized 0
                 args[1] = values
                 1
             }
@@ -214,18 +214,4 @@ object ApplicationSensorHook {
         }
     }
 
-    private fun values(frame: SensorFrame, type: Int, size: Int): FloatArray? {
-        val source = when (type) {
-            1 -> frame.accelerometer
-            2 -> frame.magnetometer
-            4 -> frame.gyroscope
-            6 -> floatArrayOf(frame.barometerHpa)
-            9 -> frame.gravity
-            10 -> frame.linearAcceleration
-            11, 15, 20 -> frame.rotationVector
-            else -> return null
-        }
-        if (size < source.size) return null
-        return source.copyOf(size).also { if (type in setOf(11, 20) && size > 4) it[4] = -1f }
-    }
 }

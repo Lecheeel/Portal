@@ -4,6 +4,7 @@ package com.system.location.service.core.gnss
 data class GnssUtcOffset(val effectiveAtMillis: Long, val taiMinusUtcSeconds: Int)
 
 data class UtcGpsConversion(val time: GpsTime?, val reason: String? = null)
+data class GpsUtcConversion(val utcMillis: Long?, val reason: String? = null)
 
 /**
  * Converts representable POSIX UTC instants to nominal GPS time using TAI-GPS = 19 seconds.
@@ -36,6 +37,19 @@ class GnssUtcTimeScale(offsets: List<GnssUtcOffset>, val expiresAtMillis: Long) 
         val week = gpsMillis / MILLIS_PER_WEEK
         if (week > Int.MAX_VALUE) return UtcGpsConversion(null, "GPS week outside supported range")
         return UtcGpsConversion(GpsTime(week.toInt(), gpsMillis % MILLIS_PER_WEEK / 1000.0))
+    }
+
+    /** Millisecond-resolution inverse; the inserted leap second has no POSIX representation. */
+    fun utcAtGpsTime(time: GpsTime): GpsUtcConversion {
+        val gpsMillis = time.week * MILLIS_PER_WEEK + kotlin.math.round(time.secondsOfWeek * 1000).toLong()
+        val candidates = offsets.map { it.taiMinusUtcSeconds - 19 }.distinct().map { offset ->
+            GPS_EPOCH_MILLIS + gpsMillis - offset * 1000L
+        }.filter { candidate ->
+            val decoded = gpsAtUtcMillis(candidate).time
+            decoded != null && kotlin.math.abs(decoded.secondsSince(time)) <= 0.000501
+        }
+        return if (candidates.size == 1) GpsUtcConversion(candidates.single())
+        else GpsUtcConversion(null, "GPS instant outside UTC resource or not representable in POSIX UTC")
     }
 
     companion object {

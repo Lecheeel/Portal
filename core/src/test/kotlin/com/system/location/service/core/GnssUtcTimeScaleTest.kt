@@ -49,4 +49,16 @@ class GnssUtcTimeScaleTest {
         input.clear()
         assertEquals(GpsTime(0, 0.0), immutable.gpsAtUtcMillis(GnssUtcTimeScale.GPS_EPOCH_MILLIS).time)
     }
+
+    @Test fun inversePreservesMillisecondsAcrossLeapBoundaryWithoutInventingLeapTimestamp() {
+        for (text in listOf("1980-01-06T00:00:00Z", "2015-06-30T23:59:59.987Z",
+            "2015-07-01T00:00:00.123Z", "2016-12-31T23:59:59.999Z", "2017-01-01T00:00:00.001Z")) {
+            val instant = millis(text)
+            assertEquals(instant, scale.utcAtGpsTime(scale.gpsAtUtcMillis(instant).time!!).utcMillis)
+        }
+        // GPS 1930/17 labels UTC's inserted 23:59:60, absent from POSIX milliseconds.
+        assertNull(scale.utcAtGpsTime(GpsTime(1930, 17.0)).utcMillis)
+        val afterExpiry = GpsTime(Int.MAX_VALUE, 604799.0)
+        assertNull(scale.utcAtGpsTime(afterExpiry).utcMillis)
+    }
 }

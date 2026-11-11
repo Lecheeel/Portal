@@ -302,7 +302,9 @@ object MockServiceHelper {
                 ?.let(com.system.location.service.core.gnss.GnssCaptureWire::encode)
         }.getOrElse {
             com.system.location.service.hook.utils.Logger.error("GNSS capture unavailable: ${it.javaClass.simpleName}")
-            return false
+            // Receiver evidence is optional. Keep the last decoded source if disk loading or
+            // compaction fails; required preferences and the authenticated send still fail normally.
+            fallback.configuration.gnssSource?.wirePayload()
         }
         values["gnss_capture"] = capturePayload
         val prepared = try {

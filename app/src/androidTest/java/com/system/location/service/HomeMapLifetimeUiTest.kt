@@ -33,6 +33,16 @@ class HomeMapLifetimeUiTest {
                     fun drawerPage(destination: Int) {
                         compose.waitForIdle()
                         scenario.onActivity { it.binding.navView.menu.performIdentifierAction(destination, 0) }
+                        compose.waitUntil(5_000) {
+                            var resumed = false
+                            scenario.onActivity { activity ->
+                                val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                                val page = host.childFragmentManager.primaryNavigationFragment
+                                resumed = (host as androidx.navigation.fragment.NavHostFragment).navController.currentDestination?.id == destination &&
+                                    page?.lifecycle?.currentState == androidx.lifecycle.Lifecycle.State.RESUMED
+                            }
+                            resumed
+                        }
                         compose.waitForIdle()
                     }
                     fun currentMap(): PortalMapView {
@@ -62,6 +72,13 @@ class HomeMapLifetimeUiTest {
                         assertSame("Returning must not initialize the SDK again", initial, currentMap())
                     }
                     drawerPage(R.id.nav_settings)
+                    // Compose can be idle while Fragment's native exit transition still owns its View.
+                    // Exercise memory pressure on the cached, offscreen map after onDestroyView.
+                    compose.waitUntil(5_000) {
+                        var offscreen = false
+                        scenario.onActivity { offscreen = home.view == null }
+                        offscreen
+                    }
                     scenario.onActivity { home.onLowMemory() }
                     assertEquals("Memory pressure must release the offscreen SDK", 0, initial.childCount)
                     drawerPage(R.id.nav_home)

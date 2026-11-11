@@ -5,6 +5,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NmeaCheckTest {
+    @Test fun emptySkyStillHasAReceiverEpochWithoutGsv() {
+        val frame = GnssFrameSnapshot(10120, emptyList())
+        val snapshot = SampleSnapshot(startedAtMillis = 9000, endedAtMillis = 12000,
+            gnssFrames = listOf(frame), nmeaSentences = listOf(sentence("GNGGA,,,,,,0,00,,,,,,,", 10000)))
+        assertEquals(listOf(GnssStatusEpoch(10000, frame)), nmeaStatusEpochs(snapshot))
+    }
     @Test fun statusEpochUsesNmeaTimestampRatherThanCallbackArrival() {
         val satellite = GnssSatelliteSnapshot(1, 1, 30f, 40f, 50f, true, true, true, true)
         val frame = GnssFrameSnapshot(10120, listOf(satellite))

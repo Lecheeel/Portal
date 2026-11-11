@@ -17,14 +17,20 @@ import kotlin.math.abs
 internal data class GnssStatusEpoch(val timeMillis: Long, val frame: GnssFrameSnapshot)
 
 internal fun nmeaStatusEpochs(snapshot: SampleSnapshot): List<GnssStatusEpoch> {
-    val bursts = groupGsvBursts(parseAll(snapshot.nmeaSentences).parsed.filter { it.type == "GSV" })
+    val parsed = parseAll(snapshot.nmeaSentences).parsed
+    val bursts = groupGsvBursts(parsed.filter { it.type == "GSV" })
         .filter { it.anchorMillis > 0 && it.isComplete() && validateGsvBursts(listOf(it)).issues.isEmpty() }
-    return bursts.mapNotNull { burst ->
-        val frame = LocationGnssReconciliation.nearestFrame(burst.anchorMillis, snapshot.gnssFrames)
+    // An empty sky has GGA quality=0 but no GSV. Its zero extras still require comparison.
+    // Prefer the fix sentence's epoch; use complete GSV only when GGA is unavailable.
+    val fixes = parsed.filter { it.type == "GGA" && it.fields.size >= 14 && it.timestampMillis > 0 }
+    val anchors = (if (fixes.isNotEmpty()) fixes.map { it.timestampMillis } else bursts.map { it.anchorMillis })
+        .distinct().sorted()
+    return anchors.mapNotNull { epoch ->
+        val frame = LocationGnssReconciliation.nearestFrame(epoch, snapshot.gnssFrames)
             ?: return@mapNotNull null
         // Missing callbacks must not let two receiver epochs claim the same status frame.
-        if (bursts.minByOrNull { abs(it.anchorMillis - frame.capturedAtMillis) } !== burst) return@mapNotNull null
-        GnssStatusEpoch(burst.anchorMillis, frame)
+        if (anchors.minByOrNull { abs(it - frame.capturedAtMillis) } != epoch) return@mapNotNull null
+        GnssStatusEpoch(epoch, frame)
     }.sortedBy { it.timeMillis }
 }
 

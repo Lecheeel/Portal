@@ -88,4 +88,26 @@ class RinexBeiDouOrbitProviderTest {
             assertTrue(batch.diagnostics.isNotEmpty())
         }
     }
+
+    @Test fun downloadedBeiDouReachesProductionSkyWithReferenceTimeIndependentOfDownloadTime() {
+        fun fields(values: List<Double?>) = values.joinToString("") { value ->
+            value?.let { String.format(Locale.ROOT, "%19.12E", it) } ?: " ".repeat(19)
+        }
+        val text = "     3.05           NAVIGATION DATA     M".padEnd(60) + "RINEX VERSION / TYPE\n" +
+            header() + "TIME SYSTEM CORR\n" + "".padEnd(60) + "END OF HEADER\n" +
+            "C19 2026 11 08 00 00 00" + fields(record.clock) + "\n" +
+            record.orbit.joinToString("\n") { "    " + fields(it) } + "\n"
+        val resource = RinexNavigationResource.import(text, "https://example.org/navigation.rnx", epoch + 60000)
+        val position = resource.beiDouProvider(utc, catalog, policy).positions(request).positions.single()
+        assertEquals(epoch, position.provenance.referenceEpochMillis)
+        val model = GnssBundledOrbitResources.model(GnssSimulationPolicy(), GnssOutputLimits(128, 36, 32),
+            604800.0, navigation = resource)
+        val frame = model.frame(request.copy(observer = Wgs84(0.0, 0.0)))!!
+        assertEquals(GnssOrbitSourceKind.BROADCAST_EPHEMERIS, frame.orbitProvenance[Constellation.BEIDOU to 19]?.kind)
+        assertEquals(epoch, frame.orbitProvenance[Constellation.BEIDOU to 19]?.referenceEpochMillis)
+        assertTrue(frame.diagnostics.any { "IGS" in it || "files.igs.org" in it })
+        val future = model.frame(request.copy(atMillis = Instant.parse("2028-01-01T00:00:00Z").toEpochMilli()))!!
+        assertTrue(future.satellites.isNotEmpty())
+        assertTrue(future.orbitProvenance.values.all { it.kind == GnssOrbitSourceKind.VIRTUAL })
+    }
 }

@@ -9,6 +9,10 @@ object GnssBundledOrbitResources {
     private val virtual by lazy { VirtualWalkerResource.decode(read("virtual-walker.json")) }
     private val utc by lazy { runCatching { GnssUtcTimeScale.parseIers(read("leap-seconds.list")) } }
     private val gps by lazy { runCatching { GpsAlmanacResource.decode(read("gps-yuma.json")) } }
+    private val beiDouCatalog by lazy { runCatching {
+        BeiDouCatalogManifest.decode(read("igs-beidou-metadata-source.json"))
+            .catalog(read("igs-beidou-metadata.snx"), utc.getOrThrow(), 30 * 86400L)
+    } }
 
     /**
      * No network or local receiver access. The caller supplies its tested output envelope and
@@ -38,6 +42,13 @@ object GnssBundledOrbitResources {
                 java.time.Instant.parse("2014-01-15T00:00:00Z").toEpochMilli(), true)) }
                 .onSuccess { providers += it }
                 .onFailure { diagnostics += "RINEX GLONASS 广播来源不可用：${it.message}；保留其他来源与虚拟兜底" }
+            // These are separate sky-approximation budgets: one hour from toe, one week from
+            // the BDUT header reference, and a dated catalog with a 30-day freshness policy.
+            // None is an inferred broadcast fit duration or the capture expiry setting.
+            runCatching { navigation.beiDouProvider(timeScale, beiDouCatalog.getOrThrow(),
+                RinexBeiDouSkyPolicy(3600.0, 7 * 86400.0, true)) }
+                .onSuccess { providers += it }
+                .onFailure { diagnostics += "RINEX 北斗广播来源不可用：${it.message}；保留其他来源与虚拟兜底" }
         }
         val candidates = listOfNotNull(downloadedGps, gps.getOrNull())
             .sortedByDescending { it.referenceEpochMillis }

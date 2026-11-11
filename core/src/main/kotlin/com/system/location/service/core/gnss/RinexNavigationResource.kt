@@ -78,6 +78,22 @@ data class RinexNavigationResource(
             GnssOrbitSourceKind.BROADCAST_EPHEMERIS), utc, policy)
     }
 
+    fun beiDouProvider(utc: GnssUtcTimeScale, catalog: BeiDouSkyCatalog, policy: RinexBeiDouSkyPolicy): RinexBeiDouOrbitProvider {
+        val correction = requireNotNull(RinexTimeSystemCorrection.beiDouCorrection(parsed.timeSystemCorrections)) {
+            "Missing BeiDou BDUT correction"
+        }
+        val time = RinexBeiDouTimeScale(utc, correction, policy.maximumTimeCorrectionDistanceSeconds)
+        val epochs = parsed.records.filter { it.system == RinexNavigationSystem.BEIDOU }.mapNotNull {
+            runCatching {
+                val fields = RinexOrbitFields(it)
+                time.utcAt(BeiDouTime(fields.integer(4, 2, 0..Int.MAX_VALUE), fields.orbit(2, 0)))
+            }.getOrNull()
+        }
+        val epoch = requireNotNull(epochs.maxOrNull()) { "No convertible BeiDou reference epoch" }
+        return RinexBeiDouOrbitProvider(parsed, GnssOrbitProvenance("rinex-beidou", sha256, sourceUrl, epoch,
+            GnssOrbitSourceKind.BROADCAST_EPHEMERIS), utc, catalog, policy)
+    }
+
     /** Native clock-calendar high-water marks; never compare them as inter-system UTC instants. */
     internal fun epochLabels(): Map<RinexNavigationSystem, String> = parsed.records.groupBy { it.system }.mapValues { (_, records) ->
         records.maxOf { r -> "%04d-%02d-%02dT%02d:%02d:%02d".format(java.util.Locale.ROOT,

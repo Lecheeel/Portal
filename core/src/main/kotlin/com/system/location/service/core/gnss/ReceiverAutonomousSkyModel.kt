@@ -25,7 +25,18 @@ class ReceiverAutonomousSkyModel(
         require(minimumSatellites in 0..GnssFrame.MAX_SATELLITES)
         if (policy.mode == GnssSimulationMode.OFF || policy.mode == GnssSimulationMode.REPLAY) return null
         val resolved = resolver.positions(request)
-        val batch = if (resolved.positions.isEmpty()) virtualFallback.positions(request) else resolved
+        val batch = if (resolved.positions.isEmpty()) {
+            val fallback = virtualFallback.positions(request)
+            // Whole-frame fallback must not erase real negative/hidden identity reservations.
+            // Otherwise all-unhealthy or expired resources revive their IDs as virtual satellites,
+            // and quantity supplementation can claim the same reserved identities again.
+            val allowed = fallback.positions.filter { (it.constellation to it.svid) !in resolved.reservedIdentities }
+            val excluded = fallback.positions.size - allowed.size
+            GnssOrbitBatch(allowed,
+                fallback.diagnostics + if (excluded > 0) listOf("虚拟兜底避让 $excluded 个真实资源保留身份") else emptyList(),
+                fallback.reservedIdentities + resolved.reservedIdentities,
+                fallback.blockedIdentities + resolved.blockedIdentities)
+        } else resolved
         val diagnostics = resolved.diagnostics.toMutableList()
         if (batch !== resolved) diagnostics += batch.diagnostics
         fun observe(orbit: GnssOrbitPosition): Pair<GnssOrbitPosition, GnssReceiverSignal>? {

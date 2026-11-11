@@ -6,6 +6,31 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ReceiverAutonomousSkyModelTest {
+    @Test fun emptyRealPoolKeepsUnhealthyAndStaleReservationsThroughFallbackAndSupplement() {
+        val reserved = (1..32).map { Constellation.GPS to it }.toSet()
+        for (blocked in listOf(reserved, emptySet())) {
+            val unavailable = object : GnssOrbitProvider {
+                override val kind = GnssOrbitSourceKind.BROADCAST_EPHEMERIS
+                override fun positions(request: GnssSkyRequest) = GnssOrbitBatch(emptyList(),
+                    listOf("real resource unavailable"), reserved, blocked)
+            }
+            val identities = reserved.toList() + (1..36).map { Constellation.GALILEO to it } +
+                (1..63).map { Constellation.BEIDOU to it }
+            val model = ReceiverAutonomousSkyModel(listOf(unavailable), virtual,
+                GnssSimulationPolicy(minimumPolicy = GnssMinimumPolicy.GUARANTEE_QUANTITY),
+                quantitySupplement = GnssVirtualSkySupplement(identities, GnssOutputLimits(64, 36, 16), 123))
+            val frame = model.frame(request, 32)!!
+            assertEquals(32, frame.satellites.size)
+            assertTrue(frame.satellites.none { it.constellation == Constellation.GPS })
+            assertTrue(frame.orbitProvenance.keys.none { it in reserved })
+            assertTrue(frame.diagnostics.any { it.contains("保留身份") })
+            assertTrue(frame.diagnostics.any { it.contains("real resource unavailable") })
+            val insufficient = model.frame(request, 80)!!
+            assertTrue(insufficient.satellites.size < 80)
+            assertTrue(insufficient.satellites.none { (it.constellation to it.svid) in reserved })
+        }
+    }
+
     private val utc = GnssUtcTimeScale.parseIers(requireNotNull(
         javaClass.getResource("/gnss/leap-seconds.list")).readText())
     private val almanac = GpsAlmanacResource.decode(requireNotNull(

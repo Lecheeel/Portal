@@ -38,15 +38,19 @@ class GnssIndependentReceiverDeviceTest {
 
     @Test fun capturedProfileRemainsCoherentForAnIndependentReceiver() = verifyReceiver(realCapture = true)
 
-    private fun verifyReceiver(terminateFirstRun: Boolean = false, realCapture: Boolean = false) = runBlocking {
+    @Test fun autonomousSkyWithoutCaptureReachesAnIndependentReceiver() = verifyReceiver(autonomous = true)
+
+    private fun verifyReceiver(terminateFirstRun: Boolean = false, realCapture: Boolean = false,
+        autonomous: Boolean = false) = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val arguments = InstrumentationRegistry.getArguments()
         assumeTrue("Explicit independent receiver run required",
             arguments.getString("independentDetector") == "true")
         if (realCapture) assumeTrue("Explicit real evidence run required", arguments.getString("realCapturedProfile") == "true")
-        val sampleSeconds = if (realCapture) arguments.getString("receiverSeconds")?.toInt() ?: 120 else 20
+        val sampleSeconds = if (realCapture || autonomous) arguments.getString("receiverSeconds")?.toInt() ?: 120 else 20
         require(sampleSeconds in 20..240)
-        val minimum = if (realCapture) arguments.getString("receiverMinimum")?.toInt() ?: 0 else 0
+        val minimum = if (autonomous) arguments.getString("receiverMinimum")?.toInt() ?: 64
+            else if (realCapture) arguments.getString("receiverMinimum")?.toInt() ?: 0 else 0
         require(minimum in 0..128)
         val context = instrumentation.targetContext
         val manager = context.getSystemService(LocationManager::class.java)
@@ -111,13 +115,24 @@ class GnssIndependentReceiverDeviceTest {
         var configured = false
         try {
             command("put_config") {
-                putString("gnss_capture", GnssCaptureWire.encode(fixture))
-                putString("gnss_mode", GnssSimulationMode.REPLAY.name)
+                putString("gnss_capture", if (autonomous) null else GnssCaptureWire.encode(fixture))
+                putString("gnss_mode", if (autonomous) GnssSimulationMode.AUTONOMOUS.name else GnssSimulationMode.REPLAY.name)
+                if (autonomous) {
+                    putString("gnss_navigation", null)
+                    putString("gnss_minimum_policy", GnssMinimumPolicy.GUARANTEE_QUANTITY.name)
+                    putString("gnss_environment", GnssSimulationEnvironment.OPEN_SKY.name)
+                }
                 putBoolean("enable_nmea", true)
                 putBoolean("enable_physical_noise", true)
                 putInt("min_satellites", minimum)
             }
             configured = true
+            if (autonomous) {
+                val accepted = RuntimeTransferWire.decode(checkNotNull(command("sync_config").getByteArray(RuntimeSyncCommand.PAYLOAD))).state
+                assertNull("Autonomous fixture must not depend on local capture", accepted.configuration.gnssSource)
+                assertNull("Autonomous fixture must not depend on a downloaded navigation resource", accepted.configuration.gnssNavigation)
+                assertEquals(GnssSimulationMode.AUTONOMOUS, accepted.configuration.gnssSimulation.mode)
+            }
             command("start_gnss_mock")
             val startElapsed = SystemClock.elapsedRealtimeNanos()
             fun publish() {
@@ -180,7 +195,8 @@ class GnssIndependentReceiverDeviceTest {
                 }
                 request("POST", "/run", "{\"sampleSeconds\":$sampleSeconds}")
             }
-            val filename = if (realCapture) "captured-independent-gnss-min$minimum-report.json" else "synthetic-independent-gnss-report.json"
+            val filename = if (autonomous) "autonomous-independent-gnss-min$minimum-report.json"
+                else if (realCapture) "captured-independent-gnss-min$minimum-report.json" else "synthetic-independent-gnss-report.json"
             File(context.getExternalFilesDir(null), filename).writeText(rawReport)
             val report = JSONObject(rawReport)
             val frames = report.getJSONObject("gnssEvidence").getJSONArray("frames")
@@ -194,10 +210,21 @@ class GnssIndependentReceiverDeviceTest {
             for (index in 0 until frames.length()) {
                 val records = frames.getJSONObject(index).getJSONArray("satellites")
                 val counts = (0 until records.length()).map { records.getJSONObject(it).getInt("constellation") }.groupingBy { it }.eachCount()
-                if (!realCapture) assertEquals(expectedCounts, counts)
+                if (autonomous) {
+                    assertTrue("Visible floor was not delivered", records.length() >= minimum)
+                    val identities = (0 until records.length()).map {
+                        records.getJSONObject(it).getInt("constellation") to records.getJSONObject(it).getInt("svid")
+                    }
+                    assertEquals("Duplicate identity in autonomous sky", identities.size, identities.distinct().size)
+                } else if (!realCapture) assertEquals(expectedCounts, counts)
                 for (record in 0 until records.length()) {
                     val satellite = records.getJSONObject(record)
-                    if (!realCapture) assertTrue(satellite.getBoolean("usedInFix"))
+                    if (autonomous) {
+                        assertTrue(satellite.getDouble("elevationDegrees") in 0.0..90.0)
+                        assertTrue(satellite.getDouble("azimuthDegrees") in 0.0..<360.0)
+                        assertTrue(satellite.getDouble("cn0DbHz") in 0.0..63.0)
+                        if (satellite.getBoolean("usedInFix")) assertTrue(satellite.getBoolean("hasEphemeris"))
+                    } else if (!realCapture) assertTrue(satellite.getBoolean("usedInFix"))
                     else {
                         assertTrue("Invented satellite identity", checkNotNull(realIdentities).contains(
                             satellite.getInt("constellation") to satellite.getInt("svid")))
@@ -233,7 +260,7 @@ class GnssIndependentReceiverDeviceTest {
             } ?: error("Detector did not report per-epoch GSV identity comparison coverage")
             val bursts = nmeaLines.firstNotNullOfOrNull { Regex("GSV：(\\d+) 组 burst").find(it) }
                 ?.groupValues?.get(1)?.toInt() ?: error("Detector did not report GSV burst count")
-            val expectedBursts = if (realCapture) (0 until frames.length()).count {
+            val expectedBursts = if (realCapture || autonomous) (0 until frames.length()).count {
                 frames.getJSONObject(it).getJSONArray("satellites").length() > 0
             } - 2 else sampleSeconds - 5
             assertTrue("Insufficient independent NMEA/GNSS comparisons", bursts >= expectedBursts)
@@ -249,6 +276,11 @@ class GnssIndependentReceiverDeviceTest {
                 command("put_config") {
                     putString("gnss_capture", null)
                     putString("gnss_mode", original.configuration.gnssSimulation.mode.name)
+                    if (autonomous) {
+                        putString("gnss_navigation", original.configuration.gnssNavigation?.let(RinexNavigationResource::encodeWire))
+                        putString("gnss_minimum_policy", original.configuration.gnssSimulation.minimumPolicy.name)
+                        putString("gnss_environment", original.configuration.gnssSimulation.environment.name)
+                    }
                     putBoolean("enable_nmea", original.configuration.nmeaEnabled)
                     putBoolean("enable_physical_noise", original.physicalNoise)
                     putInt("min_satellites", original.configuration.minimumSatellites)

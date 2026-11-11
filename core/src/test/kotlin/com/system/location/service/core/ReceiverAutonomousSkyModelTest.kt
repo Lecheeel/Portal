@@ -66,4 +66,41 @@ class ReceiverAutonomousSkyModelTest {
             assertNull(ReceiverAutonomousSkyModel(emptyList(), virtual, GnssSimulationPolicy(mode = mode)).frame(request))
         }
     }
+
+    @Test fun physicalFloorReportsShortageWhileQuantityPolicyUsesOnlyUnreservedVirtualIds() {
+        val identities = (1..32).map { Constellation.GPS to it } + (1..36).map { Constellation.GALILEO to it }
+        val provider = almanac.provider(utc, 604800.0)
+        val physical = ReceiverAutonomousSkyModel(listOf(provider), virtual, GnssSimulationPolicy()).frame(request, 32)!!
+        assertTrue(physical.satellites.size < 32)
+        assertTrue(physical.diagnostics.any { it.contains("未满足") })
+        val model = ReceiverAutonomousSkyModel(listOf(provider), virtual,
+            GnssSimulationPolicy(minimumPolicy = GnssMinimumPolicy.GUARANTEE_QUANTITY),
+            quantitySupplement = GnssVirtualSkySupplement(identities, GnssOutputLimits(64, 36, 16), 123))
+        val guaranteed = model.frame(request, 32)!!
+        assertEquals(32, guaranteed.satellites.size)
+        assertEquals(32, guaranteed.requestedMinimumSatellites)
+        assertTrue(guaranteed.satellites.count { it.usedInFix } <= 16)
+        assertEquals(physical.satellites.map { it.constellation to it.svid }.toSet(),
+            guaranteed.orbitProvenance.filterValues { it.kind != GnssOrbitSourceKind.VIRTUAL }.keys)
+        // All GPS identities, including the hidden ones, are reserved by the real upload.
+        assertTrue(guaranteed.orbitProvenance.filterValues { it.kind == GnssOrbitSourceKind.VIRTUAL }
+            .keys.all { it.first == Constellation.GALILEO })
+        assertTrue(guaranteed.availableSatelliteCapacity >= 32)
+        val unsupported = model.frame(request, 64)!!
+        assertTrue(unsupported.satellites.size < 64)
+        assertTrue(unsupported.diagnostics.any { it.contains("无法保证") })
+    }
+
+    @Test fun guaranteedIndoorVisibleFloorStillDoesNotPromiseTrackingOrFiniteDop() {
+        val identities = (1..36).map { Constellation.GALILEO to it }
+        val model = ReceiverAutonomousSkyModel(listOf(almanac.provider(utc, 604800.0)), virtual,
+            GnssSimulationPolicy(minimumPolicy = GnssMinimumPolicy.GUARANTEE_QUANTITY,
+                environment = GnssSimulationEnvironment.INDOOR),
+            quantitySupplement = GnssVirtualSkySupplement(identities, GnssOutputLimits(64, 36, 32), 123))
+        val frame = model.frame(request, 32)!!
+        assertEquals(32, frame.satellites.size)
+        assertEquals(0, frame.trackedSatelliteCount)
+        assertTrue(frame.satellites.none { it.usedInFix })
+        assertNull(frame.geometry.dop)
+    }
 }

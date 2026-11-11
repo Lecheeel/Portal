@@ -50,6 +50,7 @@ class DrawerGestureUiTest {
                     floatArrayOf(xy[0] + view.width * .75f, xy[1] + view.height * .4f)
                 }, Press.FINGER))
             drawer(true)
+            captureUi("drawer-home-selection")
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
             drawer(false)
             compose.onNodeWithText("开始模拟").assertIsDisplayed()
@@ -71,6 +72,7 @@ class DrawerGestureUiTest {
             drawer(true)
             scenario.recreate()
             drawer(true)
+            captureUi("drawer-settings-selection-restored")
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
             drawer(false)
             scenario.onActivity {

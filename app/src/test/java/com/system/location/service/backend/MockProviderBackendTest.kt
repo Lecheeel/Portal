@@ -112,8 +112,8 @@ class MockProviderBackendTest {
         assertEquals(BackendResult.Success, backend.start())
         assertEquals(BackendResult.Success, backend.publish(sample))
         assertEquals(setOf("gps", "network"), port.fixes.map { it.first }.toSet())
-        assertEquals(6f, port.fixes.first { it.first == "gps" }.second.accuracy, 0f)
-        assertEquals(60f, port.fixes.first { it.first == "network" }.second.accuracy, 0f)
+        assertEquals(sample.accuracy, port.fixes.first { it.first == "gps" }.second.accuracy, 0f)
+        assertEquals(sample.accuracy * 10f, port.fixes.first { it.first == "network" }.second.accuracy, 0f)
         assertTrue(port.fixes.first { it.first == "network" }.second.timeMillis <
             port.fixes.first { it.first == "gps" }.second.timeMillis)
     }
@@ -126,8 +126,8 @@ class MockProviderBackendTest {
         backend.publish(sample)
         assertEquals(setOf("gps", "network"), port.enabled)
         assertEquals(setOf("gps", "network"), port.fixes.map { it.first }.toSet())
-        assertEquals(6f, port.fixes.first { it.first == "gps" }.second.accuracy, 0f)
-        assertEquals(60f, port.fixes.first { it.first == "network" }.second.accuracy, 0f)
+        assertEquals(sample.accuracy, port.fixes.first { it.first == "gps" }.second.accuracy, 0f)
+        assertEquals(sample.accuracy * 10f, port.fixes.first { it.first == "network" }.second.accuracy, 0f)
         assertEquals(BackendResult.Success, backend.pause())
         backend.publish(sample)
         assertEquals(0f, port.fixes.last().second.speed)

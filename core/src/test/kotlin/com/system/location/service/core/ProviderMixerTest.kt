@@ -93,6 +93,19 @@ class ProviderMixerTest {
     }
 
     @Test
+    fun standardMockPreservesConfiguredGpsAccuracyAndScalesOtherProviders() {
+        val standard = ProviderMixer(useSampleAccuracy = true)
+        for (speed in listOf(0f, 5f)) {
+            val samples = standard.mix(moving.copy(accuracy = 2.5f, speed = speed))
+            assertEquals(2.5f, samples.getValue(ProviderKind.GPS).sample.accuracy, 0f)
+            assertEquals(25f, samples.getValue(ProviderKind.NETWORK).sample.accuracy, 0.001f)
+            assertEquals(2.5f * 10f / 6f, samples.getValue(ProviderKind.FUSED).sample.accuracy, 0.001f)
+        }
+        assertEquals(10_000f, standard.mix(moving.copy(accuracy = 10_000f))
+            .getValue(ProviderKind.NETWORK).sample.accuracy, 0f)
+    }
+
+    @Test
     fun invalidProfilesAreRejected() {
         assertThrows { ProviderProfile(ProviderKind.GPS, 0, 5f, 1f, 0, true, true, true) }
         assertThrows { ProviderProfile(ProviderKind.GPS, 1_000, -1f, 1f, 0, true, true, true) }

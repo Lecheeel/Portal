@@ -19,7 +19,7 @@ interface FusedMockPort {
 class FusedMockBackend(private val base: LocationBackend, private val fused: FusedMockPort) : LocationBackend {
     private var useFused = false
     private var failure: String? = null
-    private val providerMixer = ProviderMixer()
+    private val providerMixer = ProviderMixer(useSampleAccuracy = true)
     override val type get() = base.type
     override val capabilities get() = base.capabilities + (Capability.GMS_FUSED to fused.capability)
     override suspend fun diagnose() = base.diagnose() + fused.diagnostics() + listOfNotNull(failure?.let { BackendDiagnostic("GMS_DEGRADED", "UNAVAILABLE", it) })

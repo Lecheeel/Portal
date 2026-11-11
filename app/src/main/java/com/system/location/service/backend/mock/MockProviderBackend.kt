@@ -28,7 +28,7 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
     private val lastRecovery = mutableMapOf<String, Long>()
     private var recoveryCount = 0
     private val optionalFailures = mutableMapOf<String, String>()
-    private val providerMixer = ProviderMixer()
+    private val providerMixer = ProviderMixer(useSampleAccuracy = true)
     override val type = BackendType.MOCK_PROVIDER
     override suspend fun diagnose() = listOf(
         BackendDiagnostic("MOCK_PERMISSION", if (port.permissionGranted()) "AVAILABLE" else "REQUIRES_ACTION",

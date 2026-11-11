@@ -123,6 +123,7 @@ data class ProviderSample(
 class ProviderMixer(
     private val profiles: List<ProviderProfile> = ProviderProfile.defaults(),
     private val stationaryPolicy: StationaryPolicy = StationaryPolicy(),
+    private val useSampleAccuracy: Boolean = false,
 ) {
     init {
         require(profiles.isNotEmpty()) { "profiles must not be empty" }
@@ -137,7 +138,12 @@ class ProviderMixer(
     ): Map<ProviderKind, ProviderSample> {
         val moving = sample.speed > stationaryPolicy.speedThresholdMps
         return profiles.associate { profile ->
-            val accuracy = if (moving) profile.accuracyMeters else {
+            // Standard Mock uses the configured GPS radius as its baseline. Other providers
+            // retain their relative uncertainty; system Hook callers keep their existing policy.
+            val accuracy = if (useSampleAccuracy) {
+                (sample.accuracy * profile.accuracyMeters / ProviderProfile.GPS.accuracyMeters)
+                    .coerceIn(0.1f, 10_000f)
+            } else if (moving) profile.accuracyMeters else {
                 profile.accuracyMeters + stationaryPolicy.accuracyDriftMeters
             }
             val useBearing = moving && profile.supportsBearing && sample.speed > 0f

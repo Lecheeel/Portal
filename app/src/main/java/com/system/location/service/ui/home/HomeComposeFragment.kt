@@ -15,6 +15,10 @@ import com.amap.api.location.AMapLocationClientOption
 import com.system.location.service.maps.MapProvider
 import com.system.location.service.ext.wgs84
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import com.system.location.service.core.runtime.RuntimePhase
+import com.system.location.service.runtime.ScenarioRuntime
 import kotlinx.coroutines.delay
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -51,11 +55,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -732,7 +734,10 @@ private fun HomeScreen(
     onMapType: () -> Boolean,
 ) {
     val context = LocalContext.current
-    val runtime by mockModel.runtimeState.collectAsStateWithLifecycle()
+    val runtimeFlow = remember(mockModel) {
+        mockModel.runtimeState.map(HomeRuntimeUi::from).distinctUntilChanged()
+    }
+    val runtime by runtimeFlow.collectAsStateWithLifecycle(initialValue = HomeRuntimeUi.from(mockModel.runtimeState.value))
     val location by locationFlow.collectAsStateWithLifecycle()
     val target by targetFlow.collectAsStateWithLifecycle(initialValue = HomeTarget())
     val library by libraryFlow.collectAsStateWithLifecycle()
@@ -963,18 +968,16 @@ private fun HomeScreen(
                 }
                 target.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = onStart,
-                        enabled = target.selection != null && !target.busy,
-                        modifier = Modifier.weight(1f),
-                    ) { Text(if (runtime.isActive) "切换位置" else "开始模拟") }
-                    OutlinedButton(
-                        onClick = { scope.launch { mockModel.stopScenario() } },
-                        enabled = runtime.isActive,
-                        modifier = Modifier.weight(1f),
-                    ) { Text("停止模拟") }
-                }
+                HomeRuntimeControls(
+                    runtime = runtime,
+                    canStart = target.selection != null && !target.busy,
+                    onStart = onStart,
+                    onPauseResume = {
+                        if (runtime.phase == RuntimePhase.PAUSED) ScenarioRuntime.resume()
+                        else ScenarioRuntime.pause()
+                    },
+                    onStop = { scope.launch { mockModel.stopScenario() } },
+                )
             }
         }
     }

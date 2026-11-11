@@ -54,6 +54,32 @@ class HomeSelectionUiTest {
         grantUiPermissions()
     }
 
+    @Test fun homePausesResumesAndStopsTheActiveRouteAcrossRecreation() = withSavedTargets { _, route ->
+        withMockRuntime {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                compose.onNodeWithContentDescription("暂停模拟").assertDoesNotExist()
+                selectSavedTarget("路线", route.route.name)
+                compose.onNodeWithText("开始模拟").performClick()
+                awaitRunning(route.route.name)
+                compose.onNodeWithContentDescription("暂停模拟").assertIsEnabled().performClick()
+                compose.waitUntil(10_000) { ScenarioRuntime.state.value.phase == RuntimePhase.PAUSED }
+                val session = ScenarioRuntime.state.value.scenarioId
+                compose.onNodeWithText("已暂停 · 无 Root · ${route.route.name}").assertIsDisplayed()
+                scenario.recreate()
+                compose.onNodeWithContentDescription("继续模拟").assertIsEnabled()
+                assertEquals(session, ScenarioRuntime.state.value.scenarioId)
+                assertEquals(RuntimePhase.PAUSED, ScenarioRuntime.state.value.phase)
+                captureUi("home-route-paused")
+                compose.onNodeWithContentDescription("继续模拟").performClick()
+                compose.waitUntil(10_000) { ScenarioRuntime.state.value.phase == RuntimePhase.RUNNING }
+                compose.onNodeWithContentDescription("暂停模拟").assertIsEnabled()
+                stopFromHome()
+                compose.onNodeWithContentDescription("暂停模拟").assertDoesNotExist()
+                compose.onNodeWithText("已停止 · 无 Root").assertIsDisplayed()
+            }
+        }
+    }
+
     @Test fun savedRouteThenLocationRequireExplicitStartAndKeepTheirScenarioType() = withSavedTargets { location, route ->
         withMockRuntime {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->

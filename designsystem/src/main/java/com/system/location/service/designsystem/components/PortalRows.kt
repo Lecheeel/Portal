@@ -51,6 +51,7 @@ fun PortalActionRow(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     leadingContent: (@Composable () -> Unit)? = null,
+    status: String? = null,
 ) {
     val contentAlpha = if (enabled) 1f else 0.38f
     Row(
@@ -77,6 +78,10 @@ fun PortalActionRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
                 )
             }
+            status?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha))
+            }
         }
         Icon(
             imageVector = ChevronRight,
@@ -94,6 +99,8 @@ fun PortalSwitchRow(
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
+    leadingContent: (@Composable () -> Unit)? = null,
+    status: String? = null,
 ) {
     val enabled = onCheckedChange != null
     val contentAlpha = if (enabled) 1f else 0.38f
@@ -112,6 +119,7 @@ fun PortalSwitchRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        leadingContent?.invoke()
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 title,
@@ -124,6 +132,10 @@ fun PortalSwitchRow(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
                 )
+            }
+            status?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha))
             }
         }
         // The row owns touch and accessibility actions; a tap toggles only once.

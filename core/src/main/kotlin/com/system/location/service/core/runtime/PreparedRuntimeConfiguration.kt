@@ -19,6 +19,7 @@ import kotlinx.serialization.json.Json
 class PreparedRuntimeConfiguration private constructor(
     private val values: Map<String, Any?>,
     private val source: CapturedGnssSource?,
+    private val captureRejected: Boolean,
     private val routing: RoutingConfig?,
     private val environment: EnvironmentProfile?,
 ) {
@@ -50,6 +51,7 @@ class PreparedRuntimeConfiguration private constructor(
             wifiFingerprintEnabled = value("wifi_fingerprint_enabled", old.wifiFingerprintEnabled),
             wifiFingerprintCatalogJson = value("wifi_fingerprint_json", old.wifiFingerprintCatalogJson),
             gnssSource = if ("gnss_capture" in values) source else old.gnssSource,
+            gnssCaptureRejected = if ("gnss_capture" in values) captureRejected else old.gnssCaptureRejected,
         )
         return current.copy(
             configRevision = Math.addExact(current.configRevision, 1),
@@ -99,10 +101,14 @@ class PreparedRuntimeConfiguration private constructor(
                     }
                 }
             }
+            var captureRejected = false
             val source = if ("gnss_capture" in values) try {
                 CapturedGnssSource.prepare(values["gnss_capture"] as String?, previousSource)
-            } catch (error: Exception) {
-                throw IllegalArgumentException("Invalid GNSS capture", error)
+            } catch (_: Exception) {
+                // Only optional evidence is recoverable. Wire types, sizes, required settings,
+                // authorization and transport errors still follow their original failure paths.
+                captureRejected = true
+                previousSource
             } else null
             val routing = (values["routing_json"] as String?)?.let {
                 Json.decodeFromString(RoutingConfig.serializer(), it)
@@ -111,7 +117,7 @@ class PreparedRuntimeConfiguration private constructor(
             (values["wifi_fingerprint_json"] as String?)?.let { WifiFingerprintImporter.importJson(it) }
             (values["cell_mode"] as String?)?.let { values["cell_mode"] = CellMode.valueOf(it) }
             (values["environment_source"] as String?)?.let { values["environment_source"] = EnvironmentSourceMode.valueOf(it) }
-            return PreparedRuntimeConfiguration(values.toMap(), source, routing, environment)
+            return PreparedRuntimeConfiguration(values.toMap(), source, captureRejected, routing, environment)
         }
     }
 }

@@ -30,18 +30,31 @@ class ConfigCommandTest {
         }
     }
 
-    @Test fun invalidCaptureOrScalarNeverChangesPublishedState() {
+    @Test fun invalidWireTypeOrScalarNeverChangesPublishedState() {
         val saved = FakeLoc.runtimeSnapshots.current()
         try {
             val initial = RuntimeSnapshot(configuration = HookConfiguration(enabled = true, minimumSatellites = 20))
             FakeLoc.runtimeSnapshots.set(initial)
-            for (invalid in listOf(mapOf("gnss_capture" to "invalid"), mapOf("min_satellites" to -1),
+            for (invalid in listOf(mapOf("gnss_capture" to 123), mapOf("min_satellites" to -1),
                 mapOf("routing_json" to "invalid"), mapOf("enable_nmea" to 0))) {
                 assertThrows(IllegalArgumentException::class.java) {
                     ConfigCommand.publish(mapOf("enable" to false, "enable_agps" to true) + invalid)
                 }
                 assertSame(initial, FakeLoc.runtimeSnapshots.current())
             }
+        } finally { FakeLoc.runtimeSnapshots.set(saved) }
+    }
+
+    @Test fun corruptOptionalCaptureStillPublishesCompleteRequiredConfiguration() {
+        val saved = FakeLoc.runtimeSnapshots.current()
+        try {
+            FakeLoc.runtimeSnapshots.set(RuntimeSnapshot())
+            val result = ConfigCommand.publish(mapOf("gnss_capture" to "invalid",
+                "min_satellites" to 24, "enable_nmea" to false))
+            assertEquals(24, result.configuration.minimumSatellites)
+            assertFalse(result.configuration.nmeaEnabled)
+            assertTrue(result.configuration.gnssCaptureRejected)
+            assertNull(result.configuration.gnssSource)
         } finally { FakeLoc.runtimeSnapshots.set(saved) }
     }
 

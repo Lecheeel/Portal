@@ -2,6 +2,7 @@ package com.system.location.service.core
 
 import com.system.location.service.core.environment.*
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.gnss.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.routing.*
 import com.system.location.service.core.runtime.*
@@ -45,7 +46,7 @@ class PreparedRuntimeConfigurationTest {
             "altitude" to Double.POSITIVE_INFINITY, "speed" to -1.0, "enable" to "true",
             "disable_fused_location" to null, "cell_mode" to "UNKNOWN", "environment_source" to null,
             "routing_json" to "{bad", "environment_json" to "{}", "wifi_fingerprint_json" to "broken",
-            "gnss_capture" to "invalid")
+            "gnss_capture" to 123)
         val store = RuntimeSnapshotStore(initial)
         for ((key, bad) in badValues) {
             assertThrows("Must reject $key", IllegalArgumentException::class.java) {
@@ -54,6 +55,48 @@ class PreparedRuntimeConfigurationTest {
             }
             assertSame(initial, store.current())
         }
+    }
+
+    @Test fun corruptOptionalCaptureDoesNotRejectRequiredConfiguration() {
+        val result = PreparedRuntimeConfiguration.prepare(mapOf("enable" to true,
+            "min_satellites" to 20, "gnss_capture" to "{broken")).applyTo(initial)
+        assertTrue(result.configuration.enabled)
+        assertEquals(20, result.configuration.minimumSatellites)
+        assertNull(result.configuration.gnssSource)
+        assertTrue(result.configuration.gnssCaptureRejected)
+        val partial = PreparedRuntimeConfiguration.prepare(mapOf("min_satellites" to 21)).applyTo(result)
+        assertTrue(partial.configuration.gnssCaptureRejected)
+        val cleared = PreparedRuntimeConfiguration.prepare(mapOf("gnss_capture" to null)).applyTo(partial)
+        assertFalse(cleared.configuration.gnssCaptureRejected)
+        assertEquals(21, cleared.configuration.minimumSatellites)
+    }
+
+    @Test fun corruptOptionalCaptureCannotHideInvalidRequiredSettingOrOversizePayload() {
+        assertThrows(IllegalArgumentException::class.java) {
+            PreparedRuntimeConfiguration.prepare(mapOf("gnss_capture" to "broken", "min_satellites" to -1))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PreparedRuntimeConfiguration.prepare(mapOf("gnss_capture" to "x".repeat(262_145)))
+        }
+    }
+
+    @Test fun corruptReplacementPreservesLastDecodedSourceAndSuccessfulReplacementClearsDiagnostic() {
+        val capture = GnssCapture(deviceModel = "test", osVersion = "test", startedAtMillis = 1000,
+            endedAtMillis = 61000, frames = (0..60).map {
+                GnssObservationFrame(1000L + it * 1000, Wgs84(30.0, 120.0), satellites = listOf(
+                    GnssSatellite(Constellation.GPS, 1, 30f, 100f, 35f, true, true, true)))
+            })
+        val payload = GnssCaptureWire.encode(capture)
+        val previous = CapturedGnssSource.prepare(payload)!!
+        val ready = initial.copy(configuration = initial.configuration.copy(gnssSource = previous))
+        val rejected = PreparedRuntimeConfiguration.prepare(mapOf("gnss_capture" to "broken"), previous)
+            .applyTo(ready)
+        assertSame(previous, rejected.configuration.gnssSource)
+        assertTrue(rejected.configuration.gnssCaptureRejected)
+        val repaired = PreparedRuntimeConfiguration.prepare(mapOf("gnss_capture" to payload), previous)
+            .applyTo(rejected)
+        assertSame(previous, repaired.configuration.gnssSource)
+        assertFalse(repaired.configuration.gnssCaptureRejected)
     }
 
     @Test fun decodesCompleteBatchAndKeepsExistingActiveSpeed() {

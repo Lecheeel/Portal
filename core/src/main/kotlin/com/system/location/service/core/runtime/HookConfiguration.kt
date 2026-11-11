@@ -31,6 +31,8 @@ data class HookConfiguration(
     val wifiFingerprintEnabled: Boolean = false,
     val wifiFingerprintCatalogJson: String? = null,
     val speedAmplitude: Double = 1.0,
+    /** Optional receiver evidence failed decoding; other configuration remains usable. */
+    val gnssCaptureRejected: Boolean = false,
     @Transient val gnssSource: CapturedGnssSource? = null,
 ) {
     init {

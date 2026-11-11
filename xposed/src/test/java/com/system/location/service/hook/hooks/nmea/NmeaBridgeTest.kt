@@ -3,6 +3,7 @@ package com.system.location.service.hook.hooks.nmea
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import com.system.location.service.hook.hooks.gnss.GnssReceiverRuntime
+import com.system.location.service.hook.utils.FakeLoc
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -17,9 +18,13 @@ class NmeaBridgeTest {
         GnssGeometryResult(null, "test no solution"), ReceiverGnssSource.STATISTICAL_REPLAY), 0.0, 0.0)
     private fun fields(line: String) = line.substringBefore('*').removePrefix("$").split(',')
 
-    @Test fun noCaptureDoesNotInventSentences() {
-        GnssReceiverRuntime.configure(null)
-        assertTrue(NmeaBridge.generatedSentences().isEmpty())
+    @Test fun replayWithoutCaptureDoesNotInventSentences() {
+        val original = FakeLoc.runtimeSnapshots.current()
+        try {
+            FakeLoc.runtimeSnapshots.update { it.copy(configuration = it.configuration.copy(
+                gnssSource = null, gnssSimulation = GnssSimulationPolicy(mode = GnssSimulationMode.REPLAY))) }
+            assertTrue(NmeaBridge.generatedSentences().isEmpty())
+        } finally { FakeLoc.runtimeSnapshots.update { original } }
     }
 
     @Test fun allSupportedIdentitiesSurviveNmeaMappingAndNoFixIsExplicit() {

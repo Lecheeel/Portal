@@ -7,8 +7,46 @@ import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.ProviderReadContext
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Before
+import org.junit.After
+import com.system.location.service.core.runtime.RuntimeSnapshot
 
 class GnssReceiverRuntimeTest {
+    private lateinit var originalState: RuntimeSnapshot
+
+    @Before fun selectExplicitReplay() {
+        originalState = FakeLoc.runtimeSnapshots.current()
+        FakeLoc.runtimeSnapshots.update { it.copy(configuration = it.configuration.copy(
+            gnssSimulation = GnssSimulationPolicy(mode = GnssSimulationMode.REPLAY))) }
+    }
+
+    @After fun restoreRuntime() {
+        FakeLoc.runtimeSnapshots.update { originalState }
+    }
+
+    @Test fun autonomousWithoutCapturePublishesTargetSkyAndOffPublishesNothing() {
+        // Beyond bundled real resources: the production entry must still reach virtual fallback.
+        val now = 1830297600000L
+        val sample = LocationSample(Wgs84(31.0, 121.0), 25.0, 5f, 2f, 30f, now, 1000)
+        val state = originalState.copy(configuration = originalState.configuration.copy(
+            enabled = true, gnssSource = null, minimumSatellites = 32,
+            gnssSimulation = GnssSimulationPolicy(minimumPolicy = GnssMinimumPolicy.GUARANTEE_QUANTITY)))
+        val first = GnssReceiverRuntime.frameForSample(sample, state = state)!!
+        assertEquals(ReceiverGnssSource.AUTONOMOUS, first.frame.source)
+        assertTrue(first.frame.satellites.size >= 32)
+        assertEquals(sample.coordinate, first.frame.observer)
+        assertSame(first, GnssReceiverRuntime.frameForSample(sample, state = state))
+        val otherSample = sample.copy(coordinate = Wgs84(-30.0, -60.0))
+        val other = GnssReceiverRuntime.frameForSample(otherSample,
+            GnssFrameRoute.Scenario("autonomous-other-place"), state)!!
+        assertEquals(otherSample.coordinate, other.frame.observer)
+        assertNotEquals(first.sequence, other.sequence)
+        assertNotEquals(first.frame.satellites, other.frame.satellites)
+        val off = state.copy(configuration = state.configuration.copy(
+            gnssSimulation = GnssSimulationPolicy(mode = GnssSimulationMode.OFF)))
+        assertNull(GnssReceiverRuntime.frameForSample(sample, state = off))
+    }
+
     @Test fun capturedBroadcastEvidenceReachesSharedStatusNmeaAndExtrasPublication() {
         val now = System.currentTimeMillis() / 1000 * 1000
         val point = Wgs84(10.0, 20.0)

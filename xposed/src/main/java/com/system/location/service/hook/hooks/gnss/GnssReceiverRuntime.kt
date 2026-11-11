@@ -12,15 +12,15 @@ import com.system.location.service.hook.utils.ProviderReadContext
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.runtime.RuntimeSnapshot
 
-/** Configured only by the authenticated command channel. No catalog fallback exists here. */
+/** Resolves authenticated runtime policy to one shared autonomous or replay publication. */
 object GnssReceiverRuntime {
     /** A callback evaluates all policy and evidence against this one captured context. */
     fun activeContext(): ProviderReadContext? {
         val initial = FakeLoc.runtimeSnapshots.current().configuration
-        if (!initial.enabled || !initial.gnssEnabled || initial.gnssSource == null) return null
+        if (!initial.enabled || !initial.gnssEnabled || initial.gnssFrameSource() == null) return null
         val context = ProviderView.capture()
         val policy = context.state.configuration
-        return context.takeIf { policy.enabled && policy.gnssEnabled && policy.gnssSource != null }
+        return context.takeIf { policy.enabled && policy.gnssEnabled && policy.gnssFrameSource() != null }
     }
 
     @Synchronized
@@ -38,12 +38,12 @@ object GnssReceiverRuntime {
     }
 
     fun frameForRoute(route: GnssFrameRoute): PublishedGnssFrame? {
-        if (FakeLoc.runtimeSnapshots.current().configuration.gnssSource == null) return null
+        if (FakeLoc.runtimeSnapshots.current().configuration.gnssFrameSource() == null) return null
         return frameForRoute(route, ProviderView.capture())
     }
 
     fun frameForRoute(route: GnssFrameRoute, context: ProviderReadContext): PublishedGnssFrame? {
-        if (context.state.configuration.gnssSource == null) return null
+        if (context.state.configuration.gnssFrameSource() == null) return null
         val sample = when (route) {
             GnssFrameRoute.Global -> ProviderView.sampleFor("gps", context = context)
             is GnssFrameRoute.FixedPoint -> ProviderView.sampleFor("gps", point = route.point, context = context)
@@ -55,9 +55,9 @@ object GnssReceiverRuntime {
     fun frameForSample(sample: LocationSample, route: GnssFrameRoute = GnssFrameRoute.Global,
         state: RuntimeSnapshot = FakeLoc.runtimeSnapshots.current(),
         validationAtMillis: Long = System.currentTimeMillis(),
-        currentBootCount: Int? = if (state.configuration.gnssSource?.requiresBootIdentity == true)
+        currentBootCount: Int? = if (state.configuration.gnssFrameSource()?.requiresBootIdentity == true)
             readBootCount() else null): PublishedGnssFrame? =
-        state.configuration.gnssSource?.frame(sample, state.configuration.minimumSatellites, route,
+        state.configuration.gnssFrameSource()?.frame(sample, state.configuration.minimumSatellites, route,
             validationAtMillis, currentBootCount)
 
     private fun readBootCount(): Int? = runCatching {

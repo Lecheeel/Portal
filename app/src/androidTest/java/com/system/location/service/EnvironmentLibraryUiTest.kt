@@ -46,7 +46,13 @@ class EnvironmentLibraryUiTest {
                 compose.waitUntil(10_000) { renamed in store.list() }
                 compose.waitUntil(10_000) { compose.onAllNodes(hasText(renamed) and hasClickAction() and hasSetTextAction().not()).fetchSemanticsNodes().isNotEmpty() }
                 compose.onNode(hasText(renamed) and hasClickAction() and hasSetTextAction().not()).performClick()
+                compose.onNodeWithText("删除").assertIsDisplayed()
+                android.os.SystemClock.sleep(350)
+                captureUi("environment-action-icons")
                 compose.onNodeWithText("删除").performClick()
+                compose.onNodeWithText("确认删除").assertIsDisplayed()
+                android.os.SystemClock.sleep(350)
+                captureUi("environment-delete-confirmation")
                 compose.onNodeWithText("取消").performClick()
                 assertTrue(renamed in store.list())
                 compose.onNode(hasText(renamed) and hasClickAction() and hasSetTextAction().not()).performClick()
@@ -55,6 +61,9 @@ class EnvironmentLibraryUiTest {
                 compose.waitUntil(10_000) { renamed !in store.list() }
                 compose.waitUntil(10_000) { compose.onAllNodesWithText("没有符合条件的环境").fetchSemanticsNodes().isNotEmpty() ||
                     compose.onAllNodesWithText("还没有保存环境").fetchSemanticsNodes().isNotEmpty() }
+                // Compose idleness does not wait for the platform dialog window to disappear.
+                android.os.SystemClock.sleep(350)
+                captureUi("environment-empty-state")
             }
         } finally { store.delete(name); store.delete(renamed) }
     }

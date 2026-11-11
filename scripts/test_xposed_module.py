@@ -78,7 +78,7 @@ class XposedModuleVerificationTest(unittest.TestCase):
             ("module.prop", b"minApiVersion=102", b"minApiVersion=101"),
             ("module.prop", b"targetApiVersion=102", b"targetApiVersion=101"),
             ("module.prop", b"autoHotReload=true", b"autoHotReload=false"),
-            ("module.prop", b"staticScope=true", b"staticScope=false"),
+            ("module.prop", b"staticScope=false", b"staticScope=true"),
             ("scope.list", b"system", b"android"),
             ("java_init.list", ENTRY.encode(), b"example.WrongModule"),
         )

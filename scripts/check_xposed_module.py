@@ -17,7 +17,7 @@ RESOURCE_DIR = "xposed/src/main/resources/META-INF/xposed"
 PROPERTIES = {
     "minApiVersion": "102",
     "targetApiVersion": "102",
-    "staticScope": "true",
+    "staticScope": "false",
     "autoHotReload": "true",
 }
 # Modern modules use "system" for system_server; "android" is the legacy spelling.
@@ -47,7 +47,7 @@ def validate_metadata(resources: dict[str, bytes]) -> None:
             raise ValueError("module.prop contains malformed or duplicate properties")
         properties[key] = value
     if any(properties.get(key) != value for key, value in PROPERTIES.items()):
-        raise ValueError("module.prop must target API 102 with static scope and system_server hot reload enabled")
+        raise ValueError("module.prop must target API 102 with selectable app scopes and system_server hot reload enabled")
     scope = lines(resources["scope.list"])
     if set(scope) != SCOPES or len(scope) != len(SCOPES):
         raise ValueError("scope.list must declare Portal's six modern scopes, including system")

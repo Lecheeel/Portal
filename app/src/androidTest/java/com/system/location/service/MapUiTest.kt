@@ -102,6 +102,12 @@ class MapUiTest {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 scenario.onActivity {
                     it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_route_edit)
+                }
+                compose.onNodeWithText("搜索地点").assertIsDisplayed()
+                lateinit var originalMap: com.system.location.service.maps.PortalMapView
+                scenario.onActivity {
+                    originalMap = it.window.decorView.descendantsOfType<com.system.location.service.maps.PortalMapView>()
+                        .single { map -> map.isAttachedToWindow }
                     it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                 }
                 compose.waitUntil(10_000) {
@@ -114,6 +120,7 @@ class MapUiTest {
                 scenario.onActivity { activity ->
                     val map = activity.window.decorView.descendantsOfType<com.system.location.service.maps.PortalMapView>()
                         .single { it.isAttachedToWindow }
+                    assertSame("Changing layout must move the existing map", originalMap, map)
                     val density = activity.resources.displayMetrics.density
                     assertTrue("Map must retain at least 200dp height", map.height >= 200 * density)
                     assertTrue("Map must retain at least 240dp width", map.width >= 240 * density)
@@ -128,6 +135,10 @@ class MapUiTest {
                 }
                 compose.onNodeWithText("保存路线").assertIsDisplayed()
                 compose.onNodeWithText("搜索地点").assertIsDisplayed()
+                scenario.onActivity {
+                    assertSame(originalMap, it.window.decorView.descendantsOfType<com.system.location.service.maps.PortalMapView>()
+                        .single { map -> map.isAttachedToWindow })
+                }
             }
         } finally { fontScale(oldScale) }
     }

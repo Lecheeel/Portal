@@ -1,6 +1,15 @@
 package com.system.location.service.ui.mock
 
 import android.graphics.Color
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import com.system.location.service.core.planning.DraftPhase
 import android.graphics.Point
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -285,8 +294,8 @@ private fun RouteEditScreen(
     var searching by remember { mutableStateOf(false) }
     var searchMessage by remember { mutableStateOf<String?>(null) }
     var suggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
-    var clearDialog by remember { mutableStateOf(false) }
-    var pendingMode by remember { mutableStateOf<DrawingMode?>(null) }
+    var clearDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingMode by rememberSaveable { mutableStateOf<DrawingMode?>(null) }
     var saveSnapshot by remember { mutableStateOf<Route?>(null) }
     var saveName by remember { mutableStateOf("") }
     var saveMode by remember { mutableStateOf(RouteMode.ONCE) }
@@ -489,16 +498,19 @@ private fun RouteEditScreen(
                     )
                 }
             }
-            Text(
-                text = when (draft.mode) {
-                    DrawingMode.PLAN -> "点击地图设置起终点，沿道路规划步行路线"
-                    DrawingMode.POINTS -> "依次点击地图加点，按顺序连接"
-                    DrawingMode.FREEHAND -> "单指画线 · 双指移动/缩放并取消当前笔画 · 多笔之间直线连接"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
+            AnimatedContent(targetState = draft.mode, label = "route-mode-hint",
+                transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) }) { mode ->
+                Text(
+                    text = when (mode) {
+                        DrawingMode.PLAN -> "点击地图设置起终点，沿道路规划步行路线"
+                        DrawingMode.POINTS -> "依次点击地图加点，按顺序连接"
+                        DrawingMode.FREEHAND -> "单指画线 · 双指移动/缩放并取消当前笔画 · 多笔之间直线连接"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             Column(Modifier.weight(1f).fillMaxWidth()) {
                 AndroidView(
                     factory = { ctx -> createMap(ctx) },
@@ -506,13 +518,15 @@ private fun RouteEditScreen(
                 )
             }
             PortalCard(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    if (planning) "正在规划步行路线…" else draft.message ?: if (draft.mode == DrawingMode.PLAN) {
-                        "起点${if (draft.start == null) "未选" else "已选"} · 终点${if (draft.end == null) "未选" else "已选"}"
-                    } else "从地图开始绘制你的路线",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val status = if (planning) "正在规划步行路线…" else draft.message ?: if (draft.mode == DrawingMode.PLAN) {
+                    "起点${if (draft.start == null) "未选" else "已选"} · 终点${if (draft.end == null) "未选" else "已选"}"
+                } else "从地图开始绘制你的路线"
+                AnimatedContent(targetState = status to (draft.phase == DraftPhase.ERROR), label = "route-editor-status",
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) }) { (message, failed) ->
+                    Text(message, style = MaterialTheme.typography.bodySmall,
+                        color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Spacer(Modifier.height(PortalSpacing.sm))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (draft.mode == DrawingMode.PLAN) {

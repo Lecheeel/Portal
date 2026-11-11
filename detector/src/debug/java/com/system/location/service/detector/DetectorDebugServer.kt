@@ -56,6 +56,10 @@ object DetectorDebugServer {
             if (json == null) 404 to """{"ok":false,"error":"no report yet"}""" else 200 to json
         }
         request.method == "POST" && request.path == "/run" -> run(request.body)
+        request.method == "POST" && request.path == "/sensor_probe" -> {
+            val context = appContext ?: error("server not ready")
+            200 to SensorQueueProbe.sample(context, if (request.body.isBlank()) JSONObject() else JSONObject(request.body)).toString()
+        }
         else -> 404 to """{"ok":false,"error":"not found"}"""
     }
 

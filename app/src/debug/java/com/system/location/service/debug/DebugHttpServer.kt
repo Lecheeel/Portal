@@ -21,6 +21,7 @@ import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.sensorCadenceScale
 import com.system.location.service.ext.sensorVariation
+import com.system.location.service.ext.sensorTargetPackages
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.speed
 import com.system.location.service.ext.wifiFingerprintEnabled
@@ -276,6 +277,8 @@ object DebugHttpServer {
             ?.let { app.sensorCadenceScale = it.coerceIn(0.5, 2.0) }
         obj["sensor_variation"]?.jsonPrimitive?.doubleOrNull
             ?.let { app.sensorVariation = it.coerceIn(0.0, 0.5) }
+        obj["sensor_targets"]?.jsonPrimitive?.content
+            ?.let { app.sensorTargetPackages = com.system.location.service.core.sensors.SensorTargets.parse(it) }
         obj["speed"]?.jsonPrimitive?.doubleOrNull?.let { app.speed = it.coerceIn(0.0, 1000.0) }
         obj["altitude"]?.jsonPrimitive?.doubleOrNull?.let { app.altitude = it.coerceIn(0.0, 20_000.0) }
         obj["accuracy"]?.jsonPrimitive?.doubleOrNull?.let { app.accuracy = it.toFloat().coerceIn(0.1f, 10_000f) }

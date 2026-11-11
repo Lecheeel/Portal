@@ -13,7 +13,6 @@ import com.system.location.service.hook.utils.FakeLoc
 object SampleCommand {
     private val lease = PublicationLease()
     private val publishProbe = PerformanceProbe()
-    private val sensorModel = com.system.location.service.core.sensors.SyntheticSensorModel()
 
     @Volatile
     var lastPublishMillis = 0L
@@ -57,17 +56,6 @@ object SampleCommand {
         if (!lease.renew(fix.elapsedNanos, SystemClock.elapsedRealtimeNanos())) return false
         val needsTicker = !FakeLoc.enable || !FakeLoc.externallyDriven
         FakeLoc.acceptSample(fix, scenario)
-        if (FakeLoc.isSystemServerProcess) {
-            sensorModel.tuning = com.system.location.service.core.sensors.SensorTuning(
-                cadenceScale = FakeLoc.sensorCadenceScale,
-                variability = FakeLoc.sensorVariation,
-            )
-            val frame = sensorModel.frame(
-                com.system.location.service.core.sensors.SensorMotion.from(fix),
-                fix.elapsedNanos / 1_000_000L,
-            )
-            NativeCommand.setSensorFrame(frame, fix.elapsedNanos)
-        }
         lastPublishMillis = fix.timeMillis
         if (needsTicker) LocationTicker.start()
         if (FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()

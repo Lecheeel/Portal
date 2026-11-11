@@ -6,6 +6,8 @@ import com.system.location.service.jni.Dobby
 
 /** P5-08: native library lifecycle extracted from RemoteCommandHandler. */
 object NativeCommand {
+    @Volatile internal var sensorGeneration = 0L
+        private set
     @Volatile
     var isLoaded = false
         private set
@@ -30,18 +32,24 @@ object NativeCommand {
         return true
     }
 
-    fun prepare(): Boolean {
+    @Synchronized fun prepare(): Boolean {
         if (!FakeLoc.isSystemServerProcess || !isLoaded) return false
         Dobby.setStatus(false)
         isEnabled = false
+        sensorGeneration++
+        com.system.location.service.hook.hooks.sensor.NativeSensorTicker.stop()
         return Dobby.prepareSensors()
     }
 
-    fun setEnabled(enabled: Boolean): Boolean {
+    @Synchronized fun setEnabled(enabled: Boolean): Boolean {
         if (!FakeLoc.isSystemServerProcess) return false
         if (!isLoaded) return !enabled
-        Dobby.setStatus(enabled)
+        if (enabled == isEnabled) return true
+        Dobby.setStatus(false)
         isEnabled = enabled
+        sensorGeneration++
+        if (enabled) com.system.location.service.hook.hooks.sensor.NativeSensorTicker.start()
+        else com.system.location.service.hook.hooks.sensor.NativeSensorTicker.stop()
         return true
     }
 
@@ -64,8 +72,17 @@ object NativeCommand {
         }
     }
 
-    fun disable() {
+    @Synchronized internal fun applySensorTick(generation: Long,
+        frame: com.system.location.service.core.sensors.SensorFrame?, nowNanos: Long) {
+        if (!isLoaded || !isEnabled || generation != sensorGeneration) return
+        if (frame != null) setSensorFrame(frame, nowNanos)
+        Dobby.setStatus(frame != null)
+    }
+
+    @Synchronized fun disable() {
         if (isLoaded) Dobby.setStatus(false)
         isEnabled = false
+        sensorGeneration++
+        com.system.location.service.hook.hooks.sensor.NativeSensorTicker.stop()
     }
 }

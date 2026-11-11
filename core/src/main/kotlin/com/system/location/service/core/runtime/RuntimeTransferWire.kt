@@ -83,8 +83,17 @@ object RuntimeTransferWire {
         val envelope = json.decodeFromString(Envelope.serializer(), output.toString(Charsets.UTF_8.name()))
         require(envelope.version == VERSION) { "Unsupported runtime transfer version" }
         envelope.state.configuration.wifiFingerprintCatalogJson?.let { WifiFingerprintImporter.importJson(it) }
-        val source = CapturedGnssSource.prepare(envelope.gnssCapture, previousSource)
-        val state = envelope.state.copy(configuration = envelope.state.configuration.copy(gnssSource = source))
+        require(envelope.gnssCapture == null || envelope.gnssCapture.length <=
+            com.system.location.service.core.gnss.GnssCaptureWire.MAX_ENCODED_LENGTH) { "GNSS capture exceeds IPC budget" }
+        var captureRejected = envelope.state.configuration.gnssCaptureRejected
+        val source = try {
+            CapturedGnssSource.prepare(envelope.gnssCapture, previousSource)
+        } catch (_: Exception) {
+            captureRejected = true
+            previousSource
+        }
+        val state = envelope.state.copy(configuration = envelope.state.configuration.copy(
+            gnssSource = source, gnssCaptureRejected = captureRejected))
         return RuntimeTransfer(state, envelope.externallyDriven, envelope.scenarios.toMap(),
             envelope.movementSpeedMps, envelope.lastMovementNanos)
     }

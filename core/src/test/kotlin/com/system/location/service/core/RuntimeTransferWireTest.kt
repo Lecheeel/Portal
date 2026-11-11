@@ -48,6 +48,27 @@ class RuntimeTransferWireTest {
         assertSame(source, restored.state.configuration.gnssSource)
     }
 
+    @Test fun boundedCorruptOptionalCaptureDoesNotDiscardRequiredPeerStateOrPreviousSource() {
+        fun compressed(raw: String): ByteArray = ByteArrayOutputStream().also { output ->
+            GZIPOutputStream(output).use { it.write(raw.toByteArray()) }
+        }.toByteArray()
+        val json = """{"version":1,"state":{"configRevision":12,"configuration":{"minimumSatellites":32,"gnssSimulation":{"mode":"AUTONOMOUS"}}},"externallyDriven":false,"scenarios":{},"gnssCapture":"broken"}"""
+        val previous = source()
+        val restored = RuntimeTransferWire.decode(compressed(json), previous)
+        assertSame(previous, restored.state.configuration.gnssSource)
+        assertEquals(12L, restored.state.configRevision)
+        assertEquals(32, restored.state.configuration.minimumSatellites)
+        assertEquals(GnssSimulationMode.AUTONOMOUS, restored.state.configuration.gnssSimulation.mode)
+        assertTrue(restored.state.configuration.gnssCaptureRejected)
+        assertNull(RuntimeTransferWire.decode(compressed(json)).state.configuration.gnssSource)
+        assertThrows(IllegalArgumentException::class.java) {
+            RuntimeTransferWire.decode(compressed(json.replace("broken", "x".repeat(GnssCaptureWire.MAX_ENCODED_LENGTH + 1))))
+        }
+        val flagged = RuntimeSnapshot(configuration = HookConfiguration(gnssSource = previous, gnssCaptureRejected = true))
+        assertTrue(RuntimeTransferWire.decode(RuntimeTransferWire.encode(RuntimeTransfer(flagged, false)))
+            .state.configuration.gnssCaptureRejected)
+    }
+
     @Test fun movementRetainsOriginalClockAndRejectsInvalidSpeeds() {
         val transfer = RuntimeTransfer(RuntimeSnapshot(), false, movementSpeedMps = 4f, lastMovementNanos = 1000)
         assertEquals(transfer, RuntimeTransferWire.decode(RuntimeTransferWire.encode(transfer)))

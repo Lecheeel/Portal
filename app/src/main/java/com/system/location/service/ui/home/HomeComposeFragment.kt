@@ -13,6 +13,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.amap.api.location.AMapLocationClient
 import com.amap.api.location.AMapLocationClientOption
 import com.system.location.service.maps.MapProvider
+import com.system.location.service.maps.mapProvider
 import com.system.location.service.ext.wgs84
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.map
@@ -218,6 +219,19 @@ class HomeComposeFragment : Fragment() {
     }
 
     private fun createMap(context: Context): View {
+        map?.let { existing ->
+            if (existing.provider == context.mapProvider) {
+                // The home Fragment survives on the back stack. Reattach its paused map rather
+                // than synchronously initializing the vendor SDK on every return from settings.
+                (existing.parent as? ViewGroup)?.removeView(existing)
+                existing.satellite(context.satelliteMap)
+                existing.onStart()
+                existing.onResume()
+                renderRuntimePosition()
+                return existing
+            }
+            releaseMap()
+        }
         val view = PortalMapView(context)
         cameraPolicy = HomeCameraPolicy()
         locationState.value = HomeLocationState()
@@ -490,11 +504,27 @@ class HomeComposeFragment : Fragment() {
     override fun onDestroyView() {
         libraryLoad?.cancel()
         stopRealLocation()
+        // onPause/onStop suspend rendering and location requests before the view is removed.
+        // Keep only this Fragment's map; Activity recreation and Fragment removal release it.
+        (map?.parent as? ViewGroup)?.removeView(map)
+        super.onDestroyView()
+    }
+
+    override fun onDestroy() {
+        releaseMap()
+        super.onDestroy()
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        if (view == null) releaseMap()
+    }
+
+    private fun releaseMap() {
         map?.onDestroy()
         map = null
         targetMarker = null
         routeLine = null
-        super.onDestroyView()
     }
 
     private fun hasLocationPermission() = listOf(

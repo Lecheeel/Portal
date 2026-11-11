@@ -30,6 +30,7 @@
         app:itemHorizontalPadding="16dp"
         app:itemShapeAppearanceOverlay="@style/Portal.NavigationItemShape"
         app:itemShapeFillColor="@color/nav_item_background"
+        app:itemBackground="@drawable/nav_item_selection"
         app:itemShapeInsetStart="8dp"
         app:itemShapeInsetEnd="8dp"
         app:itemIconSize="24dp"

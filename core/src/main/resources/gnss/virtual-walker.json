@@ -1,0 +1,92 @@
+{
+  "formatVersion": 1,
+  "revision": "portal-hypothetical-walker-1",
+  "referenceEpochMillis": 1794096000000,
+  "greenwichAngleRad": 0.0,
+  "groups": [
+    {
+      "constellation": "GPS",
+      "svids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "planes": 6,
+      "phaseFactor": 1,
+      "orbitalRadiusMeters": 26560000,
+      "inclinationRad": 0.9599310885968813
+    },
+    {
+      "constellation": "BEIDOU",
+      "svids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "planes": 6,
+      "phaseFactor": 1,
+      "orbitalRadiusMeters": 27906000,
+      "inclinationRad": 0.9599310885968813
+    },
+    {
+      "constellation": "GALILEO",
+      "svids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "planes": 3,
+      "phaseFactor": 1,
+      "orbitalRadiusMeters": 29600000,
+      "inclinationRad": 0.9773843811168246
+    },
+    {
+      "constellation": "GLONASS",
+      "svids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "planes": 3,
+      "phaseFactor": 1,
+      "orbitalRadiusMeters": 25510000,
+      "inclinationRad": 1.1309733552923256
+    }
+  ]
+}

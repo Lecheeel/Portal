@@ -7,6 +7,25 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 class RinexNavigationResourceStoreTest {
+    @Test fun metadataSurvivesOmissionRollbackAndRestartWithoutRetimingItsEpoch() {
+        val text = requireNotNull(javaClass.getResource("/gnss/igs-beidou-metadata.snx")).readText()
+        val modified = java.time.Instant.parse("2026-10-22T08:30:06Z").toEpochMilli()
+        val catalog = BeiDouCatalogResource.import(text, modified)
+        val file = temporary.root.resolve("catalog-navigation.json")
+        val first = resource().copy(beiDouCatalog = catalog)
+        RinexNavigationResourceStore(file).update(RinexNavigationResource.encode(first))
+        val omitted = resource(downloadedAt = 2000)
+        val retained = RinexNavigationResourceStore(file).update(RinexNavigationResource.encode(omitted))
+        assertEquals(catalog, retained.beiDouCatalog)
+        val older = BeiDouCatalogResource.import(text.replace("26:295:28054", "26:294:28054"), modified)
+        assertEquals(catalog, RinexNavigationResourceStore(file)
+            .update(RinexNavigationResource.encode(omitted.copy(beiDouCatalog = older))).beiDouCatalog)
+        val newer = BeiDouCatalogResource.import(text.replace("26:295:28054", "26:296:28054"), modified + 86400000)
+        assertEquals(newer, RinexNavigationResourceStore(file)
+            .update(RinexNavigationResource.encode(omitted.copy(beiDouCatalog = newer))).beiDouCatalog)
+        assertEquals(newer, RinexNavigationResourceStore(file).load()!!.beiDouCatalog)
+    }
+
     @Test fun perIdentityUploadWatermarksSurviveOmissionAndRestartAndLegacyMigration() {
         val file = temporary.root.resolve("navigation.json")
         val fixture = RinexNavigationResourceTest.navigation()

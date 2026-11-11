@@ -42,11 +42,18 @@ class RinexNavigationResourceStore(private val file: File) {
 
     @Synchronized
     fun update(text: String): RinexNavigationResource {
-        val candidate = RinexNavigationResource.decode(text)
-        // Verify IPC fit before promotion. An unpublishable update must not displace a usable cache.
-        RinexNavigationResource.encodeWire(candidate)
+        val incoming = RinexNavigationResource.decode(text)
         val previousCache = runCatching { readCache() }.getOrNull()
         val previous = previousCache?.resource
+        // Metadata refresh is independent of broadcast uploads. An outage/omission or stale
+        // HTTP copy cannot erase a newer accepted assignment catalog, including after restart.
+        val oldCatalog = previous?.beiDouCatalog
+        val newCatalog = incoming.beiDouCatalog
+        val candidate = if (oldCatalog != null &&
+            (newCatalog == null || newCatalog.creationLabel.isBefore(oldCatalog.creationLabel)))
+            incoming.copy(beiDouCatalog = oldCatalog) else incoming
+        // Verify the merged IPC fit before promotion; never truncate either data source.
+        RinexNavigationResource.encodeWire(candidate)
         val previousEpochs = previous?.epochLabels().orEmpty()
         val nextEpochs = candidate.epochLabels()
         require(previousEpochs.all { (system, epoch) -> nextEpochs[system]?.let { it >= epoch } == true }) {

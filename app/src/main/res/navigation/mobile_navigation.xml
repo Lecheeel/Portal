@@ -86,6 +86,11 @@
         android:label="关于与更新">
         <argument android:name="category" app:argType="string" android:defaultValue="UPDATES" />
     </fragment>
+    <fragment android:id="@+id/nav_app_selection"
+        android:name="com.system.location.service.ui.settings.AppSelectionFragment"
+        android:label="{title}">
+        <argument android:name="title" app:argType="string" android:defaultValue="选择应用" />
+    </fragment>
 </navigation>
 
 

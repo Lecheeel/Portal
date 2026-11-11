@@ -93,6 +93,32 @@ class SettingsComposeFragment : Fragment() {
     private val revision = MutableStateFlow(0)
     private var updateRequest = 0L
     private var numberDialog: androidx.appcompat.app.AlertDialog? = null
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        parentFragmentManager.setFragmentResultListener(AppSelectionFragment.RESULT, this) { _, result ->
+            val selected = result.getStringArrayList("selected")?.toSet() ?: return@setFragmentResultListener
+            val context = requireContext()
+            when (result.getString("purpose")) {
+                "sensors" -> {
+                    if (selected.size > 128) { showToast("最多选择 128 个应用"); return@setFragmentResultListener }
+                    context.sensorTargetPackages = selected
+                }
+                "excluded", "point" -> {
+                    val existing = runCatching {
+                        Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
+                    }.getOrElse { showToast("原有应用规则无法读取，未覆盖配置"); return@setFragmentResultListener }
+                    val next = if (result.getString("purpose") == "excluded") existing.withDeniedPackages(selected)
+                    else existing.withPointAssignments(
+                        com.system.location.service.core.geo.Wgs84(result.getDouble("latitude"), result.getDouble("longitude")), selected)
+                    context.routingJson = Json.encodeToString(RoutingConfig.serializer(), next)
+                }
+                else -> return@setFragmentResultListener
+            }
+            refresh()
+            applyConfigNowWithToast()
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -154,13 +180,7 @@ class SettingsComposeFragment : Fragment() {
                     onAppRouting = ::showAppRouting,
                     onSensorTargets = {
                         val context = requireContext()
-                        showAppPicker("传感器目标应用", context.sensorTargetPackages) {
-                            if (it.size <= 128) {
-                                context.sensorTargetPackages = it
-                                refresh()
-                                applyConfigNowWithToast()
-                            } else showToast("最多选择 128 个应用")
-                        }
+                        openAppSelection("sensors", "传感器目标应用", context.sensorTargetPackages)
                     },
                     onAppPoint = ::showAppPoint,
                     onBackgroundGuidance = { com.system.location.service.runtime.BackgroundGuidance.show(requireContext()) },
@@ -262,12 +282,8 @@ class SettingsComposeFragment : Fragment() {
         val existing = runCatching {
             Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
         }.getOrNull()
-        showAppPicker("分应用排除", existing?.deniedPackages ?: emptySet()) { denied ->
-            val config = (existing ?: RoutingConfig()).withDeniedPackages(denied)
-            context.routingJson = Json.encodeToString(RoutingConfig.serializer(), config)
-            refresh()
-            applyConfigNowWithToast()
-        }
+        if (existing == null) { showToast("原有应用规则无法读取，未覆盖配置"); return }
+        openAppSelection("excluded", "分应用排除", existing.deniedPackages)
     }
 
     private fun showAppPoint() {
@@ -299,34 +315,18 @@ class SettingsComposeFragment : Fragment() {
             Json.decodeFromString(RoutingConfig.serializer(), context.routingJson)
         }.getOrNull() ?: RoutingConfig()
         val initial = existing.routes.filter { it.point == location.coordinate }.map { it.packageName }.toSet()
-        showAppPicker(getString(R.string.per_app_point), initial) { selected ->
-            context.routingJson = Json.encodeToString(
-                RoutingConfig.serializer(),
-                existing.withPointAssignments(location.coordinate, selected),
-            )
-            refresh()
-            applyConfigNowWithToast()
-        }
+        openAppSelection("point", getString(R.string.per_app_point), initial, Bundle().apply {
+            putDouble("latitude", location.coordinate.latitude)
+            putDouble("longitude", location.coordinate.longitude)
+        })
     }
 
-    private fun showAppPicker(title: String, initiallySelected: Set<String>, onDone: (Set<String>) -> Unit) {
-        val pm = requireContext().packageManager
-        val apps = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-            .map { it.activityInfo.applicationInfo }
-            .filter { it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 }
-            .distinctBy { it.packageName }
-            .sortedBy { pm.getApplicationLabel(it).toString().lowercase() }
-        val selected = initiallySelected.toMutableSet()
-        val labels = apps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
-        val checked = BooleanArray(apps.size) { apps[it].packageName in selected }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(title)
-            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
-                if (isChecked) selected.add(apps[which].packageName) else selected.remove(apps[which].packageName)
-            }
-            .setPositiveButton(R.string.per_app_done) { _, _ -> onDone(selected.toSet()) }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+    private fun openAppSelection(purpose: String, title: String, selected: Set<String>, extra: Bundle = Bundle()) {
+        findNavController().navigate(R.id.nav_app_selection, extra.apply {
+            putString("purpose", purpose)
+            putString("title", title)
+            putStringArrayList("selected", ArrayList(selected.sorted()))
+        })
     }
 
     private fun setCrashReporting(enabled: Boolean) {

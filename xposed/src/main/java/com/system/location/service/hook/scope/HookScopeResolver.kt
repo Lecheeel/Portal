@@ -14,7 +14,8 @@ object HookScopeResolver {
             packageName == "com.android.location.fused" && processName == packageName -> HookScope.FUSED_PROCESS
             packageName in setOf("com.xiaomi.location.fused", "com.oplus.location") && processName == packageName -> HookScope.VENDOR_LOCATION_PROCESS
             packageName == "com.android.providers.settings" && processName == packageName -> HookScope.SETTINGS_PROVIDER
-            packageName in targets && processName == packageName && uid % 100000 >= 10000 -> HookScope.TARGET_APP
+            packageName in targets && (processName == packageName || processName.startsWith("$packageName:")) &&
+                uid % 100000 in 10000..89999 -> HookScope.TARGET_APP
             else -> null
         }
     }

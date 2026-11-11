@@ -29,6 +29,10 @@ class HookScopeResolverTest {
         val identity = ProcessIdentity("com.example.app", "com.example.app", 10123, 31, "test")
         assertEquals(HookScope.TARGET_APP, HookScopeResolver.resolve(identity, setOf(identity.packageName)))
         assertNull(HookScopeResolver.resolve(identity.copy(packageName = "com.example.app.fake"), setOf(identity.packageName)))
+        assertEquals(HookScope.TARGET_APP, HookScopeResolver.resolve(identity.copy(processName = "com.example.app:remote"), setOf(identity.packageName)))
+        assertNull(HookScopeResolver.resolve(identity.copy(processName = "com.example.app.fake:remote"), setOf(identity.packageName)))
+        assertNull(HookScopeResolver.resolve(identity.copy(uid = 99001), setOf(identity.packageName)))
+        assertNull(HookScopeResolver.resolve(identity.copy(uid = 1000), setOf(identity.packageName)))
     }
 
     @Test fun installedIsNotTheSameAsMatched() {

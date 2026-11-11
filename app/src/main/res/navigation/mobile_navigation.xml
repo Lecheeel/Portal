@@ -41,6 +41,11 @@
     <fragment android:id="@+id/nav_environment"
         android:name="com.system.location.service.ui.environment.EnvironmentComposeFragment"
         android:label="@string/environment_tools_title" />
+    <fragment android:id="@+id/nav_environment_library"
+        android:name="com.system.location.service.ui.environment.EnvironmentComposeFragment"
+        android:label="已保存环境">
+        <argument android:name="library" app:argType="boolean" android:defaultValue="true" />
+    </fragment>
 
     <fragment
         android:id="@+id/nav_settings"

@@ -22,6 +22,10 @@ internal class GnssNavigationSyncStatus {
     fun failed() { mutable.update { it.copy(refreshing = false,
         problem = "导航数据更新失败，保留已接受资源；无适用数据时继续虚拟天空") } }
     fun cancelled() { mutable.update { it.copy(refreshing = false) } }
+    fun catalogFailed() { mutable.update { it.copy(
+        problem = "导航数据已更新，北斗目录下载失败；保留旧目录，失效后降级至其他来源") } }
+    fun navigationRetained() { mutable.update { it.copy(
+        problem = "北斗目录已更新，广播导航下载失败；保留已接受的广播数据") } }
     fun synchronizationFailed() { mutable.update { it.copy(
         problem = "导航资源已缓存，但运行配置同步失败；接收端可能仍使用此前资源") } }
 

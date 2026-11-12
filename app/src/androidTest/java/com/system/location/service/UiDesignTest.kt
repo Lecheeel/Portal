@@ -364,7 +364,8 @@ class UiDesignTest {
                 compose.onNodeWithContentDescription("选择模拟目标").assertIsDisplayed()
                 val search = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
                 val panel = compose.onNodeWithTag("home-runtime-panel").fetchSemanticsNode().boundsInRoot
-                val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+                val root = compose.onNode(isRoot() and hasAnyDescendant(hasTestTag("home-runtime-panel")))
+                    .fetchSemanticsNode().boundsInRoot
                 val tools = listOf("切换地图图层", "选择模拟目标", "输入坐标", "定位到真实位置").map {
                     compose.onNodeWithContentDescription(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
                 }

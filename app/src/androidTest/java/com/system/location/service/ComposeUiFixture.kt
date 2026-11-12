@@ -22,6 +22,16 @@ import com.system.location.service.privacy.TencentPrivacy
 internal fun ComposeTestRule.openPage(scenario: ActivityScenario<MainActivity>, destination: Int) {
     waitForIdle()
     scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(destination) }
+    // Compose idleness alone does not await Fragment's seekable View transitions.
+    waitUntil(5_000) {
+        var ready = false
+        scenario.onActivity { activity ->
+            val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)
+            ready = activity.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id == destination &&
+                host?.childFragmentManager?.primaryNavigationFragment?.lifecycle?.currentState == androidx.lifecycle.Lifecycle.State.RESUMED
+        }
+        ready
+    }
     waitForIdle()
     if (destination == R.id.nav_route_gallery) {
         waitUntil(10_000) {

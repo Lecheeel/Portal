@@ -106,6 +106,26 @@ GGA/RMC/GSA/GSV/GST/ZDA
 - SensorFrame 统一驱动、双帧插值、速度关联步频
 - HIDL/AIDL 传感器事件适配（实验性）
 -->
+
+## ✨ 功能亮点
+- 无 Root/Xposed/Native + Xposed（Root require）
+- 反检测/堆栈清洗/隐藏指纹
+- GPS/Network/Fused
+- 系统/Google Fused 融合定位通道（实验性）
+- 提交前反射清除模拟标记
+- 悬浮摇杆、路线规划与手绘
+- 位置与场景管理、JSON/GPX 导入导出
+- GPS/北斗/GLONASS/Galileo/QZSS
+- 同源 GnssStatus/NMEA 生成与主动投递
+- GGA/RMC/GSA/GSV/GST/ZDA
+- WiFi/基站环境采集、生成与回放（实验性）
+- 网格化 AP、固定种子、RSSI 路径损耗模型
+- 自建 WiFi 指纹库导入与回放（实验性）
+- 分应用排除与固定点
+- libxposed API 102 原生 Hooker/Chain
+- Native 传感器扩展（实验性）
+- HIDL/AIDL 传感器事件注入
+
 ## 🚀 快速开始
 
 1. 从 [Releases](https://github.com/Lecheeel/Portal/releases) 安装。

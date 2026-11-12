@@ -52,10 +52,17 @@ class DrawerModeUiTest {
                 assertEquals(1f, compose.onNodeWithTag("drawer-mode-slider").fetchSemanticsNode()
                     .config[SemanticsProperties.ProgressBarRangeInfo].current)
                 select(2f)
+                compose.onNodeWithText("已知悉并选择").assertIsDisplayed()
+                compose.mainClock.autoAdvance = false
                 compose.onNodeWithText("已知悉并选择").performClick()
                 awaitBackend(BackendType.NATIVE)
-                compose.onNodeWithText("MAX").assertIsDisplayed()
+                compose.waitForIdle()
+                compose.mainClock.advanceTimeBy(600)
+                compose.onNodeWithText("MAX").assertDoesNotExist()
+                compose.onNodeWithText("快速模式").assertDoesNotExist()
+                compose.onNodeWithTag("drawer-mode-slider").assertIsDisplayed()
                 captureUi("drawer-native-mode")
+                compose.mainClock.autoAdvance = true
                 select(0f)
                 awaitBackend(BackendType.MOCK_PROVIDER)
                 assertTrue(runBlocking { ScenarioRuntime.selectBackend(BackendType.XPOSED).await() })
@@ -64,6 +71,7 @@ class DrawerModeUiTest {
                     .config[SemanticsProperties.ProgressBarRangeInfo].current)
             }
         } finally {
+            compose.mainClock.autoAdvance = true
             assertTrue(runBlocking { ScenarioRuntime.selectBackend(original).await() })
             preferences.edit().apply {
                 if (hadOptIn) putBoolean("native_opt_in", optIn) else remove("native_opt_in")

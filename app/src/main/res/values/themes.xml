@@ -15,6 +15,7 @@
         <item name="colorOutline">@color/card_border</item>
         <item name="android:windowBackground">@color/page_background</item>
         <item name="materialButtonStyle">@style/Portal.Button</item>
+        <item name="materialAlertDialogTheme">@style/Portal.AlertDialogTheme</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
@@ -23,6 +24,16 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+
+    <style name="Portal.AlertDialogTheme" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurfaceContainerHigh">@color/surface</item>
+        <item name="elevationOverlayEnabled">false</item>
+        <item name="alertDialogStyle">@style/Portal.AlertDialog</item>
+    </style>
+
+    <style name="Portal.AlertDialog" parent="MaterialAlertDialog.Material3">
+        <item name="backgroundTint">@color/surface</item>
     </style>
 
     <style name="LocationService.SliderTheme" parent="Widget.Material3.Slider">

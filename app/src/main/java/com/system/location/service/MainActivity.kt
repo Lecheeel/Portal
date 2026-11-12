@@ -151,6 +151,13 @@ class MainActivity : AppCompatActivity() {
 
                 val drawerLayout: DrawerLayout = binding.drawerLayout
                 val navView: NavigationView = binding.navView
+                val header = navView.getHeaderView(0)
+                val headerTopPadding = header.paddingTop
+                ViewCompat.setOnApplyWindowInsetsListener(drawerLayout) { _, insets ->
+                    val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+                    header.updatePadding(top = headerTopPadding + safe.top)
+                    insets
+                }
                 val drawerBack = onBackPressedDispatcher.addCallback(this@MainActivity, enabled = false) {
                     drawerLayout.closeDrawer(GravityCompat.START)
                 }

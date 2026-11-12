@@ -22,7 +22,7 @@ internal enum class SettingsCategory(val title: String, val summary: String, val
     SYSTEM("系统与环境模拟", "SIM、Wi-Fi、网络类型与环境配置", R.id.nav_settings_system, R.drawable.ic_portal_system),
     ADVANCED("高级与实验", "定位通道、兼容选项与实验功能", R.id.nav_settings_advanced, R.drawable.ic_portal_experiment),
     PRIVACY("后台与隐私", "后台运行与崩溃报告", R.id.nav_settings_privacy, R.drawable.ic_portal_privacy),
-    UPDATES("关于与更新", "检查更新与更新通道", R.id.nav_settings_updates, R.drawable.ic_portal_update),
+    UPDATES("关于与更新", "应用图标、检查更新与更新通道", R.id.nav_settings_updates, R.drawable.ic_portal_update),
 }
 
 @Composable

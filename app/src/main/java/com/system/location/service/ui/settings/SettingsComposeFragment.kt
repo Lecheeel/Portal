@@ -754,6 +754,11 @@ private fun SettingsScreen(
                     }
                 }
                 if (category == SettingsCategory.UPDATES) {
+                    item(key = "appearance") {
+                        PortalSettingGroup("外观", 1) { _, rowModifier ->
+                            LauncherIconSetting(rowModifier)
+                        }
+                    }
                     item(key = "updates") {
                         PortalSettingGroup("版本更新 · ${UpdateChecker.parseLocalVersion().versionName}", 2) { index, rowModifier ->
                             when (index) {

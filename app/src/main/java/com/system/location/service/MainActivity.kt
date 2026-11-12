@@ -159,9 +159,10 @@ class MainActivity : AppCompatActivity() {
                 val navView: NavigationView = binding.navView
                 val header = navView.getHeaderView(0)
                 val headerTopPadding = header.paddingTop
+                val drawerVisible = androidx.compose.runtime.mutableStateOf(false)
                 header.findViewById<ComposeView>(R.id.drawer_mode_control).apply {
                     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-                    setContent { PortalTheme { DrawerModeControl() } }
+                    setContent { PortalTheme { DrawerModeControl(drawerVisible.value) } }
                 }
                 ViewCompat.setOnApplyWindowInsetsListener(drawerLayout) { _, insets ->
                     val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -176,8 +177,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 onBackPressedDispatcher.addCallback(this@MainActivity, drawerBack)
                 drawerLayout.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
-                    override fun onDrawerOpened(drawerView: View) { drawerBack.isEnabled = true }
-                    override fun onDrawerClosed(drawerView: View) { drawerBack.isEnabled = false }
+                    override fun onDrawerSlide(drawerView: View, slideOffset: Float) { drawerVisible.value = slideOffset > 0f }
+                    override fun onDrawerOpened(drawerView: View) { drawerBack.isEnabled = true; drawerVisible.value = true }
+                    override fun onDrawerClosed(drawerView: View) { drawerBack.isEnabled = false; drawerVisible.value = false }
                 })
                 val navController = findNavController(R.id.nav_host_fragment_content_main)
 
@@ -253,6 +255,7 @@ class MainActivity : AppCompatActivity() {
                     // Hierarchy restoration may already have opened it before the listener was
                     // attached, so synchronize Back interception even without an opened event.
                     drawerBack.isEnabled = drawerLayout.isDrawerVisible(GravityCompat.START)
+                    drawerVisible.value = drawerBack.isEnabled
                 }
                 startupUpdateViewModel.check()
             }

@@ -2,7 +2,9 @@ package com.system.location.service.ui.runtime
 
 import android.animation.ValueAnimator
 import android.content.Context
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.layout.*
@@ -13,12 +15,16 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -31,6 +37,9 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import androidx.lifecycle.Lifecycle
 import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
 import com.system.location.service.runtime.ScenarioRuntime
@@ -40,6 +49,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.PI
 
 private val DrawerModes = listOf(BackendType.MOCK_PROVIDER, BackendType.XPOSED, BackendType.NATIVE)
 private data class DrawerModeState(val backend: BackendType, val active: Boolean)
@@ -47,7 +58,7 @@ private data class DrawerModeState(val backend: BackendType, val active: Boolean
 /** A quick selection of the existing runtime backend; never prepares or starts a scenario. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun DrawerModeControl() {
+internal fun DrawerModeControl(drawerVisible: Boolean) {
     val context = LocalContext.current
     val stateFlow = remember {
         ScenarioRuntime.state.map { DrawerModeState(it.backend, it.isActive) }.distinctUntilChanged()
@@ -61,7 +72,6 @@ internal fun DrawerModeControl() {
     var observedBackend by rememberSaveable { mutableStateOf(state.backend) }
     var busy by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
-    val emphasis = remember { Animatable(0f) }
 
     LaunchedEffect(state.backend, state.active) {
         if (observedBackend != state.backend || state.active) {
@@ -71,16 +81,16 @@ internal fun DrawerModeControl() {
         observedBackend = state.backend
     }
 
-    val highlightTrack = state.backend == BackendType.NATIVE && draft == 2f && !state.active && !busy
-    LaunchedEffect(highlightTrack) {
-        emphasis.snapTo(0f)
-        if (highlightTrack && ValueAnimator.areAnimatorsEnabled()) {
-            repeat(2) {
-                emphasis.snapTo(0f)
-                emphasis.animateTo(1f, tween(1_200, easing = LinearEasing))
-            }
-        }
-    }
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val highlightTrack = state.backend == BackendType.NATIVE && draft == 2f && !busy &&
+        drawerVisible && lifecycle.isAtLeast(Lifecycle.State.RESUMED) && ValueAnimator.areAnimatorsEnabled()
+    // Compose's infinite transition is frame driven and stops when the drawer leaves view.
+    val energyPhase = if (highlightTrack) {
+        rememberInfiniteTransition(label = "native-track-energy").animateFloat(
+            initialValue = 0f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(2_400, easing = LinearEasing)),
+            label = "energy-phase")
+    } else remember { mutableFloatStateOf(0f) }
 
     fun resetDraft() { draft = DrawerModes.indexOf(ScenarioRuntime.state.value.backend).toFloat() }
     fun applyMode(target: BackendType) {
@@ -132,15 +142,8 @@ internal fun DrawerModeControl() {
                             onDrawWithContent {
                                 drawContent()
                                 // Draw only over the track; no overlay View can intercept dragging.
-                                val progress = emphasis.value
-                                if (highlightTrack && progress > 0f && progress < 1f) {
-                                    val band = size.width * .3f
-                                    val center = -band + (size.width + 2 * band) * progress
-                                    clipPath(trackClip) {
-                                        drawRect(Brush.horizontalGradient(
-                                            listOf(Color.Transparent, Color.White.copy(alpha = .42f), Color.Transparent),
-                                            startX = center - band / 2, endX = center + band / 2))
-                                    }
+                                if (highlightTrack) clipPath(trackClip) {
+                                    drawNativeTrackEnergy(energyPhase.value)
                                 }
                             }
                         })
@@ -176,4 +179,36 @@ internal fun DrawerModeControl() {
         }) { Text(stringResource(R.string.native_risk_accept)) } },
         dismissButton = { TextButton(onClick = { confirmingNative = false; resetDraft() }) { Text("取消") } },
     )
+}
+
+
+/** Discrete pixels carry the gradient; there are no connecting lines or solid light ribbons. */
+private fun DrawScope.drawNativeTrackEnergy(phase: Float) {
+    val mint = Color(0xFF91FFD0)
+    val cyan = Color(0xFF66EDE6)
+    val lime = Color(0xFFD3FF86)
+    val pixel = 2.dp.toPx()
+    val pitch = 3.5f.dp.toPx()
+    val rows = 4
+    val columns = (size.width / pitch).toInt().coerceAtLeast(1)
+    val insetX = (size.width - (columns - 1) * pitch - pixel) / 2f
+    val insetY = (size.height - (rows - 1) * pitch - pixel) / 2f
+    val tau = 2f * PI.toFloat()
+    for (row in 0 until rows) {
+        for (column in 0 until columns) {
+            val x = column.toFloat() / columns
+            // Integer cycle counts make both travelling brightness and twinkle loop smoothly.
+            val wave = .5f + .5f * sin((x * 1.8f - phase * 2f + row * .13f) * tau)
+            val twinkle = .5f + .5f * sin((column % 7 / 7f + row * .31f + phase * 3f) * tau)
+            val bright = wave * wave * wave * wave
+            val sparkle = twinkle * twinkle * twinkle * twinkle
+            val tint = if (x < .5f) lerp(lime, mint, x * 2f) else lerp(mint, cyan, (x - .5f) * 2f)
+            val position = Offset(insetX + column * pitch, insetY + row * pitch)
+            drawRect(tint.copy(alpha = .12f + .65f * bright + .13f * sparkle),
+                topLeft = position, size = Size(pixel, pixel))
+            // Small brighter cores keep each pixel distinct rather than blurring into a band.
+            if (bright > .65f) drawRect(Color.White.copy(alpha = (bright - .65f) * .7f),
+                topLeft = position, size = Size(pixel * .5f, pixel * .5f))
+        }
+    }
 }

@@ -1,6 +1,9 @@
 # LocationService
 
-[![Ask DeepWiki](https://raw.githubusercontent.com/Lecheeel/Portal/main/docs/badge.svg)](https://deepwiki.com/Lecheeel/Portal) / [![Release](https://img.shields.io/badge/Release-green)](https://github.com/Lecheeel/Portal/releases)
+[![Ask DeepWiki](https://raw.githubusercontent.com/Lecheeel/Portal/main/docs/badge.svg)](https://deepwiki.com/Lecheeel/Portal)
+[![Release](https://img.shields.io/badge/Release-green)](https://github.com/Lecheeel/Portal/releases)
+[![Android](https://img.shields.io/badge/Android-10%20--%2017-blue.svg?style=flat)](https://github.com/Lecheeel/Portal/releases)
+[![LICENSE](https://img.shields.io/badge/license-Apache%20License-brightgreen.svg?style=flat)](https://github.com/Lecheeel/Portal/blob/main/LICENSE)
 
 Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮摇杆，并提供 GNSS/NMEA、WiFi/基站环境和传感器扩展。
 

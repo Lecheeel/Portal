@@ -20,7 +20,6 @@ private val PortalGreenDark = Color(0xFF8ED27F)
 private val PortalGreenContainer = Color(0xFFDDF7D5)
 private val PortalSurface = Color(0xFFFFFFFF)
 private val PortalSurfaceDark = Color(0xFF383A32)
-// RikkaHub Ocean's near-white background, with white setting rows and Portal green accents.
 private val PortalBackground = Color(0xFFF6FAFD)
 private val PortalBackgroundDark = Color(0xFF1E201A)
 private val PortalInk = Color(0xFF1A1C16)

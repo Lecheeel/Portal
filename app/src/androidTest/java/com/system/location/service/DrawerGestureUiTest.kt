@@ -60,12 +60,18 @@ class DrawerGestureUiTest {
             onView(withText("设置")).perform(click())
             drawer(false)
             compose.onNodeWithText("地图与定位").performClick()
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithText("定位精度").assertIsDisplayed(); true }.getOrDefault(false)
+            }
             compose.onNodeWithText("定位精度").assertIsDisplayed()
             scenario.recreate()
             compose.onNodeWithText("定位精度").assertIsDisplayed()
             scenario.onActivity {
                 assertTrue(it.binding.navView.menu.findItem(R.id.nav_settings).isChecked)
                 it.onSupportNavigateUp()
+            }
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithText("地图与定位").assertIsDisplayed(); true }.getOrDefault(false)
             }
             compose.onNodeWithText("地图与定位").assertIsDisplayed()
             scenario.onActivity { it.binding.drawerLayout.openDrawer(GravityCompat.START) }

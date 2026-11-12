@@ -299,6 +299,13 @@ class UiDesignTest {
                         assertEquals("Drawer must reach the bottom edge", activity.binding.drawerLayout.height, drawer.bottom)
                         assertTrue("Drawer header must be text only",
                             drawer.getHeaderView(0).descendantsOfType<android.widget.ImageView>().isEmpty())
+                        val headerTitle = drawer.getHeaderView(0).findViewById<View>(R.id.nav_header_title)
+                        val titlePosition = IntArray(2).also { headerTitle.getLocationOnScreen(it) }
+                        val safeTop = androidx.core.view.ViewCompat.getRootWindowInsets(drawer)!!
+                            .getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+                                androidx.core.view.WindowInsetsCompat.Type.displayCutout()).top
+                        assertTrue("Drawer title needs room below the status bar",
+                            titlePosition[1] >= safeTop + 20 * activity.resources.displayMetrics.density)
                     }
                     capture("drawer-$suffix")
                     scenario.onActivity { it.binding.drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START, false) }

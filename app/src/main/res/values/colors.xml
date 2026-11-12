@@ -34,10 +34,10 @@
     <color name="ic_launcher_background">#3B82F6</color>
 
     <!-- Compatibility mapping updated to modern palette -->
-    <color name="theme_appbar_color">#EEEFE3</color>
+    <color name="theme_appbar_color">#F6FAFD</color>
     <color name="theme_side_nav_text_color">#1A1C16</color>
     <color name="theme_side_nav_start_color">#FFFFFF</color>
-    <color name="theme_side_nav_center_color">#EEEFE3</color>
+    <color name="theme_side_nav_center_color">#F6FAFD</color>
     <color name="theme_side_nav_end_color">#FFFFFF</color>
     <color name="theme_appbar_text_color">#1A1C16</color>
     <color name="theme_appbar_icon_color">#1A1C16</color>
@@ -46,8 +46,8 @@
     <color name="theme_focused_touch">#CBECC2</color>
 
     <color name="lse_appbar_color">#FFFFFF</color>
-    <color name="lse_appbar_color_center">#EEEFE3</color>
-    <color name="lse_appbar_color_dark">#EEEFE3</color>
+    <color name="lse_appbar_color_center">#F6FAFD</color>
+    <color name="lse_appbar_color_dark">#F6FAFD</color>
     <color name="lse_mini_title_color">#44483D</color>
     <color name="lse_hint_color">#74796B</color>
     <color name="lse_text_color">#1A1C16</color>

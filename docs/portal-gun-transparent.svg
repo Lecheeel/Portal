@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Rick and Morty Portal Gun</title>
+  <desc id="desc">手绘风格传送枪：灰色金属枪身、三枚绿色发射孔、装有绿色能量团的透明玻璃罩，透明背景。</desc>
+  <defs>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2=".15">
+      <stop stop-color="#d8ffd0" stop-opacity=".62"/>
+      <stop offset=".55" stop-color="#dbffd4" stop-opacity=".36"/>
+      <stop offset="1" stop-color="#edffe4" stop-opacity=".29"/>
+    </linearGradient>
+    <radialGradient id="core" cx=".38" cy=".3" r=".8">
+      <stop stop-color="#a1ed72"/>
+      <stop offset=".48" stop-color="#77d54d"/>
+      <stop offset="1" stop-color="#42b727"/>
+    </radialGradient>
+    <linearGradient id="port" x1="0" y1="0" x2="1" y2=".3">
+      <stop stop-color="#8fff5d"/>
+      <stop offset=".55" stop-color="#4edc23"/>
+      <stop offset="1" stop-color="#25b818"/>
+    </linearGradient>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#c2c6bb"/>
+      <stop offset="1" stop-color="#92968d"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#0b0d0a" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Rear switch and grip sit behind the main casing. -->
+    <path d="M492 533 Q529 495 571 485 L587 508 522 548Z" fill="#606161" stroke-width="6"/>
+    <path d="M511 522 560 497 568 508Z" fill="#989a98" stroke="none"/>
+    <path d="M479 585 C447 624 400 695 365 767 C342 810 356 848 386 864 C419 882 459 863 474 827 L538 643Z" fill="#777977" stroke-width="7"/>
+    <path d="M477 604 C444 651 398 719 374 775 C357 811 369 841 393 852 C418 864 449 848 463 819 L518 644Z" fill="#c5c5c5" stroke="none"/>
+    <path d="M466 619 C430 667 392 730 375 770 C363 800 367 823 379 837 C357 821 362 791 373 766 C394 719 433 651 463 614Z" fill="#ededed" stroke="none"/>
+    <path d="m517 644-9 24 8-4-11 23-8 4-6 27m23-59 9-8-6 21m-6-4-10 8-3 12" fill="none" stroke="#646662" stroke-width="1.2"/>
+    <!-- Top plane, front bevel, and broad side plane. -->
+    <path d="M494 532 674 480 1167 529 1035 589Z" fill="#c5c5c5" stroke-width="6"/>
+    <path d="M494 532 1035 589 1015 707 520 646 C486 643 470 621 473 580 Q475 547 494 532Z" fill="#898989" stroke-width="6"/>
+    <path d="M1035 589 1167 529 1146 644 1015 707Z" fill="#a7a8a5" stroke-width="6"/>
+    <path d="m1041 599 113-53-17 91-112 56Z" fill="#474945" stroke-width="4"/>
+    <path d="m1048 601 98-47-14 77-99 50Z" fill="#888984" stroke-width="3"/>
+    <path d="m1035 676 96-48m-85-24 96-46" fill="none" stroke="#c4c5be" stroke-width="3"/>
+    <path d="m1017 581 69-28m-69-19 34-14m-19 23 43-21" fill="none" stroke-width="3"/>
+    <!-- Recessed red control on the upper face. -->
+    <path d="m583 529 116-39 75 7-118 40Z" fill="#777b78" stroke-width="2"/>
+    <path d="m605 531 94-31 56 5-99 32Z" fill="#f05e61" stroke-width="2"/>
+    <path d="m699 491 0 9 56 5 19-8Z" fill="#b6b9b5" stroke-width="1.6"/>
+    <path d="m605 531 94-31v-9l-116 38Z" fill="#939591" stroke-width="1.5"/>
+    <!-- Wear and fine cracks in the metal. -->
+    <g fill="none" stroke="#565954" stroke-width="1.1" opacity=".8">
+      <path d="m490 544 2 14 6 8-3 9-8 13 1 9m8-62 4 15 10 3 3 9"/>
+      <path d="m664 489 8-4 7 6 8-1 5-6m-2 64 9-8 7 2 6-4 10-1"/>
+      <path d="m660 560 5 12 9-5 7 6 4-13 9 2-2 9 12-6 7 3m-19-11 5-7-1-9 12 5 5-6"/>
+      <path d="m900 674 1 7 13-5 4 9 8-1-1 7 11-3 2-11 7 1 6 11-12-3m-21-6 9-8-4-7m6 9 8-2"/>
+    </g>
+    <path d="m995 698 11-64-4 66m7 1 7-44" fill="none" stroke-width="2.4"/>
+    <!-- Three inset emitter sockets, foreshortened on the end face. -->
+    <g transform="rotate(13 1046 632)">
+      <ellipse cx="1046" cy="632" rx="14" ry="35" fill="#c4c5c0" stroke-width="3"/>
+      <ellipse cx="1046" cy="632" rx="9" ry="24" fill="url(#port)" stroke-width="2"/>
+      <path d="M1042 617q-4 10-3 20" fill="none" stroke="#bdff8c" stroke-width="2"/>
+    </g>
+    <g transform="rotate(13 1085 613)">
+      <ellipse cx="1085" cy="613" rx="17" ry="35" fill="#c4c5c0" stroke-width="3"/>
+      <ellipse cx="1085" cy="613" rx="11" ry="25" fill="url(#port)" stroke-width="2"/>
+      <path d="M1081 595q-5 11-4 22" fill="none" stroke="#bdff8c" stroke-width="2"/>
+    </g>
+    <g transform="rotate(13 1125 594)">
+      <ellipse cx="1125" cy="594" rx="17" ry="35" fill="#c4c5c0" stroke-width="3"/>
+      <ellipse cx="1125" cy="594" rx="11" ry="25" fill="url(#port)" stroke-width="2"/>
+      <path d="M1122 578q-5 10-4 20" fill="none" stroke="#bdff8c" stroke-width="2"/>
+    </g>
+    <!-- Glass chamber and its cast shadow on the lid. -->
+    <ellipse cx="896" cy="542" rx="102" ry="16" fill="#676965" stroke="none" opacity=".55"/>
+    <path d="M795 495V314 C794 254 827 218 878 218 C936 217 965 252 966 311V495 Q885 527 795 495Z" fill="url(#glass)" stroke-width="4"/>
+    <ellipse cx="881" cy="496" rx="85" ry="18" fill="url(#base)" fill-opacity=".7" stroke-width="2.5"/>
+    <!-- Suspended, irregular green energy mass. -->
+    <g fill="none" stroke="#506b42" stroke-width="1.5">
+      <path d="M852 360q8-10 0-13t-14-1q-7-7 4-6t14-6q2-3-9-5l-4-12"/>
+      <path d="M892 350q13-8 4-11t-5-7q1-2 9-1t-3-13"/>
+      <path d="m918 367 9 7 4-5 7 7 4-1 8 6M838 395l-11-9-6 1-6-5"/>
+      <path d="m840 431-10 3-4 4m91 15q8-6 9 4t5 15l7-4"/>
+    </g>
+    <path d="M859 360 C862 350 873 356 875 347 C884 341 896 351 903 351 C911 353 911 360 919 364 C926 372 918 383 929 393 C940 401 935 416 927 420 C922 425 932 432 924 438 C916 444 909 454 895 454 C887 459 878 453 870 452 C861 447 855 447 845 445 C830 444 839 432 834 422 C829 415 837 409 833 400 C829 391 841 387 841 379 C842 371 851 372 850 366Z" fill="url(#core)" stroke="#405c36" stroke-width="1.8"/>
+    <path d="M861 366q14-12 24-3t24 3q-12 9-24 4t-24 9Z" fill="#a0e774" stroke="none" opacity=".5"/>
+    <path d="M841 400q9-14 20-5t19-3q-7 17-22 12t-17 11m37 14q12-10 22-1t20-1q-3 14-17 18t-25-16" fill="#83df53" stroke="none" opacity=".5"/>
+    <g fill="none" stroke="#4e873a" stroke-width="1.3">
+      <path d="m870 356 14 3 11-1m6 9 12-3m-48 10 10 4m-10 2q5 5 3 13t7 6q2 7-7 8m-21-7q-2 7 2 12m50-25q-4 8 1 13m13-9 2 12m-19 21 5 5 10 2"/>
+      <path d="M858 421q-8-4-11 5t-9 8m35-7q-8 3-2 12t-7 16"/>
+    </g>
+    <path d="M870 443q5 9-1 15t-4 13q-7 8-6 1 1-5 4-6-1-8 4-11m15 0q-8 13 1 21t0 16q-5 7-1 14" fill="none" stroke="#4b713b" stroke-width="3"/>
+    <path d="M884 456q-8 12 1 20t0 17q-5 6-2 12" fill="none" stroke="#90d567" stroke-width="1.1"/>
+    <path d="M865 478q10 0 4 7t2 10" fill="none" stroke="#718365" stroke-width="1.4"/>
+    <!-- Reflected light follows the rounded left shoulder of the glass. -->
+    <path d="M865 229 C825 240 805 273 808 323 C809 344 810 357 813 368 C820 349 815 318 821 286 C827 261 843 245 864 235 Q870 232 865 229Z" fill="#f0ffe6" stroke="none" opacity=".9"/>
+    <path d="M816 256q-17 25-16 65v166" fill="none" stroke="#83e867" stroke-width="3" opacity=".7"/>
+    <!-- Thick metal collar hides the bottom rim of the glass. -->
+    <path d="M794 494 C805 514 946 518 967 494 C975 505 979 519 976 531 C973 557 795 554 786 536 C779 524 784 507 790 500" fill="#c5c5c5" stroke-width="4"/>
+    <path d="M804 538q69 20 151 3" fill="none" stroke-width="2"/>
+    <path d="m817 540 10 3" fill="none" stroke="#565954" stroke-width="1.3"/>
+    <!-- Fine energy tendrils escape the forward sockets. -->
+    <g fill="none" stroke="#3c6a2e" stroke-width="1.7">
+      <path d="M1081 619c16 1 24 11 38 8s21 1 29 12 10 8 16 8m-84-19c14 3 24 0 34 9m-24 7q15 1 25 17"/>
+      <path d="M1120 602c14-6 24-16 40-9s22-4 37 2 20 10 27 12m-103 0c19-5 31-4 43 4s9 13 24 9 24-1 42-3m-78-14c14 7 10 28 22 26l12-8"/>
+      <path d="M1164 578c15-9 24 9 51-2m-44 4q19 6 37-1"/>
+    </g>
+    <g fill="none" stroke="#9ce879" stroke-width=".7">
+      <path d="M1082 620c16 1 24 11 38 8s21 1 29 12m-28-37c14-6 24-16 40-9s22-4 37 2 20 10 27 12m-103 0c19-5 31-4 43 4s9 13 24 9 24-1 40-3"/>
+    </g>
+  </g>
+</svg>

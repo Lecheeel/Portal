@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="portal_icon_standard_background">#F3FAF0</color>
+    <color name="portal_icon_neon_background">#101A12</color>
+</resources>

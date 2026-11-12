@@ -74,7 +74,7 @@ GGA/RMC/GSA/GSV/GST/ZDA
 
 ### 定位与路线
 
-- 无 Root/Xposed/Native + Xposed（Root require）
+- 支持无 Root/Xposed/Native + Xposed（Root require）
 - GPS/Network/Fused 差异化定位画像
 - 系统 Fused/Google 融合定位通道（实验性）
 - 提交前反射清除模拟标记（实验性）
@@ -108,9 +108,9 @@ GGA/RMC/GSA/GSV/GST/ZDA
 -->
 
 ## ✨ 功能亮点
-- 无 Root/Xposed/Native + Xposed（Root require）
+- 支持无 Root/Xposed/Native + Xposed（Root require）
 - 反检测/堆栈清洗/隐藏指纹
-- GPS/Network/Fused
+- GPS/Network/Fused 模拟
 - 系统/Google Fused 融合定位通道（实验性）
 - 提交前反射清除模拟标记
 - 悬浮摇杆、路线规划与手绘

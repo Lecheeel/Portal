@@ -2,6 +2,7 @@ package com.system.location.service
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.core.view.GravityCompat
@@ -33,7 +34,10 @@ class DrawerModeUiTest {
                 .performSemanticsAction(SemanticsActions.SetProgress) { it(position) }
         }
         fun awaitBackend(backend: BackendType) {
-            compose.waitUntil(10_000) { ScenarioRuntime.state.value.backend == backend }
+            compose.waitUntil(10_000) {
+                if (!compose.mainClock.autoAdvance) compose.mainClock.advanceTimeByFrame()
+                ScenarioRuntime.state.value.backend == backend
+            }
             assertFalse("Quick selection must never start a scenario", ScenarioRuntime.state.value.isActive)
         }
         try {
@@ -62,6 +66,16 @@ class DrawerModeUiTest {
                 compose.onNodeWithText("快速模式").assertDoesNotExist()
                 compose.onNodeWithTag("drawer-mode-slider").assertIsDisplayed()
                 captureUi("drawer-native-mode")
+                // Still changing well after the old two-sweep animation would have finished.
+                compose.mainClock.advanceTimeBy(4_000)
+                val first = compose.onNodeWithTag("drawer-mode-slider").captureToImage().toPixelMap()
+                compose.mainClock.advanceTimeBy(400)
+                val second = compose.onNodeWithTag("drawer-mode-slider").captureToImage().toPixelMap()
+                val changed = (0 until first.width step 3).sumOf { x ->
+                    (0 until first.height step 3).count { y -> first[x, y] != second[x, y] }
+                }
+                assertTrue("Native track must keep animating", changed > 10)
+                captureUi("drawer-native-energy-loop")
                 compose.mainClock.autoAdvance = true
                 select(0f)
                 awaitBackend(BackendType.MOCK_PROVIDER)

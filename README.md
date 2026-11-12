@@ -5,7 +5,7 @@
 Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮摇杆，并提供 GNSS/NMEA、WiFi/基站环境和传感器扩展。
 
 基于 [Portal](https://github.com/fuqiuluo/Portal) [@fuqiuluo](https://github.com/fuqiuluo)，支持无 Root/Xposed/Native + Xposed 模式。
-
+<!--
 ### 运行模式
 
 | 模式 | 前置条件 | 主要用途 |
@@ -14,7 +14,7 @@ Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮
 | Xposed | 支持 libxposed API 102 的框架，启用相应系统作用域 | 系统定位、GNSS/NMEA、环境与分应用扩展 |
 | Native + Xposed | Root、arm64 设备及已激活的 Xposed | 实验性 Native 传感器扩展，⚠system hook |
 
-<!--
+
 ### ⚠⚠⚠当你使用Native + Xposed模式， 必看！！！
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -65,7 +65,7 @@ GGA/RMC/GSA/GSV/GST/ZDA
 停止模拟 **不是** 卸载 Native Hook！！ ** 已经加载的 Native Hook，需要重启相关进程或设备才能卸载！！ **
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
--->
+
 ## ✨ 功能亮点
 
 ### 定位与路线
@@ -101,7 +101,7 @@ GGA/RMC/GSA/GSV/GST/ZDA
 - Native 传感器扩展（实验性）
 - SensorFrame 统一驱动、双帧插值、速度关联步频
 - HIDL/AIDL 传感器事件适配（实验性）
-
+-->
 ## 🚀 快速开始
 
 1. 从 [Releases](https://github.com/Lecheeel/Portal/releases) 安装。
@@ -114,5 +114,9 @@ GGA/RMC/GSA/GSV/GST/ZDA
 见 [NOTICE](NOTICE)。
 
 ## 致谢
-
-[@fuqiuluo](https://github.com/fuqiuluo) · [GoGoGo](https://github.com/ZCShou/GoGoGo) · [LSPosed](https://github.com/LSPosed/LSPosed) · [Dobby](https://github.com/jmpews/Dobby)
+- [Portal](https://github.com/ella8192/Portal)
+- [HideMockLocation](https://github.com/auag0/HideMockLocation)
+- [GoGoGo](https://github.com/ZCShou/GoGoGo)
+- [LSPosed](https://github.com/LSPosed/LSPosed)
+- [Dobby](https://github.com/jmpews/Dobby)
+- [shadowhook](https://github.com/bytedance/android-inline-hook)

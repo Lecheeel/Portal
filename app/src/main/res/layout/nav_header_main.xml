@@ -27,4 +27,10 @@
         android:textColor="@color/text_secondary"
         android:textSize="12sp"
         android:text="准备就绪" />
+
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/drawer_mode_control"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp" />
 </LinearLayout>

@@ -70,6 +70,10 @@ import com.system.location.service.update.StartupUpdateViewModel
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.displayLabel
 import com.system.location.service.update.UpdateDialogFragment
+import com.system.location.service.ui.runtime.DrawerModeControl
+import com.system.location.service.designsystem.theme.PortalTheme
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 
 class MainActivity : AppCompatActivity() {
     private lateinit var appBarConfiguration: AppBarConfiguration
@@ -153,6 +157,10 @@ class MainActivity : AppCompatActivity() {
                 val navView: NavigationView = binding.navView
                 val header = navView.getHeaderView(0)
                 val headerTopPadding = header.paddingTop
+                header.findViewById<ComposeView>(R.id.drawer_mode_control).apply {
+                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                    setContent { PortalTheme { DrawerModeControl() } }
+                }
                 ViewCompat.setOnApplyWindowInsetsListener(drawerLayout) { _, insets ->
                     val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
                     header.updatePadding(top = headerTopPadding + safe.top)

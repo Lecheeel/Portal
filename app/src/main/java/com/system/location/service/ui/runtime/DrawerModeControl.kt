@@ -88,7 +88,7 @@ internal fun DrawerModeControl(drawerVisible: Boolean) {
     val energyPhase = if (highlightTrack) {
         rememberInfiniteTransition(label = "native-track-energy").animateFloat(
             initialValue = 0f, targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(2_400, easing = LinearEasing)),
+            animationSpec = infiniteRepeatable(tween(6_000, easing = LinearEasing)),
             label = "energy-phase")
     } else remember { mutableFloatStateOf(0f) }
 
@@ -182,33 +182,38 @@ internal fun DrawerModeControl(drawerVisible: Boolean) {
 }
 
 
-/** Discrete pixels carry the gradient; there are no connecting lines or solid light ribbons. */
+/** A seeded particle field follows a shared flow, with no rows or connecting strokes. */
 private fun DrawScope.drawNativeTrackEnergy(phase: Float) {
     val mint = Color(0xFF91FFD0)
     val cyan = Color(0xFF66EDE6)
     val lime = Color(0xFFD3FF86)
-    val pixel = 2.dp.toPx()
-    val pitch = 3.5f.dp.toPx()
-    val rows = 4
-    val columns = (size.width / pitch).toInt().coerceAtLeast(1)
-    val insetX = (size.width - (columns - 1) * pitch - pixel) / 2f
-    val insetY = (size.height - (rows - 1) * pitch - pixel) / 2f
     val tau = 2f * PI.toFloat()
-    for (row in 0 until rows) {
-        for (column in 0 until columns) {
-            val x = column.toFloat() / columns
-            // Integer cycle counts make both travelling brightness and twinkle loop smoothly.
-            val wave = .5f + .5f * sin((x * 1.8f - phase * 2f + row * .13f) * tau)
-            val twinkle = .5f + .5f * sin((column % 7 / 7f + row * .31f + phase * 3f) * tau)
-            val bright = wave * wave * wave * wave
-            val sparkle = twinkle * twinkle * twinkle * twinkle
-            val tint = if (x < .5f) lerp(lime, mint, x * 2f) else lerp(mint, cyan, (x - .5f) * 2f)
-            val position = Offset(insetX + column * pitch, insetY + row * pitch)
-            drawRect(tint.copy(alpha = .12f + .65f * bright + .13f * sparkle),
-                topLeft = position, size = Size(pixel, pixel))
-            // Small brighter cores keep each pixel distinct rather than blurring into a band.
-            if (bright > .65f) drawRect(Color.White.copy(alpha = (bright - .65f) * .7f),
-                topLeft = position, size = Size(pixel * .5f, pixel * .5f))
-        }
+    val count = (size.width / 1.8f.dp.toPx()).toInt().coerceIn(48, 200)
+    fun seed(index: Int, salt: Int): Float {
+        var value = index * 0x45d9f3b + salt * 0x119de1f3
+        value = (value xor (value ushr 16)) * 0x45d9f3b
+        return (value xor (value ushr 16)).ushr(8) / 16777215f
+    }
+    for (index in 0 until count) {
+        val origin = seed(index, 1)
+        val depth = seed(index, 2)
+        // Two circulation speeds and shared eddies produce coherent, uneven currents.
+        val x = (origin + phase * (1 + index % 2)) % 1f
+        val eddy = sin((x * 2f - phase + depth * .25f) * tau)
+        val ripple = sin((x * 3f + phase * 2f + origin) * tau)
+        val y = (.5f + (depth - .5f) * .62f + eddy * .19f + ripple * .07f)
+            .coerceIn(.04f, .96f)
+        val breathe = .5f + .5f * sin((phase * 2f + origin + depth) * tau)
+        val edgeFade = (minOf(x, 1f - x) * 15f).coerceIn(0f, 1f)
+        val alpha = (.22f + .50f * breathe) * edgeFade
+        val pixel = (1f + seed(index, 3) * 1.25f).dp.toPx()
+        val tint = if (x < .5f) lerp(lime, mint, x * 2f) else lerp(mint, cyan, (x - .5f) * 2f)
+        val position = Offset(x * size.width - pixel / 2f, y * size.height - pixel / 2f)
+        // A faint local halo softens the flow while retaining separate square pixels.
+        if (index % 3 == 0) drawRect(tint.copy(alpha = alpha * .12f),
+            topLeft = position - Offset(pixel * .4f, pixel * .4f), size = Size(pixel * 1.8f, pixel * 1.8f))
+        drawRect(tint.copy(alpha = alpha), topLeft = position, size = Size(pixel, pixel))
+        if (breathe > .75f) drawRect(Color.White.copy(alpha = alpha * .55f),
+            topLeft = position, size = Size(pixel * .45f, pixel * .45f))
     }
 }

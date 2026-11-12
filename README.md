@@ -1,11 +1,15 @@
-# LocationService
+# Portal
 
-[![Ask DeepWiki](https://raw.githubusercontent.com/Lecheeel/Portal/main/docs/badge.svg)](https://deepwiki.com/Lecheeel/Portal) / [下载 APK](https://github.com/Lecheeel/Portal/releases) / [更新日志](https://github.com/Lecheeel/Portal/releases)
+[![Ask DeepWiki](https://raw.githubusercontent.com/Lecheeel/Portal/main/docs/badge.svg)](https://deepwiki.com/Lecheeel/Portal)
+[![Release](https://img.shields.io/badge/Release-green)](https://github.com/Lecheeel/Portal/releases)
+[![Android](https://img.shields.io/badge/Android-10%20--%2017-blue.svg?style=flat)](https://github.com/Lecheeel/Portal/releases)
+[![LICENSE](https://img.shields.io/badge/license-Apache%20License-brightgreen.svg?style=flat)](https://github.com/Lecheeel/Portal/blob/main/LICENSE)
 
-Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮摇杆，并提供 GNSS/NMEA、WiFi/基站环境和传感器扩展。
+基于 [Portal](https://github.com/fuqiuluo/Portal) [@fuqiuluo](https://github.com/fuqiuluo)
 
-基于 [Portal](https://github.com/fuqiuluo/Portal) [@fuqiuluo](https://github.com/fuqiuluo)，支持无 Root/Xposed/Native + Xposed 模式。
+Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮摇杆，支持模拟 GNSS/NMEA、WiFi/基站环境和传感器，支持无 Root/Xposed/Native + Xposed 模式。
 
+<!--
 ### 运行模式
 
 | 模式 | 前置条件 | 主要用途 |
@@ -14,7 +18,7 @@ Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮
 | Xposed | 支持 libxposed API 102 的框架，启用相应系统作用域 | 系统定位、GNSS/NMEA、环境与分应用扩展 |
 | Native + Xposed | Root、arm64 设备及已激活的 Xposed | 实验性 Native 传感器扩展，⚠system hook |
 
-<!--
+
 ### ⚠⚠⚠当你使用Native + Xposed模式， 必看！！！
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -65,12 +69,12 @@ GGA/RMC/GSA/GSV/GST/ZDA
 停止模拟 **不是** 卸载 Native Hook！！ ** 已经加载的 Native Hook，需要重启相关进程或设备才能卸载！！ **
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
--->
+
 ## ✨ 功能亮点
 
 ### 定位与路线
 
-- 无 Root/Xposed/Native + Xposed（Root require）
+- 支持无 Root/Xposed/Native + Xposed（Root require）
 - GPS/Network/Fused 差异化定位画像
 - 系统 Fused/Google 融合定位通道（实验性）
 - 提交前反射清除模拟标记（实验性）
@@ -101,6 +105,26 @@ GGA/RMC/GSA/GSV/GST/ZDA
 - Native 传感器扩展（实验性）
 - SensorFrame 统一驱动、双帧插值、速度关联步频
 - HIDL/AIDL 传感器事件适配（实验性）
+-->
+
+## ✨ 功能亮点
+- 支持无 Root/Xposed/Native + Xposed（Root require）
+- 反检测/堆栈清洗/隐藏指纹
+- GPS/Network/Fused 模拟
+- 系统/Google Fused 融合定位通道（实验性）
+- 提交前反射清除模拟标记
+- 悬浮摇杆、路线规划与手绘
+- 位置与场景管理、JSON/GPX 导入导出
+- GPS/北斗/GLONASS/Galileo/QZSS
+- 同源 GnssStatus/NMEA 生成与主动投递
+- GGA/RMC/GSA/GSV/GST/ZDA
+- WiFi/基站环境采集、生成与回放（实验性）
+- 网格化 AP、固定种子、RSSI 路径损耗模型
+- 自建 WiFi 指纹库导入与回放（实验性）
+- 分应用排除与固定点
+- libxposed API 102 原生 Hooker/Chain
+- Native 传感器扩展（实验性）
+- HIDL/AIDL 传感器事件注入
 
 ## 🚀 快速开始
 
@@ -114,5 +138,9 @@ GGA/RMC/GSA/GSV/GST/ZDA
 见 [NOTICE](NOTICE)。
 
 ## 致谢
-
-[@fuqiuluo](https://github.com/fuqiuluo) · [GoGoGo](https://github.com/ZCShou/GoGoGo) · [LSPosed](https://github.com/LSPosed/LSPosed) · [Dobby](https://github.com/jmpews/Dobby)
+- [Portal](https://github.com/ella8192/Portal)
+- [HideMockLocation](https://github.com/auag0/HideMockLocation)
+- [GoGoGo](https://github.com/ZCShou/GoGoGo)
+- [LSPosed](https://github.com/LSPosed/LSPosed)
+- [Dobby](https://github.com/jmpews/Dobby)
+- [shadowhook](https://github.com/bytedance/android-inline-hook)

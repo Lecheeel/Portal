@@ -4,16 +4,21 @@ import android.animation.ValueAnimator
 import android.content.Context
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -40,6 +45,7 @@ private val DrawerModes = listOf(BackendType.MOCK_PROVIDER, BackendType.XPOSED, 
 private data class DrawerModeState(val backend: BackendType, val active: Boolean)
 
 /** A quick selection of the existing runtime backend; never prepares or starts a scenario. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DrawerModeControl() {
     val context = LocalContext.current
@@ -63,13 +69,17 @@ internal fun DrawerModeControl() {
             confirmingNative = false
         }
         observedBackend = state.backend
-        if (state.backend == BackendType.NATIVE && ValueAnimator.areAnimatorsEnabled()) {
-            emphasis.snapTo(0f)
+    }
+
+    val highlightTrack = state.backend == BackendType.NATIVE && draft == 2f && !state.active && !busy
+    LaunchedEffect(highlightTrack) {
+        emphasis.snapTo(0f)
+        if (highlightTrack && ValueAnimator.areAnimatorsEnabled()) {
             repeat(2) {
-                emphasis.animateTo(1f, tween(250))
-                emphasis.animateTo(0f, tween(500))
+                emphasis.snapTo(0f)
+                emphasis.animateTo(1f, tween(1_200, easing = LinearEasing))
             }
-        } else emphasis.snapTo(0f)
+        }
     }
 
     fun resetDraft() { draft = DrawerModes.indexOf(ScenarioRuntime.state.value.backend).toFloat() }
@@ -102,18 +112,6 @@ internal fun DrawerModeControl() {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("快速模式", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            if (state.backend == BackendType.NATIVE) {
-                Surface(Modifier.scale(1f + emphasis.value * .08f), shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shadowElevation = (emphasis.value * 8).dp) {
-                    Text("MAX", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                        style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
         Text(state.backend.displayLabel(), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary)
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -123,6 +121,29 @@ internal fun DrawerModeControl() {
                     val target = DrawerModes[draft.roundToInt().coerceIn(0, 2)]
                     if (target == BackendType.NATIVE && state.backend != target) confirmingNative = true
                     else if (target != state.backend) applyMode(target)
+                },
+                track = { sliderState ->
+                    SliderDefaults.Track(sliderState = sliderState, enabled = !state.active && !busy,
+                        modifier = Modifier.drawWithCache {
+                            val trackClip = Path().apply {
+                                addRoundRect(RoundRect(0f, 0f, size.width, size.height,
+                                    CornerRadius(size.height / 2)))
+                            }
+                            onDrawWithContent {
+                                drawContent()
+                                // Draw only over the track; no overlay View can intercept dragging.
+                                val progress = emphasis.value
+                                if (highlightTrack && progress > 0f && progress < 1f) {
+                                    val band = size.width * .3f
+                                    val center = -band + (size.width + 2 * band) * progress
+                                    clipPath(trackClip) {
+                                        drawRect(Brush.horizontalGradient(
+                                            listOf(Color.Transparent, Color.White.copy(alpha = .42f), Color.Transparent),
+                                            startX = center - band / 2, endX = center + band / 2))
+                                    }
+                                }
+                            }
+                        })
                 },
                 modifier = Modifier.fillMaxWidth().testTag("drawer-mode-slider").semantics {
                     contentDescription = "快速切换模式"

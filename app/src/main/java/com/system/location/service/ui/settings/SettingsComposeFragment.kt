@@ -541,7 +541,7 @@ private fun SettingsScreen(
                                     modifier = rowModifier,
                                 )
                                 3 -> PortalSwitchRow(
-                                    title = "清除模拟标记（实验）",
+                                    title = "提交前反射清除模拟标记",
                                     status = NEXT_SCENE,
                                     subtitle = "仅标准 Mock 模式；系统可能重新标记。",
                                     checked = values.experimentalClearMockFlag,
@@ -622,7 +622,7 @@ private fun SettingsScreen(
                                 },
                                 { rowModifier ->
                                     PortalSwitchRow(
-                                        title = "允许获取当前位置",
+                                        title = "允许单次定位请求",
                                         status = APPLY_WHILE_RUNNING,
                                         checked = !values.disableGetCurrentLocation,
                                         onCheckedChange = hookAction { context.disableGetCurrentLocation = !it },

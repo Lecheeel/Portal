@@ -11,16 +11,16 @@
 
     <!-- Modern Material 3 Light Surface & Colors -->
     <color name="surface">#FFFFFF</color>
-    <color name="surface_variant">#EAF5E7</color>
-    <color name="surface_container_highest">#D5E5D0</color>
+    <color name="surface_variant">#FFFFFF</color>
+    <color name="surface_container_highest">#E2E3D8</color>
     <color name="surface_glass">#F2FFFFFF</color>
     <color name="card_border">#1A000000</color>
 
     <!-- Text & Icon Colors -->
-    <color name="text_primary">#182018</color>
-    <color name="text_secondary">#5F7160</color>
-    <color name="text_tertiary">#73836F</color>
-    <color name="icon_grey">#5F7160</color>
+    <color name="text_primary">#1A1C16</color>
+    <color name="text_secondary">#44483D</color>
+    <color name="text_tertiary">#74796B</color>
+    <color name="icon_grey">#44483D</color>
 
     <!-- Status Colors -->
     <color name="red500">#EF4444</color>
@@ -34,28 +34,28 @@
     <color name="ic_launcher_background">#3B82F6</color>
 
     <!-- Compatibility mapping updated to modern palette -->
-    <color name="theme_appbar_color">#FFFFFF</color>
-    <color name="theme_side_nav_text_color">#182018</color>
+    <color name="theme_appbar_color">#EEEFE3</color>
+    <color name="theme_side_nav_text_color">#1A1C16</color>
     <color name="theme_side_nav_start_color">#FFFFFF</color>
-    <color name="theme_side_nav_center_color">#F3FAF0</color>
+    <color name="theme_side_nav_center_color">#EEEFE3</color>
     <color name="theme_side_nav_end_color">#FFFFFF</color>
-    <color name="theme_appbar_text_color">#182018</color>
-    <color name="theme_appbar_icon_color">#182018</color>
+    <color name="theme_appbar_text_color">#1A1C16</color>
+    <color name="theme_appbar_icon_color">#1A1C16</color>
     <color name="theme_nav_icon_color">#326B2D</color>
     <color name="theme_active">#DDF7D5</color>
     <color name="theme_focused_touch">#CBECC2</color>
 
     <color name="lse_appbar_color">#FFFFFF</color>
-    <color name="lse_appbar_color_center">#F3FAF0</color>
-    <color name="lse_appbar_color_dark">#EAF5E7</color>
-    <color name="lse_mini_title_color">#5F7160</color>
-    <color name="lse_hint_color">#73836F</color>
-    <color name="lse_text_color">#182018</color>
+    <color name="lse_appbar_color_center">#EEEFE3</color>
+    <color name="lse_appbar_color_dark">#EEEFE3</color>
+    <color name="lse_mini_title_color">#44483D</color>
+    <color name="lse_hint_color">#74796B</color>
+    <color name="lse_text_color">#1A1C16</color>
     <color name="lse_nav_icon">#326B2D</color>
-    <color name="lse_mock_off">#5F7160</color>
+    <color name="lse_mock_off">#44483D</color>
     <color name="lse_mock_on">#087F5B</color>
 
-    <color name="lse_location_detail_background">#EAF5E7</color>
+    <color name="lse_location_detail_background">#FFFFFF</color>
     <color name="lse_location_detail_block">#FFFFFF</color>
 
     <color name="selected_color">#DDF7D5</color>

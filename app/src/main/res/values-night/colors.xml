@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="surface">#1B281D</color>
-    <color name="surface_variant">#354B37</color>
-    <color name="surface_container_highest">#354B37</color>
-    <color name="surface_glass">#F21B281D</color>
-    <color name="card_border">#354B37</color>
-    <color name="text_primary">#E5EEE1</color>
-    <color name="text_secondary">#BFCFBC</color>
-    <color name="text_tertiary">#8E9F8A</color>
-    <color name="icon_grey">#BFCFBC</color>
-    <color name="theme_appbar_color">#1B281D</color>
-    <color name="theme_appbar_text_color">#E5EEE1</color>
-    <color name="theme_appbar_icon_color">#E5EEE1</color>
-    <color name="theme_side_nav_text_color">#E5EEE1</color>
-    <color name="theme_side_nav_start_color">#1B281D</color>
-    <color name="theme_side_nav_center_color">#152118</color>
-    <color name="theme_side_nav_end_color">#101A12</color>
+    <color name="surface">#383A32</color>
+    <color name="surface_variant">#383A32</color>
+    <color name="surface_container_highest">#44483D</color>
+    <color name="surface_glass">#F2383A32</color>
+    <color name="card_border">#44483D</color>
+    <color name="text_primary">#E5E6DE</color>
+    <color name="text_secondary">#C4C8B9</color>
+    <color name="text_tertiary">#8E9385</color>
+    <color name="icon_grey">#C4C8B9</color>
+    <color name="theme_appbar_color">#1E201A</color>
+    <color name="theme_appbar_text_color">#E5E6DE</color>
+    <color name="theme_appbar_icon_color">#E5E6DE</color>
+    <color name="theme_side_nav_text_color">#E5E6DE</color>
+    <color name="theme_side_nav_start_color">#383A32</color>
+    <color name="theme_side_nav_center_color">#383A32</color>
+    <color name="theme_side_nav_end_color">#383A32</color>
     <color name="theme_active">#285C2D</color>
     <color name="theme_focused_touch">#354B37</color>
 </resources>

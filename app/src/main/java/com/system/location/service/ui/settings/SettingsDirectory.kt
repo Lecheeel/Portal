@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -13,6 +12,7 @@ import com.system.location.service.R
 import com.system.location.service.designsystem.components.PortalActionRow
 import com.system.location.service.designsystem.components.PortalSettingGroup
 import com.system.location.service.designsystem.components.PortalSectionTitle
+import com.system.location.service.designsystem.components.PortalIconBadge
 
 internal enum class SettingsCategory(val title: String, val summary: String, val destination: Int, val icon: Int) {
     LOCATION("地图与定位", "地图服务、海拔、精度与上报间隔", R.id.nav_settings_location, R.drawable.ic_portal_map),
@@ -54,7 +54,9 @@ internal fun SettingsDirectory(
                     subtitle = listOfNotNull(category.summary, status).joinToString("\n"),
                     onClick = { onCategory(category) },
                     leadingContent = {
-                        Icon(painterResource(category.icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                        PortalIconBadge {
+                            Icon(painterResource(category.icon), null, Modifier.size(22.dp))
+                        }
                     },
                 )
             }

@@ -53,6 +53,7 @@ class PredictiveBackUiTest {
         }
     }
 
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 34)
     @Test fun settingsBackCancellationKeepsDetailAndCommitReturnsToDirectory() {
         acceptSelectedMapForUiTest()
         grantUiPermissions()
@@ -72,9 +73,23 @@ class PredictiveBackUiTest {
             scenario.onActivity {
                 val page = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
                     .childFragmentManager.primaryNavigationFragment!!
-                assertTrue((page.returnTransition as androidx.transition.Fade).isSeekingSupported)
+                assertTrue((page.returnTransition as androidx.transition.Slide).isSeekingSupported)
                 it.onBackPressedDispatcher.dispatchOnBackStarted(event(0f))
+            }
+            compose.waitForIdle()
+            scenario.onActivity {
                 it.onBackPressedDispatcher.dispatchOnBackProgressed(event(.5f))
+            }
+            // A seekable Back must attach the previous page before the gesture commits.
+            compose.waitUntil(5_000) {
+                var previewing = false
+                scenario.onActivity {
+                    val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                    previewing = host.childFragmentManager.fragments.count { page ->
+                        page.view?.parent != null && page.view?.visibility == android.view.View.VISIBLE
+                    } >= 2
+                }
+                previewing
             }
             scenario.onActivity { it.onBackPressedDispatcher.dispatchOnBackCancelled() }
             resumed()
@@ -82,6 +97,9 @@ class PredictiveBackUiTest {
             scenario.onActivity {
                 assertEquals(R.id.nav_settings_location, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
                 it.onBackPressedDispatcher.dispatchOnBackStarted(event(0f))
+            }
+            compose.waitForIdle()
+            scenario.onActivity {
                 it.onBackPressedDispatcher.dispatchOnBackProgressed(event(.8f))
                 it.onBackPressedDispatcher.onBackPressed()
             }

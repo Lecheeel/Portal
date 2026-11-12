@@ -15,6 +15,8 @@ lifecycleLivedataKtx = "2.11.0"
 lifecycleViewmodelKtx = "2.11.0"
 navigationFragmentKtx = "2.9.8"
 navigationUiKtx = "2.9.8"
+fragment = "1.8.9"
+transition = "1.5.0"
 jetbrainsKotlinJvm = "2.4.10"
 amap3dLocationSearch = "11.2.000_loc11.2.000_sea9.8.0"
 composeBom = "2026.09.00"
@@ -34,6 +36,8 @@ androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecy
 androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
 androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigationFragmentKtx" }
 androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigationUiKtx" }
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragment" }
+androidx-transition = { group = "androidx.transition", name = "transition", version.ref = "transition" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 bugly = { module = "com.tencent.bugly:crashreport", version = "4.1.9.3" }
 geotools = { module = "net.sf.geographiclib:GeographicLib-Java", version = "2.1" }

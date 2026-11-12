@@ -11,7 +11,6 @@ import android.Manifest.permission.INTERNET
 import android.Manifest.permission.READ_PHONE_STATE
 import android.Manifest.permission.VIBRATE
 import android.annotation.SuppressLint
-import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
@@ -27,7 +26,8 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.viewModels
-import androidx.activity.addCallback
+import androidx.activity.BackEventCompat
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
@@ -70,6 +70,7 @@ import com.system.location.service.update.StartupUpdateViewModel
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.displayLabel
 import com.system.location.service.update.UpdateDialogFragment
+import com.system.location.service.ui.navigation.PortalNavigationTransitions
 import com.system.location.service.ui.runtime.DrawerModeControl
 import com.system.location.service.designsystem.theme.PortalTheme
 import androidx.compose.ui.platform.ComposeView
@@ -130,6 +131,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        supportFragmentManager.registerFragmentLifecycleCallbacks(PortalNavigationTransitions(), true)
         // super restores NavHost and its MapViews synchronously.
         // Discard old UI state unless consent is confirmed and the map SDK is ready.
         val mapsReady = selectedMapsReady()
@@ -166,9 +168,13 @@ class MainActivity : AppCompatActivity() {
                     header.updatePadding(top = headerTopPadding + safe.top)
                     insets
                 }
-                val drawerBack = onBackPressedDispatcher.addCallback(this@MainActivity, enabled = false) {
-                    drawerLayout.closeDrawer(GravityCompat.START)
+                val drawerBack = object : OnBackPressedCallback(false) {
+                    override fun handleOnBackStarted(backEvent: BackEventCompat) = navView.startBackProgress(backEvent)
+                    override fun handleOnBackProgressed(backEvent: BackEventCompat) = navView.updateBackProgress(backEvent)
+                    override fun handleOnBackCancelled() = navView.cancelBackProgress()
+                    override fun handleOnBackPressed() = navView.handleBackInvoked()
                 }
+                onBackPressedDispatcher.addCallback(this@MainActivity, drawerBack)
                 drawerLayout.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
                     override fun onDrawerOpened(drawerView: View) { drawerBack.isEnabled = true }
                     override fun onDrawerClosed(drawerView: View) { drawerBack.isEnabled = false }
@@ -203,16 +209,7 @@ class MainActivity : AppCompatActivity() {
                         if (!returnedHome) navController.navigate(item.itemId, null, navOptions {
                             launchSingleTop = true
                             popUpTo(navController.graph.findStartDestination().id)
-                            // Property animators follow system duration scale, including Back.
-                            // Opacity only; no page translation or animated layout changes.
-                            if (ValueAnimator.areAnimatorsEnabled()) {
-                                anim {
-                                    enter = R.animator.portal_fade_in
-                                    exit = R.animator.portal_fade_out
-                                    popEnter = R.animator.portal_fade_in
-                                    popExit = R.animator.portal_fade_out
-                                }
-                            }
+                            // Fragment transitions support progress and cancellation during Back.
                         })
                     }
                     drawerLayout.closeDrawer(GravityCompat.START)

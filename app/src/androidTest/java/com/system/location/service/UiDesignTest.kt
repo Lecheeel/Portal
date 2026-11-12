@@ -293,6 +293,16 @@ class UiDesignTest {
                     compose.onNodeWithText("开始模拟").assertIsDisplayed()
                     capture("home-$suffix")
                     scenario.onActivity { activity ->
+                        val drawer = activity.binding.navView
+                        activity.binding.drawerLayout.openDrawer(androidx.core.view.GravityCompat.START, false)
+                        assertEquals("Drawer must reach the top edge", 0, drawer.top)
+                        assertEquals("Drawer must reach the bottom edge", activity.binding.drawerLayout.height, drawer.bottom)
+                        assertTrue("Drawer header must be text only",
+                            drawer.getHeaderView(0).descendantsOfType<android.widget.ImageView>().isEmpty())
+                    }
+                    capture("drawer-$suffix")
+                    scenario.onActivity { it.binding.drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START, false) }
+                    scenario.onActivity { activity ->
                         val controller = androidx.core.view.WindowInsetsControllerCompat(activity.window, activity.window.decorView)
                         assertEquals(mode == AppCompatDelegate.MODE_NIGHT_NO, controller.isAppearanceLightStatusBars)
                         assertEquals(mode == AppCompatDelegate.MODE_NIGHT_NO, controller.isAppearanceLightNavigationBars)

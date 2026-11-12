@@ -194,7 +194,7 @@ class MainActivity : AppCompatActivity() {
                 lifecycleScope.launch {
                     repeatOnLifecycle(Lifecycle.State.STARTED) {
                         ScenarioRuntime.state.map { state ->
-                            "${state.phase.displayLabel()} · ${state.backend.displayLabel()}"
+                            state.phase.displayLabel()
                         }.distinctUntilChanged().collect { summary ->
                             navView.getHeaderView(0).findViewById<android.widget.TextView>(R.id.textView).text = summary
                         }

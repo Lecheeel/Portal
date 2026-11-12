@@ -122,8 +122,6 @@ internal fun DrawerModeControl(drawerVisible: Boolean) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(state.backend.displayLabel(), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary)
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Slider(value = draft, onValueChange = { draft = it; error = null },
                 valueRange = 0f..2f, steps = 1, enabled = !state.active && !busy,

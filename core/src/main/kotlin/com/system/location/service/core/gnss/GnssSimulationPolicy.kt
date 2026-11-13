@@ -94,7 +94,16 @@ data class GnssOrbitBatch(
     }
 }
 
-/** Select per identity, so an invalid high-priority record cannot suppress a valid fallback. */
+/**
+ * Resolves satellite orbits across providers using explicit source priorities.
+ *
+ * Selects the highest-priority available position per satellite identity,
+ * preserves reserved identities, and prevents lower-priority fallbacks
+ * from overriding applicable negative health evidence.
+ *
+ * Future improvements may include structured diagnostics, reduced
+ * intermediate allocations, and more granular provider failure handling.
+ */
 class GnssOrbitResolver(providers: List<GnssOrbitProvider>) {
     private val providers = providers.sortedBy { it.kind.ordinal }.toList()
 

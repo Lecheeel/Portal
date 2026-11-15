@@ -34,6 +34,7 @@ internal fun EnvironmentLibraryScreen(
     onImport: () -> Unit,
     capture: EnvironmentCaptureState,
     onCancelCapture: () -> Unit,
+    replayStatus: String? = null,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var action by rememberSaveable { mutableStateOf<String?>(null) }
@@ -45,6 +46,7 @@ internal fun EnvironmentLibraryScreen(
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             EnvironmentCreationActions(onCreate, onCapture, onImport, capture, onCancelCapture)
+            replayStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
             OutlinedTextField(query, { query = it }, label = { Text("搜索已保存环境") },
                 singleLine = true, modifier = Modifier.fillMaxWidth())
             Text(when {

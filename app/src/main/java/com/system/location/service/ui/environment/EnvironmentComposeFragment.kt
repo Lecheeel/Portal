@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
@@ -85,6 +86,7 @@ import java.nio.charset.CodingErrorAction
  * SAF launchers stay in the Fragment and Compose owns presentation/state.
  */
 open class EnvironmentComposeFragment : Fragment() {
+    private val replayModel by activityViewModels<com.system.location.service.ui.viewmodel.QuickReplayViewModel>()
     private val library = MutableStateFlow(EnvironmentLibraryState())
     private var libraryJob: Job? = null
     private var captureJob: Job? = null
@@ -202,12 +204,15 @@ open class EnvironmentComposeFragment : Fragment() {
             PortalTheme {
                 val state by library.collectAsStateWithLifecycle()
                 val capture by captureState.collectAsStateWithLifecycle()
+                val replay by replayModel.state.collectAsStateWithLifecycle()
                 if (arguments?.getBoolean("library") == true) {
                     EnvironmentLibraryScreen(state, ::refreshNames, ::exportEnvironment,
                         ::replayEnvironment, ::deleteEnvironment, ::renameEnvironment,
                         ::editEnvironmentProfile, { editEnvironmentProfile("") }, ::requestEnvironmentCapture,
-                        ::importEnvironment, capture, { captureJob?.cancel() })
+                        ::importEnvironment, capture, { captureJob?.cancel() },
+                        if (replay.busy) "正在应用回放…" else replay.message)
                 } else EnvironmentScreen(
+                    replayModel = replayModel,
                     library = state,
                     onOpenLibrary = { findNavController().navigate(R.id.nav_environment_library) },
                     onCapture = ::requestEnvironmentCapture,
@@ -320,22 +325,10 @@ open class EnvironmentComposeFragment : Fragment() {
     }
 
     private fun replayEnvironment(name: String) {
-        val appContext = requireContext().applicationContext
+        val command = replayModel.environment(name) ?: return
         lifecycleScope.launch {
-            val profile = withContext(Dispatchers.IO) {
-                runCatching { EnvironmentStore(appContext).load(name) }.getOrNull()
-            }
-            if (profile == null) {
-                showToast(getString(R.string.environment_export_failed, "无法读取环境"))
-                return@launch
-            }
-            appContext.environmentReplayJson = EnvironmentProfileCodec.encode(profile)
-            appContext.environmentSourceMode = "REPLAY"
-            val applied = withContext(Dispatchers.IO) {
-                com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
-            }
-            showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
-            if (isAdded && arguments?.getBoolean("library") == true &&
+            command.join()
+            if (!replayModel.state.value.failed && isAdded && arguments?.getBoolean("library") == true &&
                 parentFragment !is com.system.location.service.ui.mock.RouteGalleryComposeFragment) findNavController().popBackStack()
         }
     }
@@ -386,6 +379,7 @@ open class EnvironmentComposeFragment : Fragment() {
 
 @Composable
 private fun EnvironmentScreen(
+    replayModel: com.system.location.service.ui.viewmodel.QuickReplayViewModel,
     library: EnvironmentLibraryState,
     onOpenLibrary: () -> Unit,
     onCapture: () -> Unit,
@@ -472,6 +466,9 @@ private fun EnvironmentScreen(
             contentPadding = PaddingValues(20.dp, 24.dp, 20.dp, 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            item(key = "quick-replay") {
+                com.system.location.service.ui.mock.QuickReplayCard(replayModel, satellite = false)
+            }
             item {
                 Text(
                     stringResource(R.string.environment_capture_desc),

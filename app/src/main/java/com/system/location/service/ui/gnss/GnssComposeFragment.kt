@@ -3,6 +3,14 @@ package com.system.location.service.ui.gnss
 import android.content.Context
 import android.location.GnssStatus
 import android.location.LocationManager
+import android.location.Location
+import android.location.LocationListener
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableIntStateOf
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -100,21 +108,37 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val locationManager = remember(context) { context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager }
     var satellites by remember { mutableStateOf<List<SatelliteData>>(emptyList()) }
+    var observationMessage by remember { mutableStateOf("正在等待卫星信号，请尽量靠近窗边或移至室外") }
+    var permissionRevision by remember { mutableIntStateOf(0) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        permissionRevision++
+    }
     val control by model.state.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateFlow.collectAsState()
     val hookReady = runtime.backend != BackendType.MOCK_PROVIDER && runtime.isActive
 
-    LaunchedEffect(locationManager, lifecycle, model) {
+    LaunchedEffect(locationManager, lifecycle, model, permissionRevision, runtime.isActive) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             coroutineScope {
                 launch {
                     ScenarioRuntime.state.map { it.backend to it.phase }.distinctUntilChanged().collect { model.refresh() }
                 }
-                val manager = locationManager ?: return@coroutineScope
+                val manager = locationManager ?: run {
+                    observationMessage = "此设备没有可用的定位服务"
+                    return@coroutineScope
+                }
                 var listening = true
                 val callback = object : GnssStatus.Callback() {
-                    override fun onStopped() { if (listening) satellites = emptyList() }
+                    override fun onStarted() {
+                        if (listening) observationMessage = "正在等待卫星信号，请尽量靠近窗边或移至室外"
+                    }
+                    override fun onStopped() {
+                        if (listening) {
+                            satellites = emptyList()
+                            observationMessage = "GNSS 观测已停止，等待系统恢复"
+                        }
+                    }
 
                     override fun onSatelliteStatusChanged(status: GnssStatus) {
                         if (!listening) return
@@ -144,14 +168,43 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                         satellites = displaySpacecraft(list)
                     }
                 }
-                if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    try { manager.registerGnssStatusCallback(context.mainExecutor, callback) }
-                    catch (_: SecurityException) { satellites = emptyList() }
-                } else satellites = emptyList()
+                val locationListener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) = Unit
+                    override fun onProviderDisabled(provider: String) {
+                        if (listening) { satellites = emptyList(); observationMessage = "系统定位已关闭，请开启后查看真实卫星" }
+                    }
+                    override fun onProviderEnabled(provider: String) {
+                        if (listening) observationMessage = "正在等待卫星信号，请尽量靠近窗边或移至室外"
+                    }
+                }
+                if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    try {
+                        check(manager.registerGnssStatusCallback(context.mainExecutor, callback)) { "系统未接受卫星状态监听" }
+                        if (!runtime.isActive) {
+                            // Status callbacks alone do not turn on the GNSS receiver. Keep it active
+                            // only while this tab is resumed and no simulated scene is running.
+                            check(manager.allProviders.contains(LocationManager.GPS_PROVIDER)) { "此设备不支持 GPS 卫星观测" }
+                            observationMessage = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
+                                "正在等待卫星信号，请尽量靠近窗边或移至室外" else "系统定位已关闭，请开启后查看真实卫星"
+                            manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1_000L, 0f,
+                                context.mainExecutor, locationListener)
+                        }
+                    } catch (_: SecurityException) {
+                        satellites = emptyList()
+                        observationMessage = "需要精确位置权限才能读取真实卫星"
+                    } catch (error: Exception) {
+                        satellites = emptyList()
+                        observationMessage = error.message ?: "卫星观测启动失败，请稍后重试"
+                    }
+                } else {
+                    satellites = emptyList()
+                    observationMessage = "需要精确位置权限才能读取真实卫星"
+                }
                 try { awaitCancellation() }
                 finally {
                     listening = false
                     runCatching { manager.unregisterGnssStatusCallback(callback) }
+                    runCatching { manager.removeUpdates(locationListener) }
                     satellites = emptyList()
                 }
             }
@@ -191,6 +244,8 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                         Icon(painterResource(R.drawable.baseline_satellite_alt_24), null, tint = MaterialTheme.colorScheme.primary)
                         PortalSectionTitle("星图信息")
                     }
+                    Text(if (control.running) "GNSS 模拟输出" else if (runtime.isActive) "当前场景的系统卫星状态" else "真实卫星 · 实时观测",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     AndroidView(
                         factory = { SatelliteRadarView(it, null) },
                         update = { it.setSatellites(satellites); it.setActive(lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) },
@@ -200,12 +255,19 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                     )
                     AnimatedVisibility(visible = satellites.isEmpty()) {
                         Text(
-                            "暂无卫星数据",
+                            observationMessage,
                             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
+                    }
+                    if (satellites.isEmpty()) {
+                        if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                            TextButton({ permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)) }) {
+                                Text("授予精确位置权限")
+                            }
+                        } else TextButton({ permissionRevision++ }) { Text("重新观测") }
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         GnssMetric("可用卫星", "$inView 颗", Modifier.weight(1f))

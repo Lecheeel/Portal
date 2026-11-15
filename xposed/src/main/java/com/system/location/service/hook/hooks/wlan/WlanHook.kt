@@ -108,8 +108,6 @@ object WlanHook {
     }
 
     private fun hookWifiServiceImpl(wifiClazz: Class<*>) {
-        if (!FakeLoc.hookWifi) return
-
         wifiClazz.hookAllMethods("getConnectionInfo", Hooker { chain ->
             // Run the framework path first. It enforces the caller's location permission and
             // returns a redacted/disconnected WifiInfo when the caller may not see SSID/BSSID.
@@ -170,7 +168,7 @@ object WlanHook {
     }
 
     private fun shouldRewrite(packageName: String, uid: Int = BinderUtils.getCallerUid()): Boolean =
-        FakeLoc.enable && FakeLoc.hookWifi && FakeLoc.enableMockWifi && !BinderUtils.isSystemPackages(packageName) &&
+        FakeLoc.enable && FakeLoc.enableMockWifi && !BinderUtils.isSystemPackages(packageName) &&
             ListenerRouting.decisionFor(packageName, uid) != com.system.location.service.core.routing.RoutingDecision.Deny
 
     private fun currentProfile(packageName: String? = null, uid: Int = BinderUtils.getCallerUid()): EnvironmentProfile {

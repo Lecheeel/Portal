@@ -122,7 +122,6 @@ object PortalSettingsSchema {
             SettingSpec("experimental_anti_detect", SettingType.BOOLEAN, "false"),
             SettingSpec("experimental_stack_trace", SettingType.BOOLEAN, "false"),
             SettingSpec("experimental_stack_trace_replace", SettingType.BOOLEAN, "false"),
-            SettingSpec("hook_wifi", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_physical_noise", SettingType.BOOLEAN, "false"),
             SettingSpec("wifi_fingerprint_enabled", SettingType.BOOLEAN, "false"),
             SettingSpec("wifi_fingerprint_json", SettingType.STRING, "", maxLength = 262_144),

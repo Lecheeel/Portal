@@ -37,7 +37,6 @@ data class HookConfiguration(
      * docs/anti-detection.md for the known boundaries.
      */
     val stackTraceReplaceEnabled: Boolean = false,
-    val hookWifi: Boolean = true,
     val minimumSatellites: Int = GnssSimulationPolicy.DEFAULT_MINIMUM_SATELLITES,
     val gnssSimulation: GnssSimulationPolicy = GnssSimulationPolicy(),
     val reportIntervalMs: Long = 100L,

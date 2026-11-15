@@ -116,13 +116,6 @@ object FakeLoc {
         set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(stackTraceReplaceEnabled = value)) } }
 
     /**
-     * may cause system to crash
-     */
-    var hookWifi: Boolean
-        get() = runtimeSnapshots.current().configuration.hookWifi
-        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(hookWifi = value)) } }
-
-    /**
      * 将网络定位降级为 Cdma（ADR-005：旧路径默认关闭，下一版本删除）
      */
     var needDowngradeToCdma: Boolean

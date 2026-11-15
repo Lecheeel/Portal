@@ -54,7 +54,6 @@ class PreparedRuntimeConfiguration private constructor(
             antiDetectEnabled = value("experimental_anti_detect", old.antiDetectEnabled),
             stackTraceCleanEnabled = value("experimental_stack_trace", old.stackTraceCleanEnabled),
             stackTraceReplaceEnabled = value("experimental_stack_trace_replace", old.stackTraceReplaceEnabled),
-            hookWifi = value("hook_wifi", old.hookWifi),
             disableRequestGeofence = value("disable_request_geofence", old.disableRequestGeofence),
             disableGetFromLocation = value("disable_get_from_location", old.disableGetFromLocation),
             reportIntervalMs = value("report_interval", old.reportIntervalMs),

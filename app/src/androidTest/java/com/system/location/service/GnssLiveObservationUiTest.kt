@@ -31,7 +31,7 @@ class GnssLiveObservationUiTest {
             compose.openPage(scenario, R.id.nav_mock)
             compose.waitUntil(5_000) { !gpsState().contains("com.system.location.service") }
             compose.onNodeWithText("卫星").performClick()
-            compose.onNodeWithText("真实卫星 · 实时观测").assertIsDisplayed()
+            compose.onNodeWithText("星图信息").assertExists()
             compose.waitUntil(5_000) { gpsState().contains("com.system.location.service") }
             assertFalse(ScenarioRuntime.state.value.isActive)
             // Signal acquisition depends on the physical environment; record the actual sky.

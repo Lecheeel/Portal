@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -84,6 +85,7 @@ import kotlinx.coroutines.launch
  * hosted through AndroidView; all surrounding content and controls are Compose.
  */
 class GnssComposeFragment : Fragment() {
+    private val replayModel by activityViewModels<com.system.location.service.ui.viewmodel.QuickReplayViewModel>()
     private val model by viewModels<GnssViewModel>()
     private val captureModel by viewModels<com.system.location.service.ui.viewmodel.GnssCaptureViewModel>()
     private val skyPreviewModel by viewModels<com.system.location.service.ui.viewmodel.GnssSkyPreviewViewModel>()
@@ -95,7 +97,7 @@ class GnssComposeFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             PortalTheme {
-                GnssScreen(model, captureModel, skyPreviewModel)
+                GnssScreen(model, captureModel, skyPreviewModel, replayModel)
             }
         }
     }
@@ -103,17 +105,22 @@ class GnssComposeFragment : Fragment() {
 
 @Composable
 private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.service.ui.viewmodel.GnssCaptureViewModel,
-    skyPreviewModel: com.system.location.service.ui.viewmodel.GnssSkyPreviewViewModel) {
+    skyPreviewModel: com.system.location.service.ui.viewmodel.GnssSkyPreviewViewModel,
+    replayModel: com.system.location.service.ui.viewmodel.QuickReplayViewModel) {
     val context = LocalContext.current
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val locationManager = remember(context) { context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager }
     var satellites by remember { mutableStateOf<List<SatelliteData>>(emptyList()) }
-    var observationMessage by remember { mutableStateOf("正在等待卫星信号，请尽量靠近窗边或移至室外") }
+    var observationMessage by remember { mutableStateOf("等待卫星信号，可移至室外重试") }
     var permissionRevision by remember { mutableIntStateOf(0) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         permissionRevision++
     }
     val control by model.state.collectAsStateWithLifecycle()
+    val replay by replayModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(replay.busy, runtime.backend, runtime.phase) {
+        if (!replay.busy) model.refresh()
+    }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateFlow.collectAsState()
     val hookReady = runtime.backend != BackendType.MOCK_PROVIDER && runtime.isActive
@@ -131,7 +138,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                 var listening = true
                 val callback = object : GnssStatus.Callback() {
                     override fun onStarted() {
-                        if (listening) observationMessage = "正在等待卫星信号，请尽量靠近窗边或移至室外"
+                        if (listening) observationMessage = "等待卫星信号，可移至室外重试"
                     }
                     override fun onStopped() {
                         if (listening) {
@@ -174,7 +181,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                         if (listening) { satellites = emptyList(); observationMessage = "系统定位已关闭，请开启后查看真实卫星" }
                     }
                     override fun onProviderEnabled(provider: String) {
-                        if (listening) observationMessage = "正在等待卫星信号，请尽量靠近窗边或移至室外"
+                        if (listening) observationMessage = "等待卫星信号，可移至室外重试"
                     }
                 }
                 if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -185,7 +192,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                             // only while this tab is resumed and no simulated scene is running.
                             check(manager.allProviders.contains(LocationManager.GPS_PROVIDER)) { "此设备不支持 GPS 卫星观测" }
                             observationMessage = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
-                                "正在等待卫星信号，请尽量靠近窗边或移至室外" else "系统定位已关闭，请开启后查看真实卫星"
+                                "等待卫星信号，可移至室外重试" else "系统定位已关闭，请开启后查看真实卫星"
                             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1_000L, 0f,
                                 context.mainExecutor, locationListener)
                         }
@@ -238,14 +245,15 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
             contentPadding = PaddingValues(PortalSpacing.xl, PortalSpacing.xl, PortalSpacing.xl, 40.dp),
             verticalArrangement = Arrangement.spacedBy(PortalSpacing.lg),
         ) {
+            item(key = "quick-replay") {
+                com.system.location.service.ui.mock.QuickReplayCard(replayModel, environment = false)
+            }
             item(key = "sky") {
                 PortalCard(modifier = Modifier.animateContentSize()) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(painterResource(R.drawable.baseline_satellite_alt_24), null, tint = MaterialTheme.colorScheme.primary)
                         PortalSectionTitle("星图信息")
                     }
-                    Text(if (control.running) "GNSS 模拟输出" else if (runtime.isActive) "当前场景的系统卫星状态" else "真实卫星 · 实时观测",
-                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     AndroidView(
                         factory = { SatelliteRadarView(it, null) },
                         update = { it.setSatellites(satellites); it.setActive(lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) },

@@ -35,8 +35,8 @@ internal fun GnssCaptureCard(model: GnssCaptureViewModel, simulationActive: Bool
     }
     PortalCard {
         Column(verticalArrangement = Arrangement.spacedBy(PortalSpacing.sm)) {
-            PortalSectionTitle("真实卫星采集")
-            Text("可选：停止模拟后，在开阔室外采集 60 秒，记录本机的卫星、星座和信号分布，供实测回放及自动模式的信号校准参考。自动和自主模式不依赖采集。数据仅保存在本机。",
+            PortalSectionTitle("卫星采集")
+            Text("停止模拟后，在室外采集 60 秒。记录保存在本机，可在上方选择回放。",
                 style = MaterialTheme.typography.bodySmall)
             state.profile?.let { profile ->
                 Text("${profile.deviceModel} · ${profile.frameCount} 帧 · ${profile.totalSatelliteSamples} 个卫星样本",

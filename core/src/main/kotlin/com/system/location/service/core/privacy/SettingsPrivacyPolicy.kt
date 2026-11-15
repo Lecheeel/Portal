@@ -6,16 +6,11 @@ object SettingsPrivacyPolicy {
     const val HIDDEN_VALUE = "0"
 
     val secureKeys = setOf("mock_location", "allow_mock_location")
-    val globalKeys = setOf("development_settings_enabled", "adb_enabled")
 
-    fun isRestricted(command: String, key: String): Boolean = when {
-        command.equals("GET_secure", ignoreCase = true) -> key in secureKeys
-        command.equals("GET_global", ignoreCase = true) -> key in globalKeys
-        command.equals("GET_system", ignoreCase = true) -> key in globalKeys
-        else -> false
-    }
+    fun isRestricted(command: String, key: String): Boolean =
+        command.equals("GET_secure", ignoreCase = true) && key in secureKeys
 
-    fun isQueryKey(key: String?): Boolean = key != null && (key in secureKeys || key in globalKeys)
+    fun isQueryKey(key: String?): Boolean = key != null && key in secureKeys
 
     fun shouldHide(callerUid: Int): Boolean = callerUid >= FIRST_APP_UID
 }

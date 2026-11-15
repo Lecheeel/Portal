@@ -16,9 +16,10 @@ import com.system.location.service.core.privacy.SettingsPrivacyPolicy
  * Hides the two Settings keys that reveal a mock-location setup (P1-03):
  *
  * - `Settings.Secure.mock_location` / legacy `allow_mock_location`
- * - `Settings.Global.development_settings_enabled`
  *
- * The hook only changes answers for third-party callers (uid >= 10000). System/Settings UI
+ * Developer-options and adb keys are intentionally not rewritten: they are not caused by mock
+ * location, and a false answer is cross-checkable against build properties and device policy.
+ * The hook only changes answers for third-party callers (uid >= 10000); System/Settings UI
  * callers keep the real values, so developer options and the mock-location app picker still work.
  * `SettingsProvider.call` is the path used by `Settings.Secure.getString`; the `query` path is
  * handled as a fallback for clients that read the provider directly.

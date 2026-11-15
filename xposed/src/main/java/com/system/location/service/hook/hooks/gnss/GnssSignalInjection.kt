@@ -1,5 +1,6 @@
 package com.system.location.service.hook.hooks.gnss
 
+import android.location.GnssMeasurementsEvent
 import android.os.IInterface
 import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.core.gnss.PublishedGnssFrame
@@ -16,6 +17,8 @@ import com.system.location.service.hook.utils.ProviderView
 /** The only producer of simulated GNSS callbacks, using the selected autonomous or replay source. */
 object GnssSignalInjection {
     private val failures = LogRateLimiter()
+    private val rawReadyListeners = java.util.Collections.newSetFromMap(
+        java.util.concurrent.ConcurrentHashMap<android.os.IBinder, Boolean>())
     private val worker = DeliveryWorker("GnssSignalInjection", { 1000 },
         tick = ::tick, failure = { error -> report("worker", error) })
 
@@ -32,6 +35,8 @@ object GnssSignalInjection {
         GnssListenerRouting.clear()
         NmeaListenerRouting.clear()
         RawGnssCallbacks.clear()
+        RawGnssSyntheticDelivery.clear()
+        rawReadyListeners.clear()
         return true
     }
 
@@ -59,6 +64,7 @@ object GnssSignalInjection {
                 }
             }
         }
+        deliverRawMeasurements(context, frames, initial)
         if (!policy.nmeaEnabled) return
         NmeaListenerRouting.listeners().forEach { listener ->
             deliver(listener) {
@@ -77,6 +83,33 @@ object GnssSignalInjection {
                     // Android OnNmeaMessageListener timestamps are UTC milliseconds, not elapsed nanos.
                     HookRuntime.invokeOriginalMethod(method, listener,
                         arrayOf(publication.frame.generatedAtMillis, sentences[index]))
+                }
+            }
+        }
+    }
+
+    private fun deliverRawMeasurements(
+        context: com.system.location.service.hook.utils.ProviderReadContext,
+        frames: ReceiverTickFrames,
+        initial: RuntimeSnapshotObservation,
+    ) {
+        RawGnssCallbacks.listeners().forEach { listener ->
+            val method = listener.javaClass.methods.firstOrNull {
+                it.name == "onGnssMeasurementsReceived" &&
+                    it.parameterTypes.toList() == listOf(GnssMeasurementsEvent::class.java)
+            } ?: return@forEach
+            deliver(listener) {
+                val route = RawGnssCallbacks.routeFor(listener, context.state.routing) ?: return@deliver
+                val publication = frames.forRoute(route) ?: return@deliver
+                if (rawReadyListeners.add(listener.asBinder())) reportRawGnssReady(listener)
+                val event = RawGnssSyntheticDelivery.event(route, publication, context) ?: return@deliver
+                val key = "${publication.sequence}:${publication.frame.generatedAtMillis}:" +
+                    event.clock.timeNanos
+                RawGnssCallbacks.deliverMeasurements(listener, key) {
+                    if (!receiverDeliveryAllowed(context.state, initial.simulationGeneration,
+                            FakeLoc.runtimeSnapshots.observation())) return@deliverMeasurements false
+                    HookRuntime.invokeOriginalMethod(method, listener, arrayOf(event))
+                    true
                 }
             }
         }

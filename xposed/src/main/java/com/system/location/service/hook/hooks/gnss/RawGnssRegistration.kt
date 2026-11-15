@@ -2,6 +2,8 @@ package com.system.location.service.hook.hooks.gnss
 
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
+import com.system.location.service.core.gnss.RawGnssSynthesis
+import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.LocationCallerGuard
 
@@ -15,7 +17,19 @@ internal fun rawGnssRegistrationHook(
         !blocked(chain.args)) return@Hooker RawGnssCallbacks.proceed(chain)
     // Let a caller without location permission observe the framework's SecurityException.
     if (!LocationCallerGuard.canReadLocation()) return@Hooker RawGnssCallbacks.proceed(chain)
-    rejectRawGnssRegistration(method, chain.args.filterIsInstance<android.os.IInterface>().firstOrNull())
+    val listener = chain.args.filterIsInstance<android.os.IInterface>().firstOrNull()
+    val syntheticMeasures = method.name.contains("Measurements") &&
+        GnssReceiverRuntime.protectionContext()?.let {
+            RawGnssSynthesis.canSynthesize(it.state.configuration, System.currentTimeMillis())
+        } == true
+    if (syntheticMeasures) {
+        // Keep the framework registration and callback installation so the app observes a normal
+        // reader, then replace its payload with the same-frame synthetic observations.
+        val result = RawGnssCallbacks.proceed(chain)
+        if (RawGnssCallbacks.contains(listener)) reportRawGnssReady(listener)
+        return@Hooker result
+    }
+    rejectRawGnssRegistration(method, listener)
 }
 
 internal fun rejectRawGnssRegistration(method: Method, listener: Any?): Any? {
@@ -40,12 +54,22 @@ internal fun rawGnssPayloadProtectionApplies(simulationEnabled: Boolean, protect
     simulationEnabled && protectedRoute
 
 /** Report unsupported because a rejected registration cannot provide measurement callbacks. */
-internal fun reportRawGnssUnsupported(listener: Any?) {
+internal fun reportRawGnssUnsupported(listener: Any?) = reportRawGnssStatus(listener, RAW_GNSS_STATUS_NOT_SUPPORTED)
+
+/** The synthetic observation producer owns the payload, so the reader can report READY. */
+internal fun reportRawGnssReady(listener: Any?) = reportRawGnssStatus(listener, RAW_GNSS_STATUS_READY)
+
+private fun reportRawGnssStatus(listener: Any?, code: Int) {
     val callback = listener ?: return
     val status = callback.javaClass.methods.firstOrNull { method ->
         method.name == "onStatusChanged" && method.parameterTypes.toList() == listOf(Int::class.javaPrimitiveType)
     } ?: return
-    runCatching { status.invoke(callback, RAW_GNSS_STATUS_NOT_SUPPORTED) }
+    // The callback proxy's onStatusChanged is itself guarded by rawGnssCallbackHook (which
+    // suppresses real framework payloads). Invoke the original transport directly so a synthetic
+    // READY is not rewritten to NOT_SUPPORTED by that guard.
+    runCatching { HookRuntime.invokeOriginalMethod(status, callback, arrayOf(code)) }
+        .recoverCatching { status.invoke(callback, code) }
 }
 
 private const val RAW_GNSS_STATUS_NOT_SUPPORTED = 0
+private const val RAW_GNSS_STATUS_READY = 1

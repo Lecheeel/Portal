@@ -80,6 +80,20 @@ internal object RawGnssCallbacks {
         return rawGnssPayloadProtectionApplies(context.state.configuration.enabled, protectedRoute = true)
     }
 
+    fun listeners(): List<IInterface> = registry.listeners()
+
+    fun routeFor(listener: Any?, routing: com.system.location.service.core.routing.RoutingConfig?):
+        com.system.location.service.core.gnss.GnssFrameRoute? = registry.routeFor(listener, routing)
+
+    fun contains(listener: Any?): Boolean {
+        val binder = (listener as? IInterface)?.asBinder() ?: return false
+        return registry.listeners().any { it.asBinder() == binder }
+    }
+
+    /** Synthetic delivery bypasses the framework callback hook via invokeOriginalMethod. */
+    fun deliverMeasurements(listener: IInterface, key: String, action: () -> Boolean) =
+        registry.deliverOnce(listener, key, action)
+
     fun clear() = registry.clear()
     internal fun subscriptions() = registry.subscriptions()
     internal fun restore(subscription: com.system.location.service.hook.runtime.CallbackSubscription): Boolean =

@@ -84,7 +84,7 @@ import java.nio.charset.CodingErrorAction
  *
  * SAF launchers stay in the Fragment and Compose owns presentation/state.
  */
-class EnvironmentComposeFragment : Fragment() {
+open class EnvironmentComposeFragment : Fragment() {
     private val library = MutableStateFlow(EnvironmentLibraryState())
     private var libraryJob: Job? = null
     private var captureJob: Job? = null

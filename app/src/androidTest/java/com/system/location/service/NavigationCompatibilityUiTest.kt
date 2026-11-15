@@ -17,6 +17,32 @@ import org.junit.runner.RunWith
 class NavigationCompatibilityUiTest {
     @get:Rule val compose = createEmptyComposeRule()
 
+    @Test fun savedLocationFragmentRestoresAsTheEnvironmentTab() {
+        acceptSelectedMapForUiTest()
+        grantUiPermissions()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.openPage(scenario, R.id.nav_mock)
+            scenario.onActivity { activity ->
+                val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                val tabs = host.childFragmentManager.primaryNavigationFragment!!.childFragmentManager
+                val current = tabs.findFragmentByTag("simulation_location_compose")!!
+                val legacy = tabs.fragmentFactory.instantiate(activity.classLoader,
+                    "com.system.location.service.ui.mock.MockComposeFragment")
+                tabs.beginTransaction().remove(current)
+                    .add(R.id.simulation_compose_content, legacy, "simulation_location_compose")
+                    .setPrimaryNavigationFragment(legacy).commitNow()
+            }
+            scenario.recreate()
+            compose.onNodeWithText("环境").assertIsSelected()
+            compose.onNodeWithText("手动新建").assertIsDisplayed()
+            scenario.onActivity { activity ->
+                val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                val tabs = host.childFragmentManager.primaryNavigationFragment!!.childFragmentManager
+                assertEquals(1, tabs.fragments.count { it is com.system.location.service.ui.environment.EnvironmentComposeFragment })
+            }
+        }
+    }
+
     @Test fun explicitLinksKeepLegacySatelliteAndSettingsDestinations() {
         acceptSelectedMapForUiTest()
         grantUiPermissions()

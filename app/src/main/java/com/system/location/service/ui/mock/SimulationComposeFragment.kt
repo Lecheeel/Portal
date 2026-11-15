@@ -123,7 +123,8 @@ class SimulationComposeFragment : Fragment() {
     companion object {
         const val INITIAL_TAB = "initialTab"
         private const val KEY_SELECTED = "selectedSimulationTab"
-        private const val TAG_ENVIRONMENT = "simulation_environment_compose"
+        // Keep the saved fragment tag so an existing Android task restores into the new tab.
+        private const val TAG_ENVIRONMENT = "simulation_location_compose"
         private const val TAG_SATELLITE = "simulation_satellite_compose"
     }
 }

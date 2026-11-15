@@ -152,7 +152,13 @@ internal object RawGnssCallbacks {
     }
 }
 
-private val RAW_PAYLOADS = setOf("onGnssMeasurementsReceived", "onGnssNavigationMessageReceived", "onGnssAntennaInfoReceived")
+private val RAW_PAYLOADS = setOf(
+    "onGnssMeasurementsReceived",
+    "onGnssNavigationMessageReceived",
+    "onGnssAntennaInfoReceived",
+    // Binder-side IGnssAntennaInfoListener name; the app-side callback uses the older name above.
+    "onGnssAntennaInfoChanged",
+)
 private val RAW_CALLBACKS = RAW_PAYLOADS + "onStatusChanged"
 
 internal fun rawGnssCallbackMethods(type: Class<*>): List<Method> {

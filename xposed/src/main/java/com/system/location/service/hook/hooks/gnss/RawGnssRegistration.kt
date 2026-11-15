@@ -53,7 +53,9 @@ private fun handleRawGnssRegistration(
         // registry: the app-visible API still succeeds, while the producer owns every payload.
         val result = RawGnssCallbacks.registerSynthetic(chain)
         if (RawGnssCallbacks.contains(listener)) {
-            reportRawGnssReady(listener)
+            // READY is emitted by the producer only after the first real batch is constructed;
+            // reporting it here would claim a working reader before any payload exists and would
+            // make AOSP's one-shot status contract observable as two READY callbacks.
             runCatching { GnssSignalInjection.ensureStarted() }
         }
         return result

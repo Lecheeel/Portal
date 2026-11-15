@@ -102,8 +102,8 @@ object GnssSignalInjection {
             deliver(listener) {
                 val route = RawGnssCallbacks.routeFor(listener, context.state.routing) ?: return@deliver
                 val publication = frames.forRoute(route) ?: return@deliver
-                if (rawReadyListeners.add(listener.asBinder())) reportRawGnssReady(listener)
                 val event = RawGnssSyntheticDelivery.event(route, publication, context) ?: return@deliver
+                if (rawReadyListeners.add(listener.asBinder())) reportRawGnssReady(listener)
                 val key = "${publication.sequence}:${publication.frame.generatedAtMillis}:" +
                     event.clock.timeNanos
                 RawGnssCallbacks.deliverMeasurements(listener, key) {

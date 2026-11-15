@@ -25,6 +25,7 @@ import kotlin.math.hypot
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -77,8 +78,8 @@ class RawGnssDeliveryDeviceTest {
             })
             assertTrue(measurements.all { it.svid in 1..32 && it.receivedSvTimeNanos > 0 })
             assertTrue(measurements.all { it.cn0DbHz in 0.0..63.0 })
-            assertEquals("Synthetic registration must report READY",
-                GnssMeasurementsEvent.Callback.STATUS_READY, statuses.poll(2, TimeUnit.SECONDS))
+            assertNull("Synthetic READY must be emitted only once",
+                statuses.poll(1, TimeUnit.SECONDS))
             val statusAt = SystemClock.elapsedRealtimeNanos()
             assertTrue(clock.elapsedRealtimeNanos <= statusAt + 1_000_000_000L)
 

@@ -8,6 +8,7 @@ import com.system.location.service.core.gnss.GpsL1RawMeasurementSynthesizer
 import com.system.location.service.core.gnss.GpsL1ReceiverState
 import com.system.location.service.core.gnss.GpsL1SignalQuality
 import com.system.location.service.core.gnss.GpsLnavEphemeris
+import com.system.location.service.core.gnss.GpsTime
 import com.system.location.service.core.gnss.PublishedGnssFrame
 import com.system.location.service.core.gnss.RawGnssSynthesis
 import com.system.location.service.hook.utils.Logger
@@ -25,6 +26,11 @@ internal object RawGnssSyntheticDelivery {
     ) {
         @Volatile var receiver: GpsL1ReceiverState? = null
         @Volatile var quality: Map<Int, GpsL1SignalQuality> = emptyMap()
+        /** Continuous receiver-time anchor: UTC is used once, elapsed nanoseconds thereafter. */
+        var gpsAnchor: GpsTime? = null
+        var elapsedAnchorNanos: Long? = null
+        var lastElapsedNanos: Long? = null
+        var discontinuityCount: Int = 0
     }
 
     private val tracks = LinkedHashMap<GnssFrameRoute, Track>()
@@ -40,7 +46,6 @@ internal object RawGnssSyntheticDelivery {
         // A static scenario can reuse one sky publication for many ticks; raw epochs still have
         // to advance with the receiver clock or every ADR/measurement batch is rejected as stale.
         val nowMillis = System.currentTimeMillis()
-        val time = RawGnssSynthesis.gpsTime(nowMillis) ?: return null
         val gpsSats = frame.satellites
             .filter { it.constellation == Constellation.GPS }
             .associateBy { it.svid }
@@ -88,11 +93,40 @@ internal object RawGnssSyntheticDelivery {
                 accumulatedDeltaRangeUncertaintyMeters = 0.03,
             )
         }
+        // Use UTC only for the initial anchor. Every later epoch is extrapolated from the
+        // monotonic elapsed clock, keeping sub-millisecond receiver time continuous even when a
+        // static sky frame is reused or wall time is quantized to milliseconds.
+        val clock = synchronized(lock) {
+            val previousElapsed = track.lastElapsedNanos
+            if (previousElapsed != null &&
+                (elapsedRealtimeNanos < previousElapsed ||
+                    elapsedRealtimeNanos - previousElapsed > 2_000_000_000L)
+            ) {
+                track.discontinuityCount++
+                track.gpsAnchor = null
+                track.elapsedAnchorNanos = null
+            }
+            track.lastElapsedNanos = elapsedRealtimeNanos
+            val time = track.gpsAnchor?.let { anchor ->
+                val anchorElapsed = track.elapsedAnchorNanos ?: elapsedRealtimeNanos
+                anchor.plusSeconds(
+                    (elapsedRealtimeNanos - anchorElapsed).coerceAtLeast(0L) / 1_000_000_000.0,
+                )
+            } ?: RawGnssSynthesis.gpsTime(nowMillis)?.also {
+                track.gpsAnchor = it
+                track.elapsedAnchorNanos = elapsedRealtimeNanos
+            }
+            time?.let { it to track.discontinuityCount }
+        } ?: run {
+            Logger.warn("Synthetic raw unavailable: UTC/GPS time scale has no valid epoch")
+            return null
+        }
+        val time = clock.first
         val batch = track.synthesizer.synthesize(
             receptionTime = time,
             elapsedRealtimeNanos = elapsedRealtimeNanos,
             capturedAtMillis = nowMillis,
-            hardwareClockDiscontinuityCount = 0,
+            hardwareClockDiscontinuityCount = clock.second,
         ) ?: run {
             Logger.warn("Synthetic raw unavailable: ${track.synthesizer.lastFailure ?: "synthesizer returned null"}")
             return null

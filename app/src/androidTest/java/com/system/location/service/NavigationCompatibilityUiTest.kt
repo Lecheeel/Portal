@@ -17,6 +17,18 @@ import org.junit.runner.RunWith
 class NavigationCompatibilityUiTest {
     @get:Rule val compose = createEmptyComposeRule()
 
+    @Test fun drawerNamesEnvironmentAndSatelliteSection() {
+        acceptSelectedMapForUiTest()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val sectionTitles = (0 until activity.binding.navView.menu.size())
+                    .map { activity.binding.navView.menu.getItem(it).title.toString() }
+                assertTrue(sectionTitles.contains("环境/卫星"))
+                assertFalse(sectionTitles.contains("模拟"))
+            }
+        }
+    }
+
     @Test fun savedLocationFragmentRestoresAsTheEnvironmentTab() {
         acceptSelectedMapForUiTest()
         grantUiPermissions()

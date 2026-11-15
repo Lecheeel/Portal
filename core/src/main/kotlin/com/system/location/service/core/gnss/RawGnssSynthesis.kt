@@ -13,9 +13,10 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object RawGnssSynthesis {
     const val MIN_MEASUREMENTS = GpsL1RawMeasurementSynthesizer.MIN_MEASUREMENTS
-    // GPS almanac orbits are approximate by definition; keep the synthetic model usable for a
-    // month instead of making raw availability expire a week after the bundled epoch.
-    private const val ALMANAC_VALIDITY_SECONDS = 30 * 86400.0
+    // GPS almanac orbits are approximate by definition. Keep the synthetic model usable for a
+    // year so offline installs do not silently lose raw support shortly after the bundle epoch;
+    // uploaded RINEX remains the preferred source whenever it covers the requested time.
+    private const val ALMANAC_VALIDITY_SECONDS = 365 * 86400.0
     private val rinexCache = ConcurrentHashMap<String, List<GpsLnavEphemeris>>()
     private val almanacCache = ConcurrentHashMap<String, List<GpsLnavEphemeris>>()
 

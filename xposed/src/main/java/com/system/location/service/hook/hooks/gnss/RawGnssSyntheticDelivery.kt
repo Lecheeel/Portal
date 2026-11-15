@@ -26,14 +26,19 @@ internal object RawGnssSyntheticDelivery {
     ) {
         @Volatile var receiver: GpsL1ReceiverState? = null
         @Volatile var quality: Map<Int, GpsL1SignalQuality> = emptyMap()
-        /** Continuous receiver-time anchor: UTC is used once, elapsed nanoseconds thereafter. */
+    }
+
+    /** Receiver clock state survives a track/ephemeris rebuild for the same route. */
+    private class ClockState {
         var gpsAnchor: GpsTime? = null
         var elapsedAnchorNanos: Long? = null
         var lastElapsedNanos: Long? = null
+        var lastGpsTime: GpsTime? = null
         var discontinuityCount: Int = 0
     }
 
     private val tracks = LinkedHashMap<GnssFrameRoute, Track>()
+    private val clocks = HashMap<GnssFrameRoute, ClockState>()
     private val lock = Any()
 
     fun event(
@@ -64,13 +69,20 @@ internal object RawGnssSyntheticDelivery {
 
         val track = synchronized(lock) {
             val current = tracks[route]
+            val clockState = clocks.getOrPut(route) { ClockState() }
             if (current != null && current.ephemerides == available) current
-            else Track(available, GpsL1RawMeasurementSynthesizer(
-                available,
-                receiverAt = { currentTrack(route)?.receiver },
-                qualityAt = { ephemeris, _ -> currentTrack(route)?.quality?.get(ephemeris.svid) },
-            )).also { tracks[route] = it }
+            else {
+                // A new ephemeris track resets ADR phase; signal that discontinuity instead of
+                // letting the counter fall back to zero on the next route/lookup.
+                if (current != null) clockState.discontinuityCount++
+                Track(available, GpsL1RawMeasurementSynthesizer(
+                    available,
+                    receiverAt = { currentTrack(route)?.receiver },
+                    qualityAt = { ephemeris, _ -> currentTrack(route)?.quality?.get(ephemeris.svid) },
+                )).also { tracks[route] = it }
+            }
         }
+        val clockState = synchronized(lock) { clocks.getOrPut(route) { ClockState() } }
         val clockBias = 1.5e-4
         track.receiver = GpsL1ReceiverState(
             observer = frame.observer,
@@ -95,28 +107,34 @@ internal object RawGnssSyntheticDelivery {
         }
         // Use UTC only for the initial anchor. Every later epoch is extrapolated from the
         // monotonic elapsed clock, keeping sub-millisecond receiver time continuous even when a
-        // static sky frame is reused or wall time is quantized to milliseconds.
+        // static sky frame is reused, a track is rebuilt, or wall time is quantized to ms.
         val clock = synchronized(lock) {
-            val previousElapsed = track.lastElapsedNanos
-            if (previousElapsed != null &&
-                (elapsedRealtimeNanos < previousElapsed ||
-                    elapsedRealtimeNanos - previousElapsed > 2_000_000_000L)
-            ) {
-                track.discontinuityCount++
-                track.gpsAnchor = null
-                track.elapsedAnchorNanos = null
+            val previousElapsed = clockState.lastElapsedNanos
+            val wentBackwards = previousElapsed != null && elapsedRealtimeNanos < previousElapsed
+            if (previousElapsed != null && elapsedRealtimeNanos - previousElapsed > 2_000_000_000L) {
+                clockState.discontinuityCount++
             }
-            track.lastElapsedNanos = elapsedRealtimeNanos
-            val time = track.gpsAnchor?.let { anchor ->
-                val anchorElapsed = track.elapsedAnchorNanos ?: elapsedRealtimeNanos
-                anchor.plusSeconds(
-                    (elapsedRealtimeNanos - anchorElapsed).coerceAtLeast(0L) / 1_000_000_000.0,
-                )
+            if (wentBackwards) {
+                clockState.discontinuityCount++
+                clockState.gpsAnchor = clockState.lastGpsTime ?: clockState.gpsAnchor
+                clockState.elapsedAnchorNanos = elapsedRealtimeNanos
+            }
+            clockState.lastElapsedNanos = elapsedRealtimeNanos
+            val time = if (wentBackwards) {
+                clockState.lastGpsTime
+            } else {
+                clockState.gpsAnchor?.let { anchor ->
+                    val anchorElapsed = clockState.elapsedAnchorNanos ?: elapsedRealtimeNanos
+                    anchor.plusSeconds(
+                        (elapsedRealtimeNanos - anchorElapsed).coerceAtLeast(0L) / 1_000_000_000.0,
+                    )
+                }
             } ?: RawGnssSynthesis.gpsTime(nowMillis)?.also {
-                track.gpsAnchor = it
-                track.elapsedAnchorNanos = elapsedRealtimeNanos
+                clockState.gpsAnchor = it
+                clockState.elapsedAnchorNanos = elapsedRealtimeNanos
             }
-            time?.let { it to track.discontinuityCount }
+            clockState.lastGpsTime = time
+            time?.let { it to clockState.discontinuityCount }
         } ?: run {
             Logger.warn("Synthetic raw unavailable: UTC/GPS time scale has no valid epoch")
             return null
@@ -136,7 +154,10 @@ internal object RawGnssSyntheticDelivery {
         }
     }
 
-    fun clear() = synchronized(lock) { tracks.clear() }
+    fun clear() = synchronized(lock) {
+        tracks.clear()
+        clocks.clear()
+    }
 
     private fun currentTrack(route: GnssFrameRoute): Track? = synchronized(lock) { tracks[route] }
 }

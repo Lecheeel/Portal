@@ -32,7 +32,7 @@ internal object RawGnssCallbacks {
                 // The app asked to remove this transport. Always drop our routing record even
                 // when a synthetic-only registration never reached the framework and its remove
                 // returns false.
-                registry.unregister(listener)
+                unregister(listener)
                 result
             } else {
                 val existed = registry.listeners().any { it.asBinder() == binder }
@@ -49,17 +49,17 @@ internal object RawGnssCallbacks {
                 }
                 try {
                     val result = chain.proceed()
-                    if (result == false && !existed) registry.unregister(listener)
+                    if (result == false && !existed) unregister(listener)
                     result
                 } catch (failure: UnsupportedOperationException) {
                     // The framework itself may report an unsupported raw surface. Report the API's
                     // unsupported status instead of propagating an exception into the caller.
                     val method = chain.executable as? Method ?: return@synchronized null
                     if (existed) return@synchronized rawGnssRegistrationResult(method, accepted = true)
-                    registry.unregister(listener)
+                    unregister(listener)
                     rejectRawGnssRegistration(method, listener)
                 } catch (failure: Throwable) {
-                    if (!existed) registry.unregister(listener)
+                    if (!existed) unregister(listener)
                     throw failure
                 }
             }
@@ -101,7 +101,7 @@ internal object RawGnssCallbacks {
     ): Any? {
         val method = chain.executable as? Method ?: return null
         if (existed) return rawGnssRegistrationResult(method, accepted = true)
-        registry.unregister(listener)
+        unregister(listener)
         return rejectRawGnssRegistration(method, listener)
     }
 
@@ -119,6 +119,12 @@ internal object RawGnssCallbacks {
     fun contains(listener: Any?): Boolean {
         val binder = (listener as? IInterface)?.asBinder() ?: return false
         return registry.listeners().any { it.asBinder() == binder }
+    }
+
+    /** Remove routing and producer-side one-shot state; a later re-register gets READY again. */
+    fun unregister(listener: IInterface) {
+        registry.unregister(listener)
+        GnssSignalInjection.forgetRawListener(listener)
     }
 
     /** Synthetic delivery bypasses the framework callback hook via invokeOriginalMethod. */

@@ -29,6 +29,13 @@ object GnssSignalInjection {
 
     fun ensureStarted() = worker.start()
 
+    internal fun forgetRawListener(listener: IInterface) {
+        val binder = listener.asBinder()
+        rawReadyListeners.remove(binder)
+        firstFixListeners.remove(binder)
+        startedListeners.remove(binder)
+    }
+
     /** New provider samples wake the producer; exact frame keys still limit each epoch to once. */
     fun onSamplePublished() = worker.requestTick()
 

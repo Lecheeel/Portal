@@ -153,6 +153,23 @@ class ScenarioControllerTest {
         assertEquals(1, backend.calls.count { it == "stop" })
     }
 
+    @Test fun oneShotRouteCanHoldStartUntilExplicitStop() = runBlocking {
+        val clock = Clock()
+        val backend = Backend()
+        val c = ScenarioController({ backend }, clock)
+        assertTrue(c.start(scenario, routeEndPosition = RouteEndPosition.START))
+
+        clock.time = 1_000_000
+        assertTrue(c.tick())
+
+        assertEquals(RuntimePhase.HOLDING, c.state.value.phase)
+        assertEquals(RouteEndPosition.START, c.state.value.holdingPosition)
+        assertEquals(scenario.route!!.points.first(), backend.publishedSamples.last().coordinate)
+        assertEquals(scenario.route!!.points.first(), c.state.value.sample!!.coordinate)
+        assertEquals(0f, c.state.value.sample!!.speed)
+        assertTrue(c.stop())
+    }
+
     @Test fun endpointHoldDoesNotChangeLoopingOrPingPongRoutes() = runBlocking {
         for (mode in listOf(RouteMode.LOOP, RouteMode.PING_PONG)) {
             val clock = Clock()

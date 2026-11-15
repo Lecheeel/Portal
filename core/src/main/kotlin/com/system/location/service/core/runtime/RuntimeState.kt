@@ -21,6 +21,7 @@ data class RuntimeState(
     val capabilities: BackendCapabilities = emptyMap(),
     val configuredSpeedMps: Double? = null,
     val submissionHealth: SubmissionHealth = SubmissionHealth(),
+    val holdingPosition: RouteEndPosition? = null,
 ) {
     val isActive get() = phase in setOf(RuntimePhase.PREPARING, RuntimePhase.READY, RuntimePhase.RUNNING,
         RuntimePhase.PAUSED, RuntimePhase.HOLDING, RuntimePhase.STOPPING)

@@ -26,7 +26,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     private var orbitEnabled = false
     private var orbitRadiusMeters = 0.2
     private var orbitPeriodSeconds = 20.0
-    private var holdAtEndpoint = false
+    private var routeEndPosition = RouteEndPosition.REAL_LOCATION
     private var previousSubmissionNanos: Long? = null
     private var healthRecordedAt: Long? = null
     private var storageFailureReported = false
@@ -46,7 +46,8 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     }
 
     suspend fun start(input: Scenario, type: BackendType = state.value.backend,
-        holdAtEndpoint: Boolean = false): Boolean = mutex.withLock {
+        holdAtEndpoint: Boolean = false,
+        routeEndPosition: RouteEndPosition = RouteEndPosition.REAL_LOCATION): Boolean = mutex.withLock {
         // Freeze/validate before touching an already-running scenario.
         val next = try { PlaybackEngine(input) } catch (error: IllegalArgumentException) {
             event(BackendResult.Failure("VALIDATE_SCENARIO", error.message ?: "Invalid scenario"))
@@ -61,7 +62,9 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         val instance = createBackend(type) ?: return@withLock false
         backend = instance
         engine = next
-        this.holdAtEndpoint = holdAtEndpoint && next.scenario.route != null && next.scenario.mode == com.system.location.service.core.scenario.RouteMode.ONCE
+        this.routeEndPosition = if (holdAtEndpoint) RouteEndPosition.END else routeEndPosition
+            .takeIf { next.scenario.route != null && next.scenario.mode == com.system.location.service.core.scenario.RouteMode.ONCE }
+            ?: RouteEndPosition.REAL_LOCATION
         next.setOrbit(orbitEnabled, orbitRadiusMeters, orbitPeriodSeconds)
         intervalMs = next.scenario.profile.intervalMs
         previousSubmissionNanos = null
@@ -225,10 +228,21 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
             mutableState.value = state.value.copy(capabilities = backend!!.capabilities)
         }
         if (frame.completed) {
-            if (!holdAtEndpoint) return stopLocked()
-            this.holdAtEndpoint = false
-            mutableState.value = state.value.copy(phase = RuntimePhase.HOLDING)
-            record("ROUTE_COMPLETE", "SUCCESS", "路线已到终点；后端保持运行，停止模拟可清理定位通道")
+            val heldAt = routeEndPosition
+            if (heldAt == RouteEndPosition.REAL_LOCATION) return stopLocked()
+            val route = engine?.scenario?.route ?: return stopLocked()
+            val target = if (heldAt == RouteEndPosition.START) route.points.first() else route.points.last()
+            val heldSample = frame.sample.copy(coordinate = target, speed = 0f)
+            if (heldSample.coordinate != frame.sample.coordinate &&
+                !step("PUBLISH_ROUTE_END_POSITION") { backend!!.publish(heldSample, state.value.scenarioId) }) return false
+            mutableState.value = state.value.copy(
+                phase = RuntimePhase.HOLDING,
+                currentPoint = if (heldAt == RouteEndPosition.START) 0 else route.points.lastIndex,
+                progress = if (heldAt == RouteEndPosition.START) 0.0 else 1.0,
+                sample = heldSample,
+                holdingPosition = heldAt,
+            )
+            record("ROUTE_COMPLETE", "SUCCESS", "路线已结束；已停留在${if (heldAt == RouteEndPosition.START) "起点" else "终点"}，停止模拟可清理定位通道")
             return true
         }
         return true
@@ -267,7 +281,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         val failure = (released as? BackendResult.Failure) ?: (stopped as? BackendResult.Failure)
         if (released is BackendResult.Success) { backend = null; engine = null }
         mutableState.value = state.value.copy(phase = if (failure == null) RuntimePhase.STOPPED else RuntimePhase.ERROR,
-            error = failure, sample = state.value.sample?.copy(speed = 0f))
+            error = failure, sample = state.value.sample?.copy(speed = 0f), holdingPosition = null)
         failure?.let(::event)
         if (failure == null) record("CLEANUP", "SUCCESS", "后端已停止并释放资源")
         failure == null

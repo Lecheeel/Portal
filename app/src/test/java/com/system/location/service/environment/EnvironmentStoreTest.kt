@@ -35,6 +35,16 @@ class EnvironmentStoreTest {
         assertTrue(store.list().isEmpty())
     }
 
+    @Test fun oversizedSaveKeepsExistingProfileAndLeavesNoTemporaryFile() {
+        store.save("home", profile)
+        val oversized = profile.copy(wifi = listOf(profile.wifi.single().copy(
+            capabilities = "x".repeat(EnvironmentProfileCodec.MAX_PROFILE_BYTES),
+        )))
+        assertThrows(IllegalArgumentException::class.java) { store.save("home", oversized) }
+        assertEquals(profile, store.load("home"))
+        assertEquals(listOf("home.json"), directory.listFiles()!!.map { it.name })
+    }
+
     @Test fun missingDirectoryIsEmptyButAFileAtItsPathIsAnError() {
         val path = java.io.File(directory, "blocked")
         val other = EnvironmentStore(path)

@@ -40,8 +40,8 @@ class EnvironmentStore(private val directory: File) {
         ensureDirectory()
         val safe = sanitize(name)
         val file = File(directory, "$safe$EXTENSION")
-        val tmp = Files.createTempFile(directory.toPath(), "${safe.take(40)}-env-", ".tmp").toFile()
         val payload = EnvironmentProfileCodec.encode(profile).toByteArray(Charsets.UTF_8)
+        val tmp = Files.createTempFile(directory.toPath(), "${safe.take(40)}-env-", ".tmp").toFile()
         try {
             FileOutputStream(tmp).use { stream ->
                 stream.write(payload)

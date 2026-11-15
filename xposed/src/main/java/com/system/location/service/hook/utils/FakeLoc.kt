@@ -83,12 +83,6 @@ object FakeLoc {
         get() = runtimeSnapshots.current().configuration.disableGetFromLocation
         set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(disableGetFromLocation = value)) } }
 
-    /** Legacy enable_agps key now controls only real raw GNSS data access. */
-    /** Legacy persisted preference; protected simulation always suppresses physical raw payloads. */
-    var allowPhysicalRawGnss: Boolean
-        get() = runtimeSnapshots.current().configuration.allowPhysicalRawGnss
-        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(allowPhysicalRawGnss = value)) } }
-
     /**
      * 是否允许NMEA模块
      */

@@ -24,7 +24,6 @@ data class HookConfiguration(
     val disableRequestGeofence: Boolean = false,
     val disableGetFromLocation: Boolean = false,
     val downgradeToCdma: Boolean = false,
-    val allowPhysicalRawGnss: Boolean = false,
     val nmeaEnabled: Boolean = true,
     val hideMock: Boolean = true,
     /** Experimental native path rewriting; default off and only applied to explicit targets. */

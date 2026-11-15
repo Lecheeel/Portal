@@ -10,7 +10,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "app" / "src" / "main" / "AndroidManifest.xml"
 ANDROID = "{http://schemas.android.com/apk/res/android}"
-ALLOWED_EXPORTED = {"com.system.location.service.MainActivity", ".MainActivity"}
+ALLOWED_EXPORTED = {
+    "com.system.location.service.MainActivity",
+    ".MainActivity",
+    ".launcher.StandardIcon",
+    ".launcher.NeonIcon",
+}
 
 
 def component_name(node: ET.Element) -> str:
@@ -29,6 +34,10 @@ def main() -> int:
     }
     if "android.permission.QUERY_ALL_PACKAGES" in permissions:
         errors.append("QUERY_ALL_PACKAGES must not be requested; use package visibility queries")
+    # Android still filters the developer-options mock-location app list by this manifest
+    # declaration even though the permission is deprecated for runtime use (issue #9).
+    if "android.permission.ACCESS_MOCK_LOCATION" not in permissions:
+        errors.append("ACCESS_MOCK_LOCATION must stay declared for the mock-location app picker")
     for tag in ("activity", "activity-alias", "service", "receiver", "provider"):
         for node in application.findall(tag):
             name = component_name(node)

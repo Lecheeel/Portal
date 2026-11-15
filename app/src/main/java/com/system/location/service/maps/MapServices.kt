@@ -5,7 +5,6 @@ import com.amap.api.services.help.Inputtips
 import com.amap.api.services.help.InputtipsQuery
 import com.amap.api.services.geocoder.*
 import com.amap.api.services.core.LatLonPoint
-import com.system.location.service.BuildConfig
 import com.system.location.service.amap.AMapRoutePlanner
 import com.system.location.service.core.geo.Gcj02
 import com.system.location.service.core.planning.PlanRequest
@@ -81,8 +80,9 @@ class MapServices(private val context: Context, val provider: MapProvider = cont
     }
     private suspend fun get(path: String, params: Map<String, String>): JSONObject = withContext(Dispatchers.IO) {
         check(provider == MapProvider.TENCENT && com.system.location.service.privacy.TencentPrivacy.ready(context)) { "腾讯地图尚未授权" }
-        check(BuildConfig.TENCENT_MAP_KEY.isNotBlank()) { "腾讯地图 Key 未配置" }
-        val query = (params + ("key" to BuildConfig.TENCENT_MAP_KEY)).entries.joinToString("&") {
+        val key = TencentKeySettings.effectiveKey(context)
+        check(key.isNotBlank()) { "腾讯地图 Key 未配置" }
+        val query = (params + ("key" to key)).entries.joinToString("&") {
             URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
         }
         val connection = URI("https://apis.map.qq.com/ws/$path?$query").toURL().openConnection() as HttpURLConnection

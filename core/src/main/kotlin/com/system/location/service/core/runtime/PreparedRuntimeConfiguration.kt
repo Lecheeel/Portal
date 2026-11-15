@@ -49,7 +49,6 @@ class PreparedRuntimeConfiguration private constructor(
                 environment = value("gnss_environment", old.gnssSimulation.environment),
                 virtualSeed = value("gnss_virtual_seed", old.gnssSimulation.virtualSeed),
             ),
-            allowPhysicalRawGnss = value("enable_agps", old.allowPhysicalRawGnss),
             nmeaEnabled = value("enable_nmea", old.nmeaEnabled),
             hideMock = value("hide_mock", old.hideMock),
             antiDetectEnabled = value("experimental_anti_detect", old.antiDetectEnabled),

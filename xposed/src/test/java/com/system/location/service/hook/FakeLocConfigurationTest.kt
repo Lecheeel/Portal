@@ -13,12 +13,10 @@ class FakeLocConfigurationTest {
             FakeLoc.runtimeSnapshots.set(old)
             FakeLoc.enable = true
             FakeLoc.minSatellites = 27
-            FakeLoc.allowPhysicalRawGnss = true
             FakeLoc.enableNMEA = false
             val changed = FakeLoc.runtimeSnapshots.current()
             assertTrue(changed.configuration.enabled)
             assertEquals(27, changed.configuration.minimumSatellites)
-            assertTrue(changed.configuration.allowPhysicalRawGnss)
             assertFalse(changed.configuration.nmeaEnabled)
             assertEquals(31.0 to 121.0, FakeLoc.coordinatePair())
             assertFalse(old.configuration.enabled)
@@ -27,7 +25,6 @@ class FakeLocConfigurationTest {
             FakeLoc.runtimeSnapshots.set(changed.copy(configuration = HookConfiguration(minimumSatellites = 5)))
             assertFalse(FakeLoc.enable)
             assertEquals(5, FakeLoc.minSatellites)
-            assertFalse(FakeLoc.allowPhysicalRawGnss)
             assertTrue(FakeLoc.enableNMEA)
         } finally { FakeLoc.runtimeSnapshots.set(saved) }
     }

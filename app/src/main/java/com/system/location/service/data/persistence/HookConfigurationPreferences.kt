@@ -31,7 +31,6 @@ object HookConfigurationPreferences {
             "disable_register_location_listener" to flag("disableRegitserLocationListener", policy.disableRegisterLocationListener),
             "disable_fused_location" to flag("disableFusedProvider", policy.disableFusedLocation),
             "need_downgrade_to_2g" to flag("needDowngradeToCdma", policy.downgradeToCdma),
-            "enable_agps" to flag("enableAGPS", policy.allowPhysicalRawGnss),
             "enable_nmea" to flag("enableNMEA", true),
             "hide_mock" to flag("hideMock", policy.hideMock),
             "experimental_anti_detect" to flag("antiDetectEnabled", policy.antiDetectEnabled),

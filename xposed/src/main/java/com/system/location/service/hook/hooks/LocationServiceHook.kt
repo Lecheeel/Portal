@@ -84,12 +84,18 @@ internal object LocationServiceHook : BaseLocationHook() {
 
                         if (!FakeLoc.enable) return@intercept8 result
 
+                        // A hidden provider must not be a "getLastLocation returns a fix"
+                        // oracle while getAllProviders/getProviderProperties say it does not
+                        // exist. Resolve through the same ILocationManager surface the caller
+                        // used, then fail closed for names the caller cannot see.
+                        val provider = runCatching {
+                            Reflection.callMethod(args[0], "getProvider") as? String
+                        }.getOrNull() ?: LocationManager.GPS_PROVIDER
+                        if (!providerExists(chain.thisObject, provider)) return@intercept8 null
+
                         val location = result as? Location ?: run {
                             // Do not invent a fix while the platform location switch is off.
                             if (!LocationCallerGuard.isLocationEnabled()) return@intercept8 null
-                            val provider = runCatching {
-                                Reflection.callMethod(args[0], "getProvider") as? String
-                            }.getOrNull() ?: LocationManager.GPS_PROVIDER
                             Location(provider)
                         }
 
@@ -139,7 +145,9 @@ internal object LocationServiceHook : BaseLocationHook() {
                 // provider-enabled checks. Only then does synthetic delivery own the listener.
                 hookILocationListener(listener)
                 val result = chain.proceed(args)
-                if (result != false && FakeLoc.enable) addLocationListenerInner(provider, listener)
+                if (result != false && FakeLoc.enable && providerExists(chain.thisObject, provider)) {
+                    addLocationListenerInner(provider, listener)
+                }
                 result
             },
         )
@@ -187,6 +195,9 @@ internal object LocationServiceHook : BaseLocationHook() {
 
                 val suppress = FakeLoc.enable && (FakeLoc.disableRegisterLocationListener ||
                     (FakeLoc.disableFusedLocation && provider == "fused"))
+                // Unknown/hidden provider names must observe the framework's own error instead
+                // of a synthetic registration that contradicts getProviderProperties.
+                if (!providerExists(chain.thisObject, provider)) return@intercept11 chain.proceed(args)
                 if (suppress) {
                     // The explicit suppression path still has to preserve the caller's permission
                     // decision; otherwise a denied app receives updates from the hook instead.
@@ -749,6 +760,23 @@ internal object LocationServiceHook : BaseLocationHook() {
 
     private fun addLocationListenerInner(provider: String, listener: IInterface) {
         listeners.register(provider, listener)
+    }
+
+    /**
+     * Resolve provider existence through the same service surface that answers
+     * getAllProviders/getProviderProperties. A hidden provider therefore returns null from
+     * getLastLocation instead of becoming a "provider exists" oracle.
+     */
+    private fun providerExists(service: Any?, provider: String): Boolean {
+        val known = setOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.PASSIVE_PROVIDER,
+            "fused",
+        )
+        return runCatching {
+            Reflection.callMethod(service, "hasProvider", provider) as? Boolean
+        }.getOrNull() ?: (provider in known)
     }
 
     internal fun isCoarse(listener: IInterface): Boolean = listeners.isCoarse(listener)

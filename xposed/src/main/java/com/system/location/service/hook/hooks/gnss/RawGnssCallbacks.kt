@@ -20,7 +20,15 @@ internal object RawGnssCallbacks {
         // Serialize duplicate add/remove for one transport without locking callback delivery.
         return synchronized(binder) {
             if (chain.executable.name.startsWith("remove")) {
-                val result = chain.proceed()
+                val result = try {
+                    chain.proceed()
+                } catch (failure: UnsupportedOperationException) {
+                    // Removal must never turn an unsupported OEM surface into an app crash.
+                    return@synchronized rawGnssRegistrationResult(
+                        chain.executable as? Method ?: return@synchronized null,
+                        accepted = false,
+                    )
+                }
                 if (result != false) registry.unregister(listener)
                 result
             } else {
@@ -30,21 +38,40 @@ internal object RawGnssCallbacks {
                     // Hook setup can fail after installing only part of the callback surface.
                     install(listener)
                 } catch (_: Exception) {
-                    val method = chain.executable as? Method ?: return@synchronized null
-                    if (existed) return@synchronized rawGnssRegistrationResult(method, accepted = true)
-                    registry.unregister(listener)
-                    return@synchronized rejectRawGnssRegistration(method, listener)
+                    return@synchronized rejectInstallation(chain, listener, existed)
+                } catch (_: LinkageError) {
+                    // A callback method can be present but not hookable on an OEM runtime. Treat it
+                    // like a normal rejected registration instead of letting an Error reach Binder.
+                    return@synchronized rejectInstallation(chain, listener, existed)
                 }
                 try {
                     val result = chain.proceed()
                     if (result == false && !existed) registry.unregister(listener)
                     result
+                } catch (failure: UnsupportedOperationException) {
+                    // The framework itself may report an unsupported raw surface. Report the API's
+                    // unsupported status instead of propagating an exception into the caller.
+                    val method = chain.executable as? Method ?: return@synchronized null
+                    if (existed) return@synchronized rawGnssRegistrationResult(method, accepted = true)
+                    registry.unregister(listener)
+                    rejectRawGnssRegistration(method, listener)
                 } catch (failure: Throwable) {
                     if (!existed) registry.unregister(listener)
                     throw failure
                 }
             }
         }
+    }
+
+    private fun rejectInstallation(
+        chain: XposedInterface.Chain,
+        listener: IInterface,
+        existed: Boolean,
+    ): Any? {
+        val method = chain.executable as? Method ?: return null
+        if (existed) return rawGnssRegistrationResult(method, accepted = true)
+        registry.unregister(listener)
+        return rejectRawGnssRegistration(method, listener)
     }
 
     fun blocked(listener: Any?): Boolean {

@@ -46,7 +46,7 @@ class RuntimeTransferWireTest {
             environmentSourceMode = EnvironmentSourceMode.REPLAY, physicalNoise = true, physicalNoiseSeed = 123,
             simReady = false, bearingDeg = 90.0, hasBearings = true,
             configuration = HookConfiguration(enabled = true, nmeaEnabled = false, minimumSatellites = 24,
-                allowPhysicalRawGnss = true, reportIntervalMs = 200, sensorCadenceScale = 1.5, gnssSource = source()))
+                reportIntervalMs = 200, sensorCadenceScale = 1.5, gnssSource = source()))
         val restored = RuntimeTransferWire.decode(RuntimeTransferWire.encode(RuntimeTransfer(original, true, mapOf("route" to sample))))
         assertEquals(original.copy(configuration = original.configuration.copy(gnssSource = null)),
             restored.state.copy(configuration = restored.state.configuration.copy(gnssSource = null)))

@@ -236,7 +236,8 @@ class MainActivity : AppCompatActivity() {
                         destination.arguments.containsKey("category") -> R.id.nav_settings
                         destination.id == R.id.nav_gnss_mock -> R.id.nav_mock
                         destination.id == R.id.nav_route_edit -> R.id.nav_route_gallery
-                        destination.id in setOf(R.id.nav_app_selection, R.id.nav_sensor_packages, R.id.nav_point_selection) -> R.id.nav_settings
+                        destination.id in setOf(R.id.nav_app_selection, R.id.nav_sensor_packages,
+                            R.id.nav_point_selection, R.id.nav_map_keys) -> R.id.nav_settings
                         else -> destination.id
                     }
                     navView.menu.findItem(drawerDestination)?.let { navView.setCheckedItem(it) }

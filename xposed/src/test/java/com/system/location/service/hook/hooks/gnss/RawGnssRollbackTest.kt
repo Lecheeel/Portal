@@ -85,6 +85,40 @@ class RawGnssRollbackTest {
         }
     }
 
+    @Test fun callbackHookLinkageErrorIsRejectedWithoutCallingAndroid() {
+        val call = Call()
+        try {
+            assertEquals(false, RawGnssCallbacks.proceed(call.chain, install = {
+                throw NoClassDefFoundError("OEM callback surface")
+            }, callerUid = { 10001 }))
+            assertEquals(0, call.proceeds)
+            assertTrue("LinkageError leaked a raw subscription", RawGnssCallbacks.subscriptions().isEmpty())
+            assertEquals(call.links, call.unlinks)
+        } finally { RawGnssCallbacks.clear() }
+    }
+
+    @Test fun frameworkUnsupportedRegistrationBecomesApiShapedRejection() {
+        val call = Call().apply { error = UnsupportedOperationException("raw GNSS unavailable") }
+        try {
+            assertEquals(false, RawGnssCallbacks.proceed(call.chain, install = {}, callerUid = { 10001 }))
+            assertEquals(1, call.proceeds)
+            assertTrue("Framework rejection leaked a raw subscription", RawGnssCallbacks.subscriptions().isEmpty())
+            assertEquals(call.links, call.unlinks)
+        } finally { RawGnssCallbacks.clear() }
+    }
+
+    @Test fun duplicateRegistrationPreservesExistingSubscriptionWhenFrameworkIsUnsupported() {
+        val call = Call()
+        try {
+            assertTrue(RawGnssCallbacks.proceed(call.chain, install = {}, callerUid = { 10001 }) as Boolean)
+            val saved = RawGnssCallbacks.subscriptions().single()
+            call.error = UnsupportedOperationException("raw GNSS unavailable")
+            assertEquals(true, RawGnssCallbacks.proceed(call.chain, install = {}, callerUid = { 10002 }))
+            assertEquals(saved, RawGnssCallbacks.subscriptions().single())
+            assertEquals(2, call.proceeds)
+        } finally { RawGnssCallbacks.clear() }
+    }
+
     @Test fun restoreHookFailureDoesNotEscapeAndKeepsSubscriptionForInstalledGuards() {
         val call = Call()
         try {
@@ -105,6 +139,7 @@ class RawGnssRollbackTest {
         var proceeds = 0
         var result = true
         var failure: RuntimeException? = null
+        var error: Throwable? = null
         private val binder = Proxy.newProxyInstance(IBinder::class.java.classLoader,
             arrayOf(IBinder::class.java)) { proxy, method, args -> when (method.name) {
                 "isBinderAlive" -> true
@@ -119,7 +154,11 @@ class RawGnssRollbackTest {
             arrayOf(XposedInterface.Chain::class.java)) { _, method, _ -> when (method.name) {
                 "getExecutable" -> Service::class.java.getDeclaredMethod("addListener", IInterface::class.java)
                 "getArgs" -> listOf(listener, "app")
-                "proceed" -> { proceeds++; failure?.let { throw it }; result }
+                "proceed" -> {
+                    proceeds++
+                    (error ?: failure)?.let { throw it }
+                    result
+                }
                 else -> error(method.name)
             } } as XposedInterface.Chain
     }

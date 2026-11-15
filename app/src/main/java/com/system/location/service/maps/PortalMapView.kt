@@ -13,6 +13,7 @@ import com.system.location.service.privacy.TencentPrivacy
 import com.amap.api.maps.CameraUpdateFactory as ACamera
 import com.amap.api.maps.model.LatLng as APoint
 import com.tencent.tencentmap.mapsdk.maps.CameraUpdateFactory as TCamera
+import com.tencent.tencentmap.mapsdk.maps.TencentMapOptions
 import com.tencent.tencentmap.mapsdk.maps.model.LatLng as TPoint
 
 interface MapOverlay { fun remove() }
@@ -43,7 +44,11 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
             }
         } else {
             check(TencentPrivacy.ready(context)) { "请先同意腾讯地图隐私政策" }
-            tencent = com.tencent.tencentmap.mapsdk.maps.MapView(context).also { view ->
+            val options = TencentMapOptions().also { options ->
+                TencentKeySettings.effectiveKey(context).takeIf(String::isNotBlank)
+                    ?.let(options::setMapKey)
+            }
+            tencent = com.tencent.tencentmap.mapsdk.maps.MapView(context, options).also { view ->
                 addView(view, LayoutParams(-1, -1))
                 view.map.uiSettings.apply {
                     isCompassEnabled = true; isZoomControlsEnabled = false

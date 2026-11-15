@@ -41,10 +41,10 @@ class SimulationFeaturesTest {
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 compose.openPage(scenario, R.id.nav_settings_advanced)
-                compose.scrollToText("Google 融合定位（实验）").assertIsDisplayed()
-                compose.onNode(hasText("Google 融合定位（实验）") and isToggleable()).performClick()
+                compose.scrollToText("Google 融合定位").assertIsDisplayed()
+                compose.onNode(hasText("Google 融合定位") and isToggleable()).performClick()
                 assertEquals(!old, context.gmsMockEnabled)
-                compose.scrollToText("系统 Fused 通道（实验）").assertIsDisplayed()
+                compose.scrollToText("系统 Fused 通道").assertIsDisplayed()
                 compose.scrollToText("启动突发").assertIsDisplayed()
                 captureUi("settings-channels")
                 compose.openPage(scenario, R.id.nav_settings_motion)

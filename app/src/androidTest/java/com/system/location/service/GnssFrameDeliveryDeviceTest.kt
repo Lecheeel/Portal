@@ -160,7 +160,6 @@ class GnssFrameDeliveryDeviceTest {
                 putString("gnss_mode", GnssSimulationMode.REPLAY.name)
                 putBoolean("enable_nmea", true)
                 putBoolean("enable_physical_noise", false)
-                putBoolean("enable_agps", false)
                 putInt("min_satellites", 0)
                 fixedPoint?.let { point ->
                     putString("routing_json", Json.encodeToString(RoutingConfig.serializer(),
@@ -363,7 +362,6 @@ class GnssFrameDeliveryDeviceTest {
                         putString("gnss_mode", original.configuration.gnssSimulation.mode.name)
                         putBoolean("enable_nmea", original.configuration.nmeaEnabled)
                         putBoolean("enable_physical_noise", original.physicalNoise)
-                        putBoolean("enable_agps", original.configuration.allowPhysicalRawGnss)
                         putInt("min_satellites", original.configuration.minimumSatellites)
                         if (fixedPoint != null) putString("routing_json", null)
                     }

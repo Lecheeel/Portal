@@ -36,13 +36,12 @@ class HookConfigurationPreferencesTest {
 
     @Test fun legacyPreferenceKeysAndInvertedFlagsKeepTheirMeaning() {
         val wire = HookConfigurationPreferences.read(mapOf("disableRegitserLocationListener" to true,
-            "disableWifiScan" to false, "enableAGPS" to true, "enableRequestGeofence" to false,
+            "disableWifiScan" to false, "enableRequestGeofence" to false,
             "enableGetFromLocation" to true, "minSatelliteCount" to 24, "loopBroadcastLocation" to true,
             "reportDuration" to 100, "environmentApCount" to 1, "speed" to 7f), RuntimeSnapshot())
         val result = PreparedRuntimeConfiguration.prepare(wire).applyTo(RuntimeSnapshot())
         assertTrue(result.configuration.disableRegisterLocationListener)
         assertFalse(result.configuration.wifiEnabled)
-        assertTrue(result.configuration.allowPhysicalRawGnss)
         assertTrue(result.configuration.disableRequestGeofence)
         assertFalse(result.configuration.disableGetFromLocation)
         assertEquals(24, result.configuration.minimumSatellites)

@@ -38,7 +38,7 @@ class ConfigCommandTest {
             for (invalid in listOf(mapOf("gnss_capture" to 123), mapOf("min_satellites" to -1),
                 mapOf("routing_json" to "invalid"), mapOf("enable_nmea" to 0))) {
                 assertThrows(IllegalArgumentException::class.java) {
-                    ConfigCommand.publish(mapOf("enable" to false, "enable_agps" to true) + invalid)
+                    ConfigCommand.publish(mapOf("enable" to false) + invalid)
                 }
                 assertSame(initial, FakeLoc.runtimeSnapshots.current())
             }
@@ -71,14 +71,14 @@ class ConfigCommandTest {
                     val config = FakeLoc.runtimeSnapshots.current().configuration
                     assertEquals(if (config.enabled) 25 else 0, config.minimumSatellites)
                     assertEquals(!config.enabled, config.nmeaEnabled)
-                    assertEquals(config.enabled, config.allowPhysicalRawGnss)
+                    // Raw GNSS is always suppressed while protected simulation is active.
                 }
             }
             started.await(5, TimeUnit.SECONDS)
             repeat(2_000) { i ->
                 val enabled = i % 2 == 0
                 ConfigCommand.publish(mapOf("enable" to enabled, "min_satellites" to if (enabled) 25 else 0,
-                    "enable_nmea" to !enabled, "enable_agps" to enabled))
+                    "enable_nmea" to !enabled))
             }
             done.set(true)
             reader.get(10, TimeUnit.SECONDS)

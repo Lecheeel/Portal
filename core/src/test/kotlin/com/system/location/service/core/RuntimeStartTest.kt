@@ -33,12 +33,11 @@ class RuntimeStartTest {
     @Test fun omittedFieldsUseLatestStateAndRepeatedCasEvaluationHasNoSideEffects() {
         val start = RuntimeStart(Wgs84(1.0, 2.0))
         val latest = RuntimeSnapshot(configRevision = 4, speedMps = 7.0, altitudeMeters = 33.0,
-            accuracyMeters = 12f, configuration = HookConfiguration(allowPhysicalRawGnss = true))
+            accuracyMeters = 12f)
         val result = start.applyTo(latest)
         assertEquals(7.0, result.speedMps, 0.0)
         assertEquals(33.0, result.altitudeMeters, 0.0)
         assertEquals(12f, result.accuracyMeters)
-        assertTrue(result.configuration.allowPhysicalRawGnss)
         assertEquals(result, start.applyTo(latest))
     }
 

@@ -111,7 +111,6 @@ object PortalSettingsSchema {
             SettingSpec("enable_mock_wifi", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_debug_log", SettingType.BOOLEAN, "false"),
             SettingSpec("sim_ready", SettingType.BOOLEAN, "true"),
-            SettingSpec("enable_agps", SettingType.BOOLEAN, "false"),
             SettingSpec("enable_nmea", SettingType.BOOLEAN, "true"),
             SettingSpec("disable_get_current_location", SettingType.BOOLEAN, "false"),
             SettingSpec("disable_register_location_listener", SettingType.BOOLEAN, "false"),

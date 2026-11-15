@@ -99,6 +99,7 @@ object WlanHook {
             }.getOrDefault(false)
             if (!hasWifiTransport || !isVisibleWifiInfo(original)) return@Hooker original
             val synthetic = runCatching { buildWifiInfo(currentProfile(packageName, uid)) }.getOrNull()
+                ?: disconnectedWifiInfo()
             if (synthetic == null && FakeLoc.enableDebugLog) {
                 Logger.warn("NetworkCapabilities.getTransportInfo: synthetic WifiInfo unavailable for $packageName")
             }
@@ -112,11 +113,14 @@ object WlanHook {
         wifiClazz.hookAllMethods("getConnectionInfo", Hooker { chain ->
             // Run the framework path first. It enforces the caller's location permission and
             // returns a redacted/disconnected WifiInfo when the caller may not see SSID/BSSID.
-            val original = chain.proceed() as? WifiInfo ?: return@Hooker null
+            val original = chain.proceed() as? WifiInfo ?: return@Hooker disconnectedWifiInfo()
             val packageName = chain.args.firstOrNull() as? String
             if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@Hooker original
             if (!isRealWifiConnected(original)) return@Hooker original
-            val info = buildWifiInfo(currentProfile(packageName)) ?: return@Hooker null
+            // Never return null for WifiManager.getConnectionInfo(): the platform API is non-null
+            // and a null here becomes an app-side NPE. A disconnected synthetic record is the
+            // fail-closed value when a full profile cannot be constructed.
+            val info = buildWifiInfo(currentProfile(packageName)) ?: disconnectedWifiInfo()
             if (FakeLoc.enableDebugLog) Logger.debug("getConnectionInfo: procedural $packageName")
             info
         })
@@ -133,14 +137,16 @@ object WlanHook {
                 null -> {
                     val returnType = (chain.executable as? java.lang.reflect.Method)?.returnType
                     if (returnType != null && returnType.name.contains("ParceledListSlice")) {
-                        sliceOrNull(returnType, generated) ?: return@Hooker null
+                        sliceOrNull(returnType, generated) ?: return@Hooker emptyList<ScanResult>()
                     } else {
                         generated
                     }
                 }
                 is List<*> -> generated
                 is Array<*> -> generated.toTypedArray()
-                else -> sliceOrNull(existing.javaClass, generated) ?: return@Hooker null
+                // WifiManager.getScanResults() is non-null; an empty list is the fail-closed
+                // value when the OEM return type cannot be constructed. Never leak the real list.
+                else -> sliceOrNull(existing.javaClass, generated) ?: return@Hooker emptyList<ScanResult>()
             }
             if (FakeLoc.enableDebugLog) Logger.debug("getScanResults: ${generated.size} procedural APs for $packageName")
             result
@@ -281,6 +287,28 @@ object WlanHook {
                 .onFailure { if (FakeLoc.enableDebugLog) Logger.debug("WifiInfo.$method unavailable: ${it.javaClass.simpleName}") }
         }
         return info
+    }
+
+    /**
+     * Non-null, disconnected fallback that preserves the WifiInfo API contract without exposing
+     * any real connection field. Used only when the synthetic profile cannot be constructed.
+     */
+    private fun disconnectedWifiInfo(): WifiInfo? = runCatching {
+        Reflection.newInstance(WifiInfo::class.java) as WifiInfo
+    }.getOrNull()?.apply {
+        listOf<Pair<String, Any>>(
+            "setSupplicantState" to SupplicantState.DISCONNECTED,
+            "setSSID" to "<unknown ssid>",
+            "setBSSID" to REDACTED_BSSID,
+            "setNetworkId" to -1,
+            "setIpAddress" to 0,
+            "setMacAddress" to "02:00:00:00:00:00",
+            "setRssi" to -127,
+            "setFrequency" to 0,
+            "setLinkSpeed" to 0,
+        ).forEach { (method, value) ->
+            runCatching { Reflection.callMethod(this, method, value) }
+        }
     }
 
     private fun isVisibleWifiInfo(info: WifiInfo): Boolean =

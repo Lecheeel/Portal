@@ -160,9 +160,10 @@ internal fun DrawerModeControl(drawerVisible: Boolean) {
         Text(when {
             busy -> "正在切换模式"
             state.active -> "运行中 · 停止场景后可切换"
-            state.backend == BackendType.NATIVE -> "扩展档 · 需 Root + Xposed，实验性支持"
-            state.backend == BackendType.XPOSED -> "需启用 Xposed 模块"
-            else -> "使用系统模拟定位权限"
+            // state.backend == BackendType.NATIVE -> "扩展档 · 需 Root + Xposed，实验性支持"
+            // state.backend == BackendType.XPOSED -> "需启用 Xposed 模块"
+            // else -> "使用系统模拟定位权限"
+            else -> ""
         }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }

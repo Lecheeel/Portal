@@ -137,7 +137,7 @@ class SettingsComposeFragment : Fragment() {
                     captureModel = captureModel,
                     revision = revisionState.value,
                     onMapProvider = ::showMapProvider,
-                    onAmapKey = ::showAmapKey,
+                    onMapKeys = { findNavController().navigate(R.id.nav_map_keys) },
                     onEditAltitude = { numberSetting = NumberSetting.ALTITUDE },
                     onEditAccuracy = { numberSetting = NumberSetting.ACCURACY },
                     onEditReportInterval = { numberSetting = NumberSetting.INTERVAL },
@@ -268,58 +268,6 @@ class SettingsComposeFragment : Fragment() {
             .show()
     }
 
-    private fun showAmapKey() {
-        val context = requireContext()
-        val storedKey = runCatching { com.system.location.service.maps.AMapKeySettings.customKey(context) }
-        val customKey = storedKey.getOrNull().orEmpty()
-        val sha1 = runCatching { com.system.location.service.maps.AMapKeySettings.applicationSha1(context) }
-            .getOrElse { showToast(it.message ?: "无法读取签名信息"); return }
-        val input = android.widget.EditText(context).apply {
-            hint = "留空使用内置 Key"
-            setSingleLine(true)
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-            isSaveEnabled = false
-            setText(customKey)
-            setSelection(text.length)
-        }
-        val keyInput = com.google.android.material.textfield.TextInputLayout(context).apply {
-            endIconMode = com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE
-            addView(input)
-        }
-        MaterialAlertDialogBuilder(context)
-            .setTitle("高德 Key")
-            .setMessage(buildString {
-                append("包名：${context.packageName}\nSHA1（当前安装包）：\n$sha1\n\n")
-                if (storedKey.isFailure) append("自定义 Key 无法解密；保存新 Key 或留空可恢复内置 Key。\n\n")
-                append("Debug 与 Release 签名通常不同，请分别查看对应安装包。留空保存可恢复内置 Key。")
-            })
-            .setView(keyInput)
-            .setNegativeButton("取消", null)
-            .setNeutralButton("复制申请信息") { _, _ ->
-                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("高德 Key 申请信息",
-                    "包名：${context.packageName}\nSHA1：\n$sha1"))
-                showToast("已复制包名和 SHA1")
-            }
-            .setPositiveButton("保存并应用") { _, _ ->
-                runCatching {
-                    com.system.location.service.maps.AMapKeySettings.saveCustomKey(context, input.text.toString())
-                    if (SdkPrivacy.mapsAccepted) {
-                        SdkPrivacy.initialize(context)
-                        when {
-                            !SdkPrivacy.mapsReady -> showToast("Key 已保存，地图 SDK 暂不可用")
-                            com.system.location.service.maps.AMapKeySettings.apply(context) -> showToast("高德 Key 已保存并应用")
-                            else -> showToast("自定义 Key 已清除。请强行停止并重新打开应用以清除 SDK 缓存；没有内置 Key 时高德服务不可用。")
-                        }
-                    } else showToast("Key 已保存，将在地图隐私授权后应用")
-                    requireActivity().recreate()
-                    refresh()
-                }.onFailure { showToast(it.message ?: "保存高德 Key 失败") }
-            }
-            .show()
-    }
-
     private fun showAppRouting() {
         val context = requireContext()
         val existing = runCatching {
@@ -437,7 +385,7 @@ private fun SettingsScreen(
     captureModel: GnssCaptureViewModel,
     revision: Int,
     onMapProvider: () -> Unit,
-    onAmapKey: () -> Unit,
+    onMapKeys: () -> Unit,
     onEditAltitude: () -> Unit,
     onEditAccuracy: () -> Unit,
     onEditReportInterval: () -> Unit,
@@ -528,9 +476,17 @@ private fun SettingsScreen(
                     item(key = "maps") {
                         PortalSettingGroup("地图服务", 2) { index, rowModifier ->
                             if (index == 0) PortalActionRow("地图提供方", values.mapProviderLabel, onMapProvider, modifier = rowModifier, status = "切换后重建地图")
-                            else PortalActionRow("高德 Key", runCatching {
-                                if (com.system.location.service.maps.AMapKeySettings.customKey(context).isNullOrBlank()) "使用内置 Key" else "使用自定义 Key"
-                            }.getOrElse { "Key 读取失败" }, onAmapKey, modifier = rowModifier, status = "包名与 SHA1 可复制")
+                            else PortalActionRow("地图 Key", runCatching {
+                                val amap = com.system.location.service.maps.AMapKeySettings.customKey(context)
+                                val tencent = com.system.location.service.maps.TencentKeySettings.customKey(context)
+                                when {
+                                    amap != null && tencent != null -> "高德、腾讯均使用自定义 Key"
+                                    amap != null -> "高德使用自定义 Key"
+                                    tencent != null -> "腾讯使用自定义 Key"
+                                    else -> "使用内置 Key"
+                                }
+                            }.getOrElse { "Key 读取失败" }, onMapKeys, modifier = rowModifier,
+                                status = "包名与 SHA1 可复制到申请页")
                         }
                     }
                     item(key = "location") {
@@ -587,7 +543,7 @@ private fun SettingsScreen(
                         PortalSettingGroup("定位通道与实验", 4) { index, rowModifier ->
                             when (index) {
                                 0 -> PortalSwitchRow(
-                                    title = "Google 融合定位（实验）",
+                                    title = "Google 融合定位",
                                     status = NEXT_SCENE,
                                     subtitle = "需 Google Play 服务；失败时继续使用 GPS/Network。",
                                     checked = values.gmsMockEnabled,
@@ -595,7 +551,7 @@ private fun SettingsScreen(
                                     modifier = rowModifier,
                                 )
                                 1 -> PortalSwitchRow(
-                                    title = "系统 Fused 通道（实验）",
+                                    title = "系统 Fused 通道",
                                     status = NEXT_SCENE,
                                     subtitle = "额外注册系统 fused 模拟 Provider。",
                                     checked = values.platformFusedEnabled,
@@ -731,7 +687,7 @@ private fun SettingsScreen(
                                     PortalSwitchRow(
                                         title = "增强性反检测（原生路径改写）",
                                         status = "需重启目标应用",
-                                        subtitle = "默认关闭；仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
+                                        subtitle = "仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
                                         checked = values.antiDetectEnabled,
                                         onCheckedChange = hookAction { context.antiDetectEnabled = it },
                                         modifier = rowModifier,
@@ -739,9 +695,9 @@ private fun SettingsScreen(
                                 },
                                 { rowModifier ->
                                     PortalSwitchRow(
-                                        title = "实验性堆栈清洗",
+                                        title = "堆栈清洗（实验性）",
                                         status = APPLY_WHILE_RUNNING,
-                                        subtitle = "默认关闭；从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
+                                        subtitle = "从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
                                         checked = values.stackTraceCleanEnabled,
                                         onCheckedChange = hookAction { context.stackTraceCleanEnabled = it },
                                         modifier = rowModifier,

@@ -32,7 +32,7 @@ object RawGnssSynthesis {
     fun ephemerides(
         navigation: RinexNavigationResource?,
         nowMillis: Long,
-    ): List<GpsLnavEphemeris> {
+    ): List<GpsLnavEphemeris> = runCatching {
         val time = gpsTime(nowMillis) ?: return emptyList()
         val rinex = navigation?.let { resource ->
             runCatching {
@@ -51,13 +51,14 @@ object RawGnssSynthesis {
         val almanac = almanacEphemerides().filterNot { candidate ->
             rinex.any { it.svid == candidate.svid }
         }.filter { ephemerisUsable(it, time) }
-        return (rinex + almanac).distinctBy { it.svid }
-    }
+        (rinex + almanac).distinctBy { it.svid }
+    }.getOrDefault(emptyList())
 
-    fun canSynthesize(configuration: HookConfiguration, nowMillis: Long): Boolean =
+    fun canSynthesize(configuration: HookConfiguration, nowMillis: Long): Boolean = runCatching {
         configuration.enabled && configuration.gnssEnabled &&
             configuration.gnssFrameSource() != null &&
             ephemerides(configuration.gnssNavigation, nowMillis).size >= MIN_MEASUREMENTS
+    }.getOrDefault(false)
 
     private fun ephemerisUsable(ephemeris: GpsLnavEphemeris, time: GpsTime): Boolean =
         ephemeris.validFrom.secondsSince(time) <= 0.0 && time.secondsSince(ephemeris.validUntil) <= 0.0

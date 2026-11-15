@@ -6,30 +6,59 @@ import com.system.location.service.core.gnss.RawGnssSynthesis
 import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.LocationCallerGuard
+import com.system.location.service.hook.utils.Logger
 
 /** Raw observations are either real receiver data or explicitly unsupported, never fabricated. */
 internal fun rawGnssRegistrationHook(
     blocked: (List<Any?>) -> Boolean = ::rawGnssCallerBlocked,
 ): XposedInterface.Hooker = XposedInterface.Hooker { chain ->
-    val method = chain.executable as? Method ?: return@Hooker chain.proceed()
+    try {
+        handleRawGnssRegistration(chain, blocked)
+    } catch (failure: SecurityException) {
+        throw failure
+    } catch (failure: IllegalStateException) {
+        // A genuine framework state failure remains the framework's result.
+        throw failure
+    } catch (failure: Throwable) {
+        // A raw-registration hook must never become a new crash surface. Policy/resource/OEM
+        // failures are reported as the API's unsupported result instead of crossing Binder.
+        val method = chain.executable as? Method
+        Logger.error("raw GNSS registration hook failed: ${method?.name}", failure)
+        val listener = chain.args.filterIsInstance<android.os.IInterface>().firstOrNull()
+        if (method != null) {
+            reportRawGnssUnsupported(listener)
+            rawGnssRegistrationResult(method, accepted = false)
+        } else null
+    }
+}
+
+private fun handleRawGnssRegistration(
+    chain: XposedInterface.Chain,
+    blocked: (List<Any?>) -> Boolean,
+): Any? {
+    val method = chain.executable as? Method ?: return chain.proceed()
     // Removal must always reach Android, including listeners created before simulation started.
     if (!method.name.startsWith("add") || chain.args.isEmpty() ||
-        !blocked(chain.args)) return@Hooker RawGnssCallbacks.proceed(chain)
+        !blocked(chain.args)) return RawGnssCallbacks.proceed(chain)
     // Let a caller without location permission observe the framework's SecurityException.
-    if (!LocationCallerGuard.canReadLocation()) return@Hooker RawGnssCallbacks.proceed(chain)
+    if (!LocationCallerGuard.canReadLocation()) return RawGnssCallbacks.proceed(chain)
     val listener = chain.args.filterIsInstance<android.os.IInterface>().firstOrNull()
-    val syntheticMeasures = method.name.contains("Measurements") &&
+    val syntheticMeasures = method.name.contains("Measurements") && runCatching {
         GnssReceiverRuntime.protectionContext()?.let {
             RawGnssSynthesis.canSynthesize(it.state.configuration, System.currentTimeMillis())
         } == true
+    }.getOrDefault(false)
     if (syntheticMeasures) {
-        // Keep the framework registration and callback installation so the app observes a normal
-        // reader, then replace its payload with the same-frame synthetic observations.
-        val result = RawGnssCallbacks.proceed(chain)
-        if (RawGnssCallbacks.contains(listener)) reportRawGnssReady(listener)
-        return@Hooker result
+        // The HAL may expose no raw-measurement capability at all. Register only in our routing
+        // registry: the app-visible API still succeeds, while the producer owns every payload.
+        val result = RawGnssCallbacks.registerSynthetic(chain)
+        if (RawGnssCallbacks.contains(listener)) {
+            reportRawGnssReady(listener)
+            runCatching { GnssSignalInjection.ensureStarted() }
+        }
+        return result
     }
-    rejectRawGnssRegistration(method, listener)
+    return rejectRawGnssRegistration(method, listener)
 }
 
 internal fun rejectRawGnssRegistration(method: Method, listener: Any?): Any? {

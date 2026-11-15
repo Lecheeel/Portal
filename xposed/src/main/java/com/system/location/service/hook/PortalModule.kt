@@ -5,6 +5,7 @@ import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.scope.HookStatusRegistry
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
+import com.system.location.service.core.gnss.GnssBundledOrbitResources
 import com.system.location.service.core.runtime.RuntimeTransferWire
 import com.system.location.service.hook.runtime.ReloadExecutionGate
 import com.system.location.service.hook.runtime.ReloadPreparation
@@ -36,6 +37,7 @@ class PortalModule : XposedModule() {
     override fun onModuleLoaded(param: XposedModuleInterface.ModuleLoadedParam) {
         processName = param.processName
         moduleInfo = runCatching { getModuleApplicationInfo() }.getOrNull()
+        GnssBundledOrbitResources.installExternalReader(::readModuleResource)
         HookRuntime.attach(this)
         lifecycle.moduleLoaded(param.processName, param.isSystemServer)
         android.util.Log.i("PortalModule", "Module loaded: process=${param.processName} system=${param.isSystemServer} api=$apiVersion")
@@ -58,7 +60,10 @@ class PortalModule : XposedModule() {
             return
         }
         android.util.Log.i("PortalModule", "Package ready: package=${param.packageName} first=${param.isFirstPackage}")
-        if (moduleInfo == null) moduleInfo = runCatching { getModuleApplicationInfo() }.getOrNull()
+        if (moduleInfo == null) {
+            moduleInfo = runCatching { getModuleApplicationInfo() }.getOrNull()
+            GnssBundledOrbitResources.installExternalReader(::readModuleResource)
+        }
         lifecycle.packageReady(param.packageName, param.classLoader,
             param.applicationInfo.uid, param.applicationInfo.flags)
     }
@@ -157,6 +162,22 @@ class PortalModule : XposedModule() {
         rows("nmea").forEach { if (NmeaListenerRouting.restore(it)) installNmeaCallback(it.listener) }
         rows("raw").forEach(RawGnssCallbacks::restoreAndInstall)
     }
+
+    /** Read a bundled core resource from the module APK when the injected loader has no resources. */
+    private fun moduleApkPath(): String? = moduleInfo?.sourceDir ?: runCatching {
+        val context = com.system.location.service.hook.utils.BinderUtils.getSystemContext()
+            ?: return@runCatching null
+        val packageName = javaClass.packageName.substringBeforeLast('.')
+        context.packageManager.getApplicationInfo(packageName, 0).sourceDir
+    }.getOrNull()
+
+    private fun readModuleResource(name: String): String? = runCatching {
+        val path = moduleApkPath() ?: return@runCatching null
+        java.util.zip.ZipFile(path).use { zip ->
+            val entry = zip.getEntry("gnss/$name") ?: return@runCatching null
+            zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        }
+    }.getOrNull()
 
     companion object {
         /** Module APK metadata; used to locate the opt-in anti-detect payload. */

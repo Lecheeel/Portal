@@ -2,9 +2,41 @@ package com.system.location.service.core.gnss
 
 /** Resource loading is separate from frame caches; immutable orbit adapters can be shared. */
 object GnssBundledOrbitResources {
-    private fun read(name: String): String = requireNotNull(javaClass.getResourceAsStream("/gnss/$name")) {
-        "Missing bundled GNSS resource: $name"
-    }.bufferedReader(Charsets.UTF_8).use { it.readText() }
+    /**
+     * Injection hosts (LSPosed system_server) can load the module dex without exposing the
+     * module APK's Java resources on the class loader. The xposed side installs a reader that
+     * opens the bundled GNSS files from the module APK so the same resources remain available.
+     */
+    @Volatile private var externalReader: ((String) -> String?)? = null
+
+    fun installExternalReader(reader: ((String) -> String?)?) {
+        externalReader = reader
+    }
+
+    private fun read(name: String): String {
+        javaClass.getResourceAsStream("/gnss/$name")?.bufferedReader(Charsets.UTF_8)?.use {
+            return it.readText()
+        }
+        readFromCodeSource(name)?.let { return it }
+        externalReader?.invoke(name)?.let { return it }
+        error("Missing bundled GNSS resource: $name")
+    }
+
+    /** Injected classes often have no resource path; their code source still points at the APK. */
+    private fun readFromCodeSource(name: String): String? = runCatching {
+        val location = javaClass.protectionDomain?.codeSource?.location ?: return@runCatching null
+        val file = java.io.File(location.toURI())
+        if (file.isDirectory) {
+            return@runCatching java.io.File(file, "gnss/$name").takeIf { it.isFile }
+                ?.readText(Charsets.UTF_8)
+        }
+        if (!file.isFile) return@runCatching null
+        java.util.zip.ZipFile(file).use { zip ->
+            val entry = zip.getEntry("gnss/$name") ?: zip.getEntry("assets/gnss/$name")
+                ?: return@runCatching null
+            zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        }
+    }.getOrNull()
 
     private val virtual by lazy { VirtualWalkerResource.decode(read("virtual-walker.json")) }
     private val utc by lazy { runCatching { GnssUtcTimeScale.parseIers(read("leap-seconds.list")) } }

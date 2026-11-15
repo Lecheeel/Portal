@@ -29,7 +29,10 @@ internal object RawGnssCallbacks {
                         accepted = false,
                     )
                 }
-                if (result != false) registry.unregister(listener)
+                // The app asked to remove this transport. Always drop our routing record even
+                // when a synthetic-only registration never reached the framework and its remove
+                // returns false.
+                registry.unregister(listener)
                 result
             } else {
                 val existed = registry.listeners().any { it.asBinder() == binder }
@@ -60,6 +63,34 @@ internal object RawGnssCallbacks {
                     throw failure
                 }
             }
+        }
+    }
+
+    /**
+     * Synthetic-only registration: Android may have no raw-measurement capability at all, so the
+     * framework must not be asked to start a physical reader. The app-visible API still returns
+     * its normal accepted result and the producer owns every callback.
+     */
+    fun registerSynthetic(
+        chain: XposedInterface.Chain,
+        install: (IInterface) -> Unit = ::installRestored,
+        callerUid: () -> Int = BinderUtils::getCallerUid,
+    ): Any? {
+        val listener = chain.args.filterIsInstance<IInterface>().firstOrNull() ?: return null
+        val binder = listener.asBinder()
+        return synchronized(binder) {
+            val method = chain.executable as? Method ?: return@synchronized null
+            if (!registry.register(listener, chain.args.filterIsInstance<String>().firstOrNull(), callerUid())) {
+                return@synchronized rawGnssRegistrationResult(method, accepted = false)
+            }
+            try {
+                install(listener)
+            } catch (_: Exception) {
+                return@synchronized rejectInstallation(chain, listener, existed = false)
+            } catch (_: LinkageError) {
+                return@synchronized rejectInstallation(chain, listener, existed = false)
+            }
+            rawGnssRegistrationResult(method, accepted = true)
         }
     }
 

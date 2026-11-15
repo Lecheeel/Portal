@@ -23,7 +23,6 @@ internal fun EnvironmentBleBeaconPage(
     initial: BleBeacon?,
     onDismiss: () -> Unit,
     onSave: (BleBeacon) -> Unit,
-    onError: (String) -> Unit,
 ) {
     var address by rememberSaveable(initial?.address) { mutableStateOf(initial?.address.orEmpty()) }
     var name by rememberSaveable(initial?.address) { mutableStateOf(initial?.name.orEmpty()) }
@@ -55,10 +54,9 @@ internal fun EnvironmentBleBeaconPage(
                     }
                     BleBeacon(address.trim(), name.trim(), rssi.toInt(), rawAdvertisement,
                         txPower.trim().takeIf(String::isNotEmpty)?.toInt())
-                }.onSuccess(onSave).onFailure {
+                }.mapCatching { onSave(it) }.onFailure {
                     val message = it.message ?: "信标字段无效"
                     validationError = message
-                    onError(message)
                 }
             }) { Text("保存信标") }
         },
@@ -70,7 +68,6 @@ internal fun EnvironmentWifiApPage(
     initial: WifiAp?,
     onDismiss: () -> Unit,
     onSave: (WifiAp) -> Unit,
-    onError: (String) -> Unit,
 ) {
     var ssid by rememberSaveable(initial?.bssid) { mutableStateOf(initial?.ssid.orEmpty()) }
     var bssid by rememberSaveable(initial?.bssid) { mutableStateOf(initial?.bssid.orEmpty()) }
@@ -111,10 +108,9 @@ internal fun EnvironmentWifiApPage(
                     }
                     WifiAp(ssid.trim(), bssid.trim(), rssi.toInt(), mhz, channel,
                         capabilities.trim(), standard.toInt(), connected)
-                }.onSuccess(onSave).onFailure {
+                }.mapCatching { onSave(it) }.onFailure {
                     val message = it.message ?: "Wi-Fi AP 字段无效"
                     validationError = message
-                    onError(message)
                 }
             }) { Text("保存 AP") }
         },
@@ -127,7 +123,6 @@ internal fun EnvironmentCdmaTowerPage(
     initial: CdmaTower?,
     onDismiss: () -> Unit,
     onSave: (CdmaTower) -> Unit,
-    onError: (String) -> Unit,
 ) {
     var systemId by rememberSaveable(initial?.baseStationId) { mutableStateOf(initial?.systemId?.toString() ?: "1") }
     var networkId by rememberSaveable(initial?.baseStationId) { mutableStateOf(initial?.networkId?.toString() ?: "1") }
@@ -184,10 +179,9 @@ internal fun EnvironmentCdmaTowerPage(
                         evdoSnr = optionalInt(evdoSnr),
                         registered = registered,
                     )
-                }.onSuccess(onSave).onFailure {
+                }.mapCatching { onSave(it) }.onFailure {
                     val message = it.message ?: "CDMA 小区字段无效"
                     validationError = message
-                    onError(message)
                 }
             }) { Text("保存 CDMA 小区") }
         },
@@ -200,7 +194,6 @@ internal fun EnvironmentCellTowerPage(
     initial: CellTower?,
     onDismiss: () -> Unit,
     onSave: (CellTower) -> Unit,
-    onError: (String) -> Unit,
 ) {
     var type by rememberSaveable(initial?.cellId) { mutableStateOf(initial?.type ?: CellType.LTE) }
     var typeMenu by remember { mutableStateOf(false) }
@@ -302,10 +295,9 @@ internal fun EnvironmentCellTowerPage(
                         mncDigits = mncDigits,
                         operatorName = operatorName.trim().takeIf(String::isNotEmpty),
                     )
-                }.onSuccess(onSave).onFailure {
+                }.mapCatching { onSave(it) }.onFailure {
                     val message = it.message ?: "蜂窝小区字段无效"
                     validationError = message
-                    onError(message)
                 }
             }) { Text("保存小区") }
         },

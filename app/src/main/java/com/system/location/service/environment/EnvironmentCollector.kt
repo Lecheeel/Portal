@@ -49,18 +49,24 @@ class EnvironmentCollector(private val context: Context) {
         seed: Long = 0L,
         atMillis: Long = System.currentTimeMillis(),
         originElapsedRealtimeNanos: Long? = null,
+        onProgress: (String) -> Unit = {},
     ): EnvironmentProfile {
+        onProgress("正在读取蜂窝小区…")
         val cells = captureCells(originElapsedRealtimeNanos)
+        onProgress("正在扫描 Wi-Fi…")
+        val wifi = captureWifi(originElapsedRealtimeNanos)
+        onProgress("正在扫描蓝牙信标…")
+        val ble = captureBle(originElapsedRealtimeNanos)
         return EnvironmentProfile(
             source = EnvironmentSourceType.REPLAY,
             origin = origin,
             originAccuracyMeters = originAccuracyMeters,
             generatedAtMillis = atMillis,
             seed = seed,
-            wifi = captureWifi(originElapsedRealtimeNanos),
+            wifi = wifi,
             cells = cells.gsm,
             cdmaCells = cells.cdma,
-            ble = captureBle(originElapsedRealtimeNanos),
+            ble = ble,
         )
     }
 

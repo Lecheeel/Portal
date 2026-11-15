@@ -87,6 +87,8 @@ import java.nio.charset.CodingErrorAction
 class EnvironmentComposeFragment : Fragment() {
     private val library = MutableStateFlow(EnvironmentLibraryState())
     private var libraryJob: Job? = null
+    private var captureJob: Job? = null
+    private val captureState = MutableStateFlow(EnvironmentCaptureState())
     private var pendingExport: Pair<String, EnvironmentProfile>? = null
 
     private val locationPermission = registerForActivityResult(
@@ -199,15 +201,20 @@ class EnvironmentComposeFragment : Fragment() {
         setContent {
             PortalTheme {
                 val state by library.collectAsStateWithLifecycle()
+                val capture by captureState.collectAsStateWithLifecycle()
                 if (arguments?.getBoolean("library") == true) {
                     EnvironmentLibraryScreen(state, ::refreshNames, ::exportEnvironment,
                         ::replayEnvironment, ::deleteEnvironment, ::renameEnvironment,
-                        ::editEnvironmentProfile, ::saveEnvironmentProfile, ::closeEnvironmentEditor)
+                        ::editEnvironmentProfile, { editEnvironmentProfile("") }, ::requestEnvironmentCapture,
+                        ::importEnvironment, capture, { captureJob?.cancel() })
                 } else EnvironmentScreen(
                     library = state,
                     onOpenLibrary = { findNavController().navigate(R.id.nav_environment_library) },
                     onCapture = ::requestEnvironmentCapture,
-                    onImport = { importEnvironmentDocument.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                    onCreate = { editEnvironmentProfile("") },
+                    capture = capture,
+                    onCancelCapture = { captureJob?.cancel() },
+                    onImport = ::importEnvironment,
                     onImportFingerprint = { importWifiFingerprintDocument.launch(arrayOf("application/json", "text/plain", "*/*")) },
                     onApplyConfig = ::applyConfigNowWithToast,
                 )
@@ -215,9 +222,13 @@ class EnvironmentComposeFragment : Fragment() {
         }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
+    override fun onResume() {
+        super.onResume()
         refreshNames()
+    }
+
+    private fun importEnvironment() {
+        importEnvironmentDocument.launch(arrayOf("application/json", "text/plain", "*/*"))
     }
 
     private fun refreshNames() {
@@ -235,6 +246,7 @@ class EnvironmentComposeFragment : Fragment() {
     }
 
     private fun requestEnvironmentCapture() {
+        if (captureJob?.isActive == true) return
         val context = requireContext()
         if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             locationPermission.launch(arrayOf(
@@ -258,33 +270,36 @@ class EnvironmentComposeFragment : Fragment() {
     }
 
     private fun captureEnvironment() {
+        if (captureJob?.isActive == true) return
         val appContext = requireContext().applicationContext
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
+        captureState.value = EnvironmentCaptureState(busy = true, message = "正在获取真实位置…")
+        captureJob = viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val (name, profile) = withContext(Dispatchers.IO) {
                     val origin = EnvironmentCaptureLocation(appContext).current()
                     val profile = EnvironmentCollector(appContext).capture(
                         origin = origin.coordinate,
                         originAccuracyMeters = origin.accuracyMeters,
                         seed = System.currentTimeMillis(),
                         originElapsedRealtimeNanos = origin.elapsedRealtimeNanos,
+                        onProgress = { captureState.value = EnvironmentCaptureState(true, it) },
                     )
                     val baseName = "capture-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-                    val name = EnvironmentStore(appContext).saveNew(baseName, profile)
-                    Pair(name, profile)
+                    EnvironmentStore(appContext).saveNew(baseName, profile) to profile
                 }
-            }
-            result.onSuccess { (name, profile) ->
+                captureState.value = EnvironmentCaptureState(message =
+                    "已保存 $name · Wi-Fi ${profile.wifi.size} · 小区 ${profile.cells.size + profile.cdmaCells.size} · 蓝牙 ${profile.ble.size}")
                 refreshNames()
-                showToast(getString(
-                    R.string.environment_capture_saved,
-                    name,
-                    profile.wifi.size,
-                    profile.cells.size + profile.cdmaCells.size,
-                    profile.ble.size,
-                ))
-            }.onFailure { error ->
-                showToast(getString(R.string.environment_capture_failed, error.message ?: "unknown"))
+                if (profile.wifi.isEmpty() && profile.cells.isEmpty() && profile.cdmaCells.isEmpty() && profile.ble.isEmpty()) {
+                    captureState.value = EnvironmentCaptureState(message = "已保存 $name，但未获取到无线数据。请检查 Wi-Fi、蓝牙及权限，也可手动添加。")
+                }
+            } catch (cancelled: CancellationException) {
+                captureState.value = EnvironmentCaptureState(message = "已取消采集")
+                throw cancelled
+            } catch (error: Exception) {
+                captureState.value = EnvironmentCaptureState(message = "采集失败：${error.message ?: "请重试"}", failed = true)
+            } finally {
+                captureState.value = captureState.value.copy(busy = false)
             }
         }
     }
@@ -350,36 +365,8 @@ class EnvironmentComposeFragment : Fragment() {
         }
     }
 
-    private fun editEnvironmentProfile(name: String, kind: EnvironmentDataKind) {
-        val appContext = requireContext().applicationContext
-        lifecycleScope.launch {
-            val profile = withContext(Dispatchers.IO) {
-                runCatching { EnvironmentStore(appContext).load(name) }.getOrNull()
-            }
-            if (profile == null) {
-                showToast("无法读取环境档案")
-                return@launch
-            }
-            library.value = library.value.copy(editing = name to profile, editingKind = kind)
-        }
-    }
-
-    private fun saveEnvironmentProfile(name: String, profile: EnvironmentProfile) {
-        val appContext = requireContext().applicationContext
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { EnvironmentStore(appContext).save(name, profile) }
-            }
-            result.onSuccess {
-                library.value = library.value.copy(editing = null)
-                refreshNames()
-                showToast("环境数据已保存")
-            }.onFailure { showToast("保存失败：${it.message ?: "unknown"}") }
-        }
-    }
-
-    private fun closeEnvironmentEditor() {
-        library.value = library.value.copy(editing = null)
+    private fun editEnvironmentProfile(name: String) {
+        findNavController().navigate(R.id.nav_environment_editor, Bundle().apply { putString("name", name) })
     }
 
     private fun applyConfigNowWithToast() {
@@ -401,6 +388,9 @@ private fun EnvironmentScreen(
     library: EnvironmentLibraryState,
     onOpenLibrary: () -> Unit,
     onCapture: () -> Unit,
+    onCreate: () -> Unit,
+    capture: EnvironmentCaptureState,
+    onCancelCapture: () -> Unit,
     onImport: () -> Unit,
     onImportFingerprint: () -> Unit,
     onApplyConfig: () -> Unit,
@@ -489,20 +479,16 @@ private fun EnvironmentScreen(
                 )
             }
             item {
-                PortalSettingGroup(stringResource(R.string.environment_capture_title), 3) { index, rowModifier ->
-                    when (index) {
-                        0 -> PortalActionRow(stringResource(R.string.environment_capture_action),
-                            "采集手机当前的无线环境，保存为独立配置", onCapture, modifier = rowModifier)
-                        1 -> PortalActionRow(stringResource(R.string.environment_list_action),
-                            when {
-                                library.loading -> "正在读取环境列表"
-                                library.error != null -> "列表读取失败，进入后可重试"
-                                else -> "共 ${library.names.size} 个环境；可回放、导出、重命名或删除"
-                            },
-                            onOpenLibrary, modifier = rowModifier)
-                        2 -> PortalActionRow(stringResource(R.string.environment_import_action),
-                            "从文件导入环境配置", onImport, modifier = rowModifier)
-                    }
+                EnvironmentCreationActions(onCreate, onCapture, onImport, capture, onCancelCapture)
+            }
+            item {
+                PortalSettingGroup("环境资料库", 1) { _, rowModifier ->
+                    PortalActionRow(stringResource(R.string.environment_list_action),
+                        when {
+                            library.loading -> "正在读取环境列表"
+                            library.error != null -> "列表读取失败，进入后可重试"
+                            else -> "共 ${library.names.size} 个环境；可编辑、回放和导出"
+                        }, onOpenLibrary, modifier = rowModifier)
                 }
             }
             item {
@@ -604,6 +590,6 @@ private fun cellModeLabel(value: String) = when (value) {
 private fun environmentSourceLabel(value: String) = when (value) {
     "AUTO" -> "自动选择"
     "PROCEDURAL" -> "按位置生成"
-    "REPLAY" -> "已采集环境回放"
+    "REPLAY" -> "已保存环境回放"
     else -> "未知来源（$value）"
 }

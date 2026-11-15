@@ -106,24 +106,40 @@ class MapKeyComposeFragment : Fragment() {
         }
     }
 
-    private fun save(provider: MapProvider, value: String): String? = runCatching {
+    private fun save(provider: MapProvider, value: String): String? {
         val context = requireContext().applicationContext
-        when (provider) {
-            MapProvider.AMAP -> {
-                AMapKeySettings.saveCustomKey(context, value)
-                if (SdkPrivacy.mapsAccepted) {
-                    SdkPrivacy.initialize(context)
-                    check(AMapKeySettings.apply(context)) { "高德 Key 为空，SDK 未应用" }
+        if (value.isBlank()) {
+            when (provider) {
+                MapProvider.AMAP -> {
+                    AMapKeySettings.clearCustomKey(context)
+                    if (SdkPrivacy.mapsAccepted) runCatching { AMapKeySettings.apply(context) }
+                }
+                MapProvider.TENCENT -> TencentKeySettings.clearCustomKey(context)
+            }
+            if (isAdded) {
+                Toast.makeText(requireContext(), "自定义 Key 已清除", Toast.LENGTH_SHORT).show()
+                requireActivity().recreate()
+            }
+            return null
+        }
+        return runCatching {
+            when (provider) {
+                MapProvider.AMAP -> {
+                    AMapKeySettings.saveCustomKey(context, value)
+                    if (SdkPrivacy.mapsAccepted) {
+                        SdkPrivacy.initialize(context)
+                        check(AMapKeySettings.apply(context)) { "高德 Key 为空，SDK 未应用" }
+                    }
+                }
+                MapProvider.TENCENT -> {
+                    TencentKeySettings.saveCustomKey(context, value)
+                    check(TencentKeySettings.apply(context)) { "腾讯 Key 为空，未应用" }
                 }
             }
-            MapProvider.TENCENT -> {
-                TencentKeySettings.saveCustomKey(context, value)
-                check(TencentKeySettings.apply(context)) { "腾讯 Key 为空，未应用" }
-            }
-        }
-        if (isAdded) requireActivity().recreate()
-        null
-    }.exceptionOrNull()?.message ?: "保存失败，请检查 Key 或稍后重试"
+            if (isAdded) requireActivity().recreate()
+            null
+        }.exceptionOrNull()?.message ?: "保存失败，请检查 Key 或稍后重试"
+    }
 
     private fun copy(label: String, value: String) {
         if (!isAdded || value.isBlank()) return

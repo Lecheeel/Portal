@@ -22,7 +22,7 @@ internal fun EnvironmentEditorPage(
 ) {
     BackHandler(onBack = onBack)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize().imePadding().padding(horizontal = 20.dp),
+        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 12.dp),
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {

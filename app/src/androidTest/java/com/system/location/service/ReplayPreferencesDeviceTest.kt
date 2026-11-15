@@ -6,6 +6,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
+import com.system.location.service.core.runtime.RouteEndPosition
+import com.system.location.service.ext.routeEndPosition
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.gnss.gnssReplayOnStart
 import com.system.location.service.gnss.gnssReplayProblem
@@ -17,6 +19,24 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ReplayPreferencesDeviceTest {
+    @Test fun routeEndPositionDefaultsToEndpointAndMigratesLegacySwitch() {
+        val target = InstrumentationRegistry.getInstrumentation().targetContext
+        val name = "route-end-position-${UUID.randomUUID()}"
+        val isolated = object : ContextWrapper(target) {
+            override fun getSharedPreferences(ignored: String, mode: Int) =
+                target.getSharedPreferences(name, Context.MODE_PRIVATE)
+        }
+        try {
+            assertEquals(RouteEndPosition.END, isolated.routeEndPosition)
+            isolated.sharedPrefs.edit().putBoolean("holdAtRouteEnd", false).commit()
+            assertEquals(RouteEndPosition.REAL_LOCATION, isolated.routeEndPosition)
+            isolated.sharedPrefs.edit().putBoolean("holdAtRouteEnd", true).commit()
+            assertEquals(RouteEndPosition.END, isolated.routeEndPosition)
+            isolated.routeEndPosition = RouteEndPosition.START
+            assertEquals(RouteEndPosition.START, isolated.routeEndPosition)
+        } finally { target.deleteSharedPreferences(name) }
+    }
+
     @Test fun missingAndExpiredSourcesFailOnlyWhenReplayIsSelected() {
         val target = InstrumentationRegistry.getInstrumentation().targetContext
         val directory = Files.createTempDirectory(target.cacheDir.toPath(), "replay-readiness-").toFile()

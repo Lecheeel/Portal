@@ -57,11 +57,19 @@ object LocationNMEAHook : BaseLocationHook() {
     private fun hookGnssNmea(service: Class<*>) {
         service.hookAllMethods("registerGnssNmeaCallback", XposedInterface.Hooker registration@{ chain ->
             val args = chain.args
-            val result = chain.proceed()
-            if (result == false) return@registration result
-            val callback = args.firstOrNull() as? IInterface ?: return@registration result
-            installNmeaCallback(callback)
-            NmeaListenerRouting.register(callback, args.getOrNull(1) as? String)
+            val callback = args.firstOrNull() as? IInterface
+            // Arm the payload guard before the real registration can emit its first sentence.
+            if (callback != null) {
+                installNmeaCallback(callback)
+                NmeaListenerRouting.register(callback, args.getOrNull(1) as? String)
+            }
+            val result = try {
+                chain.proceed()
+            } catch (failure: Throwable) {
+                callback?.let(NmeaListenerRouting::unregister)
+                throw failure
+            }
+            if (result == false) callback?.let(NmeaListenerRouting::unregister)
             result
         })
         service.hookAllMethods("unregisterGnssNmeaCallback", XposedInterface.Hooker { chain ->
@@ -80,9 +88,12 @@ internal fun installNmeaCallback(callback: IInterface) {
     })
 }
 
+/**
+ * Protection is independent of synthetic NMEA availability. `nmeaEnabled` controls whether we
+ * generate sentences; it must never turn a protected listener back into a real-NMEA passthrough.
+ * A missing frame likewise suppresses the real sentence instead of forwarding it.
+ */
 internal fun ownsNmeaDelivery(listener: Any?): Boolean {
-    val context = GnssReceiverRuntime.activeContext() ?: return false
-    if (!context.state.configuration.nmeaEnabled) return false
-    val route = NmeaListenerRouting.routeFor(listener, context.state.routing) ?: return false
-    return GnssReceiverRuntime.frameForRoute(route, context) != null
+    val context = GnssReceiverRuntime.protectionContext() ?: return false
+    return NmeaListenerRouting.routeFor(listener, context.state.routing) != null
 }

@@ -394,11 +394,20 @@ internal object LocationServiceHook : BaseLocationHook() {
             "registerGnssStatusCallback",
             XposedInterface.Hooker registration@{ chain ->
                 val args = chain.args
-                val result = chain.proceed()
-                if (result == false) return@registration result
-                val callback = args.firstOrNull() as? IInterface ?: return@registration result
-                installGnssStatusCallback(callback)
-                GnssListenerRouting.register(callback, args.getOrNull(1) as? String)
+                val callback = args.firstOrNull() as? IInterface
+                // Install the callback guard and routing before the framework can synchronously
+                // emit onStarted/onFirstFix during registration.
+                if (callback != null) {
+                    installGnssStatusCallback(callback)
+                    GnssListenerRouting.register(callback, args.getOrNull(1) as? String)
+                }
+                val result = try {
+                    chain.proceed()
+                } catch (failure: Throwable) {
+                    callback?.let(GnssListenerRouting::unregister)
+                    throw failure
+                }
+                if (result == false) callback?.let(GnssListenerRouting::unregister)
                 result
             },
         )
@@ -682,17 +691,20 @@ internal object LocationServiceHook : BaseLocationHook() {
     }
 
     internal fun installGnssStatusCallback(callback: IInterface) {
-        callback.javaClass.onceHookAllMethod(
-            "onSvStatusChanged",
-            XposedInterface.Hooker status@{ event ->
-                val method = event.executable as? Method
-                if (method == null || !ReceiverGnssStatusAdapter.supports(method)) return@status event.proceed()
-                val context = GnssReceiverRuntime.activeContext() ?: return@status event.proceed()
-                val route = GnssListenerRouting.routeFor(event.thisObject, context.state.routing)
-                if (route == null || GnssReceiverRuntime.frameForRoute(route, context) == null) return@status event.proceed()
-                null
-            },
-        )
+        val statusHook = XposedInterface.Hooker status@{ event ->
+            val method = event.executable as? Method ?: return@status event.proceed()
+            if (method.name == "onSvStatusChanged" &&
+                !ReceiverGnssStatusAdapter.supports(method)) return@status event.proceed()
+            // Protection is decided by the routing policy, not by frame readiness. A missing
+            // synthetic frame must suppress the real status/TTFF callback, never pass it through.
+            val context = GnssReceiverRuntime.protectionContext() ?: return@status event.proceed()
+            val route = GnssListenerRouting.routeFor(event.thisObject, context.state.routing)
+                ?: return@status event.proceed()
+            null
+        }
+        listOf("onSvStatusChanged", "onGnssStarted", "onFirstFix", "onGnssStopped").forEach { name ->
+            callback.javaClass.onceHookAllMethod(name, statusHook)
+        }
     }
 
     internal fun restoreLocationSubscriptions(subscriptions: List<CallbackSubscription>) {

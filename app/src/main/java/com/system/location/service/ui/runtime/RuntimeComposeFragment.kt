@@ -524,7 +524,7 @@ private fun runtimeDetails(state: RuntimeState): String = buildString {
     appendLine("提交 ${health.count} 次 · 最近间隔 ${health.lastGapMs.toLong()}ms · 最大间隔 ${health.maxGapMs.toLong()}ms")
     appendLine("最近耗时 ${health.lastLatencyMs.toLong()}ms · 最大耗时 ${health.maxLatencyMs.toLong()}ms · 延迟 ${health.delayedCount} 次")
     appendLine("提交成功不代表目标 App 已采用定位")
-    appendLine("当前后端：${state.backend.displayLabel()}\n状态：${state.phase.displayLabel()}")
+    appendLine("当前后端：${state.backend.displayLabel()}\n状态：${state.displayLabel()}")
     appendLine("场景：${state.scenarioName ?: "未选择"}\n路线：${state.routeId ?: "—"}")
     state.sample?.let {
         appendLine(String.format(Locale.ROOT, "WGS84：%.6f, %.6f", it.latitude, it.longitude))
@@ -576,7 +576,7 @@ private fun RuntimeStatusCard(
     }
     PortalCard {
         Text(
-            state.phase.displayLabel(),
+            state.displayLabel(),
             style = MaterialTheme.typography.headlineMedium,
             color = statusColor,
         )

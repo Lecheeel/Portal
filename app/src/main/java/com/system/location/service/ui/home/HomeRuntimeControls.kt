@@ -17,11 +17,16 @@ import com.system.location.service.core.runtime.RuntimeState
 import com.system.location.service.ui.displayLabel
 
 /** Position samples belong to the map renderer and do not invalidate the controls. */
-internal data class HomeRuntimeUi(val phase: RuntimePhase, val backend: BackendType, val name: String?) {
+internal data class HomeRuntimeUi(
+    val phase: RuntimePhase,
+    val backend: BackendType,
+    val name: String?,
+    val holdingPosition: com.system.location.service.core.runtime.RouteEndPosition?,
+) {
     val isActive get() = phase in setOf(RuntimePhase.PREPARING, RuntimePhase.READY,
         RuntimePhase.RUNNING, RuntimePhase.PAUSED, RuntimePhase.HOLDING, RuntimePhase.STOPPING)
     companion object {
-        fun from(state: RuntimeState) = HomeRuntimeUi(state.phase, state.backend, state.scenarioName)
+        fun from(state: RuntimeState) = HomeRuntimeUi(state.phase, state.backend, state.scenarioName, state.holdingPosition)
     }
 }
 
@@ -33,7 +38,10 @@ internal fun HomeRuntimeControls(
     onPauseResume: () -> Unit,
     onStop: () -> Unit,
 ) {
-    Text(listOfNotNull(runtime.phase.displayLabel(), runtime.backend.displayLabel(),
+    val phaseLabel = if (runtime.phase == RuntimePhase.HOLDING &&
+        runtime.holdingPosition == com.system.location.service.core.runtime.RouteEndPosition.START) "停留在起点"
+    else runtime.phase.displayLabel()
+    Text(listOfNotNull(phaseLabel, runtime.backend.displayLabel(),
         runtime.name?.takeIf { runtime.isActive }).joinToString(" · "),
         style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
         color = MaterialTheme.colorScheme.onSurfaceVariant)

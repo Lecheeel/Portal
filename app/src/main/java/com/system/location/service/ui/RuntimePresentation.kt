@@ -43,6 +43,12 @@ fun RuntimePhase.displayLabel(): String = when (this) {
     RuntimePhase.ERROR -> "需要处理"
 }
 
+fun RuntimeState.displayLabel(): String = when {
+    phase != RuntimePhase.HOLDING -> phase.displayLabel()
+    holdingPosition == com.system.location.service.core.runtime.RouteEndPosition.START -> "停留在起点"
+    else -> "停留在终点"
+}
+
 fun BackendType.displayLabel(): String = when (this) {
     BackendType.MOCK_PROVIDER -> "无 Root"
     BackendType.XPOSED -> "Xposed"

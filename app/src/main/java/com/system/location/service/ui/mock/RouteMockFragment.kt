@@ -112,7 +112,7 @@ class RouteMockFragment : Fragment(R.layout.fragment_route_mock) {
                 }
                 launch { ScenarioRuntime.state.displayStates().collect { state ->
                     ui.libraryRuntimeCard.visibility = if (state.isActive || state.error != null) View.VISIBLE else View.GONE
-                    ui.runtimeStatus.setTextIfChanged("${state.backend.displayLabel()} · ${state.phase.displayLabel()} · ${state.scenarioName.orEmpty()}" +
+                    ui.runtimeStatus.setTextIfChanged("${state.backend.displayLabel()} · ${state.displayLabel()} · ${state.scenarioName.orEmpty()}" +
                         (state.error?.let { "\n${it.stage}: ${it.reason}\n${it.suggestion}" } ?: "")
                     )
                     ui.pauseResume.isEnabled = state.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)

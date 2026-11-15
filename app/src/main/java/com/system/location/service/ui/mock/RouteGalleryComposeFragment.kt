@@ -467,7 +467,7 @@ private fun LibraryScreen(
                 AnimatedVisibility(visible = runtime.isActive || runtime.error != null) {
                     PortalCard(modifier = Modifier.animateContentSize()) {
                         PortalSectionTitle(
-                            "${runtime.backend.displayLabel()} · ${runtime.phase.displayLabel()}",
+                            "${runtime.backend.displayLabel()} · ${runtime.displayLabel()}",
                             runtime.scenarioName.orEmpty(),
                         )
                         Spacer(Modifier.height(PortalSpacing.sm))

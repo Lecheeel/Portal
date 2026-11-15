@@ -148,7 +148,7 @@ object RockerOverlay {
 
     private fun updatePlaybackState() {
         val state = ScenarioRuntime.state.value
-        rocker?.setPlaybackState(state.phase, state.routeId != null)
+        rocker?.setPlaybackState(state.phase, state.routeId != null, state.holdingPosition)
     }
 
     private fun updateSpeedState() {

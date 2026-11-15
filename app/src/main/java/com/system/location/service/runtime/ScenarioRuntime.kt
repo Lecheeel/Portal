@@ -45,7 +45,7 @@ import com.system.location.service.ext.gmsMockEnabled
 import com.system.location.service.ext.platformFusedEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.smoothRouteMotion
-import com.system.location.service.ext.holdAtRouteEnd
+import com.system.location.service.ext.routeEndPosition
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.gnss.gnssReplayProblem
 import kotlinx.coroutines.*
@@ -213,7 +213,7 @@ object ScenarioRuntime {
             }
             check(preferences.edit().putBoolean("interrupted", true).commit()) { "无法持久化运行标记" }
             controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
-            val started = controller.start(frozen, holdAtEndpoint = context.holdAtRouteEnd)
+            val started = controller.start(frozen, routeEndPosition = context.routeEndPosition)
             if (started) {
                 withContext(Dispatchers.IO) {
                     runCatching {

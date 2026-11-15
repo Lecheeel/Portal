@@ -110,9 +110,15 @@ class Rocker(private val context: Context) {
         if (isStart) windowManager.updateViewLayout(root, layoutParams)
     }
 
-    fun setPlaybackState(phase: RuntimePhase, route: Boolean) {
+    fun setPlaybackState(
+        phase: RuntimePhase,
+        route: Boolean,
+        holdingPosition: com.system.location.service.core.runtime.RouteEndPosition? = null,
+    ) {
         val canMove = phase == RuntimePhase.RUNNING && !route
-        val status = if (phase == RuntimePhase.HOLDING) "停留在终点" else context.getString(when (phase) {
+        val status = if (phase == RuntimePhase.HOLDING) {
+            if (holdingPosition == com.system.location.service.core.runtime.RouteEndPosition.START) "停留在起点" else "停留在终点"
+        } else context.getString(when (phase) {
             RuntimePhase.RUNNING -> if (route) R.string.overlay_route_running else R.string.overlay_running
             RuntimePhase.PAUSED -> R.string.overlay_paused
             else -> R.string.overlay_idle

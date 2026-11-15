@@ -184,7 +184,7 @@ class RuntimeFragment : Fragment(R.layout.fragment_runtime) {
             refreshEnvironment(binding, view)
         }
         fun renderState(state: com.system.location.service.core.runtime.RuntimeState) {
-            binding.phaseTitle.setTextIfChanged(state.phase.displayLabel())
+            binding.phaseTitle.setTextIfChanged(state.displayLabel())
             binding.phaseTitle.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(),
                 when (state.phase) { RuntimePhase.RUNNING -> R.color.status_success; RuntimePhase.ERROR -> R.color.status_error; else -> R.color.text_primary }))
             binding.overview.setTextIfChanged("${backendLabel(state.backend)} · ${state.scenarioName ?: "未选择场景"}")

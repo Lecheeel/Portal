@@ -4,6 +4,7 @@ import android.content.Context
 import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.gnss.GnssFrame
 import com.system.location.service.core.gnss.GnssSimulationPolicy
+import com.system.location.service.core.runtime.RouteEndPosition
 import com.system.location.service.data.repository.*
 import androidx.core.content.edit
 import com.amap.api.maps.AMap
@@ -113,9 +114,25 @@ var Context.smoothRouteMotion: Boolean
     get() = sharedPrefs.getBoolean("smoothRouteMotion", true)
     set(value) = sharedPrefs.edit { putBoolean("smoothRouteMotion", value) }
 
+var Context.routeEndPosition: RouteEndPosition
+    get() {
+        val saved = sharedPrefs.getString("routeEndPosition", null)
+        if (saved != null) return runCatching { RouteEndPosition.valueOf(saved) }
+            .getOrDefault(RouteEndPosition.END)
+        // Migrate the previous switch: enabled meant endpoint hold, disabled meant cleanup.
+        return if (sharedPrefs.contains("holdAtRouteEnd") &&
+            !sharedPrefs.getBoolean("holdAtRouteEnd", false)
+        ) RouteEndPosition.REAL_LOCATION else RouteEndPosition.END
+    }
+    set(value) = sharedPrefs.edit {
+        putString("routeEndPosition", value.name)
+        remove("holdAtRouteEnd")
+    }
+
+@Deprecated("Use routeEndPosition")
 var Context.holdAtRouteEnd: Boolean
-    get() = sharedPrefs.getBoolean("holdAtRouteEnd", false)
-    set(value) = sharedPrefs.edit { putBoolean("holdAtRouteEnd", value) }
+    get() = routeEndPosition == RouteEndPosition.END
+    set(value) { routeEndPosition = if (value) RouteEndPosition.END else RouteEndPosition.REAL_LOCATION }
 
 var Context.gmsMockEnabled: Boolean
     get() = sharedPrefs.getBoolean("gmsMockEnabled", false)

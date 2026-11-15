@@ -43,6 +43,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.system.location.service.MainActivity
 import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
+import com.system.location.service.core.runtime.RouteEndPosition
 import com.system.location.service.core.routing.withPointAssignments
 import com.system.location.service.core.routing.withDeniedPackages
 import com.system.location.service.core.routing.RoutingConfig
@@ -62,7 +63,6 @@ import com.system.location.service.ext.disableRegisterLocationListener
 import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.gmsMockEnabled
-import com.system.location.service.ext.holdAtRouteEnd
 import com.system.location.service.ext.loopBroadcastlocation
 import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
@@ -70,6 +70,7 @@ import com.system.location.service.ext.physicalNoise
 import com.system.location.service.ext.platformFusedEnabled
 import com.system.location.service.ext.reportDuration
 import com.system.location.service.ext.routingJson
+import com.system.location.service.ext.routeEndPosition
 import com.system.location.service.ext.simReady
 import com.system.location.service.ext.smoothRouteMotion
 import com.system.location.service.ext.speed
@@ -143,6 +144,7 @@ class SettingsComposeFragment : Fragment() {
                     onEditReportInterval = { numberSetting = NumberSetting.INTERVAL },
                     onEditSpeed = { numberSetting = NumberSetting.SPEED },
                     onEditSatelliteCount = { numberSetting = NumberSetting.SATELLITES },
+                    onRouteEndPosition = ::showRouteEndPosition,
                     onAppRouting = ::showAppRouting,
                     onSensorTargets = {
                         val context = requireContext()
@@ -321,6 +323,21 @@ class SettingsComposeFragment : Fragment() {
             .show()
     }
 
+    private fun showRouteEndPosition() {
+        val context = requireContext()
+        val options = RouteEndPosition.entries.toTypedArray()
+        val selected = options.indexOf(context.routeEndPosition).coerceAtLeast(0)
+        MaterialAlertDialogBuilder(context)
+            .setTitle("路线结束后停留位置")
+            .setSingleChoiceItems(options.map(::routeEndPositionLabel).toTypedArray(), selected) { dialog, which ->
+                context.routeEndPosition = options[which]
+                dialog.dismiss()
+                refresh()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
     private fun checkForUpdate() {
         val request = ++updateRequest
         val channel = UpdateChecker.currentChannel()
@@ -346,6 +363,12 @@ class SettingsComposeFragment : Fragment() {
 private const val NEXT_SCENE = "下次启动场景生效"
 private const val APPLY_WHILE_RUNNING = "运行中尝试立即应用"
 
+private fun routeEndPositionLabel(value: RouteEndPosition) = when (value) {
+    RouteEndPosition.START -> "起点"
+    RouteEndPosition.END -> "终点"
+    RouteEndPosition.REAL_LOCATION -> "真实定位"
+}
+
 private data class SettingsValues(
     val altitude: Double,
     val accuracy: Float,
@@ -355,7 +378,7 @@ private data class SettingsValues(
     val mapProviderLabel: String,
     val updateChannelLabel: String,
     val smoothRouteMotion: Boolean,
-    val holdAtRouteEnd: Boolean,
+    val routeEndPosition: RouteEndPosition,
     val physicalNoise: Boolean,
     val gmsMockEnabled: Boolean,
     val platformFusedEnabled: Boolean,
@@ -390,6 +413,7 @@ private fun SettingsScreen(
     onEditReportInterval: () -> Unit,
     onEditSpeed: () -> Unit,
     onEditSatelliteCount: () -> Unit,
+    onRouteEndPosition: () -> Unit,
     onAppRouting: () -> Unit,
     onSensorTargets: () -> Unit,
     onEditSensorPackages: () -> Unit,
@@ -416,7 +440,7 @@ private fun SettingsScreen(
             mapProviderLabel = context.mapProvider.label,
             updateChannelLabel = if (UpdateChecker.currentChannel() == UpdateChannel.BETA) "Beta" else "正式版",
             smoothRouteMotion = context.smoothRouteMotion,
-            holdAtRouteEnd = context.holdAtRouteEnd,
+            routeEndPosition = context.routeEndPosition,
             physicalNoise = context.physicalNoise,
             gmsMockEnabled = context.gmsMockEnabled,
             platformFusedEnabled = context.platformFusedEnabled,
@@ -516,12 +540,10 @@ private fun SettingsScreen(
                                     onCheckedChange = { context.smoothRouteMotion = it; refresh() },
                                     modifier = rowModifier,
                                 )
-                                2 -> PortalSwitchRow(
-                                    title = "路线结束后停留在终点",
-                                    status = NEXT_SCENE,
-                                    subtitle = "到达终点后保持定位通道；手动停止时释放。",
-                                    checked = values.holdAtRouteEnd,
-                                    onCheckedChange = { context.holdAtRouteEnd = it; refresh() },
+                                2 -> PortalActionRow(
+                                    title = "路线结束后停留位置",
+                                    status = routeEndPositionLabel(values.routeEndPosition),
+                                    onClick = onRouteEndPosition,
                                     modifier = rowModifier,
                                 )
                                 3 -> PortalSwitchRow(

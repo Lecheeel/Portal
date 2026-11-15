@@ -31,9 +31,28 @@ class GnssUtcTimeScale(offsets: List<GnssUtcOffset>, val expiresAtMillis: Long) 
         if (utcMillis < GPS_EPOCH_MILLIS) return UtcGpsConversion(null, "UTC precedes GPS epoch")
         if (utcMillis >= expiresAtMillis) return UtcGpsConversion(null, "UTC leap-second resource expired")
         val offset = offsets.last { it.effectiveAtMillis <= utcMillis }.taiMinusUtcSeconds - 19
+        return convert(utcMillis, offset)
+    }
+
+    /**
+     * Last-known-offset conversion used only when the bundled IERS table has expired.
+     *
+     * A future leap second cannot be inferred; the caller gets a deterministic GPS time from the
+     * last published TAI-UTC value instead of losing the whole synthetic receiver. This is a
+     * degraded fallback, not a claim that the table is current.
+     */
+    fun gpsAtUtcMillisClamped(utcMillis: Long): UtcGpsConversion {
+        if (utcMillis < GPS_EPOCH_MILLIS) return UtcGpsConversion(null, "UTC precedes GPS epoch")
+        val offset = offsets.last().taiMinusUtcSeconds - 19
+        return convert(utcMillis, offset).copy(
+            reason = "UTC leap-second resource expired; using last known offset",
+        )
+    }
+
+    private fun convert(utcMillis: Long, offsetSeconds: Int): UtcGpsConversion {
         // Work in milliseconds relative to the origin; preserve sub-second precision before
         // converting only the within-week remainder to Double.
-        val gpsMillis = utcMillis - GPS_EPOCH_MILLIS + offset * 1000L
+        val gpsMillis = utcMillis - GPS_EPOCH_MILLIS + offsetSeconds * 1000L
         val week = gpsMillis / MILLIS_PER_WEEK
         if (week > Int.MAX_VALUE) return UtcGpsConversion(null, "GPS week outside supported range")
         return UtcGpsConversion(GpsTime(week.toInt(), gpsMillis % MILLIS_PER_WEEK / 1000.0))

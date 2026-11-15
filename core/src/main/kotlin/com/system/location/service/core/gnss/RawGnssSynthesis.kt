@@ -22,8 +22,10 @@ object RawGnssSynthesis {
 
     fun gpsTime(nowMillis: Long): GpsTime? {
         if (nowMillis < 0) return null
-        return GnssBundledOrbitResources.utcTimeScale()
-            ?.gpsAtUtcMillis(nowMillis)?.time
+        val scale = GnssBundledOrbitResources.utcTimeScale() ?: return null
+        return scale.gpsAtUtcMillis(nowMillis).time
+            ?: if (nowMillis >= scale.expiresAtMillis) scale.gpsAtUtcMillisClamped(nowMillis).time
+            else null
     }
 
     /**

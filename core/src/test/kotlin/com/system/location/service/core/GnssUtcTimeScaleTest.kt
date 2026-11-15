@@ -32,6 +32,15 @@ class GnssUtcTimeScaleTest {
         assertNull(scale.gpsAtUtcMillis(Long.MAX_VALUE).time)
     }
 
+    @Test fun clampedFallbackUsesLastKnownOffsetOnlyAfterExpiry() {
+        assertNull(scale.gpsAtUtcMillis(scale.expiresAtMillis).time)
+        val clamped = scale.gpsAtUtcMillisClamped(scale.expiresAtMillis)
+        assertNotNull(clamped.time)
+        assertNotNull(clamped.reason)
+        assertEquals(scale.gpsAtUtcMillis(scale.expiresAtMillis - 1).time!!.week,
+            clamped.time!!.week)
+    }
+
     @Test fun rejectsBrokenResourcesAndInconsistentOffsetSequence() {
         for (invalid in listOf("", text.replace("#@", "#ignored"), "$text\n#@ 4023129600",
             text.replace("3692217600      37", "3692217600      40"),

@@ -6,5 +6,5 @@
     <string name="simulation_title">模拟</string>
     <string name="simulation_location_tab">位置</string>
     <string name="simulation_satellite_tab">卫星</string>
-    <string name="environment_tools_title">环境工具</string>
+    <string name="environment_tools_title">环境</string>
 </resources>

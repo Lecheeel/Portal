@@ -58,6 +58,9 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentContainerView
+import androidx.lifecycle.Lifecycle
+import com.system.location.service.ui.environment.EnvironmentComposeFragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.fragment.findNavController
@@ -81,6 +84,9 @@ import com.system.location.service.ui.viewmodel.LibraryViewModel
  */
 class RouteGalleryComposeFragment : Fragment() {
     private val model by viewModels<LibraryViewModel>()
+    private var environmentSelected = false
+    private var libraryContent: View? = null
+    private var environmentContent: View? = null
     private var importKind = LibraryKind.ROUTES
     private var exportKind = LibraryKind.ROUTES
     private var exportRouteId: String? = null
@@ -100,6 +106,10 @@ class RouteGalleryComposeFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        environmentSelected = savedInstanceState?.getBoolean("environmentSelected") ?: false
+        savedInstanceState?.getString("libraryKind")?.let { key ->
+            LibraryKind.entries.firstOrNull { it.name == key }?.let(model::kind)
+        }
         importKind = runCatching { LibraryKind.valueOf(savedInstanceState?.getString("importKind") ?: "ROUTES") }.getOrDefault(LibraryKind.ROUTES)
         exportKind = runCatching { LibraryKind.valueOf(savedInstanceState?.getString("exportKind") ?: "ROUTES") }.getOrDefault(LibraryKind.ROUTES)
         exportRouteId = savedInstanceState?.getString("exportRouteId")
@@ -109,29 +119,96 @@ class RouteGalleryComposeFragment : Fragment() {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?,
-    ): View = ComposeView(requireContext()).apply {
-        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-        setContent {
-            PortalTheme {
-                LibraryScreen(
-                    model = model,
-                    onAddRoute = { findNavController().navigate(R.id.nav_route_edit) },
-                    onImportJson = { kind ->
-                        importKind = kind
-                        importFile.launch(arrayOf("application/json", "text/*"))
-                    },
-                    onExportJson = { kind ->
-                        exportKind = kind
-                        exportFile.launch("location-${kind.name.lowercase()}.json")
-                    },
-                    onImportGpx = { importGpx.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) },
-                    onExportGpx = { routeId ->
-                        exportRouteId = routeId
-                        exportGpx.launch(if (routeId == null) "location-routes.gpx" else "route.gpx")
-                    },
-                )
+    ): View = android.widget.LinearLayout(requireContext()).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+        addView(ComposeView(context).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                PortalTheme {
+                    val state by model.state.collectAsStateWithLifecycle()
+                    var environment by rememberSaveable { mutableStateOf(environmentSelected) }
+                    PrimaryTabRow(if (environment) 3 else state.kind.ordinal,
+                        containerColor = MaterialTheme.colorScheme.background, divider = {}) {
+                        (LibraryKind.entries.map { it.libraryLabel() } + "环境").forEachIndexed { index, label ->
+                            Tab(selected = if (index == 3) environment else !environment && state.kind.ordinal == index,
+                                onClick = {
+                                    environment = index == 3
+                                    environmentSelected = environment
+                                    if (!environment) model.kind(LibraryKind.entries[index])
+                                    showLibraryTab()
+                                }, enabled = !state.busy,
+                                text = { Text(label, style = MaterialTheme.typography.titleSmall) },
+                                icon = { Icon(painterResource(if (index == 3) R.drawable.ic_layers_modern
+                                    else LibraryKind.entries[index].libraryIcon()), null, Modifier.size(22.dp)) })
+                        }
+                    }
+                }
             }
+        }, android.widget.LinearLayout.LayoutParams(-1, -2))
+        val body = android.widget.FrameLayout(context)
+        addView(body, android.widget.LinearLayout.LayoutParams(-1, 0, 1f))
+        body.addView(FragmentContainerView(context).apply {
+            id = R.id.library_environment_content
+            environmentContent = this
+        }, android.widget.FrameLayout.LayoutParams(-1, -1))
+        body.addView(ComposeView(context).apply {
+            libraryContent = this
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                PortalTheme {
+                    LibraryScreen(
+                        model = model,
+                        onAddRoute = { findNavController().navigate(R.id.nav_route_edit) },
+                        onImportJson = { kind ->
+                            importKind = kind
+                            importFile.launch(arrayOf("application/json", "text/*"))
+                        },
+                        onExportJson = { kind ->
+                            exportKind = kind
+                            exportFile.launch("location-${kind.name.lowercase()}.json")
+                        },
+                        onImportGpx = { importGpx.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) },
+                        onExportGpx = { routeId ->
+                            exportRouteId = routeId
+                            exportGpx.launch(if (routeId == null) "location-routes.gpx" else "route.gpx")
+                        },
+                    )
+                }
+            }
+        }, android.widget.FrameLayout.LayoutParams(-1, -1))
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        if (childFragmentManager.findFragmentByTag("library_environment") == null) {
+            childFragmentManager.beginTransaction().add(R.id.library_environment_content,
+                EnvironmentComposeFragment().apply { arguments = Bundle().apply { putBoolean("library", true) } },
+                "library_environment").commitNow()
         }
+        showLibraryTab()
+    }
+
+    private fun showLibraryTab() {
+        libraryContent?.visibility = if (environmentSelected) View.GONE else View.VISIBLE
+        environmentContent?.visibility = if (environmentSelected) View.VISIBLE else View.GONE
+        val fragment = childFragmentManager.findFragmentByTag("library_environment") ?: return
+        childFragmentManager.beginTransaction().apply {
+            if (environmentSelected) {
+                show(fragment)
+                setMaxLifecycle(fragment, Lifecycle.State.RESUMED)
+                setPrimaryNavigationFragment(fragment)
+            } else {
+                hide(fragment)
+                setMaxLifecycle(fragment, Lifecycle.State.CREATED)
+                setPrimaryNavigationFragment(null)
+            }
+        }.commitNow()
+    }
+
+    override fun onDestroyView() {
+        libraryContent = null
+        environmentContent = null
+        super.onDestroyView()
     }
 
     override fun onResume() {
@@ -140,6 +217,8 @@ class RouteGalleryComposeFragment : Fragment() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("environmentSelected", environmentSelected)
+        outState.putString("libraryKind", model.state.value.kind.name)
         outState.putString("importKind", importKind.name)
         outState.putString("exportKind", exportKind.name)
         outState.putString("exportRouteId", exportRouteId)
@@ -303,23 +382,6 @@ private fun LibraryScreen(
             contentPadding = PaddingValues(PortalSpacing.xl, PortalSpacing.xl, PortalSpacing.xl, 40.dp),
             verticalArrangement = Arrangement.spacedBy(PortalSpacing.md),
         ) {
-            item(key = "categories") {
-                PrimaryTabRow(
-                    selectedTabIndex = state.kind.ordinal,
-                    containerColor = MaterialTheme.colorScheme.background,
-                    divider = {},
-                ) {
-                    LibraryKind.entries.forEach { kind ->
-                        Tab(
-                            selected = state.kind == kind,
-                            onClick = { if (state.kind != kind) model.kind(kind) },
-                            enabled = !state.busy,
-                            text = { Text(kind.libraryLabel(), style = MaterialTheme.typography.titleSmall) },
-                            icon = { Icon(painterResource(kind.libraryIcon()), null, Modifier.size(22.dp)) },
-                        )
-                    }
-                }
-            }
             item(key = "search") {
                 OutlinedTextField(
                     value = query,

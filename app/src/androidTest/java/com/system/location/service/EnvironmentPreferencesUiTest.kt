@@ -41,21 +41,20 @@ class EnvironmentPreferencesUiTest {
         } finally { context.environmentSourceMode = original }
     }
 
-    @Test fun systemSettingsOpensEnvironmentAndReturnsToItsCategory() {
+    @Test fun environmentToolsMoveFromSettingsToSimulation() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         acceptSelectedMapForUiTest()
         grantUiPermissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.openPage(scenario, R.id.nav_settings_system)
-            compose.scrollToText("环境工具").performClick()
+            compose.onNodeWithText("环境工具").assertDoesNotExist()
+            compose.openPage(scenario, R.id.nav_mock)
             compose.scrollToText(context.getString(R.string.environment_capture_action)).assertIsDisplayed()
             compose.scrollToText(context.getString(R.string.wifi_fingerprint_enable)).assertIsDisplayed()
             captureUi("settings-environment-groups")
             scenario.recreate()
             compose.scrollToText(context.getString(R.string.environment_capture_action)).assertIsDisplayed()
-            scenario.onActivity { it.onSupportNavigateUp() }
-            compose.scrollToText("SIM 就绪").assertIsDisplayed()
-            compose.scrollToText("环境工具").assertIsDisplayed()
+            compose.onNodeWithText("环境").assertIsSelected()
         }
     }
 
@@ -76,15 +75,14 @@ class EnvironmentPreferencesUiTest {
             context.environmentSourceMode = "PROCEDURAL"
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 compose.openPage(scenario, R.id.nav_mock)
-                compose.onNodeWithText("位置").assertIsSelected()
-                compose.scrollToText("环境工具").performClick()
+                compose.onNodeWithText("环境").assertIsSelected()
                 compose.scrollToText(context.getString(R.string.environment_source_value, "按位置生成")).assertIsDisplayed()
                 compose.scrollToText(context.getString(R.string.environment_list_action)).performClick()
                 compose.waitUntil(5_000) { compose.onAllNodesWithText(name).fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithText(name).performClick()
                 compose.onNodeWithText("设置为回放环境").performClick()
                 compose.waitUntil(5_000) { context.environmentSourceMode == "REPLAY" }
-                compose.scrollToText(context.getString(R.string.environment_source_value, "已采集环境回放")).assertIsDisplayed()
+                compose.scrollToText(context.getString(R.string.environment_source_value, "已保存环境回放")).assertIsDisplayed()
                 assertEquals(profile, EnvironmentProfileCodec.decode(context.environmentReplayJson))
                 scenario.onActivity { it.environmentApCount = 7 }
                 compose.scrollToText(context.getString(R.string.environment_ap_value, 7)).assertIsDisplayed()

@@ -96,7 +96,7 @@ class UiDesignTest {
                 scenario.onActivity { activity ->
                     activity.binding.navView.menu.performIdentifierAction(R.id.nav_mock, 0)
                 }
-                compose.scrollToText("位置名称").assertIsDisplayed()
+                compose.scrollToText("手动新建").assertIsDisplayed()
                 scenario.onActivity {
                     assertEquals(R.id.nav_mock, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
                 }
@@ -110,7 +110,7 @@ class UiDesignTest {
             }
             compose.scrollToText("打开资料库").performClick()
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-            compose.scrollToText("位置名称").assertIsDisplayed()
+            compose.scrollToText("手动新建").assertIsDisplayed()
         }
     }
 
@@ -315,7 +315,7 @@ class UiDesignTest {
                         assertEquals(mode == AppCompatDelegate.MODE_NIGHT_NO, controller.isAppearanceLightNavigationBars)
                     }
                     for ((destination, name, marker) in listOf(
-                        Triple(R.id.nav_mock, "point", "位置名称"),
+                        Triple(R.id.nav_mock, "point", "手动新建"),
                         Triple(R.id.nav_settings, "settings", "地图与定位"),
                         Triple(R.id.nav_runtime, "runtime", "打开开发者选项"),
                         Triple(R.id.nav_route_gallery, "library", "搜索资料"),

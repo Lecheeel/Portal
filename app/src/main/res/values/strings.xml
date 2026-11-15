@@ -87,7 +87,7 @@
     <string name="per_app_no_match">没有匹配的应用</string>
     <string name="per_app_done">完成</string>
     <string name="environment_capture_title">环境采集</string>
-    <string name="environment_capture_desc">采集当前 WiFi、基站和 BLE 信标快照，保存为可回放的环境文件</string>
+    <string name="environment_capture_desc">采集或手动录入 Wi-Fi、蓝牙信标与蜂窝小区，统一保存、编辑和回放。</string>
     <string name="environment_capture_action">采集当前环境</string>
     <string name="environment_capture_requires_location">需要位置权限才能采集环境</string>
     <string name="environment_capture_saved">已保存：%1$s（WiFi %2$d，基站 %3$d，BLE 信标 %4$d）</string>

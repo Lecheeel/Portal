@@ -335,7 +335,8 @@ class EnvironmentComposeFragment : Fragment() {
                 com.system.location.service.runtime.ScenarioRuntime.applyConfigNow()
             }
             showToast(if (applied) "回放环境已应用" else getString(R.string.environment_replay_set))
-            if (isAdded && arguments?.getBoolean("library") == true) findNavController().popBackStack()
+            if (isAdded && arguments?.getBoolean("library") == true &&
+                parentFragment !is com.system.location.service.ui.mock.RouteGalleryComposeFragment) findNavController().popBackStack()
         }
     }
 

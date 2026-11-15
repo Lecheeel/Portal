@@ -23,22 +23,22 @@ class SimulationNavigationTest {
         grantUiPermissions()
     }
 
-    @Test fun combinedTabsKeepCoordinatesAndRestoreSelectedTab() {
+    @Test fun environmentAndSatelliteTabsRestoreSelection() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.openPage(scenario, R.id.nav_mock)
-            compose.waitUntil(5_000) { compose.onAllNodesWithText("位置名称").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("位置名称").assertIsDisplayed()
+            compose.onNodeWithText("环境").assertIsSelected()
+            compose.onNodeWithText("手动新建").assertIsDisplayed()
             scenario.onActivity { assertNull(it.binding.navView.menu.findItem(R.id.nav_gnss_mock)) }
-            compose.onNodeWithText("纬度 · -90 至 90").performTextReplacement("26.123456")
             compose.onNodeWithText("卫星").performClick()
             compose.onNodeWithText("卫星").assertIsSelected()
             compose.onNodeWithText("星图信息").assertIsDisplayed()
             scenario.recreate()
             compose.onNodeWithText("卫星").assertIsSelected()
             compose.onNodeWithText("星图信息").assertIsDisplayed()
-            compose.onNodeWithText("位置").performClick()
-            compose.onNodeWithText("位置").assertIsSelected()
-            compose.onNodeWithText("纬度 · -90 至 90").assertTextContains("26.123456")
+            compose.onNodeWithText("环境").performClick()
+            compose.onNodeWithText("环境").assertIsSelected()
+            compose.onNodeWithText("手动新建").assertIsDisplayed()
+            compose.onNodeWithText("位置名称").assertDoesNotExist()
         }
     }
 
@@ -60,8 +60,8 @@ class SimulationNavigationTest {
                 compose.onNodeWithText("取消").performClick()
                 compose.onNodeWithText("实验性模式风险须知").assertDoesNotExist()
                 assertEquals(baseline, ScenarioRuntime.state.value.backend)
-                compose.scrollToText(baseline.displayLabel()).assertIsSelected()
-                compose.onNodeWithText(BackendType.NATIVE.displayLabel()).assertIsNotSelected()
+                compose.scrollTo(hasText(baseline.displayLabel()) and hasClickAction()).assertIsSelected()
+                compose.onNode(hasText(BackendType.NATIVE.displayLabel()) and hasClickAction()).assertIsNotSelected()
             }
         } finally { assertTrue(runBlocking { ScenarioRuntime.selectBackend(original).await() }) }
     }

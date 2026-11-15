@@ -10,6 +10,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -113,6 +114,9 @@ internal fun QuickReplayCard(
             onManage?.let { PortalActionRow("管理环境 / 卫星", onClick = it) }
             state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall,
                 color = if (state.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (state.failed && !state.busy) {
+                TextButton(onClick = { scope.launch { model.refresh() } }) { Text("重试") }
+            }
         }
     }
 }

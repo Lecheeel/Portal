@@ -60,6 +60,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -122,6 +124,7 @@ import java.util.Locale
 
 /** Compose home screen; the map remains an AndroidView and owns its SDK lifecycle. */
 class HomeComposeFragment : Fragment() {
+    private val replayModel by activityViewModels<com.system.location.service.ui.viewmodel.QuickReplayViewModel>()
     private val mapModel by activityViewModels<AMapViewModel>()
     private val mockModel by activityViewModels<MockServiceViewModel>()
     private val targetState = kotlinx.coroutines.flow.MutableStateFlow(HomeTarget())
@@ -196,6 +199,8 @@ class HomeComposeFragment : Fragment() {
             PortalTheme {
                 HomeScreen(
                     mockModel = mockModel,
+                    replayModel = replayModel,
+                    onManageReplay = { findNavController().navigate(R.id.nav_mock) },
                     targetFlow = targetState,
                     locationFlow = locationState,
                     libraryFlow = libraryState,
@@ -745,8 +750,11 @@ private fun HomeMapButton(icon: Int, description: String, onClick: () -> Unit) {
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun HomeScreen(
     mockModel: MockServiceViewModel,
+    replayModel: com.system.location.service.ui.viewmodel.QuickReplayViewModel,
+    onManageReplay: () -> Unit,
     targetFlow: kotlinx.coroutines.flow.Flow<HomeTarget>,
     locationFlow: kotlinx.coroutines.flow.StateFlow<HomeLocationState>,
     libraryFlow: kotlinx.coroutines.flow.StateFlow<HomeLibraryState>,
@@ -774,6 +782,7 @@ private fun HomeScreen(
     val target by targetFlow.collectAsStateWithLifecycle(initialValue = HomeTarget())
     val library by libraryFlow.collectAsStateWithLifecycle()
     var targetPicker by rememberSaveable { mutableStateOf(false) }
+    var replayPicker by rememberSaveable { mutableStateOf(false) }
     val queryState = remember { mutableStateOf("") }
     var query by queryState
     var suggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
@@ -784,6 +793,17 @@ private fun HomeScreen(
     var latInput by remember { mutableStateOf("") }
     var lonInput by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
+    if (replayPicker) ModalBottomSheet(onDismissRequest = { replayPicker = false }) {
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(20.dp, 0.dp, 20.dp, 24.dp)) {
+            item {
+                com.system.location.service.ui.mock.QuickReplayCard(replayModel, onManage = {
+                    replayPicker = false
+                    onManageReplay()
+                })
+            }
+        }
+    }
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val requestSearch by rememberUpdatedState(onSearch)
@@ -1019,6 +1039,7 @@ private fun HomeScreen(
                 targetPicker = true
                 onOpenTargets()
             }
+            HomeMapButton(R.drawable.baseline_satellite_alt_24, "环境 / 卫星快捷回放") { replayPicker = true }
             HomeMapButton(R.drawable.ic_home_coordinates, "输入坐标") { coordinateDialog = true }
             HomeMapButton(R.drawable.ic_home_locate, if (runtime.isActive) "定位到模拟位置" else "定位到真实位置", onLocate)
         }

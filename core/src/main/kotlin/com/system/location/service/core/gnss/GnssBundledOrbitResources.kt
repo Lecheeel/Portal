@@ -19,6 +19,7 @@ object GnssBundledOrbitResources {
         }
         readFromCodeSource(name)?.let { return it }
         externalReader?.invoke(name)?.let { return it }
+        BundledGnssFallback.read(name)?.let { return it }
         error("Missing bundled GNSS resource: $name")
     }
 

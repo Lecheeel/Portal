@@ -13,7 +13,7 @@ import com.system.location.service.hook.utils.Logger
 object RemoteCommandHandler {
 
     private val security = CommandSecurity()
-    private val replicatedCommands = setOf("start", "stop", "set_speed_amp", "set_altitude", "set_speed",
+    private val replicatedCommands = setOf("start", "stop", "set_altitude", "set_speed",
         "update_location", "set_bearing", "put_config", "publish_sample", "start_gnss_mock", "stop_gnss_mock",
         "start_wifi_mock", "stop_wifi_mock")
 
@@ -54,7 +54,7 @@ object RemoteCommandHandler {
         var commandId = rely.getString("command_id") ?: return false
         val incomingSample = if (commandId == "publish_sample") SampleWire.read(rely) ?: return false else null
         if (incomingSample != null && !SampleCommand.accepts(incomingSample)) return false
-        if (listOf("speed", "altitude", "bearing", "speed_amplitude").any {
+        if (listOf("speed", "altitude", "bearing").any {
                 rely.containsKey(it) && !rely.getDouble(it).isFinite()
             }) return false
         if (rely.containsKey("speed") && rely.getDouble("speed") < 0) return false
@@ -89,7 +89,6 @@ object RemoteCommandHandler {
             "get_speed" -> ControlCommand.speed(rely)
             "get_bearing" -> ControlCommand.bearing(rely)
             "get_altitude" -> ControlCommand.altitude(rely)
-            "set_speed_amp" -> ControlCommand.setSpeedAmplitude(rely)
             "set_altitude" -> ControlCommand.setAltitude(rely)
             "set_speed" -> ControlCommand.setSpeed(rely)
             "set_bearing" -> ControlCommand.setBearing(rely)

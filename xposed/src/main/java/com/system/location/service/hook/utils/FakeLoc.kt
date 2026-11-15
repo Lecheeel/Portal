@@ -196,10 +196,6 @@ object FakeLoc {
         get() = runtimeSnapshots.current().speedMps
         set(value) { runtimeSnapshots.update { it.copy(speedMps = value.coerceAtLeast(0.0)) } }
 
-    var speedAmplitude: Double
-        get() = runtimeSnapshots.current().configuration.speedAmplitude
-        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(speedAmplitude = value)) } }
-
     var hasBearings: Boolean
         get() = runtimeSnapshots.current().hasBearings
         set(value) { runtimeSnapshots.update { it.copy(hasBearings = value) } }

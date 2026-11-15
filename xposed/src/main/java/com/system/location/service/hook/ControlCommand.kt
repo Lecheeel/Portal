@@ -97,13 +97,11 @@ object ControlCommand {
     internal fun publishNumber(key: String, raw: Any?): com.system.location.service.core.runtime.RuntimeSnapshot {
         require(raw is Double && raw.isFinite()) { "Invalid numeric control field: $key" }
         if (key == "speed") require(raw in 0.0..com.system.location.service.core.location.LocationSanitizer.MAX_SPEED_MPS)
-        if (key == "speed_amplitude") require(raw in 0.0..10.0)
         return FakeLoc.runtimeSnapshots.update { current ->
             val next = when (key) {
                 "speed" -> current.copy(speedMps = raw)
                 "altitude" -> current.copy(altitudeMeters = raw)
                 "bearing" -> current.copy(bearingDeg = raw, hasBearings = true)
-                "speed_amplitude" -> current.copy(configuration = current.configuration.copy(speedAmplitude = raw))
                 else -> error("Unknown numeric control field")
             }
             next.copy(configRevision = Math.addExact(current.configRevision, 1L))
@@ -116,7 +114,6 @@ object ControlCommand {
         return true
     }
 
-    fun setSpeedAmplitude(rely: Bundle) = setNumber(rely, "speed_amplitude")
     fun setAltitude(rely: Bundle) = setNumber(rely, "altitude")
     fun setSpeed(rely: Bundle) = setNumber(rely, "speed")
     fun setBearing(rely: Bundle) = setNumber(rely, "bearing")

@@ -48,7 +48,7 @@ class CommandSecurity(private val tokenFactory: () -> String = {
         val commands = peerCommands + setOf("start", "stop", "is_start", "start_gnss_mock",
             "stop_gnss_mock", "is_gnss_start", "is_wifi_mock_start", "start_wifi_mock",
             "stop_wifi_mock", "get_location", "get_listener_size", "get_speed", "get_bearing",
-            "get_altitude", "set_speed_amp", "set_altitude", "set_speed", "set_bearing",
+            "get_altitude", "set_altitude", "set_speed", "set_bearing",
             "update_location", "move", "put_config", "broadcast_location", "load_library", "publish_sample", "get_runtime_status",
             "native_prepare", "native_status")
     }

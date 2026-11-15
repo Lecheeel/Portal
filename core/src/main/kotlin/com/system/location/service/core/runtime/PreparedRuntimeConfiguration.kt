@@ -60,7 +60,6 @@ class PreparedRuntimeConfiguration private constructor(
             sensorCadenceScale = value("sensor_cadence_scale", old.sensorCadenceScale),
             sensorVariation = value("sensor_variation", old.sensorVariation),
             sensorTargets = value("sensor_targets", old.sensorTargets),
-            speedAmplitude = value("speed_amplitude", old.speedAmplitude),
             wifiFingerprintEnabled = value("wifi_fingerprint_enabled", old.wifiFingerprintEnabled),
             wifiFingerprintCatalogJson = value("wifi_fingerprint_json", old.wifiFingerprintCatalogJson),
             gnssSource = if ("gnss_capture" in values) source else old.gnssSource,

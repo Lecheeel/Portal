@@ -12,7 +12,7 @@ class ControlCommandTest {
         try {
             val initial = RuntimeSnapshot(configRevision = 7, latitude = 31.0, longitude = 121.0)
             FakeLoc.runtimeSnapshots.set(initial)
-            for (key in listOf("speed", "altitude", "bearing", "speed_amplitude")) {
+            for (key in listOf("speed", "altitude", "bearing")) {
                 for (value in listOf(null, 1, 1f, "1", Double.NaN, Double.POSITIVE_INFINITY)) {
                     assertThrows(IllegalArgumentException::class.java) { ControlCommand.publishNumber(key, value) }
                     assertSame(initial, FakeLoc.runtimeSnapshots.current())
@@ -20,7 +20,6 @@ class ControlCommandTest {
             }
             assertThrows(IllegalArgumentException::class.java) { ControlCommand.publishNumber("speed", -1.0) }
             assertThrows(IllegalArgumentException::class.java) { ControlCommand.publishNumber("speed", 1_000.1) }
-            assertThrows(IllegalArgumentException::class.java) { ControlCommand.publishNumber("speed_amplitude", 10.1) }
             val bearing = ControlCommand.publishNumber("bearing", 270.0)
             assertTrue(bearing.hasBearings)
             assertEquals(270.0, bearing.bearingDeg, 0.0)

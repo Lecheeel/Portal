@@ -192,16 +192,6 @@ object MockServiceHelper {
         return commandClient.send(locationManager, rely)
     }
 
-    fun setSpeedAmplitude(locationManager: LocationManager, speedAmplitude: Double): Boolean {
-        if (!commandClient.connected) {
-            return false
-        }
-        val rely = Bundle()
-        rely.putString("command_id", "set_speed_amp")
-        rely.putDouble("speed_amplitude", speedAmplitude)
-        return commandClient.send(locationManager, rely)
-    }
-
     fun getSpeed(locationManager: LocationManager): Float? {
         if (!commandClient.connected) {
             return null

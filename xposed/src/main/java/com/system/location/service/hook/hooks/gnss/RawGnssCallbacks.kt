@@ -2,8 +2,11 @@ package com.system.location.service.hook.hooks.gnss
 
 import android.os.IInterface
 import com.system.location.service.hook.utils.BinderUtils
-import com.system.location.service.hook.utils.onceHookAllMethod
+import com.system.location.service.hook.utils.Logger
+import com.system.location.service.hook.utils.onceHook
 import io.github.libxposed.api.XposedInterface
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 
 /** Retains caller routing while Android owns the actual raw registrations and permissions. */
 internal object RawGnssCallbacks {
@@ -25,8 +28,14 @@ internal object RawGnssCallbacks {
                 registry.register(listener, chain.args.filterIsInstance<String>().firstOrNull(), callerUid())
                 try {
                     // Hook setup can fail after installing only part of the callback surface.
-                    // The provisional subscription must roll back before Android is ever called.
                     install(listener)
+                } catch (_: Exception) {
+                    val method = chain.executable as? Method ?: return@synchronized null
+                    if (existed) return@synchronized rawGnssRegistrationResult(method, accepted = true)
+                    registry.unregister(listener)
+                    return@synchronized rejectRawGnssRegistration(method, listener)
+                }
+                try {
                     val result = chain.proceed()
                     if (result == false && !existed) registry.unregister(listener)
                     result
@@ -39,24 +48,54 @@ internal object RawGnssCallbacks {
     }
 
     fun blocked(listener: Any?): Boolean {
-        val context = GnssReceiverRuntime.activeContext() ?: return false
-        if (context.state.configuration.allowPhysicalRawGnss) return false
-        val route = registry.routeFor(listener, context.state.routing) ?: return false
-        return GnssReceiverRuntime.frameForRoute(route, context) != null
+        val context = GnssReceiverRuntime.protectionContext() ?: return false
+        registry.routeFor(listener, context.state.routing) ?: return false
+        return rawGnssPayloadProtectionApplies(context.state.configuration.enabled, protectedRoute = true)
     }
 
     fun clear() = registry.clear()
     internal fun subscriptions() = registry.subscriptions()
     internal fun restore(subscription: com.system.location.service.hook.runtime.CallbackSubscription): Boolean =
         registry.restore(subscription)
+    internal fun restoreAndInstall(
+        subscription: com.system.location.service.hook.runtime.CallbackSubscription,
+        install: (IInterface) -> Unit = ::installRestored,
+    ): Boolean {
+        if (!registry.restore(subscription)) return false
+        return try {
+            install(subscription.listener)
+            true
+        } catch (failure: Exception) {
+            Logger.error("Failed to restore raw GNSS callback hooks for ${subscription.listener.javaClass.name}", failure)
+            false
+        } catch (failure: LinkageError) {
+            Logger.error("Raw GNSS callback API is unavailable for ${subscription.listener.javaClass.name}", failure)
+            false
+        }
+    }
     internal fun installRestored(listener: IInterface) {
         val hook = rawGnssCallbackHook()
-        for (name in RAW_CALLBACKS) listener.javaClass.onceHookAllMethod(name, hook)
+        val methods = rawGnssCallbackMethods(listener.javaClass)
+        methods.forEach { it.onceHook(hook) }
     }
 }
 
 private val RAW_PAYLOADS = setOf("onGnssMeasurementsReceived", "onGnssNavigationMessageReceived", "onGnssAntennaInfoReceived")
 private val RAW_CALLBACKS = RAW_PAYLOADS + "onStatusChanged"
+
+internal fun rawGnssCallbackMethods(type: Class<*>): List<Method> {
+    val methods = LinkedHashSet<Method>()
+    var current: Class<*>? = type
+    while (current != null && current != Any::class.java) {
+        current.declaredMethods
+            .filterTo(methods) { it.name in RAW_CALLBACKS && !Modifier.isAbstract(it.modifiers) }
+        current = current.superclass
+    }
+    require(methods.any { it.name in RAW_PAYLOADS }) {
+        "Unsupported raw GNSS callback implementation: ${type.name}"
+    }
+    return methods.toList()
+}
 
 /** Evaluate live policy on every callback, including listeners registered while simulation was off. */
 internal fun rawGnssCallbackHook(

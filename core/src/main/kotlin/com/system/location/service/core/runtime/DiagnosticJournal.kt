@@ -1,5 +1,6 @@
 package com.system.location.service.core.runtime
 
+import com.system.location.service.core.privacy.DiagnosticExportRedactor
 import com.system.location.service.core.repository.DocumentStore
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -14,14 +15,17 @@ class DiagnosticJournal(private val store: DocumentStore, private val maxEvents:
         cached?.let { return it.toList() }
         val text = store.read()
         require(text == null || text.length <= maxChars) { "诊断历史文件过大" }
-        return (text?.let { codec.decodeFromString(serializer, it) } ?: emptyList()).takeLast(maxEvents).also { cached = it }.toList()
+        val decoded = text?.let { codec.decodeFromString(serializer, it) } ?: emptyList()
+        val sanitized = decoded.takeLast(maxEvents).map(::sanitizeDiagnosticEvent)
+        if (sanitized != decoded) store.writeAtomically(codec.encodeToString(serializer, sanitized))
+        return sanitized.also { cached = it }.toList()
     }
     fun append(event: DiagnosticEvent) = appendAll(listOf(event))
 
     /** One atomic replacement per batch; publish cache only after success. */
     @Synchronized fun appendAll(events: List<DiagnosticEvent>) {
         if (events.isEmpty()) return
-        val bounded = events.takeLast(maxEvents).map { event ->
+        val bounded = events.takeLast(maxEvents).map(::sanitizeDiagnosticEvent).map { event ->
             event.copy(stage = event.stage.take(128), result = event.result.take(64), reason = event.reason.take(2048), suggestion = event.suggestion.take(512))
         }
         var next = (read() + bounded).takeLast(maxEvents)
@@ -30,5 +34,16 @@ class DiagnosticJournal(private val store: DocumentStore, private val maxEvents:
         require(text.length <= maxChars) { "诊断记录过大" }
         store.writeAtomically(text)
         cached = next
+    }
+
+    private fun sanitizeDiagnosticEvent(event: DiagnosticEvent): DiagnosticEvent {
+        val withoutLegacyScenarioName = if (event.stage == "CONFIG_STORE" && event.result == "INFO" &&
+            event.reason.startsWith("最近配置：")) {
+            event.copy(reason = "最近配置已恢复")
+        } else event
+        return withoutLegacyScenarioName.copy(
+            reason = DiagnosticExportRedactor.redact(withoutLegacyScenarioName.reason),
+            suggestion = DiagnosticExportRedactor.redact(withoutLegacyScenarioName.suggestion),
+        )
     }
 }

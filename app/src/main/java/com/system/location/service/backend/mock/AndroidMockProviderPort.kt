@@ -12,6 +12,9 @@ import android.os.Process
 import android.util.Log
 import com.system.location.service.core.backend.BackendDiagnostic
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.providers.ProviderKind
+import com.system.location.service.core.providers.ProviderMixer
+import com.system.location.service.core.providers.ProviderSample
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.platformFusedEnabled
 
@@ -59,20 +62,19 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
         requireAuthorization("设置 $provider 后")
     }
     override fun publish(provider: String, sample: LocationSample) {
-        requireAuthorization("提交 $provider 前")
-        val location = Location(provider).apply {
-            latitude = sample.latitude
-            longitude = sample.longitude
-            altitude = sample.altitude
-            accuracy = sample.accuracy
-            speed = sample.speed
-            bearing = sample.bearing
-            time = sample.timeMillis
-            elapsedRealtimeNanos = sample.elapsedNanos
-            verticalAccuracyMeters = sample.accuracy
-            speedAccuracyMetersPerSecond = 0.1f
-            bearingAccuracyDegrees = 1f
+        val kind = when (provider) {
+            LocationManager.GPS_PROVIDER -> ProviderKind.GPS
+            LocationManager.NETWORK_PROVIDER -> ProviderKind.NETWORK
+            "fused" -> ProviderKind.FUSED
+            else -> error("No provider model for $provider")
         }
+        val providerSample = ProviderMixer(useSampleAccuracy = true).mix(sample)[kind]
+            ?: error("No provider model for $provider")
+        publish(provider, providerSample)
+    }
+    override fun publish(provider: String, sample: ProviderSample) {
+        requireAuthorization("提交 $provider 前")
+        val location = sample.applyTo(Location(provider))
         val enabled = context.experimentalClearMockFlag
         if (enabled) {
             val outcome = mockFlagExperiment.clear(location)

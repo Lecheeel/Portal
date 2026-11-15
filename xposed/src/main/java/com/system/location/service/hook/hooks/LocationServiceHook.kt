@@ -553,6 +553,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                     if (!SensorTargets.allows(uid, packages, targets)) return@intercept29 false
                     outResult.putBoolean("anti_detect", FakeLoc.antiDetectEnabled)
                     outResult.putBoolean("stack_trace", FakeLoc.stackTraceCleanEnabled)
+                    outResult.putBoolean("stack_trace_replace", FakeLoc.stackTraceReplaceEnabled)
                     return@intercept29 true
                 }
 
@@ -573,12 +574,24 @@ internal object LocationServiceHook : BaseLocationHook() {
 
                         if (args.size < 2 || args[0] == null) return@intercept30 chain.proceed(args)
                         val provider = args[0] as String
-                        var userId = args[1] as Int
                         if (provider == "fused_ext") {
-                            if (userId == 0) {
-                                userId = BinderUtils.getCallerUid()
+                            // Anti-fingerprint consistency (work package 9): ProviderRegistryHook
+                            // already answers "provider does not exist" for ordinary callers, so
+                            // reporting fused_ext as *enabled* to them would contradict that and
+                            // expose the hiding layer itself. Only channel participants (the
+                            // controller and framework peers) may see the enabled answer; every
+                            // other caller proceeds to the natural result, which is false because
+                            // fused_ext is not a registered provider.
+                            val callerUid = BinderUtils.getCallerUid()
+                            if (BinderUtils.callerRole(callerUid) ==
+                                com.system.location.service.hook.security.CallerRole.DENIED
+                            ) {
+                                return@intercept30 chain.proceed(args)
                             }
-                            return@intercept30 BinderUtils.isLocationProviderEnabled(userId)
+                            // Channel callers resolve by UID; the legacy code conflated the
+                            // queried userId with the caller UID, which broke callers running in
+                            // managed profiles (userId != 0).
+                            return@intercept30 BinderUtils.isLocationProviderEnabled(callerUid)
                         } else if (
                             FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused"
                         ) {
@@ -586,7 +599,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                         } else {
                             if (FakeLoc.enableDebugLog) {
                                 Logger.debug(
-                                    "isProviderEnabledForUser provider: $provider, userId: $userId"
+                                    "isProviderEnabledForUser provider: $provider, userId: ${args[1]}"
                                 )
                             }
                         }
@@ -604,9 +617,19 @@ internal object LocationServiceHook : BaseLocationHook() {
 
                     if (args.isEmpty() || args[0] == null) return@intercept31 chain.proceed(args)
                     val provider = args[0] as String
-                    val userId = BinderUtils.getCallerUid()
-                    if (provider == "fused_ext" && BinderUtils.isLocationProviderEnabled(userId)) {
-                        return@intercept31 true
+                    if (provider == "fused_ext") {
+                        // Same consistency rule as isProviderEnabledForUser: ordinary callers must
+                        // observe the natural result (false), channel participants the enabled one.
+                        val callerUid = BinderUtils.getCallerUid()
+                        if (BinderUtils.callerRole(callerUid) ==
+                            com.system.location.service.hook.security.CallerRole.DENIED
+                        ) {
+                            return@intercept31 chain.proceed(args)
+                        }
+                        if (BinderUtils.isLocationProviderEnabled(callerUid)) {
+                            return@intercept31 true
+                        }
+                        return@intercept31 chain.proceed(args)
                     } else if (
                         FakeLoc.enable && FakeLoc.disableFusedLocation && provider == "fused"
                     ) {
@@ -710,7 +733,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                             is List<*> -> {
                                 val locations = args[0] as List<*>
                                 if (locations.any { it !is Location }) return@intercept34 chain.proceed(args)
-                                args[0] = locations.map { injectLocation(it as Location, context = context) }
+                                args[0] = injectLocationBatch(locations.map { it as Location }, context)
                             }
                             else -> Logger.error("onLocationChanged args is not `Location`")
                         }
@@ -784,8 +807,17 @@ internal object LocationServiceHook : BaseLocationHook() {
                             if (FakeLoc.enableDebugLog) {
                                 Logger.debug("ILocationManager.Stub: onTransact(code=$code)")
                             }
-                            if (FakeLoc.enable && code == 43) return@intercept35 true
-
+                            // Work package 9 audit: the previous unconditional fake-success for
+                            // transaction code 43 is removed. Cross-checking AOSP
+                            // ILocationManager.aidl (android12/13/14/15/16-release) shows
+                            // FIRST_CALL_TRANSACTION+42 — code 43 — is
+                            // setExtraLocationControllerPackage(String) on every release Portal
+                            // supports. Faking success for it broke both permission semantics
+                            // (callers without LOCATION_HARDWARE got "true" instead of a
+                            // SecurityException) and set/get consistency (callers with the
+                            // permission got a silent no-op) — exactly the kind of fixed
+                            // abnormal answer work package 9 removes. The natural result is
+                            // restored; the onService capture above keeps working.
                             chain.proceed(args)
                         },
                     )

@@ -46,6 +46,10 @@ object SettingsHook {
             val reply = original as? Bundle ?: return@Hooker original
             // AOSP SettingsProvider returns only the "value" entry. Adding the key name would
             // make the Bundle itself a hook fingerprint.
+            // Baseline preservation: when the key is absent on this device, the stock reply has
+            // no "value" entry at all. Writing one here would fabricate a value that the system
+            // never stored, so only existing answers are rewritten (work package 9).
+            if (!reply.containsKey("value")) return@Hooker original
             reply.putString("value", SettingsPrivacyPolicy.HIDDEN_VALUE)
             if (FakeLoc.enableDebugLog) {
                 Logger.debug("Settings hidden $command/$key from uid=${Binder.getCallingUid()}")
@@ -59,9 +63,21 @@ object SettingsHook {
             val uri = chain.args.filterIsInstance<Uri>().firstOrNull() ?: return@Hooker original
             val key = uri.lastPathSegment ?: return@Hooker original
             if (!SettingsPrivacyPolicy.isQueryKey(key)) return@Hooker original
-            MatrixCursor(arrayOf("value"), 1).apply {
-                addRow(arrayOf<Any?>(SettingsPrivacyPolicy.HIDDEN_VALUE))
+            // Contract preservation: mirror the original cursor shape exactly — same column set,
+            // same row count. An absent key stays absent (empty cursor passes through untouched)
+            // and present rows keep every column value except the restricted "value" entry.
+            // Fabricating a one-column cursor would itself be a queryable fingerprint.
+            // NOTE: the provider-side cursor must be returned open; it is closed by the transport
+            // layer, so this code must not wrap it in Cursor.use.
+            val cursor = original as? android.database.Cursor ?: return@Hooker original
+            if (!cursor.moveToFirst()) return@Hooker cursor
+            val columns = cursor.columnNames
+            val valueIndex = columns.indexOfFirst { it.equals("value", ignoreCase = true) }
+            val row = Array<Any?>(columns.size) { index ->
+                if (index == valueIndex) SettingsPrivacyPolicy.HIDDEN_VALUE
+                else runCatching { cursor.getString(index) }.getOrNull()
             }
+            MatrixCursor(columns).apply { addRow(row) }
         })
 
         com.system.location.service.hook.runtime.HookRuntime.log(

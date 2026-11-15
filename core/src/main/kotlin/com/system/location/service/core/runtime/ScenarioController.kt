@@ -1,6 +1,7 @@
 package com.system.location.service.core.runtime
 
 import com.system.location.service.core.backend.*
+import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.playback.PlaybackEngine
 import com.system.location.service.core.scenario.Scenario
 import kotlinx.coroutines.CancellationException
@@ -25,6 +26,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
     private var orbitEnabled = false
     private var orbitRadiusMeters = 0.2
     private var orbitPeriodSeconds = 20.0
+    private var holdAtEndpoint = false
     private var previousSubmissionNanos: Long? = null
     private var healthRecordedAt: Long? = null
     private var storageFailureReported = false
@@ -43,7 +45,8 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         true
     }
 
-    suspend fun start(input: Scenario, type: BackendType = state.value.backend): Boolean = mutex.withLock {
+    suspend fun start(input: Scenario, type: BackendType = state.value.backend,
+        holdAtEndpoint: Boolean = false): Boolean = mutex.withLock {
         // Freeze/validate before touching an already-running scenario.
         val next = try { PlaybackEngine(input) } catch (error: IllegalArgumentException) {
             event(BackendResult.Failure("VALIDATE_SCENARIO", error.message ?: "Invalid scenario"))
@@ -58,13 +61,14 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         val instance = createBackend(type) ?: return@withLock false
         backend = instance
         engine = next
+        this.holdAtEndpoint = holdAtEndpoint && next.scenario.route != null && next.scenario.mode == com.system.location.service.core.scenario.RouteMode.ONCE
         next.setOrbit(orbitEnabled, orbitRadiusMeters, orbitPeriodSeconds)
         intervalMs = next.scenario.profile.intervalMs
         previousSubmissionNanos = null
         healthRecordedAt = null
         mutableState.value = RuntimeState(RuntimePhase.PREPARING, type, input.id, input.name,
             input.route?.id, capabilities = instance.capabilities, configuredSpeedMps = next.scenario.profile.speedMps)
-        record("SCENARIO_PARAMETERS", "INFO", "场景=${input.name}；路线点数=${input.route?.points?.size ?: 0}；速度上限=${input.profile.speedMps}m/s；平滑运动=${input.profile.smoothMotion}；间隔=${intervalMs}ms；圆周=$orbitEnabled 半径=${orbitRadiusMeters}m 周期=${orbitPeriodSeconds}s")
+        record("SCENARIO_PARAMETERS", "INFO", "路线点数=${input.route?.points?.size ?: 0}；速度上限=${input.profile.speedMps}m/s；平滑运动=${input.profile.smoothMotion}；间隔=${intervalMs}ms；圆周=$orbitEnabled 半径=${orbitRadiusMeters}m 周期=${orbitPeriodSeconds}s")
         if (!step("PREPARE") { instance.prepare() }) return@withLock false
         mutableState.value = state.value.copy(phase = RuntimePhase.READY, capabilities = instance.capabilities)
         if (!step("START") { instance.start() }) return@withLock false
@@ -79,18 +83,23 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         if (state.value.backend != BackendType.MOCK_PROVIDER || !state.value.isActive) return@withLock false
         val instance = backend ?: return@withLock false
         val paused = state.value.phase == RuntimePhase.PAUSED
+        val holding = state.value.phase == RuntimePhase.HOLDING
         if (!step("REBUILD_STOP") { instance.stop() }) return@withLock false
         if (!step("REBUILD_PREPARE") { instance.prepare() }) return@withLock false
         if (!step("REBUILD_START") { instance.start() }) return@withLock false
         if (paused && !step("REBUILD_PAUSE") { instance.pause() }) return@withLock false
         previousSubmissionNanos = null
         healthRecordedAt = null
-        publishLocked().also { published ->
+        val published = if (holding) {
+            val heldSample = state.value.sample ?: return@withLock false
+            step("REBUILD_PUBLISH") { instance.publish(heldSample, state.value.scenarioId) }
+        } else publishLocked()
+        published.also { published ->
             if (published) record("REBUILD_PROVIDER", "SUCCESS", "定位通道已重建并完成首次提交；保留场景、进度及暂停状态，不代表接收端采用或标记已清除")
         }
     }
     suspend fun restoreDiagnostics(history: List<DiagnosticEvent>) = mutex.withLock {
-        mutableDiagnostics.value = (history + mutableDiagnostics.value).takeLast(300)
+        mutableDiagnostics.value = (history.takeLast(300).map { it.bounded() } + mutableDiagnostics.value).takeLast(300)
     }
     suspend fun note(stage: String, result: String, reason: String) = mutex.withLock { record(stage, result, reason) }
 
@@ -101,7 +110,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         } else if (!asyncStorageFailureReported) {
             asyncStorageFailureReported = true
             mutableDiagnostics.value = (mutableDiagnostics.value + DiagnosticEvent(clock.millis(), state.value.backend,
-                "DIAGNOSTIC_STORAGE", "FAILED", error.message ?: "诊断日志保存失败")).takeLast(300)
+                "DIAGNOSTIC_STORAGE", "FAILED", error.message ?: "诊断日志保存失败").bounded()).takeLast(300)
         }
     }
 
@@ -139,7 +148,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         true
     }
     suspend fun setSpeed(speed: Double): Boolean = mutex.withLock {
-        if (!speed.isFinite() || speed !in 0.0..1000.0 ||
+        if (!speed.isFinite() || speed !in 0.0..LocationSanitizer.MAX_SPEED_MPS ||
             state.value.phase !in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) return@withLock false
         // Settle elapsed movement at the old speed before changing it.
         if (!publishLocked() || !state.value.isActive) return@withLock false
@@ -215,7 +224,13 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
             catch (error: Exception) { record("DIAGNOSE", "FAILED", error.message ?: "诊断失败") }
             mutableState.value = state.value.copy(capabilities = backend!!.capabilities)
         }
-        if (frame.completed) return stopLocked()
+        if (frame.completed) {
+            if (!holdAtEndpoint) return stopLocked()
+            this.holdAtEndpoint = false
+            mutableState.value = state.value.copy(phase = RuntimePhase.HOLDING)
+            record("ROUTE_COMPLETE", "SUCCESS", "路线已到终点；后端保持运行，停止模拟可清理定位通道")
+            return true
+        }
         return true
     }
 
@@ -262,13 +277,14 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         record(failure.stage, "FAILED", failure.reason, failure.suggestion)
     }
     private fun recordDiagnostics(details: List<BackendDiagnostic>) {
-        val currentHooks = details.filter { it.stage == "HOOK_POINT" }.map {
-            DiagnosticEvent(0, state.value.backend, it.stage, it.result, it.reason, it.suggestion)
+        val boundedDetails = details.take(300)
+        val currentHooks = boundedDetails.filter { it.stage == "HOOK_POINT" }.map {
+            DiagnosticEvent(0, state.value.backend, it.stage, it.result, it.reason, it.suggestion).bounded()
         }.toSet()
         // Remove disappeared/changed details so a later return to an older status is visible.
         lastRecords.keys.removeAll { it.backend == state.value.backend && it.stage == "HOOK_POINT" && it !in currentHooks }
         val batch = mutableListOf<DiagnosticEvent>()
-        details.forEach { record(it.stage, it.result, it.reason, it.suggestion, batch) }
+        boundedDetails.forEach { record(it.stage, it.result, it.reason, it.suggestion, batch) }
         if (batch.isNotEmpty()) persist(batch)
     }
 
@@ -276,7 +292,7 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         batch: MutableList<DiagnosticEvent>? = null) {
         val now = clock.millis()
         val monotonic = clock.nanos()
-        val event = DiagnosticEvent(now, state.value.backend, stage, result, reason, suggestion)
+        val event = DiagnosticEvent(now, state.value.backend, stage, result, reason, suggestion).bounded()
         // Hook details have independent content identities across polls and list reordering.
         // Ordinary stages compare only with their latest state, so A -> B -> A stays visible.
         val key = event.copy(timestamp = 0)
@@ -308,8 +324,15 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
             if (!storageFailureReported) {
                 storageFailureReported = true
                 mutableDiagnostics.value = (mutableDiagnostics.value + DiagnosticEvent(clock.millis(), state.value.backend,
-                    "DIAGNOSTIC_STORAGE", "FAILED", error.message ?: "诊断日志保存失败")).takeLast(300)
+                    "DIAGNOSTIC_STORAGE", "FAILED", error.message ?: "诊断日志保存失败").bounded()).takeLast(300)
             }
         }
     }
+
+    private fun DiagnosticEvent.bounded() = copy(
+        stage = stage.take(128),
+        result = result.take(64),
+        reason = reason.take(2048),
+        suggestion = suggestion.take(512),
+    )
 }

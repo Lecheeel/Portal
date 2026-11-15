@@ -23,6 +23,7 @@ object SdkPrivacy {
             }
         }, object : ConsentSdk {
             override fun initializeMaps() {
+                com.system.location.service.maps.AMapKeySettings.apply(application)
                 MapsInitializer.updatePrivacyShow(application, true, true)
                 MapsInitializer.updatePrivacyAgree(application, true)
                 AMapLocationClient.updatePrivacyShow(application, true, true)

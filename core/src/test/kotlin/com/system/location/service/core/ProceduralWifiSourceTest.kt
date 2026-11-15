@@ -40,7 +40,7 @@ class ProceduralWifiSourceTest {
         wifi.forEach { ap ->
             assertTrue(WifiAp.BSSID_PATTERN.matches(ap.bssid))
             assertTrue(ap.bssid.lowercase() != WifiAp.SENTINEL_BSSID)
-            assertTrue(ap.ssid.isNotBlank() && ap.ssid.length <= WifiAp.MAX_SSID_LENGTH)
+            assertTrue(ap.ssid.isNotBlank() && ap.ssid.toByteArray(Charsets.UTF_8).size <= WifiAp.MAX_SSID_BYTES)
             assertTrue(ap.rssi in WifiAp.MIN_RSSI..WifiAp.MAX_RSSI)
             assertTrue(ap.frequencyMhz in WifiAp.MIN_FREQUENCY_MHZ..WifiAp.MAX_FREQUENCY_MHZ)
             assertTrue(ap.channel in WifiAp.MIN_CHANNEL..WifiAp.MAX_CHANNEL)

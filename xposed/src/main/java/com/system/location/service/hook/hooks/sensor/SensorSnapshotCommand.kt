@@ -15,6 +15,7 @@ import com.system.location.service.hook.utils.FakeLoc
 /** Read-only IPC for an explicitly selected application UID, independent of controller auth. */
 object SensorSnapshotCommand {
     const val COMMAND = "get_sensor_state"
+    const val PROTECTED_KEY = "sensor_protected"
 
     fun read(uid: Int, output: Bundle): Boolean {
         output.clear()
@@ -22,11 +23,17 @@ object SensorSnapshotCommand {
         val observation = FakeLoc.runtimeSnapshots.observation()
         val state = observation.state
         val packages = BinderUtils.getUidPackageNames(uid = uid)?.toSet().orEmpty()
-        if (!SensorTargets.allows(uid, packages, state.configuration.sensorTargets)) return false
-        if (!state.configuration.enabled || NativeCommand.isEnabled) return true
+        val targetAllowed = SensorTargets.allows(uid, packages, state.configuration.sensorTargets)
         val route = RoutingTable(state.routing ?: com.system.location.service.core.routing.RoutingConfig())
             .decision(uid, packages, false)
-        if (route == RoutingDecision.Deny) return true
+        val decision = SensorProtectionPolicy.evaluate(
+            targetAllowed = targetAllowed,
+            simulationEnabled = state.configuration.enabled,
+            nativeEnabled = NativeCommand.isEnabled,
+            routeAllowed = route != RoutingDecision.Deny,
+        )
+        output.putBoolean(PROTECTED_KEY, decision.protected)
+        if (!decision.protected) return decision.handled
         val now = SystemClock.elapsedRealtimeNanos()
         val fix = when (route) {
             is RoutingDecision.Scenario -> FakeLoc.scenarioSamples.latest(route.scenarioId, now)?.sample ?: state.sample
@@ -44,6 +51,20 @@ object SensorSnapshotCommand {
         SensorStateWire.write(output, motion)
         return true
     }
+}
+
+internal data class SensorProtectionDecision(val handled: Boolean, val protected: Boolean)
+
+internal object SensorProtectionPolicy {
+    fun evaluate(
+        targetAllowed: Boolean,
+        simulationEnabled: Boolean,
+        nativeEnabled: Boolean,
+        routeAllowed: Boolean,
+    ) = SensorProtectionDecision(
+        handled = true,
+        protected = targetAllowed && simulationEnabled && !nativeEnabled && routeAllowed,
+    )
 }
 
 internal object SensorStateWire {

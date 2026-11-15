@@ -15,12 +15,11 @@ data class GnssUiState(
     val busy: Boolean = false,
     val geofence: Boolean = true,
     val fromLocation: Boolean = true,
-    val physicalRawGnss: Boolean = true,
     val nmea: Boolean = true,
     val message: String? = null,
 )
 
-enum class GnssSetting { GEOFENCE, FROM_LOCATION, RAW_GNSS, NMEA }
+enum class GnssSetting { GEOFENCE, FROM_LOCATION, NMEA }
 
 /** Owns control commands and saved preferences independently of the satellite tab's composition. */
 class GnssViewModel(application: Application) : AndroidViewModel(application) {
@@ -29,7 +28,7 @@ class GnssViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun readPreferences() = getApplication<Application>().let { context ->
         GnssUiState(geofence = context.enableRequestGeofence, fromLocation = context.enableGetFromLocation,
-            physicalRawGnss = context.allowPhysicalRawGnss, nmea = context.enableNMEA)
+            nmea = context.enableNMEA)
     }
 
     suspend fun refresh() {
@@ -57,7 +56,6 @@ class GnssViewModel(application: Application) : AndroidViewModel(application) {
         when (setting) {
             GnssSetting.GEOFENCE -> context.enableRequestGeofence = enabled
             GnssSetting.FROM_LOCATION -> context.enableGetFromLocation = enabled
-            GnssSetting.RAW_GNSS -> context.allowPhysicalRawGnss = enabled
             GnssSetting.NMEA -> context.enableNMEA = enabled
         }
         mutableState.value = readPreferences().copy(running = state.value.running)

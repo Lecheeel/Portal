@@ -16,14 +16,25 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.system.location.service.R
 
 object BackgroundGuidance {
+    private data class Status(val batteryUnrestricted: Boolean, val locationGranted: Boolean, val notificationsEnabled: Boolean)
+
+    private fun inspect(context: Context) = Status(
+        batteryUnrestricted = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName),
+        locationGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED,
+        notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled(),
+    )
+
     fun status(context: Context): String {
-        val battery = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
-        val location = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val notification = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        val state = inspect(context)
         return context.getString(R.string.background_status, Build.MANUFACTURER, Build.MODEL,
-            context.getString(if (battery) R.string.battery_unrestricted else R.string.battery_restricted),
-            context.getString(if (location) R.string.permission_granted else R.string.permission_missing),
-            context.getString(if (notification) R.string.permission_granted else R.string.permission_missing))
+            context.getString(if (state.batteryUnrestricted) R.string.battery_unrestricted else R.string.battery_restricted),
+            context.getString(if (state.locationGranted) R.string.permission_granted else R.string.permission_missing),
+            context.getString(if (state.notificationsEnabled) R.string.permission_granted else R.string.permission_missing))
+    }
+
+    fun diagnosticStatus(context: Context): String {
+        val state = inspect(context)
+        return "后台状态：电池优化豁免=${state.batteryUnrestricted}；精确位置权限=${state.locationGranted}；通知=${state.notificationsEnabled}"
     }
     fun show(context: Context) {
         MaterialAlertDialogBuilder(context).setTitle(R.string.background_guidance)

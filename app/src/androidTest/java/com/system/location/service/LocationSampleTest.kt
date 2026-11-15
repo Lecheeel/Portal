@@ -1,5 +1,9 @@
 package com.system.location.service
 
+import android.location.Location
+import android.os.Parcel
+import com.system.location.service.core.providers.ProviderKind
+import com.system.location.service.core.providers.ProviderMixer
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.toLocation
 import org.junit.Assert.*
@@ -8,6 +12,29 @@ import java.util.concurrent.atomic.AtomicReference
 
 /** Runs on ART: exercises real Location and elapsedRealtimeNanos, without enabling hooks. */
 class LocationSampleTest {
+    @Test fun mockMarkerSurvivesLocationCopiesAndParcelRoundTrips() {
+        fun parcelCopy(source: Location): Location {
+            val parcel = Parcel.obtain()
+            return try {
+                source.writeToParcel(parcel, 0)
+                parcel.setDataPosition(0)
+                Location.CREATOR.createFromParcel(parcel)
+            } finally {
+                parcel.recycle()
+            }
+        }
+
+        val marked = Location("gps").apply { setMock(true) }
+        assertTrue(marked.isMock)
+        assertTrue(Location(marked).isMock)
+        assertTrue(parcelCopy(marked).isMock)
+
+        val unmarked = Location("gps").apply { setMock(false) }
+        assertFalse(unmarked.isMock)
+        assertFalse(Location(unmarked).isMock)
+        assertFalse(parcelCopy(unmarked).isMock)
+    }
+
     @Test fun conversionUsesExplicitPolicyAfterLiveSettingsChange() {
         val saved = FakeLoc.runtimeSnapshots.current()
         try {
@@ -36,6 +63,25 @@ class LocationSampleTest {
             assertEquals(0f, sample.speed)
             assertEquals(123f, sample.bearing)
         }
+    }
+
+    @Test fun providerMaskControlsAndroidLocationFieldPresence() {
+        val sample = com.system.location.service.core.location.LocationSample(
+            com.system.location.service.core.geo.Wgs84(31.0, 121.0), 20.0, 5f, 2f, 90f, 10_000L, 10_000_000_000L)
+        val mixed = ProviderMixer().mix(sample)
+        val gps = sample.toLocation("gps", providerSample = mixed.getValue(ProviderKind.GPS))
+        val network = sample.toLocation("network", providerSample = mixed.getValue(ProviderKind.NETWORK))
+
+        assertTrue(gps.hasAltitude())
+        assertTrue(gps.hasSpeed())
+        assertTrue(gps.hasBearing())
+        assertFalse(gps.hasMslAltitude())
+        assertFalse(network.hasAltitude())
+        assertFalse(network.hasSpeed())
+        assertFalse(network.hasBearing())
+        assertFalse(network.hasMslAltitude())
+        assertTrue(network.hasVerticalAccuracy())
+        assertEquals(0f, network.speed, 0f)
     }
 
     @Test fun eachBroadcastIsFreshAndEveryRecipientGetsTheSameFix() {

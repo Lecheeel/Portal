@@ -8,9 +8,10 @@ import java.io.File
 /**
  * Loads the experimental libc path-rewriting payload into the selected application process.
  *
- * The payload is copied to the app-private code cache under a neutral name, loaded, then removed
- * from disk; the mapping is hidden from `/proc/self/maps` by the payload's own rewrite once it is
- * enabled. This is best-effort and intentionally not part of the default path.
+ * The payload is copied to the app-private code cache under a neutral per-load name, loaded, then
+ * removed from disk; the surviving mapping therefore shows an ordinary cache entry in
+ * `/proc/self/maps`. Maps *content* is not rewritten (the experiment that did so was retired —
+ * see docs/anti-detection.md). This is best-effort and intentionally not part of the default path.
  */
 object AntiDetect {
     @Volatile private var loaded = false
@@ -33,7 +34,12 @@ object AntiDetect {
             ?: error("module ApplicationInfo unavailable")
         val source = File(info.nativeLibraryDir, "libcodecext.so")
         if (!source.isFile) error("libcodecext.so missing: ${source.absolutePath}")
-        val target = File(context.codeCacheDir, "libcodec.so")
+        // A per-load neutral name keeps the /proc/self/maps entry from being a fixed fingerprint;
+        // the file itself is unlinked right after dlopen.
+        val target = File(
+            context.codeCacheDir,
+            "cache_" + java.util.UUID.randomUUID().toString().substring(0, 8) + ".so",
+        )
         source.copyTo(target, overwrite = true)
         try {
             System.load(target.absolutePath)

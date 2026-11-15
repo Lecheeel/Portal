@@ -73,6 +73,14 @@ class AppOpsCheck : Check {
         }
         selfProbes.mapTo(lines) { describeProbe("self", it) }
 
+        // 枚举面（工作包 9 第三批修复的对应验证）：持有 PACKAGE_USAGE_STATS 的检测器可以走
+        // getOpsForPackage/getUidOps 拿到完整 op 列表。detector 无该权限时记 UNKNOWN 证据，
+        // 不伪造 PASS；能读到且含 mock_location 条目即泄漏。
+        val enumProbes = listOf("getOpsForPackage", "getUidOps").map {
+            enumSurfaceProbe(appOps, it, targetUid, targetPackage)
+        }
+        enumProbes.mapTo(lines) { describeEnumProbe(it) }
+
         val readableTarget = targetProbes.filter { it.mode != null }
         if (readableTarget.isEmpty()) {
             return unknown(
@@ -86,18 +94,28 @@ class AppOpsCheck : Check {
         val selfSummary = selfProbes.firstNotNullOfOrNull { probe ->
             probe.mode?.let { "${probe.label}=${modeLabel(it)}" }
         } ?: "查询失败"
-        val allowed = readableTarget.any { it.mode == AppOpsManager.MODE_ALLOWED }
+        val enumLeaks = enumProbes.filter { it.mockEntryFound == true }
+        val allowed = readableTarget.any { it.mode == AppOpsManager.MODE_ALLOWED } ||
+            enumLeaks.isNotEmpty()
 
-        lines += "verdict=${if (allowed) "FAIL" else "PASS"} target_mode=$targetSummary self_mode=$selfSummary"
+        lines += "verdict=${if (allowed) "FAIL" else "PASS"} target_mode=$targetSummary " +
+            "self_mode=$selfSummary enum_leak=${if (enumLeaks.isNotEmpty()) enumLeaks.joinToString("/") { it.label } else "无"}"
 
         return if (allowed) {
             fail(
-                "目标包 $targetPackage 的 OP_MOCK_LOCATION=$targetSummary，第三方应用可通过该 AppOps 判定目标包被允许模拟定位。",
+                buildString {
+                    append("目标包 $targetPackage 的 OP_MOCK_LOCATION=$targetSummary")
+                    if (enumLeaks.isNotEmpty()) {
+                        append("；枚举面(${enumLeaks.joinToString("/") { it.label }})仍含 mock_location 条目")
+                    }
+                    append("，第三方应用可通过该 AppOps 判定目标包被允许模拟定位。")
+                },
                 limitedEvidence(lines),
             )
         } else {
             pass(
-                "目标包 $targetPackage 的 OP_MOCK_LOCATION 不可见（$targetSummary）；detector 自身为 $selfSummary。",
+                "目标包 $targetPackage 的 OP_MOCK_LOCATION 不可见（$targetSummary）；detector 自身为 $selfSummary；" +
+                    "枚举面无泄漏或未授权无法验证。",
                 limitedEvidence(lines),
             )
         }
@@ -131,13 +149,17 @@ class SettingsCheck : Check {
         val developerOptions = readGlobalInt(resolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED)
         // 旧版开关（Android 4.2 前）仅作补充证据，不参与判定。
         val legacyAllowMock = readSecure(resolver, "allow_mock_location", "Settings.Secure[allow_mock_location]（旧 key）")
+        // query 路径探针（工作包 9）：getString 走 provider.call；直接 query provider 是独立入口，
+        // 响应的列集合/行数也是指纹（旧实现曾伪造单列 cursor）。
+        val mockLocationViaQuery = readSecureViaQuery(resolver, "mock_location")
 
-        val mockOn = mockLocation.value == "1"
+        val mockOn = mockLocation.value == "1" || mockLocationViaQuery.value == "1"
         val developerOn = developerOptions.value == "1"
         val legacyOn = legacyAllowMock.value == "1"
 
         val lines = mutableListOf(
             mockLocation.describe(),
+            mockLocationViaQuery.describe(),
             developerOptions.describe(),
             legacyAllowMock.describe(),
             "verdict: mock_location_on=$mockOn developer_options_on=$developerOn legacy_on=$legacyOn（legacy 仅记录）",
@@ -160,7 +182,8 @@ class SettingsCheck : Check {
             )
 
             mockLocation.isReadable && developerOptions.isReadable &&
-                mockLocation.isClosed && developerOptions.isClosed -> pass(
+                mockLocationViaQuery.isReadable &&
+                mockLocation.isClosed && developerOptions.isClosed && mockLocationViaQuery.isClosed -> pass(
                 "模拟定位设置不可见或已关闭：mock_location=${mockLocation.displayValue()}，开发者选项=${developerOptions.displayValue()}。",
                 limitedEvidence(lines),
             )
@@ -178,14 +201,17 @@ private data class SettingsRead(
     val label: String,
     val value: String?,
     val error: String?,
+    val note: String? = null,
 ) {
     val isReadable: Boolean get() = error == null
     val isClosed: Boolean get() = value == null || value == "0"
 
     fun displayValue(): String = value ?: "null（未设置）"
 
-    fun describe(): String =
-        if (isReadable) "$label=${displayValue()}" else "$label 读取异常：$error"
+    fun describe(): String = buildString {
+        append(if (isReadable) "$label=${displayValue()}" else "$label 读取异常：$error")
+        if (note != null) append("（$note）")
+    }
 }
 
 private fun readSecure(resolver: ContentResolver, key: String, label: String): SettingsRead =
@@ -193,6 +219,41 @@ private fun readSecure(resolver: ContentResolver, key: String, label: String): S
         SettingsRead(label, Settings.Secure.getString(resolver, key), null)
     } catch (error: Exception) {
         SettingsRead(label, null, describeError(error))
+    }
+
+/**
+ * 直接 query settings provider（`content://settings/secure`）读取一个 key。响应保留
+ * provider 原生 cursor 的列集合与行数，作为与 getString(call 路径) 对齐的独立入口证据。
+ */
+private fun readSecureViaQuery(resolver: ContentResolver, key: String): SettingsRead =
+    try {
+        val cursor = resolver.query(
+            Settings.Secure.CONTENT_URI,
+            null,
+            "name=?",
+            arrayOf(key),
+            null,
+        )
+        if (cursor == null) {
+            SettingsRead("query[secure/$key]", null, null, note="cursor=null（key 未设置）")
+        } else {
+            cursor.use { c ->
+                if (!c.moveToFirst()) {
+                    SettingsRead("query[secure/$key]", null, null, note="空结果（key 未设置）")
+                } else {
+                    val columns = c.columnNames
+                    val valueIndex = columns.indexOfFirst { it.equals("value", ignoreCase = true) }
+                    SettingsRead(
+                        "query[secure/$key]",
+                        if (valueIndex >= 0) c.getString(valueIndex) else null,
+                        null,
+                        note = "列=${columns.joinToString(",")}",
+                    )
+                }
+            }
+        }
+    } catch (error: Exception) {
+        SettingsRead("query[secure/$key]", null, describeError(error))
     }
 
 private fun readGlobalInt(resolver: ContentResolver, key: String): SettingsRead =
@@ -268,6 +329,62 @@ private fun modeLabel(mode: Int): String {
     }
     return "$name($mode)"
 }
+
+private const val MOCK_OP_CODE = 58 // AppOpsManager.OP_MOCK_LOCATION，@hide 常量，自 API 6 起稳定
+
+private data class EnumProbe(
+    val label: String,
+    val note: String?,
+    /** null = 无法验证（未授权/异常）；true = 发现 mock_location 条目（泄漏）；false = 无条目 */
+    val mockEntryFound: Boolean?,
+    val entryCount: Int?,
+)
+
+private fun describeEnumProbe(probe: EnumProbe): String = buildString {
+    append("enum[").append(probe.label).append("] ")
+    append(probe.entryCount?.let { "entries=$it" } ?: "entries=未知")
+    append(" mock_entry=").append(
+        when (probe.mockEntryFound) {
+            true -> "存在（泄漏）"
+            false -> "无"
+            null -> "无法验证"
+        },
+    )
+    if (probe.note != null) append(" (").append(probe.note).append(')')
+}
+
+/**
+ * 通过反射调用 `AppOpsManager.getOpsForPackage/getUidOps`（方法为公开 API，但返回的
+ * `PackageOps.getOps()` 元素类型 `Op` 是 @hide，因此条目类型与 op 字段同样走反射）。
+ * 未持有 PACKAGE_USAGE_STATS 的调用方会收到 SecurityException，调用方据此记 UNKNOWN。
+ */
+private fun enumSurfaceProbe(
+    appOps: AppOpsManager,
+    surface: String,
+    targetUid: Int,
+    targetPackage: String,
+): EnumProbe = runCatching {
+    val list: List<*> = when (surface) {
+        "getOpsForPackage" ->
+            appOps.javaClass.getMethod("getOpsForPackage", Integer.TYPE, String::class.java)
+                .invoke(appOps, targetUid, targetPackage) as? List<*>
+                    ?: return EnumProbe(surface, "返回 null", false, 0)
+        "getUidOps" ->
+            appOps.javaClass.getMethod("getUidOps", Integer.TYPE)
+                .invoke(appOps, targetUid) as? List<*>
+                    ?: return EnumProbe(surface, "返回 null", false, 0)
+        else -> return EnumProbe(surface, "未知枚举面", null, null)
+    }
+    var mockFound = false
+    for (entry in list) {
+        val ops = entry?.javaClass?.getMethod("getOps")?.invoke(entry) as? List<*> ?: continue
+        for (opEntry in ops) {
+            val op = opEntry?.javaClass?.getField("op")?.getInt(opEntry) ?: continue
+            if (op == MOCK_OP_CODE) mockFound = true
+        }
+    }
+    EnumProbe(surface, null, mockFound, list.size)
+}.getOrElse { EnumProbe(surface, describeError(it), null, null) }
 
 private fun describeError(error: Throwable): String {
     val message = error.message

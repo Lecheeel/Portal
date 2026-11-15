@@ -19,7 +19,7 @@ import com.system.location.service.ui.displayLabel
 /** Position samples belong to the map renderer and do not invalidate the controls. */
 internal data class HomeRuntimeUi(val phase: RuntimePhase, val backend: BackendType, val name: String?) {
     val isActive get() = phase in setOf(RuntimePhase.PREPARING, RuntimePhase.READY,
-        RuntimePhase.RUNNING, RuntimePhase.PAUSED, RuntimePhase.STOPPING)
+        RuntimePhase.RUNNING, RuntimePhase.PAUSED, RuntimePhase.HOLDING, RuntimePhase.STOPPING)
     companion object {
         fun from(state: RuntimeState) = HomeRuntimeUi(state.phase, state.backend, state.scenarioName)
     }
@@ -44,7 +44,7 @@ internal fun HomeRuntimeControls(
             modifier = Modifier.weight(1f)) {
             Text(if (runtime.isActive) "切换位置" else "开始模拟")
         }
-        AnimatedVisibility(runtime.isActive, enter = fadeIn(), exit = fadeOut()) {
+        AnimatedVisibility(runtime.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED), enter = fadeIn(), exit = fadeOut()) {
             FilledTonalIconButton(onClick = onPauseResume,
                 enabled = runtime.phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED),
                 modifier = Modifier.size(48.dp)) {

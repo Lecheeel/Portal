@@ -4,6 +4,7 @@ import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.providers.ProviderKind
 import com.system.location.service.core.providers.ProviderMixer
+import com.system.location.service.core.providers.ProviderSample
 
 /** Android operations are injected so partial registration and cleanup can be tested on the JVM. */
 interface MockProviderPort {
@@ -14,6 +15,7 @@ interface MockProviderPort {
     fun register(provider: String)
     fun enable(provider: String, enabled: Boolean)
     fun publish(provider: String, sample: LocationSample)
+    fun publish(provider: String, sample: ProviderSample) = publish(provider, sample.sample)
     fun remove(provider: String)
     /** Ask the real hardware/network providers for one fresh fix after the test provider goes away. */
     fun flushRealLocation() {}
@@ -97,8 +99,10 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
             owned.toList().filterNot { it in optionalFailures }.forEach { provider ->
                 requireAuthorization("提交 $provider 前")
                 try {
-                    val providerFix = providerMixer.mix(fix)[providerKind(provider)]?.sample ?: fix
-                    publishWithRecovery(provider, providerFix); requireAuthorization("提交 $provider 后")
+                    val providerFix = providerMixer.mix(fix)[providerKind(provider)]
+                    if (providerFix == null) port.publish(provider, fix)
+                    else publishWithRecovery(provider, providerFix)
+                    requireAuthorization("提交 $provider 后")
                 }
                 catch (error: Exception) {
                     if (error is MockAuthorizationException) throw error
@@ -117,12 +121,12 @@ class MockProviderBackend(private val port: MockProviderPort) : LocationBackend 
         else -> ProviderKind.GPS
     }
 
-    private fun publishWithRecovery(provider: String, fix: LocationSample) {        try { port.publish(provider, fix) }
+    private fun publishWithRecovery(provider: String, fix: ProviderSample) {        try { port.publish(provider, fix) }
         catch (missing: MissingMockProviderException) {
             val previous = lastRecovery[provider]
             if (!port.permissionGranted() || recoveryCount >= 3 ||
-                previous != null && fix.elapsedNanos - previous < 5_000_000_000) throw missing
-            lastRecovery[provider] = fix.elapsedNanos
+                previous != null && fix.sample.elapsedNanos - previous < 5_000_000_000) throw missing
+            lastRecovery[provider] = fix.sample.elapsedNanos
             recoveryCount++
             port.register(provider)
             port.enable(provider, true)

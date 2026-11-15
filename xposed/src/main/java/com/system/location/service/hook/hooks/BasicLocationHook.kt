@@ -27,9 +27,10 @@ object BasicLocationHook : BaseLocationHook() {
 
                         if (!FakeLoc.enable) return@intercept1 result
 
-                        val locations = result as List<*>
+                        val locations = (result as? List<*>)?.takeIf { it.all { item -> item is Location } }
+                            ?: return@intercept1 result
                         val context = ProviderView.capture()
-                        result = locations.map { injectLocation(it as Location, context = context) }
+                        result = injectLocationBatch(locations.map { it as Location }, context)
 
                         result
                     },
@@ -61,7 +62,7 @@ object BasicLocationHook : BaseLocationHook() {
                         val context = ProviderView.capture()
                         mLocationsField.set(
                             locationResult,
-                            locations.map { injectLocation(it as Location, context = context) },
+                            injectLocationBatch(locations.map { it as Location }, context),
                         )
 
                         chain.proceed(args)

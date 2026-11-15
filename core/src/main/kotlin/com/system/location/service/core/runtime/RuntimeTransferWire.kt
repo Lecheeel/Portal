@@ -4,6 +4,7 @@ import com.system.location.service.core.environment.WifiFingerprintImporter
 import com.system.location.service.core.gnss.CapturedGnssSource
 import com.system.location.service.core.gnss.RinexNavigationResource
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.location.LocationSanitizer
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPInputStream
@@ -20,7 +21,8 @@ data class RuntimeTransfer(
     val lastMovementNanos: Long = 0L,
 ) {
     init {
-        require(movementSpeedMps.isFinite() && movementSpeedMps >= 0f && lastMovementNanos >= 0L)
+        require(movementSpeedMps.isFinite() &&
+            movementSpeedMps in 0f..LocationSanitizer.MAX_SPEED_MPS.toFloat() && lastMovementNanos >= 0L)
         require(scenarios.size <= ScenarioSampleStore.MAX_SCENARIOS)
         require(scenarios.keys.all { it.isNotBlank() && it.length <= ScenarioSampleStore.MAX_ID_LENGTH })
         require(if (externallyDriven) state.configuration.enabled && state.sample != null else state.sample == null)

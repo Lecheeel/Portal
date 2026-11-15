@@ -31,6 +31,13 @@ data class HookConfiguration(
     val antiDetectEnabled: Boolean = false,
     /** Experimental global stack-frame filtering; default off, changes observable stack length. */
     val stackTraceCleanEnabled: Boolean = false,
+    /**
+     * Experimental stack-clean strategy switch: when [stackTraceCleanEnabled] is on, rewrite
+     * module frames in place instead of removing them, keeping the reported array length
+     * consistent with the native depth count. Length parity is not invisibility; see
+     * docs/anti-detection.md for the known boundaries.
+     */
+    val stackTraceReplaceEnabled: Boolean = false,
     val hookWifi: Boolean = true,
     val minimumSatellites: Int = GnssSimulationPolicy.DEFAULT_MINIMUM_SATELLITES,
     val gnssSimulation: GnssSimulationPolicy = GnssSimulationPolicy(),

@@ -272,14 +272,6 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                         }),
                     )
                     PortalSwitchRow(
-                        title = "允许真实原始 GNSS 数据",
-                        subtitle = "透传接收机测量、导航电文和天线信息；与模拟位置可能不一致，不影响围栏和地理编码",
-                        checked = control.physicalRawGnss,
-                        onCheckedChange = if (control.busy) null else ({ enabled: Boolean ->
-                            model.setPreference(GnssSetting.RAW_GNSS, enabled)
-                        }),
-                    )
-                    PortalSwitchRow(
                         title = "启用 NMEA 模块",
                         checked = control.nmea,
                         onCheckedChange = if (control.busy) null else ({ enabled: Boolean ->
@@ -290,7 +282,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
             }
             item(key = "requirements") {
                 Text(
-                    "卫星数据和 GNSS/NMEA 行为由系统模块与当前 Xposed/Native 场景共同决定。",
+                    "模拟定位期间不转发真实 GNSS 测量、导航电文和天线数据；尚无自洽合成数据的接口会报告不支持。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

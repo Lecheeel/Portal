@@ -84,6 +84,7 @@ object FakeLoc {
         set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(disableGetFromLocation = value)) } }
 
     /** Legacy enable_agps key now controls only real raw GNSS data access. */
+    /** Legacy persisted preference; protected simulation always suppresses physical raw payloads. */
     var allowPhysicalRawGnss: Boolean
         get() = runtimeSnapshots.current().configuration.allowPhysicalRawGnss
         set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(allowPhysicalRawGnss = value)) } }
@@ -111,6 +112,14 @@ object FakeLoc {
     var stackTraceCleanEnabled: Boolean
         get() = runtimeSnapshots.current().configuration.stackTraceCleanEnabled
         set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(stackTraceCleanEnabled = value)) } }
+
+    /**
+     * Experimental: when [stackTraceCleanEnabled] is on, rewrite module frames in place instead
+     * of removing them, keeping the reported array length consistent with the native depth count.
+     */
+    var stackTraceReplaceEnabled: Boolean
+        get() = runtimeSnapshots.current().configuration.stackTraceReplaceEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(stackTraceReplaceEnabled = value)) } }
 
     /**
      * may cause system to crash

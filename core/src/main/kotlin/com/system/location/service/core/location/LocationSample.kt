@@ -7,8 +7,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class LocationSample(val coordinate: Wgs84, val altitude: Double, val accuracy: Float,
     val speed: Float, val bearing: Float, val timeMillis: Long, val elapsedNanos: Long) {
     init {
-        require(altitude.isFinite() && accuracy.isFinite() && accuracy > 0)
-        require(speed.isFinite() && speed >= 0 && bearing.isFinite() && bearing >= 0 && bearing < 360)
+        require(altitude.isFinite() && altitude in LocationSanitizer.MIN_ALTITUDE_METERS..LocationSanitizer.MAX_ALTITUDE_METERS)
+        require(accuracy.isFinite() && accuracy > 0)
+        require(speed.isFinite() && speed >= 0 && speed.toDouble() <= LocationSanitizer.MAX_SPEED_MPS)
+        require(bearing.isFinite() && bearing >= 0 && bearing < 360)
         require(timeMillis >= 0 && elapsedNanos >= 0)
     }
     val latitude get() = coordinate.latitude

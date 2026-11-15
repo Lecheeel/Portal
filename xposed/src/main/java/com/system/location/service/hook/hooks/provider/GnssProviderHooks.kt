@@ -5,10 +5,10 @@ import android.os.Build
 import android.telephony.CellIdentity
 import android.telephony.CellInfo
 import com.system.location.service.hook.hooks.BasicLocationHook.injectLocation
+import com.system.location.service.hook.hooks.BasicLocationHook.injectLocationBatch
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.FakeLoc
-import com.system.location.service.hook.utils.LocationHookArguments
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.ProviderView
 import com.system.location.service.hook.utils.hook
@@ -59,7 +59,9 @@ internal object GnssProviderHooks {
                             if (FakeLoc.enableDebugLog) {
                                 Logger.debug("LocationProviderBase.reportLocations: injected!")
                             }
-                            args[0] = (args[0] as List<*>).map { injectLocation(it as Location) }
+                            val locations = args[0] as? List<*> ?: return@intercept50 chain.proceed(args)
+                            if (locations.any { it !is Location }) return@intercept50 chain.proceed(args)
+                            args[0] = injectLocationBatch(locations.map { it as Location })
 
                             chain.proceed(args)
                         },
@@ -104,16 +106,10 @@ internal object GnssProviderHooks {
                         XposedInterface.Hooker intercept52@{ chain ->
                             val args = chain.args.toTypedArray()
 
-                            if (
-                                !LocationHookArguments.rewriteBatch<Location>(
-                                    FakeLoc.enable,
-                                    args,
-                                    1,
-                                ) {
-                                    injectLocation(it)
-                                }
-                            )
+                            val locations = args.getOrNull(1) as? Array<*>
+                            if (!FakeLoc.enable || locations == null || locations.any { it !is Location })
                                 return@intercept52 chain.proceed(args)
+                            args[1] = injectLocationBatch(locations.map { it as Location }).toTypedArray()
 
                             if (FakeLoc.enableDebugLog) {
                                 Logger.debug(

@@ -19,6 +19,7 @@ class ControlCommandTest {
                 }
             }
             assertThrows(IllegalArgumentException::class.java) { ControlCommand.publishNumber("speed", -1.0) }
+            assertThrows(IllegalArgumentException::class.java) { ControlCommand.publishNumber("speed", 1_000.1) }
             assertThrows(IllegalArgumentException::class.java) { ControlCommand.publishNumber("speed_amplitude", 10.1) }
             val bearing = ControlCommand.publishNumber("bearing", 270.0)
             assertTrue(bearing.hasBearings)

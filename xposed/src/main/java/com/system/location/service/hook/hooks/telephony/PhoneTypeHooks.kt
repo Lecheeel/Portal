@@ -3,15 +3,11 @@ package com.system.location.service.hook.hooks.telephony
 import android.telephony.TelephonyManager
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
-import com.system.location.service.hook.utils.Logger
 import io.github.libxposed.api.XposedInterface.Hooker
 import com.system.location.service.hook.utils.hookAllMethods
+import com.system.location.service.hook.hooks.ListenerRouting
 
-/**
- * P2-05: keep phone/network type consistent with the device's own modem and SIM, not with a
- * hard-coded LTE profile. The framework path runs first so a caller without READ_PHONE_STATE
- * still observes the platform's permission result.
- */
+/** Returns radio types derived from the caller's applicable target cell profile. */
 object PhoneTypeHooks {
     fun hook(classLoader: ClassLoader) {
         val manager = com.system.location.service.hook.runtime.Reflection
@@ -19,10 +15,16 @@ object PhoneTypeHooks {
 
         val gsmPhoneType = Hooker { chain ->
             val original = chain.proceed()
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker original
-            val sim = TelephonyFacade.sim()
-            if (!FakeLoc.simReady || !sim.ready) TelephonyManager.PHONE_TYPE_NONE
-            else TelephonyFacade.phoneType()
+            val state = FakeLoc.runtimeSnapshots.current()
+            val route = ListenerRouting.decisionFor(null, BinderUtils.getCallerUid(), state.routing)
+            if (!TelephonyCallerPolicy.shouldRewrite(
+                    state.configuration.enabled,
+                    BinderUtils.isSystemAppsCall(),
+                    route,
+                )
+            ) return@Hooker original
+            val profile = CellInfoSynthesis.profileForRoute(state, route)
+            telephonyTargetIdentity(profile)?.phoneType ?: TelephonyManager.PHONE_TYPE_NONE
         }
         listOf("getActivePhoneType", "getActivePhoneTypeForSlot").forEach {
             manager.hookAllMethods(it, gsmPhoneType)
@@ -30,11 +32,16 @@ object PhoneTypeHooks {
 
         val networkType = Hooker { chain ->
             val original = chain.proceed()
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) return@Hooker original
-            val sim = TelephonyFacade.sim()
-            if (!FakeLoc.simReady || !sim.ready) TelephonyManager.NETWORK_TYPE_UNKNOWN
-            else TelephonyFacade.networkType().takeIf { it != TelephonyManager.NETWORK_TYPE_UNKNOWN }
-                ?: original
+            val state = FakeLoc.runtimeSnapshots.current()
+            val route = ListenerRouting.decisionFor(null, BinderUtils.getCallerUid(), state.routing)
+            if (!TelephonyCallerPolicy.shouldRewrite(
+                    state.configuration.enabled,
+                    BinderUtils.isSystemAppsCall(),
+                    route,
+                )
+            ) return@Hooker original
+            val profile = CellInfoSynthesis.profileForRoute(state, route)
+            telephonyTargetIdentity(profile)?.networkType ?: TelephonyManager.NETWORK_TYPE_UNKNOWN
         }
         listOf(
             "getNetworkType",

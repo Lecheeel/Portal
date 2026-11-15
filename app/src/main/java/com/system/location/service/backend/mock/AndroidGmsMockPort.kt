@@ -9,6 +9,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.providers.ProviderSample
 import com.system.location.service.ext.gmsMockEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import java.util.concurrent.Executor
@@ -25,13 +26,8 @@ class AndroidGmsMockPort(context: Context) : FusedMockPort {
         override fun record(pending: Boolean) {
             check(journal.edit().putBoolean("pending", pending).commit()) { "GMS 所有权记录保存失败" }
         }
-    }, { enabled -> TaskOperation(client.setMockMode(enabled)) }, { sample ->
-        val location = Location("fused").apply {
-            latitude = sample.latitude; longitude = sample.longitude; altitude = sample.altitude
-            accuracy = sample.accuracy; speed = sample.speed; bearing = sample.bearing
-            time = sample.timeMillis; elapsedRealtimeNanos = sample.elapsedNanos
-            verticalAccuracyMeters = sample.accuracy; speedAccuracyMetersPerSecond = 0.1f; bearingAccuracyDegrees = 1f
-        }
+    }, { enabled -> TaskOperation(client.setMockMode(enabled)) }, { sample: ProviderSample ->
+        val location = sample.applyTo(Location("fused"))
         if (this.context.experimentalClearMockFlag) flag.clear(location)
         TaskOperation(client.setMockLocation(location))
     }, { android.os.SystemClock.elapsedRealtimeNanos() })
@@ -41,6 +37,7 @@ class AndroidGmsMockPort(context: Context) : FusedMockPort {
     override suspend fun prepare() = session.prepare()
     override suspend fun start() = session.start()
     override suspend fun publish(sample: LocationSample) = session.publish(sample)
+    override suspend fun publish(sample: ProviderSample) = session.publish(sample)
     override suspend fun stop() = session.stop()
 
     private class TaskOperation(val task: Task<Void>) : GmsOperation {

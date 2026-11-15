@@ -1,12 +1,14 @@
 package com.system.location.service.core
 
 import com.system.location.service.core.environment.EnvironmentProfile
+import com.system.location.service.core.environment.EnvironmentReplayPolicy
 import com.system.location.service.core.environment.EnvironmentSourceType
 import com.system.location.service.core.environment.ReplayEnvironmentSource
 import com.system.location.service.core.environment.WifiAp
 import com.system.location.service.core.geo.Wgs84
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -23,6 +25,7 @@ class ReplayEnvironmentSourceTest {
     private val captured = EnvironmentProfile(
         source = EnvironmentSourceType.REPLAY,
         origin = origin,
+        originAccuracyMeters = 10.0,
         generatedAtMillis = 1,
         seed = 1,
         wifi = listOf(ap),
@@ -39,29 +42,33 @@ class ReplayEnvironmentSourceTest {
     }
 
     @Test
-    fun movingAwayLowersRssiButKeepsBssid() {
+    fun nearbyTargetKeepsProfileWithinMeasuredRange() {
         val replay = ReplayEnvironmentSource(captured)
-        val far = Wgs84(origin.latitude + 0.01, origin.longitude) // ~1.1 km
-        val result = replay.profileAt(far, seed = 1, atMillis = 100).connectedWifi()!!
-        assertTrue(result.rssi < ap.rssi)
+        val nearby = Wgs84(origin.latitude + 0.00004, origin.longitude) // ~4 m
+        val result = replay.profileAt(nearby, seed = 1, atMillis = 100).connectedWifi()!!
+        assertEquals(ap.rssi, result.rssi)
         assertEquals(ap.bssid, result.bssid)
         assertEquals(ap.ssid, result.ssid)
         assertTrue(result.rssi in WifiAp.MIN_RSSI..WifiAp.MAX_RSSI)
     }
 
     @Test
-    fun rssiIsClampedForVeryFarTarget() {
-        val replay = ReplayEnvironmentSource(captured)
-        val far = Wgs84(0.0, 0.0)
-        val result = replay.profileAt(far, seed = 1, atMillis = 100).connectedWifi()!!
-        assertEquals(WifiAp.MIN_RSSI, result.rssi)
+    fun missingOriginOrAccuracyIsNotApplicable() {
+        val unlocated = captured.copy(origin = null, originAccuracyMeters = null)
+        assertFalse(EnvironmentReplayPolicy.isApplicable(unlocated, origin))
+        assertFalse(EnvironmentReplayPolicy.isApplicable(captured.copy(originAccuracyMeters = null), origin))
+        assertThrows(IllegalArgumentException::class.java) {
+            ReplayEnvironmentSource(unlocated).profileAt(origin, 1, 100)
+        }
     }
 
     @Test
-    fun missingOriginUsesTargetWithoutChangingRssi() {
-        val replay = ReplayEnvironmentSource(captured.copy(origin = null))
-        val result = replay.profileAt(Wgs84(30.0, 120.0), seed = 1, atMillis = 100)
-        assertEquals(ap.rssi, result.connectedWifi()!!.rssi)
+    fun targetOutsideMeasuredRangeIsRejected() {
+        val far = Wgs84(origin.latitude + 0.01, origin.longitude)
+        assertFalse(EnvironmentReplayPolicy.isApplicable(captured, far))
+        assertThrows(IllegalArgumentException::class.java) {
+            ReplayEnvironmentSource(captured).profileAt(far, 1, 100)
+        }
     }
 
     @Test

@@ -156,7 +156,7 @@ class ProviderMixer(
                 ProviderFieldMask.ELAPSED_REALTIME_UNCERTAINTY
             if (useSpeed) mask = mask or ProviderFieldMask.SPEED or ProviderFieldMask.SPEED_ACCURACY
             if (useBearing) mask = mask or ProviderFieldMask.BEARING or ProviderFieldMask.BEARING_ACCURACY
-            if (useAltitude) mask = mask or ProviderFieldMask.ALTITUDE or ProviderFieldMask.MSL_ALTITUDE
+            if (useAltitude) mask = mask or ProviderFieldMask.ALTITUDE
             if (satellites != null) mask = mask or ProviderFieldMask.SATELLITES
             if (meanCn0 != null || maxCn0 != null) mask = mask or ProviderFieldMask.CN0
 
@@ -175,7 +175,8 @@ class ProviderMixer(
                 verticalAccuracyMeters = accuracy * profile.verticalAccuracyFactor,
                 speedAccuracyMps = if (useSpeed) 0.15f else null,
                 bearingAccuracyDeg = if (useBearing) 2f else null,
-                mslAltitudeMeters = if (useAltitude) adjusted.altitude else null,
+                // Ellipsoidal source altitude is not MSL altitude without a geoid model.
+                mslAltitudeMeters = null,
                 elapsedRealtimeUncertaintyNanos = if (profile.kind == ProviderKind.NETWORK) 50_000_000L else 5_000_000L,
                 satellites = if (profile.kind == ProviderKind.NETWORK) null else satellites,
                 meanCn0 = if (profile.kind == ProviderKind.NETWORK) null else meanCn0,

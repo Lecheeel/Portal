@@ -74,4 +74,12 @@ class WifiFingerprintImportTest {
             WifiFingerprintImporter.importJson("""{"schemaVersion":99}""")
         }
     }
+
+    @Test fun oversizedCatalogIsRejectedOnImportAndExport() {
+        assertThrows(WifiFingerprintImportException::class.java) {
+            WifiFingerprintImporter.importJson(" ".repeat(WifiFingerprintImporter.MAX_CATALOG_BYTES + 1))
+        }
+        val oversized = WifiFingerprintCatalog(source = "x".repeat(WifiFingerprintImporter.MAX_CATALOG_BYTES))
+        assertThrows(IllegalArgumentException::class.java) { WifiFingerprintImporter.encodeJson(oversized) }
+    }
 }

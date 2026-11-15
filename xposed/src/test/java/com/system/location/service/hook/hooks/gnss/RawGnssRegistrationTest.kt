@@ -5,6 +5,15 @@ import java.lang.reflect.Proxy
 import org.junit.Assert.*
 import org.junit.Test
 
+class RawGnssStatusCallbackForTest {
+    var status: Int? = null
+    var fail = false
+    fun onStatusChanged(value: Int) {
+        if (fail) error("callback failed")
+        status = value
+    }
+}
+
 class RawGnssRegistrationTest {
     private class Call(name: String, val failure: RuntimeException? = null) {
         var proceeds = 0
@@ -26,14 +35,39 @@ class RawGnssRegistrationTest {
         fun removeListener(listener: Any) = Unit
     }
 
-    @Test fun rejectionIsFalseForBooleanApiAndExplicitFailureForVoidApi() {
+    private open class MeasurementCallbackBase {
+        fun onGnssMeasurementsReceived(event: Any) = Unit
+        fun onStatusChanged(status: Int) = Unit
+    }
+    private class InheritedMeasurementCallback : MeasurementCallbackBase()
+    private class UnsupportedCallback { fun onLocationChanged(value: Any) = Unit }
+
+    @Test fun rejectionUsesApiReturnContractWithoutCallingPhysicalRegistration() {
         val hook = rawGnssRegistrationHook { true }
         val boolean = Call("addBoolean")
         assertEquals(false, hook.intercept(boolean.chain))
         assertEquals(0, boolean.proceeds)
         val void = Call("addVoid")
-        assertThrows(UnsupportedOperationException::class.java) { hook.intercept(void.chain) }
+        assertNull(hook.intercept(void.chain))
         assertEquals(0, void.proceeds)
+    }
+
+    @Test fun voidRejectionReportsUnsupportedAndCallbackFailureDoesNotEscape() {
+        val callback = RawGnssStatusCallbackForTest()
+        reportRawGnssUnsupported(callback)
+        assertEquals(0, callback.status)
+
+        callback.fail = true
+        reportRawGnssUnsupported(callback)
+        assertEquals(0, callback.status)
+    }
+
+    @Test fun hookSetupRejectionMatchesBooleanAndVoidRegistrationContracts() {
+        val booleanMethod = Service::class.java.getDeclaredMethod("addBoolean", Any::class.java)
+        val voidMethod = Service::class.java.getDeclaredMethod("addVoid", Any::class.java)
+
+        assertEquals(false, rejectRawGnssRegistration(booleanMethod, null))
+        assertNull(rejectRawGnssRegistration(voidMethod, null))
     }
 
     @Test fun policyPassthroughLeavesRealRegistrationIntact() {
@@ -70,5 +104,14 @@ class RawGnssRegistrationTest {
             rawGnssRegistrationHook { false }.intercept(failed.chain)
         })
         assertEquals(1, failed.proceeds)
+    }
+
+    @Test fun callbackDiscoveryIncludesInheritedPayloadMethodsAndRejectsUnknownInterfaces() {
+        val methods = rawGnssCallbackMethods(InheritedMeasurementCallback::class.java)
+        assertTrue(methods.any { it.name == "onGnssMeasurementsReceived" })
+        assertTrue(methods.any { it.name == "onStatusChanged" })
+        assertThrows(IllegalArgumentException::class.java) {
+            rawGnssCallbackMethods(UnsupportedCallback::class.java)
+        }
     }
 }

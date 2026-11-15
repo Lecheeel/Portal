@@ -113,6 +113,10 @@ var Context.smoothRouteMotion: Boolean
     get() = sharedPrefs.getBoolean("smoothRouteMotion", true)
     set(value) = sharedPrefs.edit { putBoolean("smoothRouteMotion", value) }
 
+var Context.holdAtRouteEnd: Boolean
+    get() = sharedPrefs.getBoolean("holdAtRouteEnd", false)
+    set(value) = sharedPrefs.edit { putBoolean("holdAtRouteEnd", value) }
+
 var Context.gmsMockEnabled: Boolean
     get() = sharedPrefs.getBoolean("gmsMockEnabled", false)
     set(value) = sharedPrefs.edit { putBoolean("gmsMockEnabled", value) }
@@ -337,6 +341,13 @@ var Context.stackTraceCleanEnabled: Boolean
     set(value) = sharedPrefs.edit {
         putBoolean("stackTraceCleanEnabled", value)
         FakeLoc.stackTraceCleanEnabled = value
+    }
+
+var Context.stackTraceReplaceEnabled: Boolean
+    get() = sharedPrefs.getBoolean("stackTraceReplaceEnabled", FakeLoc.stackTraceReplaceEnabled)
+    set(value) = sharedPrefs.edit {
+        putBoolean("stackTraceReplaceEnabled", value)
+        FakeLoc.stackTraceReplaceEnabled = value
     }
 
 var Context.mockWifiEnabled: Boolean

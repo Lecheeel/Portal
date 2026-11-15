@@ -87,10 +87,10 @@
   <string name="per_app_no_match">一致するアプリがありません</string>
   <string name="per_app_done">完了</string>
   <string name="environment_capture_title">周辺環境の収集</string>
-  <string name="environment_capture_desc">現在の WiFi と基地局の情報を収集し、再現用の環境ファイルとして保存します</string>
+  <string name="environment_capture_desc">現在の WiFi、基地局、BLE ビーコンの情報を収集し、再現用の環境ファイルとして保存します</string>
   <string name="environment_capture_action">現在の環境を収集</string>
   <string name="environment_capture_requires_location">環境の収集には位置情報の権限が必要です</string>
-  <string name="environment_capture_saved">保存しました：%1$s（WiFi %2$d 件、基地局 %3$d 件）</string>
+  <string name="environment_capture_saved">保存しました：%1$s（WiFi %2$d 件、基地局 %3$d 件、BLE ビーコン %4$d 件）</string>
   <string name="environment_capture_failed">収集に失敗しました：%1$s</string>
   <string name="environment_ble_permission_denied">Bluetooth のスキャン権限がないため、WiFi と基地局の情報のみを収集します</string>
   <string name="environment_list_action">保存済みの環境を表示</string>

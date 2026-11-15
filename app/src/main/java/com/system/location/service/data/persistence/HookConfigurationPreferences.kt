@@ -36,6 +36,7 @@ object HookConfigurationPreferences {
             "hide_mock" to flag("hideMock", policy.hideMock),
             "experimental_anti_detect" to flag("antiDetectEnabled", policy.antiDetectEnabled),
             "experimental_stack_trace" to flag("stackTraceCleanEnabled", policy.stackTraceCleanEnabled),
+            "experimental_stack_trace_replace" to flag("stackTraceReplaceEnabled", policy.stackTraceReplaceEnabled),
             "sensor_cadence_scale" to number("sensorCadenceScale", 1f).toDouble(),
             "sensor_variation" to number("sensorVariation", 0.15f).toDouble(),
             "sensor_targets" to text("sensorTargetPackages"),

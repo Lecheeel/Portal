@@ -1,6 +1,7 @@
 package com.system.location.service.core.runtime
 
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.location.LocationSanitizer
 
 /** A complete, validated start transition. Missing optional fields merge against the CAS input. */
 data class RuntimeStart(
@@ -11,8 +12,10 @@ data class RuntimeStart(
     val reportIntervalMs: Long = 100L,
 ) {
     init {
-        speedMps?.let { require(it.isFinite() && it >= 0.0) }
-        altitudeMeters?.let { require(it.isFinite()) }
+        speedMps?.let { require(it.isFinite() && it in 0.0..LocationSanitizer.MAX_SPEED_MPS) }
+        altitudeMeters?.let {
+            require(it.isFinite() && it in LocationSanitizer.MIN_ALTITUDE_METERS..LocationSanitizer.MAX_ALTITUDE_METERS)
+        }
         accuracyMeters?.let { require(it.isFinite() && it > 0f) }
         require(reportIntervalMs in 50L..1000L)
     }

@@ -4,7 +4,7 @@ import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
 import kotlinx.serialization.Serializable
 
-enum class RuntimePhase { IDLE, PREPARING, READY, RUNNING, PAUSED, STOPPING, STOPPED, ERROR }
+enum class RuntimePhase { IDLE, PREPARING, READY, RUNNING, PAUSED, HOLDING, STOPPING, STOPPED, ERROR }
 
 data class RuntimeState(
     val phase: RuntimePhase = RuntimePhase.IDLE,
@@ -22,7 +22,8 @@ data class RuntimeState(
     val configuredSpeedMps: Double? = null,
     val submissionHealth: SubmissionHealth = SubmissionHealth(),
 ) {
-    val isActive get() = phase in setOf(RuntimePhase.PREPARING, RuntimePhase.READY, RuntimePhase.RUNNING, RuntimePhase.PAUSED, RuntimePhase.STOPPING)
+    val isActive get() = phase in setOf(RuntimePhase.PREPARING, RuntimePhase.READY, RuntimePhase.RUNNING,
+        RuntimePhase.PAUSED, RuntimePhase.HOLDING, RuntimePhase.STOPPING)
 }
 
 data class SubmissionHealth(val count: Long = 0, val lastGapMs: Double = 0.0, val maxGapMs: Double = 0.0,

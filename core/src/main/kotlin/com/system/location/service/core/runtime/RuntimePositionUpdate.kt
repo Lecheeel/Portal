@@ -1,6 +1,7 @@
 package com.system.location.service.core.runtime
 
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.location.LocationSanitizer
 
 /** An absolute target with optional heading; validation precedes all live position/motion changes. */
 data class RuntimePositionUpdate(
@@ -9,7 +10,7 @@ data class RuntimePositionUpdate(
     val bearingDeg: Double? = null,
 ) {
     init {
-        require(movementSpeedMps.isFinite() && movementSpeedMps >= 0f)
+        require(movementSpeedMps.isFinite() && movementSpeedMps in 0f..LocationSanitizer.MAX_SPEED_MPS.toFloat())
         require(bearingDeg == null || bearingDeg.isFinite())
     }
 

@@ -5,6 +5,7 @@ import com.system.location.service.core.backend.BackendResult
 import com.system.location.service.core.backend.BackendDiagnostic
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.providers.ProviderSample
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -15,6 +16,7 @@ class MockProviderBackendTest {
         val registered = linkedSetOf<String>()
         val enabled = mutableSetOf<String>()
         val fixes = mutableListOf<Pair<String, LocationSample>>()
+        val providerSamples = mutableListOf<Pair<String, ProviderSample>>()
         var failRegister: String? = null
         var failEnable: String? = null
         var failPublish = false
@@ -45,6 +47,10 @@ class MockProviderBackendTest {
             if (failPublish) throw SecurityException("mock authorization revoked")
             fixes += provider to sample
             afterPublish?.invoke(provider)
+        }
+        override fun publish(provider: String, sample: ProviderSample) {
+            providerSamples += provider to sample
+            publish(provider, sample.sample)
         }
         override fun remove(provider: String) {
             if (rejectUnauthorizedCleanup && !allowed) throw MockAuthorizationException("cleanup")
@@ -111,6 +117,23 @@ class MockProviderBackendTest {
         backend.stop()
         assertTrue(backend.publish(sample) is BackendResult.Failure)
         assertEquals(3, port.registrations)
+    }
+
+    @Test fun providerFieldMasksReachThePortWithEachProviderSample() = runBlocking {
+        val port = Port()
+        val backend = MockProviderBackend(port)
+        backend.prepare(); backend.start()
+        assertEquals(BackendResult.Success, backend.publish(sample))
+
+        val gps = port.providerSamples.first { it.first == "gps" }.second
+        val network = port.providerSamples.first { it.first == "network" }.second
+        assertTrue(gps.has(com.system.location.service.core.providers.ProviderFieldMask.ALTITUDE))
+        assertTrue(gps.has(com.system.location.service.core.providers.ProviderFieldMask.SPEED))
+        assertFalse(network.has(com.system.location.service.core.providers.ProviderFieldMask.ALTITUDE))
+        assertFalse(network.has(com.system.location.service.core.providers.ProviderFieldMask.SPEED))
+        assertNull(gps.mslAltitudeMeters)
+        backend.stop()
+        Unit
     }
 
     @Test fun reflectionDiagnosticDoesNotClaimDownstreamAcceptanceOrBlockPublishing() = runBlocking {

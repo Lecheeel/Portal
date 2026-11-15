@@ -23,6 +23,13 @@ object GnssReceiverRuntime {
         return context.takeIf { policy.enabled && policy.gnssEnabled && policy.gnssFrameSource() != null }
     }
 
+    /** Raw receiver payload protection follows simulated-location scope, even without a frame source. */
+    fun protectionContext(): ProviderReadContext? {
+        if (!FakeLoc.runtimeSnapshots.current().configuration.enabled) return null
+        val context = ProviderView.capture()
+        return context.takeIf { it.state.configuration.enabled }
+    }
+
     @Synchronized
     fun configure(payload: String?) {
         val prepared = CapturedGnssSource.prepare(payload, FakeLoc.runtimeSnapshots.current().configuration.gnssSource)

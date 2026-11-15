@@ -4,6 +4,7 @@ import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.providers.ProviderKind
 import com.system.location.service.core.providers.ProviderMixer
+import com.system.location.service.core.providers.ProviderSample
 import kotlinx.coroutines.CancellationException
 
 interface FusedMockPort {
@@ -12,6 +13,7 @@ interface FusedMockPort {
     suspend fun prepare()
     suspend fun start()
     suspend fun publish(sample: LocationSample)
+    suspend fun publish(sample: ProviderSample) = publish(sample.sample)
     suspend fun stop()
 }
 
@@ -44,7 +46,8 @@ class FusedMockBackend(private val base: LocationBackend, private val fused: Fus
         val result = base.publish(sample, scenarioId)
         if (result is BackendResult.Failure) return result
         if (useFused) try {
-            fused.publish(providerMixer.mix(sample)[ProviderKind.FUSED]?.sample ?: sample)
+            val providerSample = providerMixer.mix(sample)[ProviderKind.FUSED]
+            if (providerSample == null) fused.publish(sample) else fused.publish(providerSample)
         }
         catch (cancelled: CancellationException) { throw cancelled }
         catch (error: Exception) { degrade(error, "GMS 提交失败，继续使用标准 Provider") }

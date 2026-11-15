@@ -45,6 +45,10 @@ class ProviderMixerTest {
         assertFalse(network.has(ProviderFieldMask.BEARING))
         assertFalse(network.has(ProviderFieldMask.SPEED))
         assertFalse(network.has(ProviderFieldMask.ALTITUDE))
+        assertFalse(gps.has(ProviderFieldMask.MSL_ALTITUDE))
+        assertFalse(fused.has(ProviderFieldMask.MSL_ALTITUDE))
+        assertFalse(network.has(ProviderFieldMask.MSL_ALTITUDE))
+        assertNull(gps.mslAltitudeMeters)
         assertNull(network.satellites)
         assertNotNull(gps.satellites)
     }

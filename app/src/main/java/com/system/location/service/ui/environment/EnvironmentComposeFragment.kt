@@ -60,6 +60,7 @@ import com.system.location.service.designsystem.components.PortalSwitchRow
 import com.system.location.service.designsystem.theme.PortalSpacing
 import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.environment.EnvironmentCollector
+import com.system.location.service.environment.EnvironmentCaptureLocation
 import com.system.location.service.environment.EnvironmentStore
 import com.system.location.service.ext.cellMode
 import com.system.location.service.ext.environmentApCount
@@ -74,6 +75,9 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
 
 /**
  * Compose replacement for the environment tools leaf screen.
@@ -124,13 +128,13 @@ class EnvironmentComposeFragment : Fragment() {
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    val raw = appContext.contentResolver.openInputStream(uri)
-                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    val raw = appContext.contentResolver.openInputStream(uri)?.use {
+                        readUtf8Document(it, EnvironmentProfileCodec.MAX_PROFILE_BYTES, "环境配置")
+                    }
                         ?: error("无法读取文件")
                     val profile = EnvironmentProfileCodec.decode(raw)
                     val name = "import-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-                    EnvironmentStore(appContext).save(name, profile)
-                    name
+                    EnvironmentStore(appContext).saveNew(name, profile)
                 }
             }
             result.onSuccess { name ->
@@ -150,8 +154,9 @@ class EnvironmentComposeFragment : Fragment() {
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    val raw = appContext.contentResolver.openInputStream(uri)
-                        ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    val raw = appContext.contentResolver.openInputStream(uri)?.use {
+                        readUtf8Document(it, WifiFingerprintImporter.MAX_CATALOG_BYTES, "Wi-Fi 指纹库")
+                    }
                         ?: error("无法读取文件")
                     val imported = WifiFingerprintImporter.importJson(raw)
                     appContext.wifiFingerprintCatalogJson =
@@ -167,6 +172,24 @@ class EnvironmentComposeFragment : Fragment() {
         }
     }
 
+    private fun readUtf8Document(input: java.io.InputStream, maxBytes: Int, label: String): String {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8 * 1024)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            require(output.size() <= maxBytes - count) {
+                "${label}文件超过 $maxBytes 字节"
+            }
+            output.write(buffer, 0, count)
+        }
+        return Charsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(output.toByteArray()))
+            .toString()
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -178,7 +201,8 @@ class EnvironmentComposeFragment : Fragment() {
                 val state by library.collectAsStateWithLifecycle()
                 if (arguments?.getBoolean("library") == true) {
                     EnvironmentLibraryScreen(state, ::refreshNames, ::exportEnvironment,
-                        ::replayEnvironment, ::deleteEnvironment, ::renameEnvironment)
+                        ::replayEnvironment, ::deleteEnvironment, ::renameEnvironment,
+                        ::editEnvironmentProfile, ::saveEnvironmentProfile, ::closeEnvironmentEditor)
                 } else EnvironmentScreen(
                     library = state,
                     onOpenLibrary = { findNavController().navigate(R.id.nav_environment_library) },
@@ -219,6 +243,11 @@ class EnvironmentComposeFragment : Fragment() {
             ))
             return
         }
+        requestBleScanPermissionOrCapture()
+    }
+
+    private fun requestBleScanPermissionOrCapture() {
+        val context = requireContext()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -233,15 +262,27 @@ class EnvironmentComposeFragment : Fragment() {
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    val profile = EnvironmentCollector(appContext).capture(origin = null, seed = System.currentTimeMillis())
-                    val name = "capture-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-                    EnvironmentStore(appContext).save(name, profile)
-                    Triple(name, profile.wifi.size, profile.cells.size)
+                    val origin = EnvironmentCaptureLocation(appContext).current()
+                    val profile = EnvironmentCollector(appContext).capture(
+                        origin = origin.coordinate,
+                        originAccuracyMeters = origin.accuracyMeters,
+                        seed = System.currentTimeMillis(),
+                        originElapsedRealtimeNanos = origin.elapsedRealtimeNanos,
+                    )
+                    val baseName = "capture-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                    val name = EnvironmentStore(appContext).saveNew(baseName, profile)
+                    Pair(name, profile)
                 }
             }
-            result.onSuccess { (name, wifi, cells) ->
+            result.onSuccess { (name, profile) ->
                 refreshNames()
-                showToast(getString(R.string.environment_capture_saved, name, wifi, cells))
+                showToast(getString(
+                    R.string.environment_capture_saved,
+                    name,
+                    profile.wifi.size,
+                    profile.cells.size + profile.cdmaCells.size,
+                    profile.ble.size,
+                ))
             }.onFailure { error ->
                 showToast(getString(R.string.environment_capture_failed, error.message ?: "unknown"))
             }
@@ -307,6 +348,38 @@ class EnvironmentComposeFragment : Fragment() {
             result.onSuccess { showToast(getString(R.string.environment_renamed)) }
                 .onFailure { showToast(getString(R.string.environment_rename_failed, it.message ?: "unknown")) }
         }
+    }
+
+    private fun editEnvironmentProfile(name: String, kind: EnvironmentDataKind) {
+        val appContext = requireContext().applicationContext
+        lifecycleScope.launch {
+            val profile = withContext(Dispatchers.IO) {
+                runCatching { EnvironmentStore(appContext).load(name) }.getOrNull()
+            }
+            if (profile == null) {
+                showToast("无法读取环境档案")
+                return@launch
+            }
+            library.value = library.value.copy(editing = name to profile, editingKind = kind)
+        }
+    }
+
+    private fun saveEnvironmentProfile(name: String, profile: EnvironmentProfile) {
+        val appContext = requireContext().applicationContext
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { EnvironmentStore(appContext).save(name, profile) }
+            }
+            result.onSuccess {
+                library.value = library.value.copy(editing = null)
+                refreshNames()
+                showToast("环境数据已保存")
+            }.onFailure { showToast("保存失败：${it.message ?: "unknown"}") }
+        }
+    }
+
+    private fun closeEnvironmentEditor() {
+        library.value = library.value.copy(editing = null)
     }
 
     private fun applyConfigNowWithToast() {

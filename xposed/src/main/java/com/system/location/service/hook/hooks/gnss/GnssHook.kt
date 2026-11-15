@@ -25,8 +25,8 @@ object GnssHook : BaseLocationHook() {
 
         val rawRegistration = rawGnssRegistrationHook()
 
-        // A void registration reports intentional policy rejection by throwing. PROTECTIVE
-        // would swallow that API result and execute the original registration instead.
+        // Rejections return the method's API-shaped false/void result and report unsupported
+        // status through the callback. Preserve genuine framework failures on allowed calls.
         com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
             cGnssManagerService,
             "addGnssAntennaInfoListener",
@@ -113,7 +113,7 @@ object GnssHook : BaseLocationHook() {
                         locations.javaClass.componentType == Location::class.java && locations.all { it is Location }) {
                         // The framework API takes a single Location[] argument. Copy the array:
                         // mutating the provider-owned batch can also affect other consumers.
-                        args[0] = locations.map { injectLocation(it as Location) }.toTypedArray()
+                        args[0] = injectLocationBatch(locations.map { it as Location }).toTypedArray()
                     }
 
                     chain.proceed(args)

@@ -42,14 +42,35 @@ object ListenerRouting {
 
     /** Fixed point for an environment caller (WiFi/cell), or null when no point route matches. */
     fun fixedPointFor(packageName: String?, uid: Int = BinderUtils.getCallerUid()): com.system.location.service.core.geo.Wgs84? {
-        val config = FakeLoc.routingConfig ?: return null
-        if (config.mode == RoutingMode.GLOBAL) return null
-        if (uid < 10_000) return null
+        return (decisionFor(packageName, uid) as? RoutingDecision.Point)?.point
+    }
+
+    /** Full environment routing result so explicit denial is not confused with the global route. */
+    fun decisionFor(packageName: String?, uid: Int = BinderUtils.getCallerUid()): RoutingDecision =
+        decisionFor(packageName, uid, FakeLoc.runtimeSnapshots.current().routing)
+
+    /** Resolve against a caller-captured config so one request cannot mix routing revisions. */
+    fun decisionFor(packageName: String?, uid: Int, config: RoutingConfig?): RoutingDecision {
+        config ?: return RoutingDecision.Global
+        if (config.mode == RoutingMode.GLOBAL) return RoutingDecision.Global
+        if (uid < 10_000) return RoutingDecision.Global
         val packages = packageName?.takeIf { it.isNotBlank() }?.let { listOf(it) }
             ?: runCatching { BinderUtils.getUidPackageNames(uid = uid)?.toList().orEmpty() }.getOrDefault(emptyList())
-        if (packages.any { runCatching { BinderUtils.isSystemPackages(it) }.getOrDefault(false) }) return null
-        val table = runCatching { RoutingTable(config) }.getOrNull() ?: return null
-        return (table.decision(uid, packages, false) as? RoutingDecision.Point)?.point
+        return decisionForPackages(uid, config, packages) { packageNameToCheck ->
+            runCatching { BinderUtils.isSystemPackages(packageNameToCheck) }.getOrDefault(false)
+        }
+    }
+
+    internal fun decisionForPackages(
+        uid: Int,
+        config: RoutingConfig,
+        packages: Collection<String>,
+        isSystemPackage: (String) -> Boolean = { false },
+    ): RoutingDecision {
+        if (packages.isEmpty()) return RoutingDecision.Deny
+        if (packages.any(isSystemPackage)) return RoutingDecision.Global
+        val table = runCatching { RoutingTable(config) }.getOrNull() ?: return RoutingDecision.Deny
+        return table.decision(uid, packages, false)
     }
 
     fun shouldDeliver(listener: android.os.IInterface): Boolean = route(listener) !is Route.Denied

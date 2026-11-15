@@ -17,10 +17,20 @@ object EnvironmentProfileCodec {
         explicitNulls = false
     }
 
-    fun encode(profile: EnvironmentProfile): String =
-        json.encodeToString(EnvironmentProfile.serializer(), profile)
+    const val MAX_PROFILE_BYTES = 2 * 1024 * 1024
+
+    fun encode(profile: EnvironmentProfile): String {
+        val encoded = json.encodeToString(EnvironmentProfile.serializer(), profile)
+        require(encoded.toByteArray(Charsets.UTF_8).size <= MAX_PROFILE_BYTES) {
+            "Environment profile exceeds $MAX_PROFILE_BYTES bytes"
+        }
+        return encoded
+    }
 
     fun decode(raw: String): EnvironmentProfile {
+        if (raw.toByteArray(Charsets.UTF_8).size > MAX_PROFILE_BYTES) {
+            throw EnvironmentCodecException("Environment profile exceeds $MAX_PROFILE_BYTES bytes")
+        }
         val profile = runCatching { json.decodeFromString(EnvironmentProfile.serializer(), raw) }
             .getOrElse { throw EnvironmentCodecException("Invalid environment profile", it) }
         if (profile.schemaVersion != EnvironmentProfile.SCHEMA_VERSION) {

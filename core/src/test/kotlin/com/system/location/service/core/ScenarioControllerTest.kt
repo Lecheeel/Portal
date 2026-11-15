@@ -20,6 +20,7 @@ class ScenarioControllerTest {
         override val type = BackendType.MOCK_PROVIDER
         override val capabilities = emptyMap<Capability, CapabilityStatus>()
         val calls = mutableListOf<String>()
+        val publishedSamples = mutableListOf<LocationSample>()
         var diagnosticDetails = emptyList<BackendDiagnostic>()
         override suspend fun diagnose() = diagnosticDetails
         var failPublish = false
@@ -29,6 +30,7 @@ class ScenarioControllerTest {
         override suspend fun pause() = BackendResult.Success.also { calls += "pause" }
         override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
             calls += "publish"
+            publishedSamples += sample
             return if (failPublish) BackendResult.Failure("PUBLISH", "injected failure") else BackendResult.Success
         }
         override suspend fun stop(): BackendResult {
@@ -41,6 +43,43 @@ class ScenarioControllerTest {
         }
     }
     private val scenario = Scenario("s", "test", route = Route("r", "route", listOf(Wgs84(0.0, 0.0), Wgs84(0.01, 0.01))))
+
+    @Test fun userScenarioNameRemainsInRuntimeStateButIsOmittedFromDiagnostics() = runBlocking {
+        val backend = Backend()
+        val accepted = mutableListOf<DiagnosticEvent>()
+        val c = ScenarioController({ backend }, Clock(), diagnosticBatchSink = { accepted += it })
+        val privateName = "Home address"
+
+        assertTrue(c.start(scenario.copy(name = privateName)))
+
+        assertEquals(privateName, c.state.value.scenarioName)
+        assertTrue(accepted.isNotEmpty())
+        assertFalse(accepted.any { it.reason.contains(privateName) || it.suggestion.contains(privateName) })
+    }
+
+    @Test fun backendDiagnosticTextIsBoundedBeforeEnteringMemoryAndExportSink() = runBlocking {
+        val backend = Backend().apply {
+            diagnosticDetails = listOf(BackendDiagnostic(
+                stage = "S".repeat(200),
+                result = "R".repeat(100),
+                reason = "x".repeat(3000),
+                suggestion = "y".repeat(800),
+            ))
+        }
+        val persisted = mutableListOf<DiagnosticEvent>()
+        val controller = ScenarioController({ backend }, Clock(), diagnosticBatchSink = { persisted += it })
+
+        controller.refreshDiagnostics()
+
+        val memoryEvent = controller.diagnostics.value.single()
+        val persistedEvent = persisted.single()
+        for (event in listOf(memoryEvent, persistedEvent)) {
+            assertEquals(128, event.stage.length)
+            assertEquals(64, event.result.length)
+            assertEquals(2048, event.reason.length)
+            assertEquals(512, event.suggestion.length)
+        }
+    }
 
     @Test fun startupGenerationSurvivesShortSessionsBackendSelectionAndFailedPublication() = runBlocking {
         val backend = Backend()
@@ -58,6 +97,93 @@ class ScenarioControllerTest {
         assertFalse(c.start(scenario))
         assertFalse(c.state.value.isActive)
         assertEquals(4L, c.startGeneration)
+    }
+
+    @Test fun completedOneShotRoutePublishesAndRetainsItsEndpointAfterStopping() = runBlocking {
+        val clock = Clock()
+        val backend = Backend()
+        val c = ScenarioController({ backend }, clock)
+        assertTrue(c.start(scenario))
+
+        clock.time = 1_000_000
+        assertTrue(c.tick())
+
+        val endpoint = scenario.route!!.points.last()
+        assertEquals(RuntimePhase.STOPPED, c.state.value.phase)
+        assertEquals(endpoint, backend.publishedSamples.last().coordinate)
+        assertEquals(endpoint, c.state.value.sample!!.coordinate)
+        assertEquals(0f, c.state.value.sample!!.speed)
+    }
+
+    @Test fun completedSmoothOneShotRoutePublishesAndRetainsItsEndpointAfterStopping() = runBlocking {
+        val clock = Clock()
+        val backend = Backend()
+        val c = ScenarioController({ backend }, clock)
+        val smooth = scenario.copy(profile = MovementProfile(speedMps = 8.0, smoothMotion = true))
+        assertTrue(c.start(smooth))
+
+        clock.time = 1_000_000
+        assertTrue(c.tick())
+
+        val endpoint = smooth.route!!.points.last()
+        assertEquals(RuntimePhase.STOPPED, c.state.value.phase)
+        assertEquals(endpoint, backend.publishedSamples.last().coordinate)
+        assertEquals(endpoint, c.state.value.sample!!.coordinate)
+        assertEquals(0f, c.state.value.sample!!.speed)
+    }
+
+    @Test fun oneShotRouteCanHoldEndpointUntilExplicitStop() = runBlocking {
+        val clock = Clock()
+        val backend = Backend()
+        val c = ScenarioController({ backend }, clock)
+        assertTrue(c.start(scenario, holdAtEndpoint = true))
+
+        clock.time = 1_000_000
+        assertTrue(c.tick())
+
+        assertEquals(RuntimePhase.HOLDING, c.state.value.phase)
+        assertTrue(c.state.value.isActive)
+        assertEquals(scenario.route!!.points.last(), c.state.value.sample!!.coordinate)
+        assertEquals(0f, c.state.value.sample!!.speed)
+        assertFalse("held routes must not resume playback ticks", c.tick())
+        assertFalse("backend remains active until explicit stop", "stop" in backend.calls)
+
+        assertTrue(c.stop())
+        assertEquals(RuntimePhase.STOPPED, c.state.value.phase)
+        assertEquals(1, backend.calls.count { it == "stop" })
+    }
+
+    @Test fun endpointHoldDoesNotChangeLoopingOrPingPongRoutes() = runBlocking {
+        for (mode in listOf(RouteMode.LOOP, RouteMode.PING_PONG)) {
+            val clock = Clock()
+            val backend = Backend()
+            val c = ScenarioController({ backend }, clock)
+            assertTrue(c.start(scenario.copy(mode = mode), holdAtEndpoint = true))
+            clock.time = 1_000_000
+            assertTrue(c.tick())
+            assertEquals(RuntimePhase.RUNNING, c.state.value.phase)
+            assertTrue("looping routes keep running", "stop" !in backend.calls)
+            c.stop()
+        }
+    }
+
+    @Test fun rebuildingMockProvidersWhileHoldingRepublishesEndpointAndKeepsHoldState() = runBlocking {
+        val clock = Clock()
+        val backend = Backend()
+        val c = ScenarioController({ backend }, clock)
+        assertTrue(c.start(scenario, holdAtEndpoint = true))
+        clock.time = 1_000_000
+        assertTrue(c.tick())
+        val endpoint = scenario.route!!.points.last()
+
+        assertTrue(c.rebuildMockProviders())
+
+        assertEquals(RuntimePhase.HOLDING, c.state.value.phase)
+        assertEquals(endpoint, backend.publishedSamples.last().coordinate)
+        assertEquals(2, backend.calls.count { it == "start" })
+        assertEquals(1, backend.calls.count { it == "stop" })
+        assertTrue(c.stop())
+        assertEquals(2, backend.calls.count { it == "stop" })
     }
 
     @Test fun repeatedFailureAfterRecoveryIsRecordedWithinFiveSeconds() = runBlocking {
@@ -139,9 +265,10 @@ class ScenarioControllerTest {
     @Test fun asynchronousStorageFailuresAreReportedWithoutReenteringTheSink() = runBlocking {
         var submitted = 0
         val c = ScenarioController({ Backend() }, Clock(), diagnosticBatchSink = { submitted += it.size })
-        c.reportDiagnosticStorageFailure(IllegalStateException("disk full"))
+        c.reportDiagnosticStorageFailure(IllegalStateException("x".repeat(3000)))
         c.reportDiagnosticStorageFailure(IllegalStateException("still full"))
         assertEquals(1, c.diagnostics.value.count { it.stage == "DIAGNOSTIC_STORAGE" })
+        assertEquals(2048, c.diagnostics.value.single().reason.length)
         assertEquals(0, submitted)
         c.reportDiagnosticStorageFailure(null)
         c.reportDiagnosticStorageFailure(IllegalStateException("another failure"))

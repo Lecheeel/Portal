@@ -103,6 +103,19 @@ class FakeLocation {
                 install("settings") { SettingsHook.hook(loader) }
             }
             com.system.location.service.hook.scope.HookScope.TARGET_APP -> {
+                install("application-ble-scan") {
+                    com.system.location.service.hook.hooks.ble.BleScanHook.install(
+                        loader, identity.packageName, identity.uid,
+                    )
+                }
+                install("application-network-transport-info") {
+                    WlanHook.installTargetApp(loader, identity.packageName, identity.uid)
+                }
+                install("application-cellinfo") {
+                    com.system.location.service.hook.hooks.telephony.CellInfoAsyncCallbackHook.install(
+                        loader, identity.packageName, identity.uid,
+                    )
+                }
                 install("application-sensor") {
                     com.system.location.service.hook.hooks.sensor.ApplicationSensorHook.install(loader)
                 }

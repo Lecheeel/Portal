@@ -37,6 +37,7 @@ fun RuntimePhase.displayLabel(): String = when (this) {
     RuntimePhase.READY -> "准备就绪"
     RuntimePhase.RUNNING -> "正在模拟"
     RuntimePhase.PAUSED -> "已暂停"
+    RuntimePhase.HOLDING -> "停留在终点"
     RuntimePhase.STOPPING -> "正在停止"
     RuntimePhase.STOPPED -> "已停止"
     RuntimePhase.ERROR -> "需要处理"

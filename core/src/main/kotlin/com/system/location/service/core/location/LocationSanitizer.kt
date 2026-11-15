@@ -14,9 +14,15 @@ data class LocationFieldPolicy(
     val elapsedRealtimeUncertaintyNanos: Long = 5_000_000L,
 ) {
     init {
-        require(verticalAccuracyFactor > 0f) { "verticalAccuracyFactor must be positive" }
-        require(speedAccuracyMps >= 0f) { "speedAccuracyMps must be non-negative" }
-        require(bearingAccuracyDegrees >= 0f) { "bearingAccuracyDegrees must be non-negative" }
+        require(verticalAccuracyFactor.isFinite() && verticalAccuracyFactor >= 1f) {
+            "verticalAccuracyFactor must be finite and at least 1"
+        }
+        require(speedAccuracyMps.isFinite() && speedAccuracyMps >= 0f) {
+            "speedAccuracyMps must be finite and non-negative"
+        }
+        require(bearingAccuracyDegrees.isFinite() && bearingAccuracyDegrees >= 0f) {
+            "bearingAccuracyDegrees must be finite and non-negative"
+        }
         require(elapsedRealtimeUncertaintyNanos >= 0L) { "elapsedRealtimeUncertaintyNanos must be non-negative" }
     }
 }
@@ -43,7 +49,8 @@ object LocationSanitizer {
         policy: LocationFieldPolicy = LocationFieldPolicy(),
     ): SanitizedLocationFields {
         val horizontal = sanitizeAccuracy(sample.accuracy, FALLBACK_HORIZONTAL_ACCURACY)
-        val vertical = sanitizeAccuracy(horizontal * policy.verticalAccuracyFactor, horizontal * policy.verticalAccuracyFactor)
+        val vertical = (horizontal.toDouble() * policy.verticalAccuracyFactor.toDouble())
+            .coerceAtMost(Float.MAX_VALUE.toDouble()).toFloat()
         val moving = sample.speed > STATIONARY_SPEED_MPS
         val speedAccuracy = if (sample.speed > 0f) {
             minOf(policy.speedAccuracyMps, maxOf(MIN_SPEED_ACCURACY_MPS, sample.speed * SPEED_ACCURACY_FRACTION))
@@ -75,6 +82,7 @@ object LocationSanitizer {
     }
 
     const val STATIONARY_SPEED_MPS = 0.3f
+    const val MAX_SPEED_MPS = 1_000.0
     /** Default requested simulation accuracy; separate from sanitizing invalid external samples. */
     const val DEFAULT_HORIZONTAL_ACCURACY = 2.5f
     const val FALLBACK_HORIZONTAL_ACCURACY = 25f
@@ -83,6 +91,6 @@ object LocationSanitizer {
     const val MAX_UNCERTAINTY_NANOS = 999_000_000L
     private const val MIN_SPEED_ACCURACY_MPS = 0.05f
     private const val SPEED_ACCURACY_FRACTION = 0.1f
-    private const val MIN_ALTITUDE_METERS = -500.0
-    private const val MAX_ALTITUDE_METERS = 20_000.0
+    const val MIN_ALTITUDE_METERS = -500.0
+    const val MAX_ALTITUDE_METERS = 20_000.0
 }

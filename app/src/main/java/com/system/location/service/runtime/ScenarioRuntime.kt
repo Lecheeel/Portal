@@ -15,6 +15,8 @@ import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentConfig
 import com.system.location.service.core.environment.EnvironmentSourceMode
 import com.system.location.service.core.environment.EnvironmentRestorePolicy
+import com.system.location.service.core.privacy.DiagnosticExportRedactor
+import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.playback.NoiseProfile
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.runtime.*
@@ -43,6 +45,7 @@ import com.system.location.service.ext.gmsMockEnabled
 import com.system.location.service.ext.platformFusedEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.smoothRouteMotion
+import com.system.location.service.ext.holdAtRouteEnd
 import com.system.location.service.service.MockServiceHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
@@ -134,7 +137,7 @@ object ScenarioRuntime {
                 runCatching { journal.read() }.onSuccess { controller.restoreDiagnostics(it) }
                     .onFailure { controller.note("DIAGNOSTIC_STORAGE", "FAILED", it.message ?: "历史日志读取失败") }
                 runCatching { configStore.load() }.getOrNull()?.let { saved ->
-                    controller.note("CONFIG_STORE", "INFO", "最近配置：${saved.scenario.name} rev=${saved.revision}")
+                    controller.note("CONFIG_STORE", "INFO", "最近配置已恢复 rev=${saved.revision}")
                 }
             }
             val selected = runCatching { BackendType.valueOf(preferences.getString("backend", "MOCK_PROVIDER")!!) }
@@ -197,7 +200,7 @@ object ScenarioRuntime {
             }
             check(preferences.edit().putBoolean("interrupted", true).commit()) { "无法持久化运行标记" }
             controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
-            val started = controller.start(frozen)
+            val started = controller.start(frozen, holdAtEndpoint = context.holdAtRouteEnd)
             if (started) {
                 withContext(Dispatchers.IO) {
                     runCatching {
@@ -249,13 +252,14 @@ object ScenarioRuntime {
         commands.withLock {
             buildString {
                 appendLine("LocationService ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) revision=${BuildConfig.GIT_REVISION}")
-                appendLine("Android ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT} ROM=${Build.DISPLAY}")
-                appendLine(BackgroundGuidance.status(context))
+                appendLine("Android ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT}")
+                appendLine(BackgroundGuidance.diagnosticStatus(context))
                 appendLine("状态=${state.value.phase} 后端=${state.value.backend} 配置间隔=${controller.intervalMs}ms")
                 appendLine("当前偏好（运行场景可能持有启动时快照）：GMS=${context.gmsMockEnabled} 系统Fused=${context.platformFusedEnabled} 密集启动=${context.startupBurstEnabled} 清除标记=${context.experimentalClearMockFlag} 平滑运动=${context.smoothRouteMotion} 圆周=${context.experimentalOrbitMotion} 半径=${context.experimentalOrbitRadius}m 周期=${context.orbitPeriodSeconds}s")
                 appendLine("以下是 API 提交及运行诊断，不能证明目标 App 接受定位。")
                 controller.diagnostics.value.forEach { appendLine("${java.time.Instant.ofEpochMilli(it.timestamp)} ${it.backend} ${it.stage} ${it.result}: ${it.reason} ${it.suggestion}") }
             }
+                .let(DiagnosticExportRedactor::redact)
         }
     }
     fun resume() = command { controller.resume() }
@@ -270,7 +274,7 @@ object ScenarioRuntime {
         val expected = state.value
         return command {
             val current = state.value
-            if (!speed.isFinite() || speed !in 0.0..1000.0 ||
+            if (!speed.isFinite() || speed !in 0.0..LocationSanitizer.MAX_SPEED_MPS ||
                 current.scenarioId != expected.scenarioId || current.startedAt != expected.startedAt ||
                 current.phase != expected.phase) return@command false
             val accepted = if (current.isActive) controller.setSpeed(speed) else true
@@ -313,14 +317,16 @@ object ScenarioRuntime {
         }
     }
     internal suspend fun nextTickDelay(instance: ScenarioService): Long = commands.withLock {
-        if (service !== instance) controller.intervalMs else startupBurst?.nextDelay(state.value, controller.intervalMs) ?: controller.intervalMs
+        if (service !== instance) controller.intervalMs
+        else if (state.value.phase == RuntimePhase.HOLDING) 60 * 60 * 1000L
+        else startupBurst?.nextDelay(state.value, controller.intervalMs) ?: controller.intervalMs
     }
     internal suspend fun tick(instance: ScenarioService) {
         try {
             commands.withLock {
                 if (service === instance) {
                     lifecycle.execute {
-                        if (state.value.isActive) {
+                        if (state.value.isActive && state.value.phase != RuntimePhase.HOLDING) {
                             startupBurst?.accept(state.value)
                             controller.tick()
                         }

@@ -1,58 +1,58 @@
 package com.system.location.service.hook.privacy
 
+import com.system.location.service.core.privacy.StackCleanPolicy
 import com.system.location.service.hook.scope.HookInstaller
 import com.system.location.service.hook.utils.FakeLoc
 import io.github.libxposed.api.XposedInterface
 
 /**
- * Experimental stack-frame filtering (default off).
+ * Experimental stack-frame cleaning (default off).
  *
- * This deliberately changes `Throwable.getStackTrace()` and `Thread.getStackTrace()`: it removes
- * this module's frames and the libxposed dispatch frames that a detector would otherwise see in a
- * callback invoked from a hooked method. It cannot change `getStackTraceDepth()` (the native
- * count), so the feature is opt-in and must be validated with the canary application.
+ * Strategies come from [StackCleanPolicy]:
+ * - FILTER removes this module's frames and the libxposed dispatch frames that a detector would
+ *   otherwise see in a callback invoked from a hooked method. It cannot change
+ *   `getStackTraceDepth()` (the native count), so the reported length diverges from the native
+ *   depth — a known, reproducible artifact.
+ * - REPLACE rewrites module frames in place with a neutral frame, keeping the reported array
+ *   length identical to the uncleaned depth. Length parity is not invisibility; the neutral
+ *   frame is a constant and cause chains are left alone (known boundary).
+ *
+ * Both are opt-in experiments; neither is a default strategy, and both must be validated with the
+ * canary application. `get_anti_detect_state` publishes the two switches from the controller.
  */
 object StackTraceCleanHook {
-    private val prefixes = listOf(
-        "com.system.location.service.",
-        "io.github.libxposed.",
-        // Split so the repository's modern-module check does not treat this filter rule as a
-        // legacy framework reference.
-        "de.robv.android" + ".xposed.",
-        "org.lsposed.",
-        "io.github.lsposed.",
-    )
-
     fun install(classLoader: ClassLoader) {
         val throwable = runCatching { Class.forName("java.lang.Throwable", false, classLoader) }.getOrNull()
         val thread = runCatching { Class.forName("java.lang.Thread", false, classLoader) }.getOrNull()
         val hooker = XposedInterface.Hooker { chain ->
             val original = chain.proceed()
-            if (!FakeLoc.stackTraceCleanEnabled) original else clean(original)
+            val mode = currentMode()
+            if (mode == StackCleanPolicy.Mode.OFF) return@Hooker original
+            if (FakeLoc.enableDebugLog && mode == StackCleanPolicy.Mode.REPLACE) {
+                // REPLACE is the newer experiment: make its activation visible in diagnostics.
+                com.system.location.service.hook.utils.Logger.debug("stack-clean mode=replace")
+            }
+            clean(original, mode)
         }
         throwable?.let { HookInstaller.hookAllMethods(it, "getStackTrace", hooker) }
         thread?.let { HookInstaller.hookAllMethods(it, "getStackTrace", hooker) }
     }
 
-    private fun clean(value: Any?): Any? {
-        val frames = value as? Array<*> ?: return value
-        val filtered = frames.filterNot { frame ->
-            val name = (frame as? StackTraceElement)?.className ?: return@filterNot false
-            prefixes.any(name::startsWith)
+    internal fun currentMode(): StackCleanPolicy.Mode = when {
+        !FakeLoc.stackTraceCleanEnabled -> StackCleanPolicy.Mode.OFF
+        FakeLoc.stackTraceReplaceEnabled -> StackCleanPolicy.Mode.REPLACE
+        else -> StackCleanPolicy.Mode.FILTER
+    }
+
+    private fun clean(value: Any?, mode: StackCleanPolicy.Mode): Any? {
+        val frames = value as? Array<StackTraceElement>
+            ?: (value as? Array<*>)?.mapNotNull { it as? StackTraceElement }?.toTypedArray()
+            ?: return value
+        if (!StackCleanPolicy.hasModuleFrames(frames)) return value
+        return when (mode) {
+            StackCleanPolicy.Mode.FILTER -> StackCleanPolicy.filter(frames)
+            StackCleanPolicy.Mode.REPLACE -> StackCleanPolicy.replace(frames)
+            StackCleanPolicy.Mode.OFF -> value
         }
-        // Entry replacement leaves the same dispatchSensorEvent frame twice; collapse only that
-        // exact duplicate, never generic recursion.
-        val deduped = mutableListOf<Any?>()
-        filtered.forEach { frame ->
-            val current = frame as? StackTraceElement
-            val previous = deduped.lastOrNull() as? StackTraceElement
-            val duplicateDispatch = current != null && previous != null &&
-                current.methodName == "dispatchSensorEvent" &&
-                previous.methodName == current.methodName &&
-                previous.className == current.className
-            if (!duplicateDispatch) deduped += frame
-        }
-        return if (deduped.size == frames.size) value
-        else deduped.map { it as StackTraceElement }.toTypedArray()
     }
 }

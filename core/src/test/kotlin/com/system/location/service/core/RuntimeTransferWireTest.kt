@@ -4,6 +4,7 @@ import com.system.location.service.core.environment.*
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.routing.*
 import com.system.location.service.core.runtime.*
 import java.io.ByteArrayOutputStream
@@ -87,11 +88,15 @@ class RuntimeTransferWireTest {
     }
 
     @Test fun movementRetainsOriginalClockAndRejectsInvalidSpeeds() {
+        assertEquals(LocationSanitizer.MAX_SPEED_MPS.toFloat(),
+            RuntimeTransfer(RuntimeSnapshot(), false,
+                movementSpeedMps = LocationSanitizer.MAX_SPEED_MPS.toFloat()).movementSpeedMps)
         val transfer = RuntimeTransfer(RuntimeSnapshot(), false, movementSpeedMps = 4f, lastMovementNanos = 1000)
         assertEquals(transfer, RuntimeTransferWire.decode(RuntimeTransferWire.encode(transfer)))
         assertEquals(1000L, transfer.atReception(9000).lastMovementNanos)
         assertEquals(0f, transfer.atReception(999).movementSpeedMps)
-        for (speed in listOf(-1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+        for (speed in listOf(-1f, Float.NaN, Float.POSITIVE_INFINITY,
+            LocationSanitizer.MAX_SPEED_MPS.toFloat() + 1f)) {
             assertThrows(IllegalArgumentException::class.java) {
                 RuntimeTransfer(RuntimeSnapshot(), false, movementSpeedMps = speed)
             }

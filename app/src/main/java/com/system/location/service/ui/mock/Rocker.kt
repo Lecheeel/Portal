@@ -112,7 +112,7 @@ class Rocker(private val context: Context) {
 
     fun setPlaybackState(phase: RuntimePhase, route: Boolean) {
         val canMove = phase == RuntimePhase.RUNNING && !route
-        val status = context.getString(when (phase) {
+        val status = if (phase == RuntimePhase.HOLDING) "停留在终点" else context.getString(when (phase) {
             RuntimePhase.RUNNING -> if (route) R.string.overlay_route_running else R.string.overlay_running
             RuntimePhase.PAUSED -> R.string.overlay_paused
             else -> R.string.overlay_idle
@@ -126,12 +126,13 @@ class Rocker(private val context: Context) {
             ContextCompat.getColor(context, when (phase) {
                 RuntimePhase.RUNNING -> R.color.green500
                 RuntimePhase.PAUSED -> R.color.yellow500
+                RuntimePhase.HOLDING -> R.color.yellow500
                 RuntimePhase.ERROR -> R.color.red500
                 else -> R.color.text_tertiary
             }))
         root.findViewById<ImageView>(R.id.auto).apply {
             isEnabled = phase !in setOf(RuntimePhase.PREPARING, RuntimePhase.READY, RuntimePhase.STOPPING)
-            isSelected = route && phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)
+            isSelected = route && phase in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED, RuntimePhase.HOLDING)
             alpha = if (isEnabled) 1f else 0.4f
             imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context,
                 if (isSelected) R.color.primary else R.color.text_secondary))

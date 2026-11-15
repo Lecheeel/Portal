@@ -50,14 +50,24 @@ object WifiFingerprintImporter {
         explicitNulls = false
     }
 
+    const val MAX_CATALOG_BYTES = 2 * 1024 * 1024
+
     fun importJson(raw: String): WifiFingerprintImportResult {
+        if (raw.toByteArray(Charsets.UTF_8).size > MAX_CATALOG_BYTES) {
+            throw WifiFingerprintImportException("Fingerprint catalog exceeds $MAX_CATALOG_BYTES bytes")
+        }
         val catalog = runCatching { json.decodeFromString(WifiFingerprintCatalog.serializer(), raw) }
             .getOrElse { throw WifiFingerprintImportException("Invalid fingerprint JSON", it) }
         return WifiFingerprintImportResult(catalog, catalog.entries.size, 0)
     }
 
-    fun encodeJson(catalog: WifiFingerprintCatalog): String =
-        json.encodeToString(WifiFingerprintCatalog.serializer(), catalog)
+    fun encodeJson(catalog: WifiFingerprintCatalog): String {
+        val encoded = json.encodeToString(WifiFingerprintCatalog.serializer(), catalog)
+        require(encoded.toByteArray(Charsets.UTF_8).size <= MAX_CATALOG_BYTES) {
+            "Fingerprint catalog exceeds $MAX_CATALOG_BYTES bytes"
+        }
+        return encoded
+    }
 
     /**
      * CSV columns: bssid,latitude,longitude,rssi,observedAtMillis. An optional header line is

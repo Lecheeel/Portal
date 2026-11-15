@@ -23,6 +23,35 @@ data class SensorTuning(
 }
 
 object SensorCadence {
+    /** Monotonic event times for a detector batch, spaced by the modeled cadence. */
+    fun detectorEventTimestamps(
+        nowNanos: Long,
+        eventCount: Int,
+        cadencePerMinute: Int,
+        previousEventNanos: Long = 0L,
+    ): LongArray {
+        require(nowNanos >= 0L && previousEventNanos >= 0L)
+        require(eventCount in 0..32)
+        if (eventCount == 0) return longArrayOf()
+
+        val cadence = (cadencePerMinute.takeIf { it > 0 } ?: 120).coerceIn(1, 220)
+        val periodNanos = 60_000_000_000L / cadence
+        val intervals = eventCount - 1
+        var spacingNanos = periodNanos
+        var firstNanos = (nowNanos - periodNanos * intervals).coerceAtLeast(0L)
+        if (previousEventNanos > 0L && firstNanos <= previousEventNanos) {
+            if (nowNanos <= previousEventNanos) {
+                firstNanos = previousEventNanos + 1L
+                spacingNanos = 1L
+            } else {
+                spacingNanos = ((nowNanos - previousEventNanos) / eventCount)
+                    .coerceAtLeast(1L).coerceAtMost(periodNanos)
+                firstNanos = nowNanos - spacingNanos * intervals
+            }
+        }
+        return LongArray(eventCount) { index -> firstNanos + spacingNanos * index }
+    }
+
     private fun smoothstep(edge0: Double, edge1: Double, value: Double): Double {
         val x = ((value - edge0) / (edge1 - edge0)).coerceIn(0.0, 1.0)
         return x * x * (3.0 - 2.0 * x)

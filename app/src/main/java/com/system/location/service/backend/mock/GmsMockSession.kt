@@ -2,6 +2,9 @@ package com.system.location.service.backend.mock
 
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.providers.ProviderKind
+import com.system.location.service.core.providers.ProviderMixer
+import com.system.location.service.core.providers.ProviderSample
 import kotlinx.coroutines.*
 
 /** Task seam: production wraps the GMS Task; tests control completion without Android. */
@@ -22,7 +25,7 @@ internal class GmsMockSession(
     private val available: () -> Boolean,
     private val ownership: GmsOwnership,
     private val setMode: (Boolean) -> GmsOperation,
-    private val submit: (LocationSample) -> GmsOperation,
+    private val submit: (ProviderSample) -> GmsOperation,
     private val nanos: () -> Long,
     private val timeoutMs: Long = 2000,
 ) : FusedMockPort {
@@ -72,6 +75,10 @@ internal class GmsMockSession(
         }
     }
     override suspend fun publish(sample: LocationSample) {
+        val providerSample = ProviderMixer().mix(sample)[ProviderKind.FUSED] ?: return
+        publish(providerSample)
+    }
+    override suspend fun publish(sample: ProviderSample) {
         if (!active) return
         publishing?.let { task ->
             if (!task.isComplete) {

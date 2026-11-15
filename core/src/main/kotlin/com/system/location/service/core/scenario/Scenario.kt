@@ -18,8 +18,9 @@ import java.util.Collections
 @Serializable data class MovementProfile(val speedMps: Double = 3.05, val altitudeMeters: Double = 0.0,
     val accuracyMeters: Float = LocationSanitizer.DEFAULT_HORIZONTAL_ACCURACY, val intervalMs: Long = 500, val smoothMotion: Boolean = false) {
     init {
-        require(speedMps.isFinite() && speedMps in 0.0..1000.0)
-        require(altitudeMeters.isFinite())
+        require(speedMps.isFinite() && speedMps in 0.0..LocationSanitizer.MAX_SPEED_MPS)
+        require(altitudeMeters.isFinite() && altitudeMeters in
+            LocationSanitizer.MIN_ALTITUDE_METERS..LocationSanitizer.MAX_ALTITUDE_METERS)
         require(accuracyMeters.isFinite() && accuracyMeters > 0)
         require(intervalMs in 50..1000)
     }

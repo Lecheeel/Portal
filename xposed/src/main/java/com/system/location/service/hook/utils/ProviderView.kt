@@ -6,6 +6,7 @@ import com.system.location.service.core.playback.NoiseProfile
 import com.system.location.service.core.playback.PhysicalNoise
 import com.system.location.service.core.providers.ProviderKind
 import com.system.location.service.core.providers.ProviderMixer
+import com.system.location.service.core.providers.ProviderSample
 import com.system.location.service.core.runtime.RuntimeSnapshot
 import com.system.location.service.core.gnss.GnssFrameRoute
 import com.system.location.service.core.geo.Wgs84
@@ -17,7 +18,7 @@ class ProviderReadContext internal constructor(
     val validationAtMillis: Long,
 ) {
     private val scenarios = scenarios.toMap()
-    private val views = mutableMapOf<Pair<String?, GnssFrameRoute>, LocationSample>()
+    private val views = mutableMapOf<Pair<String?, GnssFrameRoute>, ProviderLocationView>()
     init { require(state.sample != null) }
 
     internal fun base(route: GnssFrameRoute): LocationSample = when (route) {
@@ -27,9 +28,11 @@ class ProviderReadContext internal constructor(
     }
 
     @Synchronized
-    internal fun view(provider: String?, route: GnssFrameRoute, create: () -> LocationSample): LocationSample =
+    internal fun view(provider: String?, route: GnssFrameRoute, create: () -> ProviderLocationView): ProviderLocationView =
         views.getOrPut(provider to route, create)
 }
+
+internal data class ProviderLocationView(val sample: LocationSample, val providerSample: ProviderSample?)
 
 /** Provider-specific view of the current fake fix; shared by all injection paths (P4-03). */
 object ProviderView {
@@ -42,24 +45,30 @@ object ProviderView {
         FakeLoc.providerContext(force, now, timeMillis)
 
     fun sampleFor(provider: String?, scenarioId: String? = null, point: Wgs84? = null,
-        context: ProviderReadContext = capture()): LocationSample {
+        context: ProviderReadContext = capture()): LocationSample =
+        viewFor(provider, scenarioId, point, context).sample
+
+    internal fun viewFor(provider: String?, scenarioId: String? = null, point: Wgs84? = null,
+        context: ProviderReadContext = capture()): ProviderLocationView {
         val route = when {
             point != null -> GnssFrameRoute.FixedPoint(point)
             scenarioId != null -> GnssFrameRoute.Scenario(scenarioId)
             else -> GnssFrameRoute.Global
         }
-        return context.view(provider, route) { mix(provider, applyNoise(context.base(route), context.state)) }
+        return context.view(provider, route) {
+            val base = applyNoise(context.base(route), context.state)
+            val kind = kindFor(provider)
+            val providerSample = kind?.let { mixer.mix(base)[it] }
+            ProviderLocationView(providerSample?.sample ?: base, providerSample)
+        }
     }
 
-    private fun mix(provider: String?, sample: LocationSample): LocationSample {
-        val kind = when (provider) {
+    private fun kindFor(provider: String?): ProviderKind? = when (provider) {
             LocationManager.GPS_PROVIDER, "GnssBatch" -> ProviderKind.GPS
             LocationManager.NETWORK_PROVIDER -> ProviderKind.NETWORK
             "fused" -> ProviderKind.FUSED
-            else -> return sample
+            else -> null
         }
-        return mixer.mix(sample)[kind]?.sample ?: sample
-    }
 
     private fun applyNoise(sample: LocationSample, state: RuntimeSnapshot): LocationSample {
         if (!state.physicalNoise) return sample

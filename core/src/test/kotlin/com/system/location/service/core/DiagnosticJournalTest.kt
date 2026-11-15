@@ -7,6 +7,8 @@ import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.core.location.LocationSample
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -56,6 +58,29 @@ class DiagnosticJournalTest {
         assertEquals(10L, journal.read().last().timestamp)
         store.text = "broken"
         assertThrows(Exception::class.java) { DiagnosticJournal(store).read() }
+    }
+    @Test fun legacyScenarioNamesAreRemovedFromRestoredAndPersistedHistory() {
+        val store = Store()
+        val oldEvent = event(1).copy(stage = "CONFIG_STORE", reason = "最近配置：Home address rev=42")
+        store.text = Json.encodeToString(ListSerializer(DiagnosticEvent.serializer()), listOf(oldEvent))
+
+        val restored = DiagnosticJournal(store).read().single()
+
+        assertEquals("最近配置已恢复", restored.reason)
+        assertFalse(store.text!!.contains("Home address"))
+        assertTrue(store.text!!.contains("最近配置已恢复"))
+    }
+    @Test fun environmentIdentifiersAreRedactedBeforeDiagnosticPersistence() {
+        val store = Store()
+        val journal = DiagnosticJournal(store)
+
+        journal.append(event(1).copy(reason =
+            "ssid=Office Guest bssid=AA:BB:CC:DD:EE:FF cellId=12345 api_key=SecretKey lat=31.2 lon=121.5"))
+
+        for (privateValue in listOf("Office Guest", "AA:BB:CC:DD:EE:FF", "cellId=12345", "SecretKey", "31.2", "121.5")) {
+            assertFalse("Persisted diagnostic leaked $privateValue", store.text!!.contains(privateValue))
+        }
+        assertTrue(DiagnosticJournal(store).read().single().reason.contains("ssid=<redacted>"))
     }
     @Test fun healthTracksRealGapsAndLatencyAndStorageFailureDoesNotStopPlayback() = runBlocking {
         var nanos = 0L

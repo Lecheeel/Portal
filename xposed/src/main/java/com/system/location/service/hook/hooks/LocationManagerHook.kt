@@ -66,7 +66,8 @@ object LocationManagerHook : BaseLocationHook() {
                     }
                     is List<*> -> {
                         val locations = args[0] as List<*>
-                        args[0] = locations.map { injectLocation(it as Location) }
+                        if (locations.any { it !is Location }) return@intercept5 chain.proceed(args)
+                        args[0] = injectLocationBatch(locations.map { it as Location })
                     }
                     else -> {
                         Logger.error("Unknown method when hook hookOnLocation: ${chain.executable}")

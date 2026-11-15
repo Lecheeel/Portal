@@ -9,6 +9,7 @@ import android.os.Looper
 import android.os.SystemClock
 import com.system.location.service.core.sensors.SensorEventValues
 import com.system.location.service.core.sensors.SensorPlayback
+import com.system.location.service.core.sensors.SensorCadence
 import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.scope.HookInstaller
 import java.lang.reflect.Method
@@ -23,9 +24,10 @@ object ApplicationSensorHook {
     private var location: LocationManager? = null
     private lateinit var dispatch: Method
     private lateinit var sensorHandle: Method
-    private var lastCounter = 0L
+    private var lastSyntheticCounter = 0L
     private var counterOffset = 0L
     private var counterSessionActive = false
+    private var suppressHardware = false
     private var session: String? = null
     private var generation = 0L
     private val supported = SensorEventValues.continuousTypes + setOf(18, 19)
@@ -34,6 +36,7 @@ object ApplicationSensorHook {
         val handle: Int, val type: Int, val handler: Handler) {
         var active = true
         var lastSteps = -1L
+        var lastDetectorTimestampNanos = 0L
         var pending = false
     }
 
@@ -92,17 +95,19 @@ object ApplicationSensorHook {
             val action = synchronized(lock) {
                 val reg = registrations.firstOrNull { it.queue === chain.thisObject && it.handle == handle }
                     ?: return@synchronized 0
-                if (reg.type == 19 && original.isNotEmpty()) lastCounter = maxOf(lastCounter, original[0].toLong())
                 // Check receipt time too: an old queued event cannot revive an expired grant.
-                if (playback.frame(SystemClock.elapsedRealtimeNanos()) == null) return@synchronized 0
-                val frame = playback.frame(timestamp) ?: return@synchronized 0
+                if (playback.frame(SystemClock.elapsedRealtimeNanos()) == null) {
+                    return@synchronized if (suppressHardware) 2 else 0
+                }
+                // A queued hardware event from before the current grant must not cross the boundary.
+                val frame = playback.frame(timestamp) ?: return@synchronized 2
                 if (reg.type == 18 || reg.type == 19) return@synchronized 2
-                val values = SensorEventValues.from(frame, reg.type, original.size) ?: return@synchronized 0
+                val values = SensorEventValues.from(frame, reg.type, original.size) ?: return@synchronized 2
                 args[1] = values
                 1
             }
             when (action) {
-                2 -> null // Registered steps are delivered by the motion clock, even on stationary hardware.
+                2 -> null // Suppressed hardware events are replaced only by the motion clock.
                 1 -> chain.proceed(args)
                 else -> chain.proceed()
             }
@@ -137,6 +142,7 @@ object ApplicationSensorHook {
         lastPoll = 0L
         playback.update(null, SystemClock.elapsedRealtimeNanos())
         counterSessionActive = false
+        suppressHardware = false
         session = null
         generation++
     }
@@ -154,13 +160,18 @@ object ApplicationSensorHook {
                 if (poll) lastPoll = now
             }
             if (poll) {
+                var protected: Boolean? = null
                 val state = runCatching {
                     val result = Bundle()
                     if (manager?.sendExtraCommand("fused_ext", SensorSnapshotCommand.COMMAND, result) != true) null
-                    else SensorStateWire.read(result)
+                    else {
+                        protected = result.getBoolean(SensorSnapshotCommand.PROTECTED_KEY)
+                        SensorStateWire.read(result)
+                    }
                 }.getOrNull()
                 synchronized(lock) {
                     if (worker !== handler) return
+                    protected?.let { suppressHardware = it }
                     if (session != state?.session) {
                         session = state?.session
                         generation++
@@ -179,26 +190,31 @@ object ApplicationSensorHook {
                     registrations.forEach { it.lastSteps = -1 }
                 } else {
                     if (!counterSessionActive) {
-                        counterOffset = (lastCounter - frame.stepCount).coerceAtLeast(0)
+                        counterOffset = (lastSyntheticCounter - frame.stepCount).coerceAtLeast(0)
                         counterSessionActive = true
                     }
-                    counterOffset = maxOf(counterOffset, lastCounter - frame.stepCount)
+                    counterOffset = maxOf(counterOffset, lastSyntheticCounter - frame.stepCount)
                     registrations.filter { it.type == 18 || it.type == 19 }.forEach { reg ->
                         if (reg.pending) return@forEach
                         val previous = reg.lastSteps
+                        val previousDetectorTimestamp = reg.lastDetectorTimestampNanos
                         reg.lastSteps = frame.stepCount
                         if (reg.type == 18 && (previous < 0 || frame.stepCount <= previous)) return@forEach
                         if (reg.type == 19 && frame.stepCount == previous) return@forEach
                         val epoch = generation
                         val deliveries = if (reg.type == 18) (frame.stepCount - previous).coerceIn(1, 32).toInt() else 1
+                        val detectorTimestamps = if (reg.type == 18) {
+                            SensorCadence.detectorEventTimestamps(now, deliveries, frame.stepCadence,
+                                previousDetectorTimestamp).also { reg.lastDetectorTimestampNanos = it.last() }
+                        } else longArrayOf(now)
                         reg.pending = true
                         if (!reg.handler.post {
                             val delivery = synchronized(lock) {
                                 reg.pending = false
                                 if (!reg.active || generation != epoch || playback.frame(SystemClock.elapsedRealtimeNanos()) == null) null
                                 else {
-                                    val count = maxOf(lastCounter, counterOffset + frame.stepCount)
-                                    if (reg.type == 19) lastCounter = count
+                                    val count = maxOf(lastSyntheticCounter, counterOffset + frame.stepCount)
+                                    if (reg.type == 19) lastSyntheticCounter = count
                                     floatArrayOf(if (reg.type == 18) 1f else count.toFloat())
                                 }
                             }
@@ -206,9 +222,13 @@ object ApplicationSensorHook {
                                 // Recheck after each listener call: it may unregister itself.
                                 val active = synchronized(lock) { reg.active && generation == epoch }
                                 if (active) HookRuntime.invokeOriginalMethod(dispatch, reg.queue,
-                                    arrayOf(reg.handle, delivery, 3, now - deliveries + index + 1))
+                                    arrayOf(reg.handle, delivery, 3, detectorTimestamps[index]))
                             }
-                        }) reg.pending = false
+                        }) {
+                            reg.pending = false
+                            reg.lastSteps = previous
+                            reg.lastDetectorTimestampNanos = previousDetectorTimestamp
+                        }
                     }
                 }
                 handler.postDelayed(this, 20)

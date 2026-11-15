@@ -29,6 +29,8 @@ import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.runtime.XposedServiceBridge
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -114,7 +116,10 @@ class GnssFrameDeliveryDeviceTest {
         }
         val sampleWallOverride = AtomicLong(0L)
         val existingRaw = object : GnssMeasurementsEvent.Callback() {}
-        val blockedRaw = object : GnssMeasurementsEvent.Callback() {}
+        val blockedStatuses = LinkedBlockingQueue<Int>()
+        val blockedRaw = object : GnssMeasurementsEvent.Callback() {
+            override fun onStatusChanged(status: Int) { blockedStatuses.offer(status) }
+        }
         assumeTrue("Preserve existing raw registrations", rawRegistrations(context.packageName) == 0)
         val callback = object : GnssStatus.Callback() {
             override fun onSatelliteStatusChanged(status: GnssStatus) {
@@ -184,9 +189,10 @@ class GnssFrameDeliveryDeviceTest {
             publish()
             renewal = launch(Dispatchers.IO) { while (isActive) { delay(100L); publish() } }
             val rawResult = runCatching { manager.registerGnssMeasurementsCallback({ it.run() }, blockedRaw) }
-            assertTrue("New raw registration must explicitly fail with an active frame: $rawResult",
-                rawResult.getOrNull() == false || rawResult.exceptionOrNull() is UnsupportedOperationException)
+            assertNull("Raw registration rejection must not throw: $rawResult", rawResult.exceptionOrNull())
             assertEquals("Rejected raw registration must not leak", 1, rawRegistrations(context.packageName))
+            assertEquals("Rejected raw registration must report unsupported",
+                0, blockedStatuses.poll(2, TimeUnit.SECONDS))
             manager.unregisterGnssMeasurementsCallback(existingRaw)
             assertEquals("Existing registration must be removable while blocked", 0, rawRegistrations(context.packageName))
             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f, { it.run() }, location)

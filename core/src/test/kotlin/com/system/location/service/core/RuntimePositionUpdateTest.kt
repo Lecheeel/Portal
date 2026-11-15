@@ -2,6 +2,7 @@ package com.system.location.service.core
 
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
+import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.runtime.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -24,7 +25,10 @@ class RuntimePositionUpdateTest {
     }
 
     @Test fun invalidMotionMetadataCannotReachPublication() {
-        for (speed in listOf(-1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+        assertEquals(LocationSanitizer.MAX_SPEED_MPS.toFloat(),
+            RuntimePositionUpdate(Wgs84(0.0, 0.0), LocationSanitizer.MAX_SPEED_MPS.toFloat()).movementSpeedMps)
+        for (speed in listOf(-1f, Float.NaN, Float.POSITIVE_INFINITY,
+            LocationSanitizer.MAX_SPEED_MPS.toFloat() + 1f)) {
             assertThrows(IllegalArgumentException::class.java) { RuntimePositionUpdate(Wgs84(0.0, 0.0), speed) }
         }
         assertThrows(IllegalArgumentException::class.java) { RuntimePositionUpdate(Wgs84(0.0, 0.0), bearingDeg = Double.NaN) }

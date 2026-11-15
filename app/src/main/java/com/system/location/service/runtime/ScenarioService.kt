@@ -58,7 +58,11 @@ class ScenarioService : Service() {
                     if (!tickDue) continue
                     ScenarioRuntime.tick(this@ScenarioService)
                     val now = android.os.SystemClock.elapsedRealtime()
-                    if (ScenarioRuntime.state.value.isActive && now - renewedAt >= 300_000) {
+                    val phase = ScenarioRuntime.state.value.phase
+                    if (phase == com.system.location.service.core.runtime.RuntimePhase.HOLDING) {
+                        wakeLock?.let { if (it.isHeld) it.release() }
+                    } else if (ScenarioRuntime.state.value.isActive &&
+                        (wakeLock?.isHeld != true || now - renewedAt >= 300_000)) {
                         wakeLock?.acquire(600_000)
                         renewedAt = now
                     }

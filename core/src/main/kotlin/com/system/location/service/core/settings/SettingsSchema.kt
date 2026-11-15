@@ -98,7 +98,7 @@ object PortalSettingsSchema {
     val schema = SettingsSchema(
         listOf(
             SettingSpec("altitude", SettingType.DOUBLE, "0.0", 0.0, 20_000.0),
-            SettingSpec("speed", SettingType.DOUBLE, "3.05", 0.0, 1_000.0),
+            SettingSpec("speed", SettingType.DOUBLE, "3.05", 0.0, LocationSanitizer.MAX_SPEED_MPS),
             SettingSpec("accuracy", SettingType.FLOAT, LocationSanitizer.DEFAULT_HORIZONTAL_ACCURACY.toString(), 0.1, 10_000.0),
             SettingSpec("report_interval", SettingType.LONG, "100", 50.0, 1_000.0),
             SettingSpec("min_satellites", SettingType.INT, GnssSimulationPolicy.DEFAULT_MINIMUM_SATELLITES.toString(), 0.0, 128.0),
@@ -122,6 +122,7 @@ object PortalSettingsSchema {
             SettingSpec("hide_mock", SettingType.BOOLEAN, "true"),
             SettingSpec("experimental_anti_detect", SettingType.BOOLEAN, "false"),
             SettingSpec("experimental_stack_trace", SettingType.BOOLEAN, "false"),
+            SettingSpec("experimental_stack_trace_replace", SettingType.BOOLEAN, "false"),
             SettingSpec("hook_wifi", SettingType.BOOLEAN, "true"),
             SettingSpec("enable_physical_noise", SettingType.BOOLEAN, "false"),
             SettingSpec("wifi_fingerprint_enabled", SettingType.BOOLEAN, "false"),

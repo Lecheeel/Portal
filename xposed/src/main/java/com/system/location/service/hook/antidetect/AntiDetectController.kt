@@ -52,6 +52,10 @@ object AntiDetectController {
         if (FakeLoc.stackTraceCleanEnabled != stackTraceClean) {
             FakeLoc.stackTraceCleanEnabled = stackTraceClean
         }
+        val stackTraceReplace = reply.getBoolean("stack_trace_replace", false)
+        if (FakeLoc.stackTraceReplaceEnabled != stackTraceReplace) {
+            FakeLoc.stackTraceReplaceEnabled = stackTraceReplace
+        }
         AntiDetect.setEnabled(reply.getBoolean("anti_detect", false), context)
     }
 

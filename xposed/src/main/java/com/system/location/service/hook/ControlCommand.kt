@@ -96,7 +96,7 @@ object ControlCommand {
 
     internal fun publishNumber(key: String, raw: Any?): com.system.location.service.core.runtime.RuntimeSnapshot {
         require(raw is Double && raw.isFinite()) { "Invalid numeric control field: $key" }
-        if (key == "speed") require(raw >= 0.0)
+        if (key == "speed") require(raw in 0.0..com.system.location.service.core.location.LocationSanitizer.MAX_SPEED_MPS)
         if (key == "speed_amplitude") require(raw in 0.0..10.0)
         return FakeLoc.runtimeSnapshots.update { current ->
             val next = when (key) {

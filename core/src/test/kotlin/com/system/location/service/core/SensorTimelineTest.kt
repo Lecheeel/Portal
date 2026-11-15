@@ -8,6 +8,30 @@ import org.junit.Test
 import kotlin.math.abs
 
 class SensorTimelineTest {
+    @Test fun stepDetectorBatchUsesModeledCadenceAndMonotonicTimes() {
+        val events = SensorCadence.detectorEventTimestamps(
+            nowNanos = 5_000_000_000L,
+            eventCount = 3,
+            cadencePerMinute = 120,
+            previousEventNanos = 3_000_000_000L,
+        )
+
+        assertArrayEquals(longArrayOf(4_000_000_000L, 4_500_000_000L, 5_000_000_000L), events)
+    }
+
+    @Test fun delayedStepDetectorBatchFitsBetweenLastEventAndCurrentTime() {
+        val events = SensorCadence.detectorEventTimestamps(
+            nowNanos = 5_000_000_000L,
+            eventCount = 3,
+            cadencePerMinute = 120,
+            previousEventNanos = 4_900_000_000L,
+        )
+
+        assertTrue(events.first() > 4_900_000_000L)
+        assertEquals(5_000_000_000L, events.last())
+        assertTrue((1 until events.size).all { events[it] > events[it - 1] })
+    }
+
     @Test fun duplicateAndDelayedReadersCannotAdvanceStepsOrRewindTime() {
         val model = SyntheticSensorModel(tuning = SensorTuning(variability = 0.0))
         val walk = MotionState(MotionMode.WALK, 1.4, 0.0, 0.0)

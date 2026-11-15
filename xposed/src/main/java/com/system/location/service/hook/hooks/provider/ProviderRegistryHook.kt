@@ -5,6 +5,8 @@ import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.scope.HookInstaller
 import com.system.location.service.hook.scope.HookStatus
 import com.system.location.service.hook.scope.HookStatusRegistry
+import com.system.location.service.hook.security.CallerRole
+import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 import io.github.libxposed.api.XposedInterface
@@ -34,6 +36,7 @@ object ProviderRegistryHook {
     fun hook(locationManagerService: Class<*>): Boolean {
         val filterHook =
             XposedInterface.Hooker { chain ->
+                if (!hidesFromCaller()) return@Hooker chain.proceed()
                 when (val value = chain.proceed()) {
                     is List<*> -> value.filterNot { it is String && isSuspiciousProvider(it) }
                     is Array<*> ->
@@ -43,11 +46,13 @@ object ProviderRegistryHook {
             }
         val hasProviderHook =
             XposedInterface.Hooker { chain ->
+                if (!hidesFromCaller()) return@Hooker chain.proceed()
                 val provider = chain.args.firstOrNull() as? String
                 if (provider != null && isSuspiciousProvider(provider)) false else chain.proceed()
             }
         val propertiesHook =
             XposedInterface.Hooker { chain ->
+                if (!hidesFromCaller()) return@Hooker chain.proceed()
                 val provider = chain.args.firstOrNull() as? String
                 if (provider != null && isSuspiciousProvider(provider)) {
                     if (FakeLoc.enableDebugLog)
@@ -78,6 +83,15 @@ object ProviderRegistryHook {
                 .isNotEmpty() || hooked
         return hooked
     }
+
+    /**
+     * Caller scoping (work package 9): the hiding answers are only meant for ordinary
+     * third-party callers. The controller and framework peers (uid 0/1000, provider peers) keep
+     * the natural answer so platform components and channel participants never observe the
+     * hiding layer itself — the same rule AppOps/Settings/PackageMetadata hooks follow.
+     */
+    private fun hidesFromCaller(): Boolean =
+        BinderUtils.callerRole() == CallerRole.DENIED
 
     private fun isSuspiciousProvider(name: String): Boolean = ProviderRegistryPolicy.isHidden(name)
 

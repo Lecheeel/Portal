@@ -62,6 +62,7 @@ import com.system.location.service.ext.disableRegisterLocationListener
 import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.gmsMockEnabled
+import com.system.location.service.ext.holdAtRouteEnd
 import com.system.location.service.ext.loopBroadcastlocation
 import com.system.location.service.ext.minSatelliteCount
 import com.system.location.service.ext.needDowngradeToCdma
@@ -136,6 +137,7 @@ class SettingsComposeFragment : Fragment() {
                     captureModel = captureModel,
                     revision = revisionState.value,
                     onMapProvider = ::showMapProvider,
+                    onAmapKey = ::showAmapKey,
                     onEditAltitude = { numberSetting = NumberSetting.ALTITUDE },
                     onEditAccuracy = { numberSetting = NumberSetting.ACCURACY },
                     onEditReportInterval = { numberSetting = NumberSetting.INTERVAL },
@@ -208,7 +210,9 @@ class SettingsComposeFragment : Fragment() {
             }
             NumberSetting.SPEED -> {
                 val value = raw.toDoubleOrNull() ?: error("速度不合法")
-                require(value in 0.0..1_000.0) { "速度需在 0–1000 米/秒之间" }
+                require(value in 0.0..com.system.location.service.core.location.LocationSanitizer.MAX_SPEED_MPS) {
+                    "速度需在 0–1000 米/秒之间"
+                }
                 lifecycleScope.launch {
                     val accepted = ScenarioRuntime.setSpeed(value).await()
                     showToast(if (accepted) "速度已更新" else "速度更新失败，请重试")
@@ -261,6 +265,58 @@ class SettingsComposeFragment : Fragment() {
                 }
             }
             .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showAmapKey() {
+        val context = requireContext()
+        val storedKey = runCatching { com.system.location.service.maps.AMapKeySettings.customKey(context) }
+        val customKey = storedKey.getOrNull().orEmpty()
+        val sha1 = runCatching { com.system.location.service.maps.AMapKeySettings.applicationSha1(context) }
+            .getOrElse { showToast(it.message ?: "无法读取签名信息"); return }
+        val input = android.widget.EditText(context).apply {
+            hint = "留空使用内置 Key"
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+            isSaveEnabled = false
+            setText(customKey)
+            setSelection(text.length)
+        }
+        val keyInput = com.google.android.material.textfield.TextInputLayout(context).apply {
+            endIconMode = com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE
+            addView(input)
+        }
+        MaterialAlertDialogBuilder(context)
+            .setTitle("高德 Key")
+            .setMessage(buildString {
+                append("包名：${context.packageName}\nSHA1（当前安装包）：\n$sha1\n\n")
+                if (storedKey.isFailure) append("自定义 Key 无法解密；保存新 Key 或留空可恢复内置 Key。\n\n")
+                append("Debug 与 Release 签名通常不同，请分别查看对应安装包。留空保存可恢复内置 Key。")
+            })
+            .setView(keyInput)
+            .setNegativeButton("取消", null)
+            .setNeutralButton("复制申请信息") { _, _ ->
+                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("高德 Key 申请信息",
+                    "包名：${context.packageName}\nSHA1：\n$sha1"))
+                showToast("已复制包名和 SHA1")
+            }
+            .setPositiveButton("保存并应用") { _, _ ->
+                runCatching {
+                    com.system.location.service.maps.AMapKeySettings.saveCustomKey(context, input.text.toString())
+                    if (SdkPrivacy.mapsAccepted) {
+                        SdkPrivacy.initialize(context)
+                        when {
+                            !SdkPrivacy.mapsReady -> showToast("Key 已保存，地图 SDK 暂不可用")
+                            com.system.location.service.maps.AMapKeySettings.apply(context) -> showToast("高德 Key 已保存并应用")
+                            else -> showToast("自定义 Key 已清除。请强行停止并重新打开应用以清除 SDK 缓存；没有内置 Key 时高德服务不可用。")
+                        }
+                    } else showToast("Key 已保存，将在地图隐私授权后应用")
+                    requireActivity().recreate()
+                    refresh()
+                }.onFailure { showToast(it.message ?: "保存高德 Key 失败") }
+            }
             .show()
     }
 
@@ -352,6 +408,7 @@ private data class SettingsValues(
     val mapProviderLabel: String,
     val updateChannelLabel: String,
     val smoothRouteMotion: Boolean,
+    val holdAtRouteEnd: Boolean,
     val physicalNoise: Boolean,
     val gmsMockEnabled: Boolean,
     val platformFusedEnabled: Boolean,
@@ -380,6 +437,7 @@ private fun SettingsScreen(
     captureModel: GnssCaptureViewModel,
     revision: Int,
     onMapProvider: () -> Unit,
+    onAmapKey: () -> Unit,
     onEditAltitude: () -> Unit,
     onEditAccuracy: () -> Unit,
     onEditReportInterval: () -> Unit,
@@ -412,6 +470,7 @@ private fun SettingsScreen(
             mapProviderLabel = context.mapProvider.label,
             updateChannelLabel = if (UpdateChecker.currentChannel() == UpdateChannel.BETA) "Beta" else "正式版",
             smoothRouteMotion = context.smoothRouteMotion,
+            holdAtRouteEnd = context.holdAtRouteEnd,
             physicalNoise = context.physicalNoise,
             gmsMockEnabled = context.gmsMockEnabled,
             platformFusedEnabled = context.platformFusedEnabled,
@@ -467,8 +526,11 @@ private fun SettingsScreen(
                 }
                 if (category == SettingsCategory.LOCATION) {
                     item(key = "maps") {
-                        PortalSettingGroup("地图服务", 1) { _, rowModifier ->
-                            PortalActionRow("地图提供方", values.mapProviderLabel, onMapProvider, modifier = rowModifier, status = "切换后重建地图")
+                        PortalSettingGroup("地图服务", 2) { index, rowModifier ->
+                            if (index == 0) PortalActionRow("地图提供方", values.mapProviderLabel, onMapProvider, modifier = rowModifier, status = "切换后重建地图")
+                            else PortalActionRow("高德 Key", runCatching {
+                                if (com.system.location.service.maps.AMapKeySettings.customKey(context).isNullOrBlank()) "使用内置 Key" else "使用自定义 Key"
+                            }.getOrElse { "Key 读取失败" }, onAmapKey, modifier = rowModifier, status = "包名与 SHA1 可复制")
                         }
                     }
                     item(key = "location") {
@@ -487,7 +549,7 @@ private fun SettingsScreen(
                 }
                 if (category == SettingsCategory.MOTION) {
                     item(key = "motion") {
-                        PortalSettingGroup("运动与摇杆", 3) { index, rowModifier ->
+                        PortalSettingGroup("运动与摇杆", 4) { index, rowModifier ->
                             when (index) {
                                 0 -> PortalActionRow("摇杆速度", "%.2f 米/秒".format(values.speed), onEditSpeed, status = "保存后立即更新",
                                     modifier = rowModifier,
@@ -501,6 +563,14 @@ private fun SettingsScreen(
                                     modifier = rowModifier,
                                 )
                                 2 -> PortalSwitchRow(
+                                    title = "路线结束后停留在终点",
+                                    status = NEXT_SCENE,
+                                    subtitle = "到达终点后保持定位通道；手动停止时释放。",
+                                    checked = values.holdAtRouteEnd,
+                                    onCheckedChange = { context.holdAtRouteEnd = it; refresh() },
+                                    modifier = rowModifier,
+                                )
+                                3 -> PortalSwitchRow(
                                     title = "物理漂移噪声",
                                     status = APPLY_WHILE_RUNNING,
                                     subtitle = "仅 Xposed/Native：为位置、海拔和精度添加有界微漂移。",
@@ -659,7 +729,7 @@ private fun SettingsScreen(
                                 },
                                 { rowModifier ->
                                     PortalSwitchRow(
-                                        title = "实验性反检测（原生路径改写）",
+                                        title = "增强性反检测（原生路径改写）",
                                         status = "需重启目标应用",
                                         subtitle = "默认关闭；仅在已选择的应用进程内改写 /proc、su 等敏感路径，需重启目标应用。",
                                         checked = values.antiDetectEnabled,

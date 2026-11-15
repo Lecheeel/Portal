@@ -155,7 +155,7 @@ class PortalModule : XposedModule() {
         rows("location").let(LocationServiceHook::restoreLocationSubscriptions)
         rows("gnss").forEach { if (GnssListenerRouting.restore(it)) LocationServiceHook.installGnssStatusCallback(it.listener) }
         rows("nmea").forEach { if (NmeaListenerRouting.restore(it)) installNmeaCallback(it.listener) }
-        rows("raw").forEach { if (RawGnssCallbacks.restore(it)) RawGnssCallbacks.installRestored(it.listener) }
+        rows("raw").forEach(RawGnssCallbacks::restoreAndInstall)
     }
 
     companion object {

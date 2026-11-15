@@ -54,40 +54,6 @@ object TelephonyHook: BaseTelephonyHook() {
             Logger.warn("Hook PhoneInterfaceManager.getActivePhoneTypeForSlot failed")
         }
 
-        cPhoneInterfaceManager.declaredMethods.find { it.name == "getAllCellInfo" }?.let {
-            val hookGetAllCellInfo = Hooker { chain ->
-                val original = chain.proceed()
-                if (FakeLoc.enableDebugLog) {
-                    Logger.debug("getAllCellInfo: injected! caller = ${BinderUtils.getCallerUid()}")
-                }
-
-                if (FakeLoc.enable && !BinderUtils.isSystemAppsCall()) {
-                    if (original !is List<*> || original.isEmpty()) return@Hooker original
-                    val cResult = arrayListOf<CellInfo>()
-                    val cellInfo = kotlin.runCatching {
-                        CellInfoCdma::class.java.getConstructor().newInstance().also {
-                            Reflection.callMethod(it, "setRegistered", true)
-                            Reflection.callMethod(it, "setTimeStamp", SystemClock.elapsedRealtimeNanos())
-                            Reflection.callMethod(it, "setCellConnectionStatus", 0)
-                        }
-                    }.getOrElse {
-                        CellInfoCdma::class.java.getConstructor(
-                            Int::class.java,
-                            Boolean::class.java,
-                            Long::class.java,
-                            CellIdentityCdma::class.java,
-                            CellSignalStrengthCdma::class.java
-                        ).newInstance(0, true, SystemClock.elapsedRealtimeNanos(), CellIdentityCdma::class.java.newInstance(), CellSignalStrengthCdma::class.java.newInstance())
-                    }
-                    cResult.add(cellInfo)
-                    cResult
-                } else {
-                    original
-                }
-            }
-            com.system.location.service.hook.scope.HookInstaller.hookMethod(it, hookGetAllCellInfo)
-        }
-
         if(com.system.location.service.hook.scope.HookInstaller.hookAllMethods(cPhoneInterfaceManager, "getCellLocation", Hooker { chain ->
                 val original = chain.proceed()
                 if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) {
@@ -408,69 +374,89 @@ object TelephonyHook: BaseTelephonyHook() {
         val TRANSACTION_getSimStateForSlotIdx = kotlin.runCatching { Reflection.getStaticIntField(cISub, "TRANSACTION_getSimStateForSlotIdx") }.getOrDefault(-1)
 
         val hookOnTransact = Hooker { chain ->
+            val original = chain.proceed()
+            if (original != true) return@Hooker original
             val args = chain.args
-            if (!FakeLoc.enable || BinderUtils.isSystemAppsCall()) {
-                return@Hooker chain.proceed()
+            if (args.size < 3) return@Hooker original
+            val code = args[0] as? Int ?: return@Hooker original
+            val operation = when {
+                TRANSACTION_getPhoneId > 0 && code == TRANSACTION_getPhoneId -> TelephonySubOperation.PHONE_ID
+                TRANSACTION_isActiveSubId > 0 && code == TRANSACTION_isActiveSubId -> TelephonySubOperation.ACTIVE_SUBSCRIPTION
+                (TRANSACTION_getSimStateForSlotIndex > 0 && code == TRANSACTION_getSimStateForSlotIndex) ||
+                    (TRANSACTION_getSimStateForSlotIdx > 0 && code == TRANSACTION_getSimStateForSlotIdx) ->
+                    TelephonySubOperation.SIM_STATE_FOR_SLOT
+                TRANSACTION_getSimStateForSubscriber > 0 && code == TRANSACTION_getSimStateForSubscriber ->
+                    TelephonySubOperation.SIM_STATE_FOR_SUBSCRIPTION
+                TRANSACTION_getNetworkCountryIsoForPhone > 0 && code == TRANSACTION_getNetworkCountryIsoForPhone ->
+                    TelephonySubOperation.NETWORK_COUNTRY_ISO
+                else -> return@Hooker original
             }
+            val data = args[1] as? Parcel ?: return@Hooker original
+            val requestedId = runCatching {
+                data.setDataPosition(0)
+                data.enforceInterface(subClassName)
+                data.readInt()
+            }.getOrNull() ?: return@Hooker original
+            val state = FakeLoc.runtimeSnapshots.current()
+            val uid = BinderUtils.getCallerUid()
+            val route = com.system.location.service.hook.hooks.ListenerRouting
+                .decisionFor(null, uid, state.routing)
+            if (!TelephonyCallerPolicy.shouldRewrite(
+                    state.configuration.enabled,
+                    BinderUtils.isSystemAppsCall(uid),
+                    route,
+                )
+            ) return@Hooker original
 
-            val code = args[0] as Int
-            val data = args[1] as Parcel
-            val reply = args[2] as Parcel
-
-            if (code == -1) return@Hooker chain.proceed()
-
-            when (code) {
-                TRANSACTION_isActiveSubId -> {
-                    data.enforceInterface(subClassName)
-                    data.readInt()
-                    reply.writeNoException()
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        reply.writeBoolean(true)
-                    } else {
-                        reply.writeInt(1)
-                    }
-                    return@Hooker true
-                }
-                TRANSACTION_getSimStateForSlotIndex -> {
-                    data.enforceInterface(subClassName)
-                    data.readInt()
-                    reply.writeNoException()
-                    reply.writeInt(TelephonyFacade.simState())
-                    return@Hooker true
-                }
-                TRANSACTION_getSimStateForSubscriber -> {
-                    data.enforceInterface(subClassName)
-                    data.readInt()
-                    reply.writeNoException()
-                    reply.writeInt(TelephonyFacade.simState())
-                    return@Hooker true
-                }
-                TRANSACTION_getSimStateForSlotIdx -> {
-                    data.enforceInterface(subClassName)
-                    data.readInt()
-                    reply.writeNoException()
-                    reply.writeInt(TelephonyFacade.simState())
-                    return@Hooker true
-                }
-                TRANSACTION_getNetworkCountryIsoForPhone -> {
-                    data.enforceInterface(subClassName)
-                    data.readInt()
-                    reply.writeNoException()
-                    reply.writeString(TelephonyFacade.countryIso())
-                    return@Hooker true
-                }
-                TRANSACTION_getPhoneId -> {
-                    data.enforceInterface(subClassName)
-                    data.readInt()
-                    reply.writeNoException()
-                    reply.writeInt(0)
-                    return@Hooker true
-                }
-            }
-            chain.proceed()
+            val profile = CellInfoSynthesis.profileForRoute(state, route)
+            val value = telephonySubReply(operation, requestedId, telephonyTargetIdentity(profile))
+            rewriteSubReply(args[2] as? Parcel ?: return@Hooker original, value)
+            original
         }
         if(cISub.hookAllMethods("onTransact", hookOnTransact).isEmpty()) {
             Logger.error("Hook ISub.Stub.onTransact failed")
+        }
+    }
+
+    private fun rewriteSubReply(reply: Parcel, value: Any): Boolean {
+        val originalPosition = reply.dataPosition()
+        reply.setDataPosition(0)
+        val successful = runCatching { reply.readException() }.isSuccess
+        reply.setDataPosition(originalPosition)
+        if (!successful) return false
+
+        val backup = Parcel.obtain()
+        try {
+            val originalSize = reply.dataSize()
+            reply.setDataPosition(0)
+            backup.appendFrom(reply, 0, originalSize)
+            reply.setDataPosition(originalPosition)
+
+            reply.setDataPosition(0)
+            reply.writeNoException()
+            when (value) {
+                is Boolean -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    reply.writeBoolean(value)
+                } else {
+                    reply.writeInt(if (value) 1 else 0)
+                }
+                is Int -> reply.writeInt(value)
+                is String -> reply.writeString(value)
+                else -> error("Unsupported ISub reply type")
+            }
+            reply.setDataSize(reply.dataPosition())
+            reply.setDataPosition(0)
+            return true
+        } catch (error: Throwable) {
+            runCatching {
+                reply.setDataSize(0)
+                reply.appendFrom(backup, 0, backup.dataSize())
+                reply.setDataPosition(0)
+            }
+            Logger.warn("ISub reply rewrite failed; preserved framework result", error)
+            return false
+        } finally {
+            backup.recycle()
         }
     }
 

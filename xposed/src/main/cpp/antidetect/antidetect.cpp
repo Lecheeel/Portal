@@ -70,12 +70,12 @@ bool replaceSegment(const char* path, const char* needle, const char* replacemen
 const char* rewrite(const char* path) {
     if (!gEnabled.load(std::memory_order_relaxed) || path == nullptr) return path;
     static thread_local char buffer[PATH_MAX];
-    // Reading one's own map is the standard way to notice an injected library. Returning the
-    // status file makes the read look like a normal /proc probe instead of a maps listing.
-    if (strstr(path, "/proc/") != nullptr && strstr(path, "/maps") != nullptr) {
-        snprintf(buffer, sizeof(buffer), "/proc/self/status");
-        return buffer;
-    }
+    // Removed (work package 9 audit): the previous /proc/*/maps -> /proc/self/status redirect
+    // broke the proc interface contract. The payload is mapped from an app-private cache file
+    // under a neutral per-load name and unlinked from disk, so a maps listing already shows an
+    // ordinary-looking entry; substituting status content is *more* detectable (different line
+    // format, different read semantics) than the listing it tried to hide. Raw syscall scanners
+    // were never covered either way. Path rewrites for root artifacts stay below.
     if (strstr(path, "/data/adb") != nullptr) {
         snprintf(buffer, sizeof(buffer), "/data/_null");
         return buffer;

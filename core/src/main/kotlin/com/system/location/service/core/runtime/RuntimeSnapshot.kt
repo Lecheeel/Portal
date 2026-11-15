@@ -42,8 +42,13 @@ data class RuntimeSnapshot(
         require(environmentVersion >= 0L) { "environmentVersion must be non-negative" }
         require(environmentApCount in EnvironmentConfig.MIN_AP_PER_CELL..EnvironmentConfig.MAX_AP_PER_CELL) { "environmentApCount out of range" }
         require(latitude in -90.0..90.0 && longitude in -180.0..180.0) { "coordinate out of range" }
-        require(altitudeMeters.isFinite()) { "altitudeMeters must be finite" }
-        require(speedMps.isFinite() && speedMps >= 0.0) { "speedMps must be non-negative" }
+        require(altitudeMeters.isFinite() && altitudeMeters in
+            LocationSanitizer.MIN_ALTITUDE_METERS..LocationSanitizer.MAX_ALTITUDE_METERS) {
+            "altitudeMeters out of range"
+        }
+        require(speedMps.isFinite() && speedMps in 0.0..LocationSanitizer.MAX_SPEED_MPS) {
+            "speedMps out of range"
+        }
         require(accuracyMeters.isFinite() && accuracyMeters > 0f) { "accuracyMeters must be positive" }
         require(bearingDeg.isFinite()) { "bearingDeg must be finite" }
     }

@@ -1,6 +1,7 @@
 package com.system.location.service.core.playback
 
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.scenario.*
 import net.sf.geographiclib.Geodesic
@@ -56,7 +57,7 @@ class PlaybackEngine(input: Scenario) {
         orbitPeriodSeconds = periodSeconds
     }
     fun setSpeed(speed: Double) {
-        require(speed.isFinite() && speed in 0.0..1000.0)
+        require(speed.isFinite() && speed in 0.0..LocationSanitizer.MAX_SPEED_MPS)
         if (scenario.route != null && scenario.profile.smoothMotion && speed > 0) {
             val old = plan
             val time = old?.let {

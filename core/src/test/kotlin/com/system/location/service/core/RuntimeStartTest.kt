@@ -47,7 +47,9 @@ class RuntimeStartTest {
         val before = store.current()
         val invalid = listOf<() -> RuntimeStart>(
             { RuntimeStart(Wgs84(1.0, 2.0), speedMps = -1.0) },
+            { RuntimeStart(Wgs84(1.0, 2.0), speedMps = 1_000.1) },
             { RuntimeStart(Wgs84(1.0, 2.0), altitudeMeters = Double.NaN) },
+            { RuntimeStart(Wgs84(1.0, 2.0), altitudeMeters = 20_000.1) },
             { RuntimeStart(Wgs84(1.0, 2.0), accuracyMeters = 0f) },
             { RuntimeStart(Wgs84(1.0, 2.0), reportIntervalMs = 0) },
         )
@@ -55,5 +57,7 @@ class RuntimeStartTest {
             assertThrows(IllegalArgumentException::class.java) { store.update(prepare()::applyTo) }
             assertSame(before, store.current())
         }
+        assertThrows(IllegalArgumentException::class.java) { RuntimeSnapshot(altitudeMeters = -500.1) }
+        assertThrows(IllegalArgumentException::class.java) { RuntimeSnapshot(speedMps = 1_000.1) }
     }
 }

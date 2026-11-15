@@ -4,6 +4,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import com.system.location.service.detector.model.Check
 import com.system.location.service.detector.model.CheckContext
 import com.system.location.service.detector.model.CheckIds
@@ -14,9 +15,11 @@ import java.util.Locale
 /**
  * C13 · PackageManager 中的 Xposed 元数据。
  *
- * 期望：目标包的 ApplicationInfo.metaData 里没有 `xposedmodule`/`xposedscope`/
- * `xposeddescription`/`xposedminversion`。LSPosed 管理器是否安装只作为 evidence，
- * 因为检测器自己能看到管理器不等于模块身份泄漏。
+ * 期望：目标包在四个查询面（getApplicationInfo / getPackageInfo(GET_META_DATA) /
+ * getInstalledApplications(GET_META_DATA) / getInstalledPackages(GET_META_DATA)）的
+ * ApplicationInfo.metaData 里都没有 `xposedmodule`/`xposedscope`/`xposeddescription`/
+ * `xposedminversion`（工作包 9：入口一致性——单面漏网即隐藏层指纹）。
+ * LSPosed 管理器是否安装只作为 evidence，因为检测器自己能看到管理器不等于模块身份泄漏。
  *
  * 目标包不可见/不存在 → UNKNOWN，并提示检查目标包名与 manifest `<queries>`
  * （当前 manifest 只声明了 com.system.location.service 等包，属于共享改动范围）。
@@ -51,23 +54,38 @@ class PackageIdentityCheck : Check {
         addIdentityEvidence(evidence, "目标包=$targetPackage version=$version")
 
         val found = mutableListOf<Pair<String, String>>()
-        val metaData = info.metaData
-        if (metaData != null) {
-            for (key in metaData.keySet()) {
-                if (key.lowercase(Locale.ROOT) in XPOSED_META_KEYS) {
-                    found += key to formatMetaValue(metaData.get(key))
+        // 逐个查询面核对元数据（工作包 9：入口一致性）。单面漏网本身就是隐藏层的指纹，
+        // 因此 FAIL 判定汇总所有面的命中；某一面读取失败只记证据，不替代判定。
+        val surfaces = mutableListOf<MetaSurface>()
+        surfaces += MetaSurface("getApplicationInfo", info.metaData)
+        runCatching { loadPackageInfo(packageManager, targetPackage) }
+            .onSuccess { surfaces += MetaSurface("getPackageInfo", it?.applicationInfo?.metaData) }
+            .onFailure { surfaces += MetaSurface("getPackageInfo", null, it.javaClass.simpleName) }
+        runCatching { findInstalledApplicationMeta(packageManager, targetPackage) }
+            .onSuccess { surfaces += MetaSurface("getInstalledApplications", it) }
+            .onFailure { surfaces += MetaSurface("getInstalledApplications", null, it.javaClass.simpleName) }
+        runCatching { findInstalledPackageMeta(packageManager, targetPackage) }
+            .onSuccess { surfaces += MetaSurface("getInstalledPackages", it) }
+            .onFailure { surfaces += MetaSurface("getInstalledPackages", null, it.javaClass.simpleName) }
+
+        for (surface in surfaces) {
+            val hits = mutableListOf<Pair<String, String>>()
+            val metaData = surface.metaData
+            if (metaData != null) {
+                for (key in metaData.keySet()) {
+                    if (key.lowercase(Locale.ROOT) in XPOSED_META_KEYS) {
+                        hits += key to formatMetaValue(metaData.get(key))
+                    }
                 }
             }
-        }
-        if (found.isEmpty()) {
-            addIdentityEvidence(
-                evidence,
-                "meta-data：未发现 ${XPOSED_META_KEYS.joinToString("/")}",
-            )
-        } else {
-            found.take(6).forEach { (key, value) ->
-                addIdentityEvidence(evidence, "meta-data $key=$value")
+            val summary = when {
+                surface.note != null -> "读取失败(${surface.note})"
+                metaData == null -> "无 meta-data"
+                hits.isEmpty() -> "未发现 Xposed 键"
+                else -> "命中 ${hits.size} 个 Xposed 键"
             }
+            addIdentityEvidence(evidence, "${surface.label}：$summary")
+            hits.forEach { (key, value) -> found += surface.label to "$key=$value" }
         }
 
         for (managerPackage in LSPOSED_MANAGER_PACKAGES) {
@@ -86,16 +104,18 @@ class PackageIdentityCheck : Check {
         }
 
         if (found.isNotEmpty()) {
-            val summary = found.joinToString("；") { "${it.first}=${it.second}" }.take(220)
+            val surfaces2 = found.map { it.first }.distinct().joinToString("/")
+            val summary = found.joinToString("；") { "${it.first}:${it.second}" }.take(220)
             return fail(
-                "目标包 $targetPackage 的 manifest 含 Xposed 元数据：$summary；" +
+                "目标包 $targetPackage 在 $surfaces2 查询面暴露 Xposed 元数据：$summary；" +
                     "符合当前 D13 legacy 元数据状态，P6 迁移 libxposed 后应清除。",
                 evidence,
             )
         }
         return pass(
-            "目标包 $targetPackage 存在且未发现 xposedmodule/xposedscope/xposeddescription/" +
-                "xposedminversion 元数据；LSPosed 管理器仅作证据。",
+            "目标包 $targetPackage 存在，且 getApplicationInfo/getPackageInfo/" +
+                "getInstalledApplications/getInstalledPackages 四个查询面均未发现 " +
+                "xposedmodule/xposedscope/xposeddescription/xposedminversion；LSPosed 管理器仅作证据。",
             evidence,
         )
     } catch (error: Throwable) {
@@ -250,6 +270,47 @@ private fun loadApplicationInfo(packageManager: PackageManager, packageName: Str
     } else {
         packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
     }
+
+@Suppress("DEPRECATION")
+private fun loadPackageInfo(packageManager: PackageManager, packageName: String): PackageInfo? =
+    runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(
+                packageName,
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_META_DATA.toLong()),
+            )
+        } else {
+            packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA)
+        }
+    }.getOrNull()
+
+@Suppress("DEPRECATION")
+private fun findInstalledApplicationMeta(
+    packageManager: PackageManager,
+    packageName: String,
+): Bundle? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        packageManager.getInstalledApplications(
+            PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()),
+        )
+    } else {
+        packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+    }.firstOrNull { it.packageName == packageName }?.metaData
+
+@Suppress("DEPRECATION")
+private fun findInstalledPackageMeta(
+    packageManager: PackageManager,
+    packageName: String,
+): Bundle? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        packageManager.getInstalledPackages(
+            PackageManager.PackageInfoFlags.of(PackageManager.GET_META_DATA.toLong()),
+        )
+    } else {
+        packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
+    }.firstOrNull { it.packageName == packageName }?.applicationInfo?.metaData
+
+private class MetaSurface(val label: String, val metaData: Bundle?, val note: String? = null)
 
 @Suppress("DEPRECATION")
 private fun packageVersion(packageManager: PackageManager, packageName: String): String? {

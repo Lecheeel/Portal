@@ -1,6 +1,7 @@
 package com.system.location.service.core.sensors
 
 import com.system.location.service.core.geo.Wgs84
+import com.system.location.service.core.location.LocationSanitizer
 import com.system.location.service.core.location.LocationSample
 
 /** Minimal, short-lived motion grant. Contains neither coordinates nor controller credentials. */
@@ -16,9 +17,10 @@ data class SensorPlaybackState(
     init {
         require(session.isNotBlank() && session.length <= 512)
         require(sampleNanos >= 0 && expiresNanos > sampleNanos)
-        require(speedMps.isFinite() && speedMps in 0f..1000f)
+        require(speedMps.isFinite() && speedMps in 0f..LocationSanitizer.MAX_SPEED_MPS.toFloat())
         require(bearingDeg.isFinite() && bearingDeg in 0f..<360f)
-        require(altitudeMeters.isFinite() && altitudeMeters in -500.0..20_000.0)
+        require(altitudeMeters.isFinite() && altitudeMeters in
+            LocationSanitizer.MIN_ALTITUDE_METERS..LocationSanitizer.MAX_ALTITUDE_METERS)
     }
 
     fun validAt(nowNanos: Long): Boolean = nowNanos in sampleNanos until expiresNanos

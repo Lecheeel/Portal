@@ -78,6 +78,12 @@ class ProviderListCheck : Check {
             "probe isProviderEnabled(\"$probeName\") 异常：${describeError(error)}"
         }
 
+        // 直接探测被隐藏的提供者名（工作包 9）：泛化的"不存在"探测即使通过，
+        // fused_ext/portal 若仍返回 enabled，说明隐藏层自身不一致。
+        val hiddenProbes = listOf("fused_ext", "portal").map { name ->
+            name to runCatching { manager.isProviderEnabled(name) }
+        }
+
         val failures = mutableListOf<String>()
         if (suspicious.isNotEmpty()) {
             failures += "暴露可疑 Provider：${suspicious.joinToString("、")}"
@@ -92,6 +98,11 @@ class ProviderListCheck : Check {
         if (probeReportedEnabled) {
             failures += "isProviderEnabled 对不存在的 Provider 返回 true"
         }
+        hiddenProbes.forEach { (name, result) ->
+            if (result.getOrNull() == true) {
+                failures += "isProviderEnabled 对被隐藏的 Provider \"$name\" 返回 true"
+            }
+        }
 
         val keyLines = mutableListOf(
             "allProviders(${allProviders.size})=${allProviders.joinToString(prefix = "[", postfix = "]")}",
@@ -105,11 +116,23 @@ class ProviderListCheck : Check {
             keyLines += "enabled_not_in_allProviders=${extraEnabled.joinToString(prefix = "[", postfix = "]")}"
         }
         keyLines += probeLine
+        hiddenProbes.forEach { (name, result) ->
+            keyLines += when {
+                result.isSuccess ->
+                    "probe isProviderEnabled(\"$name\")=${result.getOrNull()}（预期 false）"
+                else ->
+                    "probe isProviderEnabled(\"$name\") 异常：${describeError(result.exceptionOrNull() ?: IllegalStateException("unknown"))}"
+            }
+        }
         val evidenceLines = keyLines + propertyReads.map { it.describe() }
 
         val inconclusiveReasons = mutableListOf<String>()
         if (enabledProviders == null) inconclusiveReasons += "getProviders(true) 读取失败"
         if (probeThrew) inconclusiveReasons += "isProviderEnabled 对不存在的 Provider 抛异常"
+        hiddenProbes.filter { it.second.isFailure }.forEach { (name, result) ->
+            inconclusiveReasons +=
+                "isProviderEnabled(\"$name\") 抛异常：${describeError(result.exceptionOrNull() ?: IllegalStateException("unknown"))}"
+        }
         propertyReads.filter { it.inconclusive }.forEach {
             inconclusiveReasons += "${it.provider} 属性读取受权限限制"
         }

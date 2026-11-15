@@ -3,21 +3,49 @@ package com.system.location.service.hook.hooks.gnss
 import android.os.IBinder
 import android.os.IInterface
 import io.github.libxposed.api.XposedInterface
+import com.system.location.service.hook.runtime.CallbackSubscription
+import com.system.location.service.hook.runtime.HookRuntime
 import java.lang.reflect.Proxy
 import org.junit.Assert.*
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 class RawGnssRollbackTest {
+    private val frameworkField = HookRuntime::class.java.getDeclaredField("framework").apply {
+        isAccessible = true
+    }
+    private var previousFramework: XposedInterface? = null
+
+    @Before
+    fun installJvmLogFramework() {
+        previousFramework = frameworkField.get(HookRuntime) as? XposedInterface
+        frameworkField.set(HookRuntime, Proxy.newProxyInstance(
+            XposedInterface::class.java.classLoader,
+            arrayOf(XposedInterface::class.java),
+        ) { proxy, method, args ->
+            when (method.name) {
+                "log" -> null
+                "equals" -> proxy === args?.get(0)
+                "hashCode" -> System.identityHashCode(proxy)
+                "toString" -> "JvmLogFramework"
+                else -> error("Unexpected framework call: ${method.name}")
+            }
+        })
+    }
+
+    @After
+    fun restoreFramework() {
+        frameworkField.set(HookRuntime, previousFramework)
+    }
+
     @Test fun partialHookInstallationFailureUnlinksTheProvisionalListenerWithoutCallingAndroid() {
         val call = Call()
-        val failure = IllegalStateException("Second callback hook could not be installed")
         try {
-            assertSame(failure, assertThrows(IllegalStateException::class.java) {
-                RawGnssCallbacks.proceed(call.chain, install = {
-                    assertEquals(1, RawGnssCallbacks.subscriptions().size)
-                    throw failure
-                }, callerUid = { 10001 })
-            })
+            assertEquals(false, RawGnssCallbacks.proceed(call.chain, install = {
+                assertEquals(1, RawGnssCallbacks.subscriptions().size)
+                error("Second callback hook could not be installed")
+            }, callerUid = { 10001 }))
             assertEquals(0, call.proceeds)
             assertTrue("Failed hook setup leaked a raw subscription", RawGnssCallbacks.subscriptions().isEmpty())
             assertEquals(call.links, call.unlinks)
@@ -29,9 +57,8 @@ class RawGnssRollbackTest {
         try {
             assertTrue(RawGnssCallbacks.proceed(call.chain, install = {}, callerUid = { 10001 }) as Boolean)
             val saved = RawGnssCallbacks.subscriptions().single()
-            assertThrows(IllegalStateException::class.java) {
-                RawGnssCallbacks.proceed(call.chain, install = { error("Hook setup failed") }, callerUid = { 10002 })
-            }
+            assertEquals(true, RawGnssCallbacks.proceed(call.chain,
+                install = { error("Hook setup failed") }, callerUid = { 10002 }))
             assertEquals(saved, RawGnssCallbacks.subscriptions().single())
             assertEquals(1, call.proceeds)
             assertEquals(1, call.links)
@@ -58,6 +85,20 @@ class RawGnssRollbackTest {
         }
     }
 
+    @Test fun restoreHookFailureDoesNotEscapeAndKeepsSubscriptionForInstalledGuards() {
+        val call = Call()
+        try {
+            val subscription = CallbackSubscription(call.listener, 10001, "app")
+            assertFalse(RawGnssCallbacks.restoreAndInstall(subscription) {
+                error("An OEM callback method cannot be hooked")
+            })
+            assertEquals(1, RawGnssCallbacks.subscriptions().size)
+            assertEquals(1, call.links)
+            assertEquals(0, call.unlinks)
+        } finally { RawGnssCallbacks.clear() }
+        assertEquals(call.links, call.unlinks)
+    }
+
     private class Call {
         var links = 0
         var unlinks = 0
@@ -73,7 +114,7 @@ class RawGnssRollbackTest {
                 "equals" -> proxy === args?.get(0)
                 else -> null
             } } as IBinder
-        private val listener = object : IInterface { override fun asBinder(): IBinder = binder }
+        val listener = object : IInterface { override fun asBinder(): IBinder = binder }
         val chain = Proxy.newProxyInstance(XposedInterface.Chain::class.java.classLoader,
             arrayOf(XposedInterface.Chain::class.java)) { _, method, _ -> when (method.name) {
                 "getExecutable" -> Service::class.java.getDeclaredMethod("addListener", IInterface::class.java)

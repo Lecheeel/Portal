@@ -1,11 +1,10 @@
 @file:Suppress("UNCHECKED_CAST", "PrivateApi")
 package com.system.location.service.hook.hooks.wlan
 
-import android.net.DhcpInfo
+import android.net.NetworkCapabilities
 import android.net.wifi.ScanResult
 import android.net.wifi.SupplicantState
 import android.net.wifi.WifiInfo
-import android.os.Binder
 import android.os.Build
 import android.os.SystemClock
 import android.util.ArrayMap
@@ -36,10 +35,12 @@ object WlanHook {
     private var source = ProceduralWifiSource(EnvironmentConfig(apPerCell = 4))
     private var sourceApCount = 4
     private val profileLock = Any()
-    private var cachedKey: String? = null
+    private var cachedKey: WifiProfileCacheKey? = null
     private var cachedProfile: EnvironmentProfile? = null
     private var cachedFingerprintJson: String? = null
     private var cachedFingerprintSource: FingerprintWifiSource? = null
+    private var cachedFingerprintEnabled: Boolean? = null
+    private var fingerprintRevision = 0L
 
     operator fun invoke(classLoader: ClassLoader) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -87,6 +88,24 @@ object WlanHook {
         }
     }
 
+    fun installTargetApp(classLoader: ClassLoader, packageName: String, uid: Int) {
+        val capabilities = Reflection.findClassIfExists("android.net.NetworkCapabilities", classLoader)
+            ?: return
+        capabilities.hookAllMethods("getTransportInfo", Hooker { chain ->
+            val original = chain.proceed()
+            if (original !is WifiInfo || !shouldRewrite(packageName, uid)) return@Hooker original
+            val hasWifiTransport = runCatching {
+                Reflection.callMethod(chain.thisObject, "hasTransport", NetworkCapabilities.TRANSPORT_WIFI) == true
+            }.getOrDefault(false)
+            if (!hasWifiTransport || !isVisibleWifiInfo(original)) return@Hooker original
+            val synthetic = runCatching { buildWifiInfo(currentProfile(packageName, uid)) }.getOrNull()
+            if (synthetic == null && FakeLoc.enableDebugLog) {
+                Logger.warn("NetworkCapabilities.getTransportInfo: synthetic WifiInfo unavailable for $packageName")
+            }
+            synthetic
+        })
+    }
+
     private fun hookWifiServiceImpl(wifiClazz: Class<*>) {
         if (!FakeLoc.hookWifi) return
 
@@ -97,7 +116,7 @@ object WlanHook {
             val packageName = chain.args.firstOrNull() as? String
             if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@Hooker original
             if (!isRealWifiConnected(original)) return@Hooker original
-            val info = buildWifiInfo(currentProfile(packageName), original) ?: return@Hooker original
+            val info = buildWifiInfo(currentProfile(packageName)) ?: return@Hooker null
             if (FakeLoc.enableDebugLog) Logger.debug("getConnectionInfo: procedural $packageName")
             info
         })
@@ -109,19 +128,19 @@ object WlanHook {
             if (packageName.isNullOrEmpty() || !shouldRewrite(packageName)) return@Hooker original
             if (scanResultCount(original) == 0) return@Hooker original
             val generated = buildScanResults(currentProfile(packageName))
-            if (generated.isEmpty()) return@Hooker original
+            if (generated.isEmpty()) return@Hooker emptyList<ScanResult>()
             val result = when (val existing = original) {
                 null -> {
                     val returnType = (chain.executable as? java.lang.reflect.Method)?.returnType
                     if (returnType != null && returnType.name.contains("ParceledListSlice")) {
-                        sliceOrNull(returnType, generated) ?: return@Hooker original
+                        sliceOrNull(returnType, generated) ?: return@Hooker null
                     } else {
                         generated
                     }
                 }
                 is List<*> -> generated
                 is Array<*> -> generated.toTypedArray()
-                else -> sliceOrNull(existing.javaClass, generated) ?: return@Hooker original
+                else -> sliceOrNull(existing.javaClass, generated) ?: return@Hooker null
             }
             if (FakeLoc.enableDebugLog) Logger.debug("getScanResults: ${generated.size} procedural APs for $packageName")
             result
@@ -144,23 +163,41 @@ object WlanHook {
         }.getOrDefault(1)
     }
 
-    private fun shouldRewrite(packageName: String): Boolean =
-        FakeLoc.enable && FakeLoc.enableMockWifi && !BinderUtils.isSystemPackages(packageName)
+    private fun shouldRewrite(packageName: String, uid: Int = BinderUtils.getCallerUid()): Boolean =
+        FakeLoc.enable && FakeLoc.hookWifi && FakeLoc.enableMockWifi && !BinderUtils.isSystemPackages(packageName) &&
+            ListenerRouting.decisionFor(packageName, uid) != com.system.location.service.core.routing.RoutingDecision.Deny
 
-    private fun currentProfile(packageName: String? = null): EnvironmentProfile {
-        val point = ListenerRouting.fixedPointFor(packageName)
-            ?: Wgs84(FakeLoc.latitude, FakeLoc.longitude)
-        val fingerprintJson = FakeLoc.wifiFingerprintCatalogJson
-        val fingerprintVersion = if (FakeLoc.wifiFingerprintEnabled) fingerprintJson.hashCode() else 0
-        val key = "${point.latitude}:${point.longitude}:${FakeLoc.environmentSeed}:${FakeLoc.environmentApCount}:$fingerprintVersion"
+    private fun currentProfile(packageName: String? = null, uid: Int = BinderUtils.getCallerUid()): EnvironmentProfile {
+        val snapshot = FakeLoc.runtimeSnapshots.current()
+        val route = ListenerRouting.decisionFor(packageName, uid)
+        val point = when (route) {
+            com.system.location.service.core.routing.RoutingDecision.Deny -> Wgs84(snapshot.latitude, snapshot.longitude)
+            is com.system.location.service.core.routing.RoutingDecision.Point -> route.point
+            is com.system.location.service.core.routing.RoutingDecision.Scenario -> FakeLoc.snapshotForScenario(route.scenarioId).let {
+                Wgs84(it.latitude, it.longitude)
+            }
+            com.system.location.service.core.routing.RoutingDecision.Global -> Wgs84(snapshot.latitude, snapshot.longitude)
+        }
+        val config = snapshot.configuration
         synchronized(profileLock) {
+            refreshFingerprintSource(config.wifiFingerprintCatalogJson, config.wifiFingerprintEnabled)
+            val key = WifiProfileCacheKey(
+                point = point,
+                seed = snapshot.environmentSeed,
+                apCount = snapshot.environmentApCount,
+                environmentVersion = snapshot.environmentVersion,
+                sourceMode = snapshot.environmentSourceMode,
+                fingerprintEnabled = config.wifiFingerprintEnabled,
+                fingerprintRevision = fingerprintRevision,
+            )
             cachedProfile?.let { if (cachedKey == key) return it }
             val now = System.currentTimeMillis()
-            val fingerprint = fingerprintProfile(point, now)
-            val replay = if (FakeLoc.environmentSourceMode == EnvironmentSourceMode.PROCEDURAL) null else FakeLoc.replayEnvironment
+            val fingerprint = fingerprintProfile(point, now, snapshot.environmentSeed, config.wifiFingerprintEnabled)
+            val replay = if (snapshot.environmentSourceMode == EnvironmentSourceMode.PROCEDURAL) null else snapshot.environment
             val result = fingerprint
-                ?: replay?.let { profile -> runCatching { ReplayEnvironmentSource(profile).profileAt(point, FakeLoc.environmentSeed, now) }.getOrNull() }
-                ?: source().profileAt(point, FakeLoc.environmentSeed, now)
+                ?: replay?.let { profile -> runCatching { ReplayEnvironmentSource(profile).profileAt(point, snapshot.environmentSeed, now) }.getOrNull() }
+                    ?.takeIf { it.wifi.isNotEmpty() }
+                ?: source(snapshot.environmentApCount).profileAt(point, snapshot.environmentSeed, now)
             return result.also {
                 cachedKey = key
                 cachedProfile = it
@@ -168,22 +205,27 @@ object WlanHook {
         }
     }
 
-    private fun fingerprintProfile(point: Wgs84, nowMillis: Long): EnvironmentProfile? {
-        if (!FakeLoc.wifiFingerprintEnabled) return null
-        val json = FakeLoc.wifiFingerprintCatalogJson?.takeIf { it.isNotBlank() } ?: return null
-        if (cachedFingerprintJson != json) {
-            cachedFingerprintJson = json
-            cachedFingerprintSource = runCatching { FingerprintWifiSource(WifiFingerprintImporter.importJson(json).catalog.database()) }
+    private fun refreshFingerprintSource(json: String?, enabled: Boolean) {
+        if (cachedFingerprintJson == json && cachedFingerprintEnabled == enabled) return
+        cachedFingerprintJson = json
+        cachedFingerprintEnabled = enabled
+        fingerprintRevision = Math.addExact(fingerprintRevision, 1L)
+        cachedFingerprintSource = if (!enabled || json.isNullOrBlank()) null else {
+            runCatching { FingerprintWifiSource(WifiFingerprintImporter.importJson(json).catalog.database()) }
                 .onFailure { if (FakeLoc.enableDebugLog) Logger.debug("wifi fingerprint parse failed: ${it.message}") }
                 .getOrNull()
         }
-        return cachedFingerprintSource?.profileAt(point, FakeLoc.environmentSeed, nowMillis)
     }
 
-    private fun source(): ProceduralWifiSource {
-        if (sourceApCount != FakeLoc.environmentApCount) {
-            source = ProceduralWifiSource(EnvironmentConfig(apPerCell = FakeLoc.environmentApCount))
-            sourceApCount = FakeLoc.environmentApCount
+    private fun fingerprintProfile(point: Wgs84, nowMillis: Long, seed: Long, enabled: Boolean): EnvironmentProfile? {
+        if (!enabled) return null
+        return cachedFingerprintSource?.profileAt(point, seed, nowMillis)
+    }
+
+    private fun source(apCount: Int): ProceduralWifiSource {
+        if (sourceApCount != apCount) {
+            source = ProceduralWifiSource(EnvironmentConfig(apPerCell = apCount))
+            sourceApCount = apCount
             cachedKey = null
             cachedProfile = null
         }
@@ -207,37 +249,30 @@ object WlanHook {
                 // A 5 GHz 80 MHz segment is reported around its centre, not the primary channel.
                 centerFreq0 = if (ap.frequencyMhz >= 5_000) ap.frequencyMhz + 30 else ap.frequencyMhz
                 centerFreq1 = 0
-                runCatching { Reflection.setIntField(this, "wifiStandard", standardFor(ap.frequencyMhz)) }
+                runCatching { Reflection.setIntField(this, "wifiStandard", ap.standard) }
             }
         }
     }
 
-    private fun buildWifiInfo(profile: EnvironmentProfile, original: WifiInfo): WifiInfo? {
-        val ap = profile.connectedWifi() ?: return null
+    private fun buildWifiInfo(profile: EnvironmentProfile): WifiInfo? {
+        val ap = profile.connectedWifi() ?: profile.wifi.maxByOrNull { it.rssi } ?: return null
         val info = runCatching { Reflection.newInstance(WifiInfo::class.java) as WifiInfo }.getOrNull()
             ?: return null
-        val linkSpeed = original.linkSpeed.takeIf { it > 0 }
-            ?: if (ap.frequencyMhz >= 5_000) 433 else 144
-        // Device-level facts belong to the real device. Only the environment (SSID/BSSID/RSSI/
-        // channel) is synthetic, so a detector cannot cluster every Portal user by one MAC/IP.
-        val mac = original.macAddress?.takeIf { it.isNotBlank() && it != REDACTED_BSSID }
-            ?: fallbackMac()
+        val linkSpeed = if (ap.frequencyMhz >= 5_000) 433 else 144
         val values: List<Pair<String, Any>> = listOf<Pair<String, Any>>(
             "setBSSID" to ap.bssid.lowercase(),
             "setSSID" to "\"${ap.ssid}\"",
-            "setMacAddress" to mac,
-            "setNetworkId" to (original.networkId.takeIf { it >= 0 } ?: 0),
+            "setMacAddress" to syntheticWifiMac(FakeLoc.environmentSeed, ap.bssid),
+            "setNetworkId" to (ap.bssid.lowercase().hashCode() and Int.MAX_VALUE),
             "setRssi" to ap.rssi,
             "setFrequency" to ap.frequencyMhz,
             "setLinkSpeed" to linkSpeed,
-            "setRxLinkSpeedMbps" to (original.rxLinkSpeedMbps.takeIf { it > 0 } ?: linkSpeed),
-            "setTxLinkSpeedMbps" to (original.txLinkSpeedMbps.takeIf { it > 0 } ?: linkSpeed),
-            "setMaxSupportedRxLinkSpeedMbps" to
-                (original.maxSupportedRxLinkSpeedMbps.takeIf { it > 0 } ?: linkSpeed),
-            "setMaxSupportedTxLinkSpeedMbps" to
-                (original.maxSupportedTxLinkSpeedMbps.takeIf { it > 0 } ?: linkSpeed),
-            "setWifiStandard" to standardFor(ap.frequencyMhz),
-            "setIpAddress" to original.ipAddress,
+            "setRxLinkSpeedMbps" to linkSpeed,
+            "setTxLinkSpeedMbps" to linkSpeed,
+            "setMaxSupportedRxLinkSpeedMbps" to linkSpeed,
+            "setMaxSupportedTxLinkSpeedMbps" to linkSpeed,
+            "setWifiStandard" to ap.standard,
+            "setIpAddress" to syntheticWifiIpv4(ap.bssid),
             "setSupplicantState" to SupplicantState.COMPLETED,
             "setHiddenSSID" to false,
         )
@@ -248,22 +283,9 @@ object WlanHook {
         return info
     }
 
-    /** Stable, locally-administered fallback MAC when the real value is redacted. */
-    private fun fallbackMac(): String {
-        val random = kotlin.random.Random(
-            FakeLoc.environmentSeed xor Build.FINGERPRINT.hashCode().toLong(),
-        )
-        return buildString {
-            append("02")
-            repeat(5) { append(':').append("%02x".format(random.nextInt(256))) }
-        }
-    }
-
-    private fun standardFor(frequencyMhz: Int): Int = when {
-        frequencyMhz >= 5_925 -> ScanResult.WIFI_STANDARD_11AX
-        frequencyMhz >= 5_000 -> ScanResult.WIFI_STANDARD_11AC
-        else -> ScanResult.WIFI_STANDARD_11N
-    }
+    private fun isVisibleWifiInfo(info: WifiInfo): Boolean =
+        !info.ssid.isNullOrBlank() && !info.ssid.contains("unknown ssid", ignoreCase = true) &&
+            !info.bssid.isNullOrBlank() && info.bssid != REDACTED_BSSID
 
     private fun sliceOrNull(type: Class<*>, values: List<ScanResult>): Any? =
         if (type.name.contains("ParceledListSlice")) {
@@ -278,4 +300,19 @@ object WlanHook {
         }
 
     private const val REDACTED_BSSID = "02:00:00:00:00:00"
+}
+
+internal fun syntheticWifiMac(seed: Long, bssid: String): String {
+    val random = kotlin.random.Random(seed xor bssid.lowercase().hashCode().toLong())
+    return buildString {
+        append("02")
+        repeat(5) { append(':').append("%02x".format(random.nextInt(256))) }
+    }
+}
+
+/** WifiInfo stores IPv4 as a little-endian Int; keep this address synthetic and RFC1918. */
+internal fun syntheticWifiIpv4(bssid: String): Int {
+    val hash = bssid.lowercase().hashCode()
+    val octets = intArrayOf(10, 64 + ((hash ushr 16) and 0x3f), (hash ushr 8) and 0xff, 2 + (hash and 0x7d))
+    return octets[0] or (octets[1] shl 8) or (octets[2] shl 16) or (octets[3] shl 24)
 }

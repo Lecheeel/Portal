@@ -28,10 +28,12 @@ class HookConfigurationDisclosureTest {
         val defaults = HookConfigurationPreferences.read(emptyMap<String, Any>(), RuntimeSnapshot())
         assertEquals(false, defaults["experimental_anti_detect"])
         assertEquals(false, defaults["experimental_stack_trace"])
+        assertEquals(false, defaults["experimental_stack_trace_replace"])
         val configuration =
             PreparedRuntimeConfiguration.prepare(defaults).applyTo(RuntimeSnapshot()).configuration
         assertEquals(false, configuration.antiDetectEnabled)
         assertEquals(false, configuration.stackTraceCleanEnabled)
+        assertEquals(false, configuration.stackTraceReplaceEnabled)
 
         val enabled = HookConfigurationPreferences.read(
             mapOf("antiDetectEnabled" to true, "stackTraceCleanEnabled" to true),
@@ -41,6 +43,24 @@ class HookConfigurationDisclosureTest {
             PreparedRuntimeConfiguration.prepare(enabled).applyTo(RuntimeSnapshot()).configuration
         assertEquals(true, enabledConfiguration.antiDetectEnabled)
         assertEquals(true, enabledConfiguration.stackTraceCleanEnabled)
+        // Replace is an independent switch: enabling it alone must not silently turn on cleaning.
+        val replaceOnly = HookConfigurationPreferences.read(
+            mapOf("stackTraceReplaceEnabled" to true),
+            RuntimeSnapshot(),
+        )
+        val replaceOnlyConfiguration =
+            PreparedRuntimeConfiguration.prepare(replaceOnly).applyTo(RuntimeSnapshot()).configuration
+        assertEquals(false, replaceOnlyConfiguration.stackTraceCleanEnabled)
+        assertEquals(true, replaceOnlyConfiguration.stackTraceReplaceEnabled)
+
+        val replaced = HookConfigurationPreferences.read(
+            mapOf("stackTraceCleanEnabled" to true, "stackTraceReplaceEnabled" to true),
+            RuntimeSnapshot(),
+        )
+        val replacedConfiguration =
+            PreparedRuntimeConfiguration.prepare(replaced).applyTo(RuntimeSnapshot()).configuration
+        assertEquals(true, replacedConfiguration.stackTraceCleanEnabled)
+        assertEquals(true, replacedConfiguration.stackTraceReplaceEnabled)
     }
 
     @Test fun networkLocationIsNotRelabelledByDefault() {

@@ -49,14 +49,16 @@ fun LocationSample.toLocation(provider: String?, route: GnssFrameRoute = GnssFra
         if (providerSample?.has(ProviderFieldMask.MSL_ALTITUDE) == true && mslAltitude != null) {
             it.mslAltitudeMeters = mslAltitude
         } else it.removeMslAltitude()
-        it.extras = publication?.let { frame ->
-            val summary = GnssLocationExtras.from(frame)
+        it.extras = if (effectiveProvider == LocationManager.GPS_PROVIDER) {
+            // A GPS fix without the standard satellite extras is itself a fingerprint. Keep the
+            // shape even when GNSS simulation is disabled; zero means no satellites used.
+            val summary = publication?.let(GnssLocationExtras::from)
             Bundle().apply {
-                putInt("satellites", summary.satellites)
-                summary.meanCn0DbHz?.let { value -> putFloat("meanCn0", value) }
-                summary.maxCn0DbHz?.let { value -> putFloat("maxCn0", value) }
+                putInt("satellites", summary?.satellites ?: 0)
+                putFloat("meanCn0", summary?.meanCn0DbHz ?: 0f)
+                putFloat("maxCn0", summary?.maxCn0DbHz ?: 0f)
             }
-        }
+        } else null
         it.isMock = !policy.hideMock
     }
 }

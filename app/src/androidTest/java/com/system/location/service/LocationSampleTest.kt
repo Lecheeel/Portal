@@ -41,11 +41,15 @@ class LocationSampleTest {
             val sample = com.system.location.service.core.location.LocationSample(
                 com.system.location.service.core.geo.Wgs84(31.0, 121.0), 10.0, 5f, 2f, 90f, 1000, 1000)
             val captured = com.system.location.service.core.runtime.RuntimeSnapshot(sample = sample,
-                configuration = com.system.location.service.core.runtime.HookConfiguration(enabled = true, hideMock = true))
+                configuration = com.system.location.service.core.runtime.HookConfiguration(
+                    enabled = true, hideMock = true, gnssEnabled = false))
             FakeLoc.runtimeSnapshots.set(captured.copy(configuration = captured.configuration.copy(hideMock = false)))
             val old = sample.toLocation("gps", state = captured)
             assertFalse(old.isMock)
-            assertNull(old.extras)
+            val extras = requireNotNull(old.extras)
+            assertEquals(0, extras.getInt("satellites"))
+            assertEquals(0f, extras.getFloat("meanCn0"), 0f)
+            assertEquals(0f, extras.getFloat("maxCn0"), 0f)
             assertTrue(sample.toLocation("gps").isMock)
             assertEquals(sample.coordinate.latitude, old.latitude, 0.0)
             assertEquals(sample.elapsedNanos, old.elapsedRealtimeNanos)

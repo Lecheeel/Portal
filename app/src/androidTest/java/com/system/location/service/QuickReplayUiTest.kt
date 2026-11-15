@@ -46,6 +46,13 @@ class QuickReplayUiTest {
                 assertTrue(context.mockWifiEnabled)
                 assertEquals("REPLAY", context.environmentSourceMode)
                 assertEquals(profile, EnvironmentProfileCodec.decode(context.environmentReplayJson))
+                compose.onNodeWithText("回放环境").performClick()
+                compose.onNodeWithText("程序生成").performClick()
+                compose.waitUntil(5_000) { context.environmentSourceMode == "PROCEDURAL" }
+                assertEquals("", context.environmentReplayJson)
+                compose.onNodeWithText("回放环境").performClick()
+                compose.onNodeWithText(name).performClick()
+                compose.waitUntil(5_000) { context.replayEnvironmentName == name }
                 compose.waitUntil(5_000) { compose.onAllNodes(hasText("回放卫星") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithText("回放卫星").performClick()
                 compose.onNodeWithText("目标天空（无需采集）").performClick()
@@ -67,6 +74,7 @@ class QuickReplayUiTest {
                 compose.onNodeWithText("回放卫星").performClick()
                 compose.onNodeWithText("关闭卫星模拟").performClick()
                 compose.waitUntil(5_000) { !context.gnssReplayOnStart }
+                assertEquals("OFF", context.sharedPrefs.getString("gnssSimulationMode", null))
                 scenario.recreate()
                 compose.onNodeWithText("关闭").assertExists()
                 assertEquals("环境/卫星", context.getString(R.string.simulation_title))

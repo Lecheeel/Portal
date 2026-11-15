@@ -35,13 +35,16 @@ class QuickReplayViewModel(application: Application) : AndroidViewModel(applicat
     val state = mutableState.asStateFlow()
 
     suspend fun refresh() {
-        mutableState.value = state.value.copy(loading = true)
+        mutableState.value = state.value.copy(loading = true, message = null, failed = false)
         try {
             val names = withContext(Dispatchers.IO) { EnvironmentStore(context).list() }
-            mutableState.value = state.value.copy(names = names)
+            mutableState.value = state.value.copy(names = names, message = null, failed = false)
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { mutableState.value = state.value.copy(message = "环境列表读取失败，请重试") }
-        finally { mutableState.value = state.value.copy(loading = false) }
+        catch (_: Exception) {
+            mutableState.value = state.value.copy(message = "环境列表读取失败，请重试", failed = true)
+        } finally {
+            mutableState.value = state.value.copy(loading = false)
+        }
     }
 
     /** An empty name selects the procedural source. Selecting a profile also enables Wi-Fi. */
@@ -55,6 +58,7 @@ class QuickReplayViewModel(application: Application) : AndroidViewModel(applicat
             putString("environmentSourceMode", if (name.isEmpty()) "PROCEDURAL" else "REPLAY")
             putString("replayEnvironmentName", name)
             if (json != null) putString("environmentReplayJson", json)
+            else remove("environmentReplayJson")
         }.apply()
     }
 
@@ -64,6 +68,7 @@ class QuickReplayViewModel(application: Application) : AndroidViewModel(applicat
             putBoolean("disableWifiScan", false)
             putString("environmentSourceMode", "AUTO")
             putString("replayEnvironmentName", "")
+            remove("environmentReplayJson")
         }.apply()
     }
 
@@ -78,7 +83,7 @@ class QuickReplayViewModel(application: Application) : AndroidViewModel(applicat
             }
             context.sharedPrefs.edit().apply {
                 putBoolean("gnssReplayOnStart", mode != null)
-                if (mode != null) putString("gnssSimulationMode", mode.name)
+                putString("gnssSimulationMode", mode?.name ?: "OFF")
             }.apply()
         }
     }

@@ -10,6 +10,7 @@ import com.system.location.service.core.gnss.GpsL1SignalQuality
 import com.system.location.service.core.gnss.GpsLnavEphemeris
 import com.system.location.service.core.gnss.PublishedGnssFrame
 import com.system.location.service.core.gnss.RawGnssSynthesis
+import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.ProviderReadContext
 
 /**
@@ -36,16 +37,26 @@ internal object RawGnssSyntheticDelivery {
         elapsedRealtimeNanos: Long = SystemClock.elapsedRealtimeNanos(),
     ): GnssMeasurementsEvent? {
         val frame = publication.frame
-        val time = RawGnssSynthesis.gpsTime(frame.generatedAtMillis) ?: return null
+        // A static scenario can reuse one sky publication for many ticks; raw epochs still have
+        // to advance with the receiver clock or every ADR/measurement batch is rejected as stale.
+        val nowMillis = System.currentTimeMillis()
+        val time = RawGnssSynthesis.gpsTime(nowMillis) ?: return null
         val gpsSats = frame.satellites
             .filter { it.constellation == Constellation.GPS }
             .associateBy { it.svid }
-        if (gpsSats.size < GpsL1RawMeasurementSynthesizer.MIN_MEASUREMENTS) return null
+        if (gpsSats.size < GpsL1RawMeasurementSynthesizer.MIN_MEASUREMENTS) {
+            Logger.warn("Synthetic raw unavailable: GPS satellites=${gpsSats.size}")
+            return null
+        }
         val available = RawGnssSynthesis.ephemerides(
             context.state.configuration.gnssNavigation,
-            frame.generatedAtMillis,
+            nowMillis,
         ).filter { it.svid in gpsSats }
-        if (available.size < GpsL1RawMeasurementSynthesizer.MIN_MEASUREMENTS) return null
+        if (available.size < GpsL1RawMeasurementSynthesizer.MIN_MEASUREMENTS) {
+            Logger.warn("Synthetic raw unavailable: usable GPS ephemerides=${available.size}")
+            return null
+        }
+
         val track = synchronized(lock) {
             val current = tracks[route]
             if (current != null && current.ephemerides == available) current
@@ -80,10 +91,15 @@ internal object RawGnssSyntheticDelivery {
         val batch = track.synthesizer.synthesize(
             receptionTime = time,
             elapsedRealtimeNanos = elapsedRealtimeNanos,
-            capturedAtMillis = frame.generatedAtMillis,
+            capturedAtMillis = nowMillis,
             hardwareClockDiscontinuityCount = 0,
-        ) ?: return null
-        return RawGnssAndroidEvent.create(batch)
+        ) ?: run {
+            Logger.warn("Synthetic raw unavailable: ${track.synthesizer.lastFailure ?: "synthesizer returned null"}")
+            return null
+        }
+        return RawGnssAndroidEvent.create(batch).also {
+            if (it == null) Logger.warn("Synthetic raw unavailable: Android event conversion failed")
+        }
     }
 
     fun clear() = synchronized(lock) { tracks.clear() }

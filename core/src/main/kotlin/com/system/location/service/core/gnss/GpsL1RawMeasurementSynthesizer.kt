@@ -63,6 +63,10 @@ class GpsL1RawMeasurementSynthesizer(
     private var lastEpoch: GpsTime? = null
     private var lastDiscontinuityCount: Int? = null
 
+    /** Last bounded refusal reason; null after a successful batch. */
+    @Volatile var lastFailure: String? = null
+        private set
+
     init {
         require(this.ephemerides.isNotEmpty())
         require(this.ephemerides.all { it.health == 0 }) { "unhealthy GPS ephemeris cannot be synthesized" }
@@ -78,7 +82,10 @@ class GpsL1RawMeasurementSynthesizer(
     ): GnssMeasurementBatch? {
         require(elapsedRealtimeNanos >= 0L && capturedAtMillis >= 0L && hardwareClockDiscontinuityCount >= 0)
         val previousEpoch = lastEpoch
-        if (previousEpoch != null && receptionTime.secondsSince(previousEpoch) <= 0.0) return null
+        if (previousEpoch != null && receptionTime.secondsSince(previousEpoch) <= 0.0) {
+            lastFailure = "non-monotonic epoch"
+            return null
+        }
         val clockReset = lastDiscontinuityCount?.let { it != hardwareClockDiscontinuityCount } ?: true
         if (clockReset || previousEpoch?.let { receptionTime.secondsSince(it) > MAX_TRACK_GAP_SECONDS } == true) {
             tracks.clear()
@@ -117,8 +124,14 @@ class GpsL1RawMeasurementSynthesizer(
             )
         }.sortedBy { it.svid }
 
-        if (measurements.size < MIN_MEASUREMENTS) return null
-        val receiver = receiverAt(receptionTime) ?: return null
+        if (measurements.size < MIN_MEASUREMENTS) {
+            lastFailure = "measurements=${measurements.size}"
+            return null
+        }
+        val receiver = receiverAt(receptionTime) ?: run {
+            lastFailure = "receiver state unavailable"
+            return null
+        }
         val localGpsNanos = gpsEpochNanos(receptionTime).add(secondsNanos(receiver.clockBiasSeconds))
         val fullBiasDecimal = BigDecimal.valueOf(elapsedRealtimeNanos).subtract(localGpsNanos)
         val fullBias = fullBiasDecimal.setScale(0, RoundingMode.FLOOR).longValueExact()
@@ -144,6 +157,7 @@ class GpsL1RawMeasurementSynthesizer(
         tracks.putAll(nextTracks)
         lastEpoch = receptionTime
         lastDiscontinuityCount = hardwareClockDiscontinuityCount
+        lastFailure = null
         return batch
     }
 

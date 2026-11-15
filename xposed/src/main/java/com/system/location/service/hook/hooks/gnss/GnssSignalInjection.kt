@@ -12,6 +12,7 @@ import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.runtime.DeliveryWorker
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.LogRateLimiter
+import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.ProviderView
 
 /** The only producer of simulated GNSS callbacks, using the selected autonomous or replay source. */

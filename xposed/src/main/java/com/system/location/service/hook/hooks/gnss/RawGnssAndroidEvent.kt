@@ -8,6 +8,7 @@ import com.system.location.service.core.gnss.GnssMeasurementBatch
 import com.system.location.service.core.gnss.GnssMeasurementObservation
 import com.system.location.service.core.gnss.GpsL1RawMeasurementSynthesizer
 import com.system.location.service.hook.runtime.Reflection
+import com.system.location.service.hook.utils.Logger
 
 /**
  * Builds the hidden Android raw-observation objects from the same batch that the independent
@@ -16,14 +17,20 @@ import com.system.location.service.hook.runtime.Reflection
  * half-populated observation.
  */
 internal object RawGnssAndroidEvent {
-    fun create(batch: GnssMeasurementBatch): GnssMeasurementsEvent? = runCatching {
+    fun create(batch: GnssMeasurementBatch): GnssMeasurementsEvent? = try {
         val clock = clock(batch) ?: return null
         val measurements = batch.measurements.mapNotNull(::measurement)
-        if (measurements.size < GpsL1RawMeasurementSynthesizer.MIN_MEASUREMENTS) return null
+        if (measurements.size < GpsL1RawMeasurementSynthesizer.MIN_MEASUREMENTS) {
+            Logger.warn("Synthetic raw event incomplete: measurements=${measurements.size}")
+            return null
+        }
         event(clock, measurements)
-    }.getOrNull()
+    } catch (failure: Throwable) {
+        Logger.error("Synthetic raw event creation failed", failure)
+        null
+    }
 
-    private fun clock(batch: GnssMeasurementBatch): GnssClock? = runCatching {
+    private fun clock(batch: GnssMeasurementBatch): GnssClock? = try {
         val clock = Reflection.newInstance(GnssClock::class.java) as GnssClock
         require(set(clock, "setTimeNanos", batch.timeNanos))
         require(set(clock, "setHardwareClockDiscontinuityCount", batch.hardwareClockDiscontinuityCount))
@@ -44,9 +51,12 @@ internal object RawGnssAndroidEvent {
         }
         batch.referenceCodeTypeForIsb?.let { set(clock, "setReferenceCodeTypeForIsb", it) }
         clock
-    }.getOrNull()
+    } catch (failure: Throwable) {
+        Logger.error("Synthetic raw clock conversion failed", failure)
+        null
+    }
 
-    private fun measurement(observation: GnssMeasurementObservation): GnssMeasurement? = runCatching {
+    private fun measurement(observation: GnssMeasurementObservation): GnssMeasurement? = try {
         val measurement = Reflection.newInstance(GnssMeasurement::class.java) as GnssMeasurement
         require(set(measurement, "setSvid", observation.svid))
         require(set(measurement, "setConstellationType", constellationType(observation.constellation)))
@@ -69,7 +79,10 @@ internal object RawGnssAndroidEvent {
         observation.carrierHz?.let { set(measurement, "setCarrierFrequencyHz", it.toFloat()) }
         observation.codeType?.let { set(measurement, "setCodeType", it) }
         measurement
-    }.getOrNull()
+    } catch (failure: Throwable) {
+        Logger.error("Synthetic raw measurement conversion failed", failure)
+        null
+    }
 
     private fun constellationType(constellation: Constellation): Int = when (constellation) {
         Constellation.GPS -> 1
@@ -81,8 +94,13 @@ internal object RawGnssAndroidEvent {
         Constellation.IRNSS -> 7
     }
 
-    private fun set(target: Any, method: String, value: Any): Boolean =
-        runCatching { Reflection.callMethod(target, method, value); true }.getOrDefault(false)
+    private fun set(target: Any, method: String, value: Any): Boolean = try {
+        Reflection.callMethod(target, method, value)
+        true
+    } catch (failure: Throwable) {
+        Logger.error("Synthetic raw setter $method failed", failure)
+        false
+    }
 
     private fun event(clock: GnssClock, measurements: List<GnssMeasurement>): GnssMeasurementsEvent? {
         val type = GnssMeasurementsEvent::class.java
@@ -98,20 +116,22 @@ internal object RawGnssAndroidEvent {
             arrayOf<Class<*>>(GnssClock::class.java, List::class.java),
         )
         for (parameters in constructors) {
-            val created = runCatching {
-                type.getDeclaredConstructor(*parameters).apply { isAccessible = true }
-                    .newInstance(
-                        when (parameters.size) {
-                            5 -> arrayOf(1, clock, measurements, emptyList<Any>(), true)
-                            2 -> arrayOf(clock, measurements)
-                            else -> error("unsupported GnssMeasurementsEvent signature")
-                        },
-                    ) as GnssMeasurementsEvent
-            }.getOrNull()
-            if (created != null) return created
+            try {
+                val args: Array<Any?> = when (parameters.size) {
+                    5 -> arrayOf(1, clock, measurements, emptyList<Any>(), true)
+                    2 -> arrayOf(clock, measurements)
+                    else -> error("unsupported GnssMeasurementsEvent signature")
+                }
+                return type.getDeclaredConstructor(*parameters).apply { isAccessible = true }
+                    .newInstance(*args) as GnssMeasurementsEvent
+            } catch (failure: Throwable) {
+                Logger.error("Synthetic raw event ctor ${
+                    parameters.joinToString(",") { it.simpleName }
+                } failed", failure)
+            }
         }
         // Last resort for an OEM that hides the constructor but keeps the AOSP field names.
-        return runCatching {
+        return try {
             val instance = Reflection.newInstance(type) as GnssMeasurementsEvent
             setField(instance, "mFlag", 1)
             setField(instance, "mClock", clock)
@@ -119,7 +139,10 @@ internal object RawGnssAndroidEvent {
             setField(instance, "mGnssAgcs", emptyList<Any>())
             setField(instance, "mIsFullTracking", true)
             instance
-        }.getOrNull()
+        } catch (failure: Throwable) {
+            Logger.error("Synthetic raw event field fallback failed", failure)
+            null
+        }
     }
 
     private fun setField(target: Any, name: String, value: Any) {

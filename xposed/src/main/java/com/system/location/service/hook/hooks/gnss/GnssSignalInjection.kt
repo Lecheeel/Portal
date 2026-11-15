@@ -20,6 +20,10 @@ object GnssSignalInjection {
     private val failures = LogRateLimiter()
     private val rawReadyListeners = java.util.Collections.newSetFromMap(
         java.util.concurrent.ConcurrentHashMap<android.os.IBinder, Boolean>())
+    /** Binder -> callback for synthetic GNSS lifecycle callbacks, one pair per listener. */
+    private val startedListeners = java.util.concurrent.ConcurrentHashMap<android.os.IBinder, IInterface>()
+    private val firstFixListeners = java.util.Collections.newSetFromMap(
+        java.util.concurrent.ConcurrentHashMap<android.os.IBinder, Boolean>())
     private val worker = DeliveryWorker("GnssSignalInjection", { 1000 },
         tick = ::tick, failure = { error -> report("worker", error) })
 
@@ -33,12 +37,25 @@ object GnssSignalInjection {
 
     fun stop(): Boolean {
         if (!pause()) return false
+        startedListeners.values.forEach { listener ->
+            invokeLifecycle(listener, "onGnssStopped", emptyArray<Any?>())
+        }
+        startedListeners.clear()
+        firstFixListeners.clear()
         GnssListenerRouting.clear()
         NmeaListenerRouting.clear()
         RawGnssCallbacks.clear()
         RawGnssSyntheticDelivery.clear()
         rawReadyListeners.clear()
         return true
+    }
+
+    private fun invokeLifecycle(listener: IInterface, name: String, args: Array<Any?>) {
+        val method = listener.javaClass.methods.firstOrNull {
+            it.name == name && it.parameterTypes.size == args.size
+        } ?: return
+        runCatching { HookRuntime.invokeOriginalMethod(method, listener, args) }
+            .onFailure { Logger.warn("Synthetic GNSS $name failed: ${it.message}") }
     }
 
     private fun tick() {
@@ -60,6 +77,15 @@ object GnssSignalInjection {
                 GnssListenerRouting.deliverOnce(listener, publication.frame.toString()) {
                     if (!receiverDeliveryAllowed(context.state, initial.simulationGeneration,
                             FakeLoc.runtimeSnapshots.observation())) return@deliverOnce false
+                    // Real status lifecycle is suppressed while active; provide the equivalent
+                    // synthetic start/first-fix sequence so status consumers do not stall.
+                    val binder = listener.asBinder()
+                    if (startedListeners.putIfAbsent(binder, listener) == null) {
+                        invokeLifecycle(listener, "onGnssStarted", emptyArray<Any?>())
+                    }
+                    if (firstFixListeners.add(binder)) {
+                        invokeLifecycle(listener, "onFirstFix", arrayOf<Any?>(0))
+                    }
                     HookRuntime.invokeOriginalMethod(method, listener, ReceiverGnssStatusAdapter.arguments(method, publication))
                     true
                 }

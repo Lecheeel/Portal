@@ -53,9 +53,11 @@ class NmeaStatusLeakDeviceTest {
             assertTrue(manager.registerGnssStatusCallback({ it.run() }, status))
             Thread.sleep(6_000)
             assertEquals("Protected listener received real NMEA", 0, nmea.size)
-            assertEquals("Protected listener received real onStarted", 0, started)
-            assertEquals("Protected listener received real onFirstFix", 0, firstFix)
-            assertEquals("Protected listener received real onStopped", 0, stopped)
+            // One synthetic lifecycle is expected. A second call would mean a real framework
+            // onStarted/onFirstFix leaked through the guard.
+            assertEquals("Unexpected onStarted count", 1, started)
+            assertEquals("Unexpected onFirstFix count", 1, firstFix)
+            assertEquals("Protected listener received synthetic or real onStopped", 0, stopped)
         } finally {
             manager.removeNmeaListener(nmeaListener)
             manager.unregisterGnssStatusCallback(status)

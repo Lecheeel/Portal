@@ -79,6 +79,7 @@ internal fun QuickReplayCard(
             if (environment) Box {
                 PortalActionRow("回放环境", environmentLabel, { picker = "environment" }, enabled = !state.busy)
                 DropdownMenu(expanded = picker == "environment", onDismissRequest = { picker = null }) {
+                    DropdownMenuItem(text = { Text("关闭环境模拟") }, onClick = { picker = null; model.disableEnvironment() })
                     DropdownMenuItem(text = { Text("程序生成") }, onClick = { picker = null; model.environment("") })
                     state.names.forEach { name ->
                         DropdownMenuItem(text = { Text(name) }, onClick = { picker = null; model.environment(name) })

@@ -58,6 +58,15 @@ class QuickReplayViewModel(application: Application) : AndroidViewModel(applicat
         }.apply()
     }
 
+    fun disableEnvironment() = change {
+        context.sharedPrefs.edit().apply {
+            putBoolean("enableMockWifi", false)
+            putBoolean("disableWifiScan", false)
+            putString("environmentSourceMode", "AUTO")
+            putString("replayEnvironmentName", "")
+        }.apply()
+    }
+
     fun satellite(mode: GnssSimulationMode?) {
         change {
             if (mode == GnssSimulationMode.REPLAY) {

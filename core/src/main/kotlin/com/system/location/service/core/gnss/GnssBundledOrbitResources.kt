@@ -14,6 +14,14 @@ object GnssBundledOrbitResources {
             read("igs-beidou-metadata.snx")).validate()
     } }
 
+    /** Shared UTC/GPS conversion for synthetic raw observations; null when the bundle is invalid. */
+    fun utcTimeScale(): GnssUtcTimeScale? = utc.getOrNull()
+
+    /** Bundled GPS almanac records used as the production fallback for LNAV-shaped ephemerides. */
+    fun gpsAlmanac(): List<GpsYumaAlmanac>? = gps.getOrNull()?.let { resource ->
+        runCatching { GpsYumaParser.parse(resource.yuma, resource.resolvedReferenceWeek).toList() }.getOrNull()
+    }
+
     /**
      * No network or local receiver access. The caller supplies its tested output envelope and
      * GPS-specific approximate-geometry age budget, rather than inheriting capture expiry.

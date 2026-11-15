@@ -7,7 +7,7 @@
     </item>
     <item android:title="模拟">
         <menu><group android:checkableBehavior="single">
-            <item android:id="@+id/nav_mock" android:icon="@drawable/ic_portal_location" android:title="@string/simulation_title" />
+            <item android:id="@+id/nav_mock" android:icon="@drawable/baseline_satellite_alt_24" android:title="@string/simulation_title" />
             <item android:id="@+id/nav_route_gallery" android:icon="@drawable/ic_portal_route" android:title="@string/menu_route_mock" />
         </group></menu>
     </item>

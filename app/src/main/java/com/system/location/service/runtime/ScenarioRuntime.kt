@@ -47,6 +47,7 @@ import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.smoothRouteMotion
 import com.system.location.service.ext.holdAtRouteEnd
 import com.system.location.service.service.MockServiceHelper
+import com.system.location.service.gnss.gnssReplayProblem
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
@@ -78,6 +79,18 @@ object ScenarioRuntime {
                 runCatching { MockServiceHelper.isGnssMockStart(context.getSystemService(LocationManager::class.java)) }
                     .getOrDefault(false)
             }
+        }
+    }
+
+    /** One serialized operation applies the saved replay combination without restarting movement. */
+    fun applyReplaySettings() = command {
+        if (!state.value.isActive || state.value.backend == BackendType.MOCK_PROVIDER) return@command false
+        withContext(Dispatchers.IO) {
+            if (context.gnssReplayProblem() != null) return@withContext false
+            val manager = context.getSystemService(LocationManager::class.java) ?: return@withContext false
+            if (!MockServiceHelper.isServiceInit()) MockServiceHelper.tryInitService(manager)
+            MockServiceHelper.putConfig(manager, context) &&
+                com.system.location.service.backend.xposed.activateReplay(context, manager)
         }
     }
 

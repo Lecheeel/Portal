@@ -34,7 +34,8 @@ class NativeBackend(private val context: Context) : LocationBackend {
         return BackendResult.Success
     }
     override suspend fun start(): BackendResult {
-        xposed.start()
+        val started = xposed.start()
+        if (started is BackendResult.Failure) return started
         sensorsEnabled = MockServiceHelper.setNativeEnabled(manager, true)
         if (!sensorsEnabled) return BackendResult.Failure(
             "NATIVE_ENABLE", "无法启用 Native 传感器", "停止后重试或改用 Xposed 后端"

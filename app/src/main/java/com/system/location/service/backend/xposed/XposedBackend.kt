@@ -12,6 +12,9 @@ import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.performance.PerformanceProbe
 import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.ext.sensorTargetPackages
+import com.system.location.service.gnss.gnssReplayOnStart
+import com.system.location.service.gnss.gnssReplayProblem
+import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
 
@@ -107,6 +110,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
         }
     }
     override suspend fun prepare(): BackendResult {
+        context.gnssReplayProblem()?.let { return BackendResult.Failure("GNSS_CAPTURE", it, "重新采集或在快捷回放中选择目标天空") }
         MockServiceHelper.tryInitService(manager)
         connected = MockServiceHelper.isServiceInit()
         if (!connected) return checked(false, "CONNECT", "启用 Xposed 模块的系统作用域并重启设备")
@@ -121,8 +125,7 @@ class XposedBackend(private val context: Context) : LocationBackend {
         return checked(MockServiceHelper.putConfig(manager, context), "CONFIGURE", "检查系统服务连接")
     }
     override suspend fun start(): BackendResult {
-        if (context.mockWifiEnabled) MockServiceHelper.startWifiMock(manager)
-        return BackendResult.Success
+        return checked(activateReplay(context, manager), "REPLAY_START", "检查系统模块连接后重试")
     }
     override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
         val started = SystemClock.elapsedRealtimeNanos()
@@ -146,3 +149,16 @@ class XposedBackend(private val context: Context) : LocationBackend {
     private fun checked(ok: Boolean, stage: String, suggestion: String) =
         if (ok) BackendResult.Success else BackendResult.Failure(stage, "Xposed 远程命令失败", suggestion)
 }
+
+/** Used under the runtime command lock for live changes, and during backend startup. */
+internal fun activateReplay(context: Context, manager: LocationManager): Boolean = ReplayActivation.apply(
+    context.mockWifiEnabled, context.gnssReplayOnStart && context.sharedPrefs.getString("gnssSimulationMode", "AUTONOMOUS") != "OFF",
+    setEnvironment = { enabled ->
+        val accepted = if (enabled) MockServiceHelper.startWifiMock(manager) else MockServiceHelper.stopWifiMock(manager)
+        accepted && MockServiceHelper.isWifiMockStart(manager) == enabled
+    },
+    setSatellite = { enabled ->
+        val accepted = if (enabled) MockServiceHelper.startGnssMock(manager) else MockServiceHelper.stopGnssMock(manager)
+        accepted && MockServiceHelper.isGnssMockStart(manager) == enabled
+    },
+)

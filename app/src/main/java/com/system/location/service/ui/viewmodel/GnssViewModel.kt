@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.system.location.service.ext.*
 import com.system.location.service.runtime.ScenarioRuntime
+import com.system.location.service.gnss.gnssReplayOnStart
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +44,7 @@ class GnssViewModel(application: Application) : AndroidViewModel(application) {
         val enabled = !state.value.running
         runCommand {
             val accepted = ScenarioRuntime.setGnssMock(enabled).await()
+            if (accepted) getApplication<Application>().gnssReplayOnStart = enabled
             mutableState.value = state.value.copy(
                 running = ScenarioRuntime.gnssMockRunning(),
                 message = if (accepted) null else "GNSS 操作失败，请检查系统模块连接和场景状态",

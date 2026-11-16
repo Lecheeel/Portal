@@ -38,6 +38,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
@@ -191,6 +195,8 @@ private fun CarrierIdentityScreen(
     var countryPickerSlot by remember { mutableStateOf<Int?>(null) }
     var carrierPickerSlot by remember { mutableStateOf<Int?>(null) }
     var status by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         onRegisterAppSelection { packages ->
@@ -380,7 +386,8 @@ private fun CarrierIdentityScreen(
                     onClick = {
                         runCatching {
                             val sims = drafts.mapNotNull { draft ->
-                                if (!draft.enabled) return@mapNotNull null
+                                if (!draft.enabled && draft.mcc.isBlank() && draft.mnc.isBlank() &&
+                                    draft.carrierName.isBlank()) return@mapNotNull null
                                 require(CarrierCountries.isValid(draft.countryIso)) {
                                     "SIM ${draft.slot} 国家/地区无效"
                                 }
@@ -389,7 +396,7 @@ private fun CarrierIdentityScreen(
                                 require(draft.carrierName.isNotBlank()) { "SIM ${draft.slot} 运营商名称不能为空" }
                                 SimCarrierProfile(
                                     slot = draft.slot,
-                                    enabled = true,
+                                    enabled = draft.enabled,
                                     countryIso = draft.countryIso.uppercase(Locale.ROOT),
                                     mcc = mcc,
                                     mnc = mnc,
@@ -399,23 +406,33 @@ private fun CarrierIdentityScreen(
                                     radio = draft.radio,
                                 )
                             }
-                            require(enabled && sims.isNotEmpty()) { "开启后至少配置一张 SIM" }
+                            require(!enabled || sims.any { it.enabled }) { "开启后至少配置一张 SIM" }
                             val config = CarrierIdentityConfig(mode = mode, sims = sims, appRoutes = routes.toList())
                             val json = Json.encodeToString(CarrierIdentityConfig.serializer(), config)
                             context.carrierIdentityJson = json
                             context.carrierIdentityEnabled = enabled
-                            val applied = runCatching {
-                                MockServiceHelper.putConfig(
-                                    context.getSystemService(android.location.LocationManager::class.java),
-                                    context,
-                                )
-                            }.getOrDefault(false)
-                            status = if (applied) "已保存并发送配置" else "已保存；当前场景未连接，下次生效"
+                            saving = true
+                            scope.launch {
+                                try {
+                                    val applied = withContext(Dispatchers.IO) {
+                                        runCatching {
+                                            MockServiceHelper.putConfig(
+                                                context.getSystemService(android.location.LocationManager::class.java),
+                                                context,
+                                            )
+                                        }.getOrDefault(false)
+                                    }
+                                    status = if (applied) "已保存并发送配置" else "已保存；当前场景未连接，下次生效"
+                                } finally {
+                                    saving = false
+                                }
+                            }
                             error = null
                         }.onFailure { error = it.message ?: "保存失败" }
                     },
+                    enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("保存并应用") }
+                ) { Text(if (saving) "正在应用…" else "保存并应用") }
                 status.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }

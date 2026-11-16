@@ -17,6 +17,9 @@ internal object CarrierSubscriptionCaches {
         // run in the phone peer after its asynchronous transfer, not just before dispatching it.
         val uid = runCatching { Process.myUid() }.getOrDefault(-1)
         if (uid != 1000 && uid != 1001) return
+        if (com.system.location.service.hook.utils.FakeLoc.isSystemServerProcess) {
+            CarrierRegistryHook.onConfigurationChanged()
+        }
         runCatching {
             val token = Binder.clearCallingIdentity()
             try {

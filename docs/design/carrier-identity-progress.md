@@ -11,6 +11,9 @@
 
 ## 2026-11-17 一致性修复
 
+- SIM 身份 PER_APP 矩阵双机各 1 项扩展回归通过：同一应用实际 UID 在未列入时列表/计数为空、快照不返回虚拟画像；指定 SIM2 仅返回该订阅、合法 SIM1 phoneIndex 查询重定向得到 SIM2/50501；REAL 再次为空；GLOBAL 恢复两卡，随后逐槽删除与权限断言继续通过。测试后还原偏好/后端并停止场景。此证据是同一 UID 顺序切换规则，不代表两个独立第三方应用同时隔离已实测；共享 UID 冲突仍为 core 证据。
+- 修复漏 Hook 的真实 AIDL getActiveSubInfoCount（原实现只处理 getActiveSubscriptionInfoCount 别名），PER_APP 下曾列表一张而计数零；原生计数期间禁用同线程列表覆盖，再加当前 caller 可见虚拟数，防止 GLOBAL 重复计数。五秒等待列表/数量收敛仍失败后定位并修复根因，不将等待放宽冒充修复。合法 phoneIndex 先校验范围再交给身份路由，避免原空槽提前阻断明确 SIM2 目标。
+
 - 双机真实 requestCellInfoUpdate 按两个持久订阅 ID 请求，各 1 项通过：US 310260/n71/127000、AU 50501/n78/640000，均非空且仅一个 serving，所有对象为 CellInfoNr，NCI/PCI 范围合法，不放开 hidden API。测试后恢复偏好、停止场景及原后端。这是每订阅单次异步请求证据，不是持续 CellInfo 监听或无参 getAllCellInfo 的双卡聚合验证。
 - 无参 getAllCellInfo 现与单次异步请求共用生成入口，聚合 caller 可见的虚拟槽；带订阅 ID 的请求仍仅返回对应槽。两台冷启动设备扩展各 1 项通过：总览包含 US/AU 两个 PLMN、分别为 n71/127000 与 n78/640000，每组一个 serving；随后逐订阅单次请求仍隔离。这补上同步总览证据，持续 CellInfoCallback 监听与混合实体/虚拟卡总览尚未设备验收。
 - 无卡持续监听注册成功后，对实际订阅 EVENT_CELL_INFO_CHANGED 的有效虚拟卡发送当前小区，原框架注册检查照常执行。两台冷启动设备扩展各 1 项通过：两张卡分别注册真实 TelephonyCallback.CellInfoListener，初始非空列表均为本槽 PLMN、band/ARFCN、一个 serving；同步双槽总览和逐卡单次请求继续通过，不放开 hidden API。finally 注销；本轮没有注销后观察或移动/配置变更/停止时的 CellInfo 持续通知证据，不能外推。

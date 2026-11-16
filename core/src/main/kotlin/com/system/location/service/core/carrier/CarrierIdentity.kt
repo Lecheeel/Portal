@@ -146,17 +146,19 @@ object CarrierCountries {
     )
 
     val all: List<CarrierCountry> by lazy {
+        val display = Locale.getDefault()
         Locale.getISOCountries()
             .map { iso ->
                 CarrierCountry(
                     iso = iso,
-                    displayName = Locale.getDefault().getDisplayCountry(Locale("", iso))
+                    // The receiver is the target country; the argument is the display language.
+                    displayName = Locale("", iso).getDisplayCountry(display)
                         .takeIf { it.isNotBlank() && it != iso }
                         ?: iso,
                     mcc = knownMcc[iso],
                 )
             }
-            .sortedWith(compareBy({ it.displayName.lowercase(Locale.getDefault()) }, { it.iso }))
+            .sortedWith(compareBy({ it.displayName.lowercase(display) }, { it.iso }))
     }
 
     fun byIso(iso: String): CarrierCountry? =

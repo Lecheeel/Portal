@@ -13,15 +13,20 @@ import io.github.libxposed.api.XposedInterface.Hooker
 
 /** Preserves real IDs while adding a bounded virtual subscription only when the caller may see it. */
 internal object CarrierSubscriptionHook {
+    private val countingPhysical = ThreadLocal.withInitial { false }
+    private val countMethods = setOf("getActiveSubscriptionInfoCount", "getActiveSubInfoCount")
     fun install(loader: ClassLoader) {
         listOf("com.android.internal.telephony.SubscriptionController",
             "com.android.internal.telephony.subscription.SubscriptionManagerService").forEach { name ->
             val type = Reflection.findClassIfExists(name, loader) ?: return@forEach
             val hook = Hooker { chain ->
-                if (CarrierIdentityRuntime.isResolving()) return@Hooker chain.proceed()
+                if (CarrierIdentityRuntime.isResolving() || countingPhysical.get()) return@Hooker chain.proceed()
                 if (Binder.getCallingUid() in setOf(1000, 1001) &&
                     chain.args.any { it == CarrierIdentityRuntime.PHYSICAL_QUERY_TAG }) return@Hooker chain.proceed()
-                val original = chain.proceed()
+                val original = if (chain.executable.name in countMethods) {
+                    countingPhysical.set(true)
+                    try { chain.proceed() } finally { countingPhysical.set(false) }
+                } else chain.proceed()
                 if (chain.executable.name == "getAccessibleSubscriptionInfoList") return@Hooker original
                 val virtuals = CarrierIdentityRuntime.virtualProfilesForCall(Binder.getCallingUid())
                 val requested = chain.args.firstOrNull() as? Int
@@ -60,7 +65,7 @@ internal object CarrierSubscriptionHook {
                         virtuals.firstOrNull { it.slot == slot }
                             ?.let(CarrierVirtualSubscription::info) ?: overlay(original)
                     }
-                    "getActiveSubscriptionInfoCount" -> {
+                    "getActiveSubscriptionInfoCount", "getActiveSubInfoCount" -> {
                         val physical = (original as? Int) ?: 0
                         physical + virtuals.size
                     }
@@ -81,7 +86,7 @@ internal object CarrierSubscriptionHook {
                 "getActiveSubscriptionInfo", "getActiveSubscriptionInfoForIccId",
                 "getActiveSubscriptionInfoForSimSlotIndex", "getActiveSubscriptionInfoList",
                 "getAccessibleSubscriptionInfoList", "getAvailableSubscriptionInfoList",
-                "getSelectableSubscriptionInfoList", "getActiveSubscriptionInfoCount",
+                "getSelectableSubscriptionInfoList", "getActiveSubscriptionInfoCount", "getActiveSubInfoCount",
                 "getActiveSubscriptionInfoCountMax", "getDefaultSubId", "getDefaultDataSubId",
                 "getDefaultVoiceSubId", "getDefaultSmsSubId")
                 .forEach { method -> type.hookAllMethods(method, hook) }

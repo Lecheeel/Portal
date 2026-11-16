@@ -39,6 +39,7 @@ class CarrierIdentityCanaryDeviceTest {
         assertEquals("310260", manager.networkOperator)
         assertEquals(TelephonyManager.NETWORK_TYPE_NR, manager.networkType)
         assertEquals(TelephonyManager.PHONE_TYPE_GSM, manager.phoneType)
+        assertTrue(manager.simCarrierId > 0)
         assertTrue(subscriptions.activeSubscriptionInfoList.orEmpty().any {
             it.subscriptionId == 900000001 && it.carrierName == "T-Mobile"
         })

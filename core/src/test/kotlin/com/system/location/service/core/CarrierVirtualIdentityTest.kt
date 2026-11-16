@@ -29,6 +29,10 @@ class CarrierVirtualIdentityTest {
         assertEquals(15, imsi.length)
         assertTrue(imsi.startsWith("310260"))
         assertEquals(iccid, CarrierVirtualIdentity.iccid(us))
+        val carrierId = CarrierVirtualIdentity.carrierId(us)
+        assertTrue(carrierId in 1_000..8_999)
+        assertEquals(carrierId, CarrierVirtualIdentity.carrierId(us))
+        assertNotEquals(carrierId, CarrierVirtualIdentity.carrierId(cn))
     }
 
     @Test fun usAustraliaAndChinaBandCatalogsUseSupportedRasters() {

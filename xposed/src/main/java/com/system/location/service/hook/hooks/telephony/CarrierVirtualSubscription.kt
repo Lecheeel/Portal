@@ -27,7 +27,7 @@ internal object CarrierVirtualSubscription {
         set(info, "mCountryIso", profile.countryIso.lowercase(java.util.Locale.ROOT))
         set(info, "mIsEmbedded", false)
         set(info, "mCardId", 0)
-        set(info, "mCarrierId", CarrierVirtualIdentity.UNKNOWN_CARRIER_ID)
+        set(info, "mCarrierId", CarrierVirtualIdentity.carrierId(profile))
         set(info, "mProfileClass", 0)
         set(info, "mSubscriptionType", 0)
         set(info, "mGroupUUID", null)

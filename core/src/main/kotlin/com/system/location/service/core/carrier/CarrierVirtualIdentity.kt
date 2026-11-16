@@ -19,6 +19,13 @@ object CarrierVirtualIdentity {
     fun slotForSubscriptionId(subId: Int): Int? =
         (subId - VIRTUAL_SUB_ID_BASE).takeIf { it in 1..2 }
 
+    /**
+     * Stable positive carrier id. Real devices use -1 for "unknown"; a named virtual carrier with
+     * an unknown id is internally inconsistent and is a detectable fingerprint.
+     */
+    fun carrierId(profile: SimCarrierProfile): Int =
+        1_000 + ((profile.mcc * 31 + profile.mnc * 17 + profile.slot) % 8_000)
+
     /** 20-digit ICCID, including the Luhn check digit. */
     fun iccid(profile: SimCarrierProfile): String {
         val body = buildString {

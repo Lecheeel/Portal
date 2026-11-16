@@ -65,7 +65,7 @@ object CarrierClientHook {
                     in carrierId -> if (profile.virtual) {
                         when (name) {
                             "getSimCarrierId", "getSimSpecificCarrierId" ->
-                                CarrierVirtualIdentity.UNKNOWN_CARRIER_ID
+                                CarrierVirtualIdentity.carrierId(profile)
                             else -> profile.carrierName
                         }
                     } else original

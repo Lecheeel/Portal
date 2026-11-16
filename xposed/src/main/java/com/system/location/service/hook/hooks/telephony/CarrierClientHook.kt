@@ -77,6 +77,49 @@ object CarrierClientHook {
             iccid + carrierId).forEach {
             HookInstaller.hookAllMethods(type, it, hook)
         }
+        installSubscriptionManager(loader)
+    }
+
+    /**
+     * MIUI's plugin controller reads SubId/SimState through static SubscriptionManager helpers.
+     * These calls never enter PhoneInterfaceManager, so they need their own overlay.
+     */
+    private fun installSubscriptionManager(loader: ClassLoader) {
+        val type = Reflection.findClassIfExists("android.telephony.SubscriptionManager", loader) ?: return
+        val hook = Hooker { chain ->
+            if (reading.get() == true) return@Hooker chain.proceed()
+            reading.set(true)
+            try {
+                val original = chain.proceed()
+                val name = chain.executable.name
+                val requestedSlot = (chain.args.firstOrNull() as? Int)?.plus(1) ?: 1
+                val profile = virtualForSlot(requestedSlot) ?: return@Hooker original
+                when (name) {
+                    "getSubId" -> intArrayOf(CarrierVirtualIdentity.subscriptionId(profile.slot))
+                    "getDefaultSubscriptionId", "getDefaultDataSubscriptionId",
+                    "getDefaultVoiceSubscriptionId", "getDefaultSmsSubscriptionId",
+                    "getDefaultSubscriptionIdForPhone" ->
+                        CarrierVirtualIdentity.subscriptionId(profile.slot)
+                    else -> original
+                }
+            } finally { reading.set(false) }
+        }
+        listOf("getSubId", "getDefaultSubscriptionId", "getDefaultDataSubscriptionId",
+            "getDefaultVoiceSubscriptionId", "getDefaultSmsSubscriptionId",
+            "getDefaultSubscriptionIdForPhone").forEach {
+            HookInstaller.hookAllMethods(type, it, hook)
+        }
+    }
+
+    internal fun statusBarProfile(): SimCarrierProfile? {
+        val ids = listOf(CarrierVirtualIdentity.subscriptionId(1),
+            CarrierVirtualIdentity.subscriptionId(2), -1)
+        return ids.firstNotNullOfOrNull { id -> snapshot("subscription", id) }
+    }
+
+    private fun virtualForSlot(slot: Int): SimCarrierProfile? {
+        val profile = statusBarProfile() ?: return null
+        return profile.takeIf { it.slot == slot && it.virtual }
     }
 
     private fun snapshot(kind: String, id: Int): SimCarrierProfile? = runCatching {

@@ -56,7 +56,9 @@ class CarrierVirtualNoSimDeviceTest {
             assertEquals("virtual subscription count", 1, active.size)
             val info = active.single()
             assertEquals(0, info.simSlotIndex)
-            assertEquals(CarrierVirtualIdentity.subscriptionId(1), info.subscriptionId)
+            assertTrue(info.subscriptionId in 1..65535)
+            assertEquals(com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
+                preferences.getString("carrierIdentityJson", "")!!).sims.single().virtualSubscriptionId, info.subscriptionId)
             assertEquals("T-Mobile", info.carrierName.toString())
             assertEquals("310", info.mccString)
             assertEquals("260", info.mncString)
@@ -142,8 +144,12 @@ class CarrierVirtualNoSimDeviceTest {
             }
             val first = active.first { it.simSlotIndex == 0 }
             val second = active.first { it.simSlotIndex == 1 }
-            assertEquals(CarrierVirtualIdentity.subscriptionId(1), first.subscriptionId)
-            assertEquals(CarrierVirtualIdentity.subscriptionId(2), second.subscriptionId)
+            assertTrue(first.subscriptionId in 1..65535 && second.subscriptionId in 1..65535)
+            assertTrue(first.subscriptionId != second.subscriptionId)
+            val assignedProfiles = com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
+                preferences.getString("carrierIdentityJson", "")!!).sims.associateBy { it.slot }
+            assertEquals(assignedProfiles.getValue(1).virtualSubscriptionId, first.subscriptionId)
+            assertEquals(assignedProfiles.getValue(2).virtualSubscriptionId, second.subscriptionId)
             assertEquals("T-Mobile", first.carrierName.toString())
             assertEquals("Telstra", second.carrierName.toString())
             assertEquals("310", first.mccString)

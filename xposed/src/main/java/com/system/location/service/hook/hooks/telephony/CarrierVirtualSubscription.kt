@@ -17,7 +17,7 @@ internal object CarrierVirtualSubscription {
         val builderClass = Class.forName("android.telephony.SubscriptionInfo\$Builder")
         val builder = Reflection.newInstance(builderClass)
         fun set(name: String, value: Any) { Reflection.callMethod(builder, name, value) }
-        set("setId", CarrierVirtualIdentity.subscriptionId(profile.slot))
+        set("setId", CarrierVirtualIdentity.subscriptionId(profile))
         set("setIccId", if (includeIdentifiers) CarrierVirtualIdentity.iccid(profile) else "")
         set("setSimSlotIndex", profile.slot - 1)
         set("setDisplayName", profile.operatorName)
@@ -30,7 +30,7 @@ internal object CarrierVirtualSubscription {
         // the framework Builder defaults, rather than Unsafe's null/zero uninitialized fields.
         set("setPortIndex", 0)
         val info = Reflection.callMethod(builder, "build") as SubscriptionInfo
-        check(info.subscriptionId == CarrierVirtualIdentity.subscriptionId(profile.slot))
+        check(info.subscriptionId == CarrierVirtualIdentity.subscriptionId(profile))
         check(info.simSlotIndex == profile.slot - 1)
         check(info.mccString == profile.mcc.toString().padStart(3, '0'))
         check(info.mncString == profile.mnc.toString().padStart(profile.mncDigits, '0'))

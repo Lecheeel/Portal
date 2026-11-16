@@ -22,7 +22,8 @@ internal object CarrierSubscriptionHook {
                 val original = chain.proceed()
                 val virtuals = CarrierIdentityRuntime.virtualProfilesForCall(Binder.getCallingUid())
                 when (chain.executable.name) {
-                    "getActiveSubscriptionInfoList", "getAccessibleSubscriptionInfoList" ->
+                    "getActiveSubscriptionInfoList", "getAccessibleSubscriptionInfoList",
+                    "getAvailableSubscriptionInfoList", "getSelectableSubscriptionInfoList" ->
                         mergeList(original, virtuals)
                     "getActiveSubscriptionInfo" -> {
                         val id = chain.args.firstOrNull() as? Int
@@ -54,7 +55,8 @@ internal object CarrierSubscriptionHook {
             }
             listOf("getActiveSubscriptionInfo", "getActiveSubscriptionInfoForIccId",
                 "getActiveSubscriptionInfoForSimSlotIndex", "getActiveSubscriptionInfoList",
-                "getAccessibleSubscriptionInfoList", "getActiveSubscriptionInfoCount",
+                "getAccessibleSubscriptionInfoList", "getAvailableSubscriptionInfoList",
+                "getSelectableSubscriptionInfoList", "getActiveSubscriptionInfoCount",
                 "getActiveSubscriptionInfoCountMax", "getDefaultSubId", "getDefaultDataSubId",
                 "getDefaultVoiceSubId", "getDefaultSmsSubId")
                 .forEach { method -> type.hookAllMethods(method, hook) }

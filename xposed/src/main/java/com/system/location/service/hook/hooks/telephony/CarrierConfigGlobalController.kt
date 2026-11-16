@@ -30,6 +30,20 @@ object CarrierConfigGlobalController {
 
     fun recordFailure() { status = "failed" }
 
+    fun supportsOwnedOverrides(): Boolean {
+        if (!FakeLoc.isSystemServerProcess) return false
+        return withSystemIdentity {
+            runCatching {
+                val loader = carrierConfigLoader() ?: return@runCatching false
+                val reply = loader.javaClass.getMethod("getConfigForSubIdWithFeature",
+                    Int::class.javaPrimitiveType, String::class.java, String::class.java)
+                    .invoke(loader, SubscriptionManager.INVALID_SUBSCRIPTION_ID, "android",
+                        CarrierOverrideProtocol.FEATURE) as? PersistableBundle
+                reply?.getBoolean(CarrierOverrideProtocol.SUPPORTED) == true
+            }.getOrDefault(false)
+        }
+    }
+
     @Synchronized
     fun saveReloadState(): android.os.Bundle = android.os.Bundle().apply {
         putIntArray("subscriptions", appliedSubIds.toIntArray())

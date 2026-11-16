@@ -20,6 +20,9 @@ object ConfigCommand {
             NativeCommand.disable()
         }
         rely.putString("carrier_identity_status", CarrierConfigGlobalController.status)
+        if (published.configuration.carrierIdentityEnabled) {
+            rely.putBoolean("carrier_override_supported", CarrierConfigGlobalController.supportsOwnedOverrides())
+        }
         return true
     }
 

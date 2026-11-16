@@ -27,7 +27,8 @@ class CarrierVirtualNoSimDeviceTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val automation = instrumentation.uiAutomation
-        automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE)
+        automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE,
+            "android.permission.READ_PRIVILEGED_PHONE_STATE")
         val preferences = context.sharedPrefs
         val originalPreferences = preferences.all
         val keys = listOf("carrierIdentityEnabled", "carrierIdentityJson")
@@ -100,7 +101,8 @@ class CarrierVirtualNoSimDeviceTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val automation = instrumentation.uiAutomation
-        automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE)
+        automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE,
+            "android.permission.READ_PRIVILEGED_PHONE_STATE")
         val preferences = context.sharedPrefs
         val originalPreferences = preferences.all
         val keys = listOf("carrierIdentityEnabled", "carrierIdentityJson")
@@ -152,6 +154,39 @@ class CarrierVirtualNoSimDeviceTest {
                 preferences.getString("carrierIdentityJson", "")!!).sims.associateBy { it.slot }
             assertEquals(CarrierVirtualIdentity.iccid(persisted.getValue(1)), first.iccId)
             assertEquals(CarrierVirtualIdentity.iccid(persisted.getValue(2)), second.iccId)
+            automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE)
+            try {
+                val redacted = subscriptions.activeSubscriptionInfoList.orEmpty()
+                assertEquals(2, redacted.size)
+                assertTrue("READ_PHONE_STATE must not reveal ICCID", redacted.all { it.iccId.isNullOrEmpty() })
+                val reply = android.os.Bundle().apply {
+                    putString("kind", "phone"); putInt("id", 0); putBoolean("identifiers", true)
+                    putString("imsi", "must be removed"); putString("iccid", "must be removed")
+                }
+                location.sendExtraCommand("fused_ext",
+                    com.system.location.service.hook.hooks.telephony.CarrierIdentitySnapshotCommand.COMMAND, reply)
+                val encoded = reply.getString("profile")!!
+                val publicProfile = Json.decodeFromString(SimCarrierProfile.serializer(), encoded)
+                assertEquals(0L, publicProfile.identitySeed)
+                assertTrue(!encoded.contains("identitySeed"))
+                assertTrue(!reply.containsKey("imsi"))
+                assertTrue(!reply.containsKey("iccid"))
+            } finally {
+                automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE,
+                    "android.permission.READ_PRIVILEGED_PHONE_STATE")
+            }
+            val privilegedReply = android.os.Bundle().apply {
+                putString("kind", "phone"); putInt("id", 0); putBoolean("identifiers", true)
+            }
+            location.sendExtraCommand("fused_ext",
+                com.system.location.service.hook.hooks.telephony.CarrierIdentitySnapshotCommand.COMMAND, privilegedReply)
+            assertEquals(CarrierVirtualIdentity.imsi(persisted.getValue(1)), privilegedReply.getString("imsi"))
+            assertEquals(CarrierVirtualIdentity.iccid(persisted.getValue(1)), privilegedReply.getString("iccid"))
+            assertTrue(!privilegedReply.getString("profile")!!.contains("identitySeed"))
+            privilegedReply.putBoolean("identifiers", false)
+            location.sendExtraCommand("fused_ext",
+                com.system.location.service.hook.hooks.telephony.CarrierIdentitySnapshotCommand.COMMAND, privilegedReply)
+            assertTrue(!privilegedReply.containsKey("imsi") && !privilegedReply.containsKey("iccid"))
             System.err.println("PORTAL_VIRTUAL_DUAL_SLOT_READY ${first.subscriptionId} ${second.subscriptionId}")
             val seeded = com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
                 preferences.getString("carrierIdentityJson", "")!!)

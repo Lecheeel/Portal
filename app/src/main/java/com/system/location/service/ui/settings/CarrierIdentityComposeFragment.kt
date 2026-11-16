@@ -84,6 +84,7 @@ import java.util.Locale
 private data class SimDraft(
     val slot: Int,
     val enabled: Boolean = false,
+    val virtual: Boolean = false,
     val countryIso: String = "CN",
     val mcc: String = "",
     val mnc: String = "",
@@ -313,6 +314,16 @@ private fun CarrierIdentityScreen(
                                 onCheckedChange = { drafts[selectedSlot - 1] = draft.copy(enabled = it) },
                             )
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("无卡时模拟此 SIM", style = MaterialTheme.typography.titleSmall)
+                                Text("此槽没有活跃实体卡时使用虚拟订阅；有实体卡时优先覆盖实体卡。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(checked = draft.virtual,
+                                onCheckedChange = { drafts[selectedSlot - 1] = draft.copy(virtual = it) })
+                        }
                         val countryLabel = CarrierCountries.byIso(draft.countryIso)?.let {
                             "${it.displayName} (${it.iso})"
                         } ?: draft.countryIso
@@ -458,6 +469,7 @@ private fun CarrierIdentityScreen(
                                 SimCarrierProfile(
                                     slot = draft.slot,
                                     enabled = draft.enabled,
+                                    virtual = draft.virtual,
                                     countryIso = draft.countryIso.uppercase(Locale.ROOT),
                                     mcc = mcc,
                                     mnc = mnc,
@@ -657,6 +669,7 @@ private fun CarrierPresetDialog(
 private fun SimCarrierProfile.toDraft(): SimDraft = SimDraft(
     slot = slot,
     enabled = enabled,
+    virtual = virtual,
     countryIso = countryIso,
     mcc = mcc.toString(),
     mnc = mnc.toString().padStart(mncDigits, '0'),

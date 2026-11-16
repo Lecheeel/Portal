@@ -18,9 +18,15 @@ class CarrierVirtualIdentityTest {
         mncDigits = 2, carrierName = "Telstra", nrBand = 78, nrArfcn = 640000)
 
     @Test fun virtualIdsAreStableValidLengthsAndLuhnChecked() {
-        assertEquals(900_000_001, CarrierVirtualIdentity.subscriptionId(1))
-        assertEquals(1, CarrierVirtualIdentity.slotForSubscriptionId(900_000_001))
+        val assigned = us.copy(virtualSubscriptionId = 47)
+        assertEquals(47, CarrierVirtualIdentity.subscriptionId(assigned))
+        assertEquals(2, CarrierVirtualIdentity.slotForSubscriptionId(47, listOf(assigned)))
+        assertNull(CarrierVirtualIdentity.slotForSubscriptionId(900_000_002, listOf(assigned)))
+        assertEquals(1, CarrierVirtualIdentity.slotForSubscriptionId(900_000_001)) // legacy recognition
         assertNull(CarrierVirtualIdentity.slotForSubscriptionId(42))
+        assertThrows(IllegalArgumentException::class.java) {
+            CarrierIdentityConfig(sims = listOf(assigned, assigned.copy(slot = 1)))
+        }
         val iccid = CarrierVirtualIdentity.iccid(us)
         assertEquals(20, iccid.length)
         assertTrue(iccid.all(Char::isDigit))

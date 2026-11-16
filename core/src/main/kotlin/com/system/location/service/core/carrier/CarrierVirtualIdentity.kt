@@ -7,13 +7,18 @@ object CarrierVirtualIdentity {
     const val VIRTUAL_SUB_ID_BASE = 900_000_000
     const val UNKNOWN_CARRIER_ID = -1
 
+    fun subscriptionId(profile: SimCarrierProfile): Int =
+        profile.virtualSubscriptionId.takeIf { it > 0 } ?: subscriptionId(profile.slot)
+
+    /** Legacy compatibility only; controllers assign and persist a profile ID before sending. */
     fun subscriptionId(slot: Int): Int {
         require(slot in 1..2) { "SIM slot must be 1 or 2" }
         return VIRTUAL_SUB_ID_BASE + slot
     }
 
-    fun slotForSubscriptionId(subId: Int): Int? =
-        (subId - VIRTUAL_SUB_ID_BASE).takeIf { it in 1..2 }
+    fun slotForSubscriptionId(subId: Int, profiles: List<SimCarrierProfile> = emptyList()): Int? =
+        if (profiles.isNotEmpty()) profiles.firstOrNull { subscriptionId(it) == subId }?.slot
+        else (subId - VIRTUAL_SUB_ID_BASE).takeIf { it in 1..2 }
 
     /** Base MNO identities from AOSP carrier_list.textpb (no MVNO GID/SPN matching).
      * Unknown PLMNs retain Android's -1; a positive arbitrary number is not a carrier identity.

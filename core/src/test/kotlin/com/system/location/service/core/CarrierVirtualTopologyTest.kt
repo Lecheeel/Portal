@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CarrierVirtualTopologyTest {
     private fun profile(slot: Int) = SimCarrierProfile(slot, virtual = true, countryIso = "AU",
-        mcc = 505, mnc = 1, mncDigits = 2, carrierName = "Test")
+        mcc = 505, mnc = 1, mncDigits = 2, carrierName = "Test", virtualSubscriptionId = 57 + slot * 13)
 
     @Test fun phoneAndOpaqueSubscriptionMappingAreInverseForEachVisibleSlot() {
         val profiles = listOf(profile(1), profile(2))
@@ -23,11 +23,11 @@ class CarrierVirtualTopologyTest {
     @Test fun simTwoOnlyAndHiddenProfilesDoNotInventSimOneOrActiveSubscriptions() {
         val profiles = listOf(profile(2))
         assertNull(CarrierVirtualTopology.subscriptionForPhone(profiles, 0))
-        assertEquals(CarrierVirtualIdentity.subscriptionId(2), CarrierVirtualTopology.subscriptionForPhone(profiles, 1))
-        assertNull(CarrierVirtualTopology.slotForSubscription(profiles, CarrierVirtualIdentity.subscriptionId(1)))
+        assertEquals(CarrierVirtualIdentity.subscriptionId(profile(2)), CarrierVirtualTopology.subscriptionForPhone(profiles, 1))
+        assertNull(CarrierVirtualTopology.slotForSubscription(profiles, CarrierVirtualIdentity.subscriptionId(profile(1))))
         assertNull(CarrierVirtualTopology.subscriptionForPhone(listOf(profile(1).copy(enabled = false)), 0))
         assertNull(CarrierVirtualTopology.subscriptionForPhone(listOf(profile(1).copy(virtual = false)), 0))
-        assertArrayEquals(intArrayOf(42, CarrierVirtualIdentity.subscriptionId(2)),
+        assertArrayEquals(intArrayOf(42, CarrierVirtualIdentity.subscriptionId(profile(2))),
             CarrierVirtualTopology.activeIds(intArrayOf(42, 42), profiles))
         assertArrayEquals(intArrayOf(42), CarrierVirtualTopology.activeIds(intArrayOf(42), emptyList()))
     }

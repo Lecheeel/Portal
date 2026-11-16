@@ -34,8 +34,11 @@ data class SimCarrierProfile(
     val nrArfcn: Int = CarrierNrChannel.defaultArfcn(nrBand),
     /** Persisted by the controller, not regenerated in injected processes. Zero is legacy input. */
     val identitySeed: Long = 0L,
+    /** Controller-allocated opaque ID; zero is an unassigned legacy profile. */
+    val virtualSubscriptionId: Int = 0,
 ) {
     init {
+        require(virtualSubscriptionId in 0 until Int.MAX_VALUE) { "Invalid virtual subscription id" }
         require(CarrierNrChannel.valid(nrBand, nrArfcn)) { "NR band and ARFCN are inconsistent" }
         require(slot in 1..2) { "SIM slot must be 1 or 2" }
         require(countryIso.length == 2 && countryIso.all(Char::isLetter)) {
@@ -88,6 +91,8 @@ data class CarrierIdentityConfig(
     init {
         require(sims.size <= 2) { "At most two SIM profiles are supported" }
         require(sims.map { it.slot }.distinct().size == sims.size) { "Duplicate SIM slot" }
+        val assigned = sims.map { it.virtualSubscriptionId }.filter { it != 0 }
+        require(assigned.distinct().size == assigned.size) { "Duplicate virtual subscription id" }
         require(appRoutes.size <= MAX_ROUTES) { "Too many carrier routes" }
         val packages = appRoutes.map { it.packageName.lowercase(Locale.ROOT) }
         require(packages.distinct().size == packages.size) { "Duplicate carrier package route" }

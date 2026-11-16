@@ -50,7 +50,7 @@ object CellInfoSynthesis {
         val replay = capturedProfile(state, point)
         val hasCapturedCells = !replay?.cells.isNullOrEmpty() || !replay?.cdmaCells.isNullOrEmpty()
         if (!state.simReady && !hasCapturedCells) return CellInfoSynthesisResult.Unavailable
-        val cells = runCatching { build(state.environmentSourceMode, replay, identity) }.getOrDefault(emptyList())
+        val cells = runCatching { build(state.environmentSourceMode, replay, identity, point, state.environmentSeed) }.getOrDefault(emptyList())
         return cells.takeIf { it.isNotEmpty() }
             ?.let(CellInfoSynthesisResult::Synthetic)
             ?: CellInfoSynthesisResult.Unavailable
@@ -81,7 +81,7 @@ object CellInfoSynthesis {
             if (!state.simReady && !hasCapturedCells) {
                 return@Hooker unavailable(original, "virtual_sim_not_ready")
             }
-            val cells = runCatching { build(state.environmentSourceMode, replay, identity) }.getOrDefault(emptyList())
+            val cells = runCatching { build(state.environmentSourceMode, replay, identity, point, state.environmentSeed) }.getOrDefault(emptyList())
             if (cells.isEmpty()) return@Hooker unavailable(original, "target_cell_profile_unavailable")
             if (FakeLoc.enableDebugLog) Logger.debug("getAllCellInfo: ${cells.size} synthetic cells")
             selectCellInfoResult(protectedCall = true, frameworkResult = original, synthetic = cells)
@@ -122,10 +122,17 @@ object CellInfoSynthesis {
         sourceMode: EnvironmentSourceMode,
         replay: com.system.location.service.core.environment.EnvironmentProfile?,
         identity: com.system.location.service.core.carrier.SimCarrierProfile? = null,
+        point: Wgs84? = null,
+        seed: Long = 0L,
     ): List<CellInfo> {
-        val records = selectExplicitCellRecords(sourceMode, replay) ?: return emptyList()
+        val records = selectExplicitCellRecords(sourceMode, replay)
+            ?: if (identity?.radio == com.system.location.service.core.carrier.CarrierRadio.NR && point != null)
+                ExplicitCellRecords(emptyList(), emptyList()) else return emptyList()
         val towers = identity?.let {
-            com.system.location.service.core.carrier.CarrierCellIdentity.overlay(records.cells, it)
+            val matching = com.system.location.service.core.carrier.CarrierCellIdentity.overlay(records.cells, it)
+            if (matching.isEmpty() && it.radio == com.system.location.service.core.carrier.CarrierRadio.NR && point != null)
+                com.system.location.service.core.carrier.CarrierNrCellSource.cellsAt(point, seed, it, records.cells)
+            else matching
         } ?: records.cells
         val standardCells = buildAllOrNothing(towers) { tower ->
             when (tower.type) {
@@ -249,7 +256,7 @@ object CellInfoSynthesis {
             val identity = Reflection.newInstance(
                 CellIdentityNr::class.java,
                 tower.pci ?: Int.MAX_VALUE, tower.areaCode, tower.arfcn ?: Int.MAX_VALUE,
-                intArrayOf(),
+                tower.bands.toIntArray(),
                 tower.mcc.toString().padStart(3, '0'), tower.mnc.toString().padStart(mncDigits, '0'),
                 tower.cellId, tower.operatorName, tower.operatorName, emptyList<String>(),
             ) as CellIdentityNr

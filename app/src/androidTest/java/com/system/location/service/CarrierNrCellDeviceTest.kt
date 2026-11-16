@@ -13,7 +13,7 @@ class CarrierNrCellDeviceTest {
     @Test fun nrIdentityAndSignalSurviveAndroidConstructionAndParcel() {
         val tower = CellTower(CellType.NR, 310, 260, 0x234567, 0x123456789L,
             pci = 777, arfcn = 640000, rsrp = -88, rsrq = -12, rssnr = 20,
-            registered = true, mncDigits = 3, operatorName = "Test NR")
+            registered = true, mncDigits = 3, operatorName = "Test NR", bands = listOf(78))
         val cell = CellInfoSynthesis.buildNrResult(tower).getOrThrow() as CellInfoNr
         assertNotNull("NR Android object construction failed", cell)
         fun verify(value: CellInfoNr) {
@@ -25,6 +25,7 @@ class CarrierNrCellDeviceTest {
             assertEquals(777, identity.pci)
             assertEquals(tower.areaCode, identity.tac)
             assertEquals(640000, identity.nrarfcn)
+            assertArrayEquals(intArrayOf(78), identity.bands)
             assertEquals("Test NR", identity.operatorAlphaLong)
             assertEquals(-88, signal.ssRsrp)
             assertEquals(-12, signal.ssRsrq)
@@ -32,7 +33,7 @@ class CarrierNrCellDeviceTest {
             assertTrue(value.isRegistered)
             assertEquals(CellInfo.CONNECTION_PRIMARY_SERVING, value.cellConnectionStatus)
         }
-        verify(cell!!)
+        verify(cell)
         val parcel = Parcel.obtain()
         try {
             cell.writeToParcel(parcel, 0)

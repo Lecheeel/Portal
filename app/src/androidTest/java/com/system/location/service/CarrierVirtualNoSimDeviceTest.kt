@@ -153,6 +153,31 @@ class CarrierVirtualNoSimDeviceTest {
             assertEquals(CarrierVirtualIdentity.iccid(persisted.getValue(1)), first.iccId)
             assertEquals(CarrierVirtualIdentity.iccid(persisted.getValue(2)), second.iccId)
             System.err.println("PORTAL_VIRTUAL_DUAL_SLOT_READY ${first.subscriptionId} ${second.subscriptionId}")
+            val seeded = com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
+                preferences.getString("carrierIdentityJson", "")!!)
+            val physicalOnlySecond = seeded.copy(sims = seeded.sims.map {
+                if (it.slot == 2) it.copy(virtual = false) else it
+            })
+            check(preferences.edit().putString("carrierIdentityJson",
+                com.system.location.service.core.carrier.CarrierIdentityCodec.encode(physicalOnlySecond)).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            val removalDeadline = android.os.SystemClock.elapsedRealtime() + 5_000L
+            while (subscriptions.activeSubscriptionInfoList.orEmpty().size != 1 &&
+                android.os.SystemClock.elapsedRealtime() < removalDeadline) Thread.sleep(100)
+            assertEquals(listOf(first.subscriptionId), subscriptions.activeSubscriptionInfoList.orEmpty().map { it.subscriptionId })
+            assertEquals(1, subscriptions.activeSubscriptionInfoCount)
+            assertTrue(!subscriptions.isActiveSubscriptionId(second.subscriptionId))
+            assertEquals(SubscriptionManager.INVALID_SIM_SLOT_INDEX, SubscriptionManager.getSlotIndex(second.subscriptionId))
+            val allPhysicalOnly = physicalOnlySecond.copy(sims = physicalOnlySecond.sims.map { it.copy(virtual = false) })
+            check(preferences.edit().putString("carrierIdentityJson",
+                com.system.location.service.core.carrier.CarrierIdentityCodec.encode(allPhysicalOnly)).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            val emptyDeadline = android.os.SystemClock.elapsedRealtime() + 5_000L
+            while (subscriptions.activeSubscriptionInfoList.orEmpty().isNotEmpty() &&
+                android.os.SystemClock.elapsedRealtime() < emptyDeadline) Thread.sleep(100)
+            assertTrue(subscriptions.activeSubscriptionInfoList.orEmpty().isEmpty())
+            assertEquals(0, subscriptions.activeSubscriptionInfoCount)
+            assertEquals("no_active_sim", MockServiceHelper.carrierIdentityStatus)
         } finally {
             try {
                 ScenarioRuntime.stop().await()

@@ -48,6 +48,23 @@ class CarrierNrRequestDeviceTest {
                 android.os.SystemClock.elapsedRealtime() < deadline) Thread.sleep(100)
             val active = subscriptions.activeSubscriptionInfoList.orEmpty()
             assertEquals(2, active.size)
+            val overview = context.getSystemService(TelephonyManager::class.java).allCellInfo.orEmpty()
+            assertTrue("All-cell overview must include both virtual radios", overview.isNotEmpty())
+            assertTrue(overview.all { it is CellInfoNr })
+            val grouped = overview.filterIsInstance<CellInfoNr>().groupBy {
+                val id = it.cellIdentity as CellIdentityNr
+                id.mccString + id.mncString
+            }
+            assertEquals(config.sims.map { it.operatorNumeric }.toSet(), grouped.keys)
+            config.sims.forEach { profile ->
+                val cells = grouped.getValue(profile.operatorNumeric)
+                assertEquals(1, cells.count { it.isRegistered })
+                cells.forEach {
+                    val id = it.cellIdentity as CellIdentityNr
+                    assertArrayEquals(intArrayOf(profile.nrBand), id.bands)
+                    assertEquals(profile.nrArfcn, id.nrarfcn)
+                }
+            }
             active.forEach { info ->
                 val manager = context.getSystemService(TelephonyManager::class.java)
                     .createForSubscriptionId(info.subscriptionId)

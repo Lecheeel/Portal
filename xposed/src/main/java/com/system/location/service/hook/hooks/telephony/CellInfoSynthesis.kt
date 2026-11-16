@@ -37,11 +37,11 @@ import java.util.concurrent.ConcurrentHashMap
 object CellInfoSynthesis {
     private val reportedUnavailable = ConcurrentHashMap.newKeySet<String>()
 
-    internal fun resultForCaller(packageName: String, uid: Int): CellInfoSynthesisResult {
+    internal fun resultForCaller(packageName: String?, uid: Int, subscriptionId: Int? = null): CellInfoSynthesisResult {
         val state = FakeLoc.runtimeSnapshots.current()
         if (!state.configuration.enabled) return CellInfoSynthesisResult.PassThrough
         val identity = if (state.configuration.carrierIdentityEnabled) {
-            CarrierIdentityRuntime.profileForCall("getAllCellInfo", emptyList(), uid)
+            CarrierIdentityRuntime.profileForCall("getAllCellInfo", listOfNotNull(subscriptionId), uid)
         } else null
         val route = com.system.location.service.hook.hooks.ListenerRouting.decisionFor(packageName, uid, state.routing)
         if (route == RoutingDecision.Deny) return CellInfoSynthesisResult.PassThrough

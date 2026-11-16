@@ -87,6 +87,8 @@ class PortalModule : XposedModule() {
                     putParcelableArrayList("nmea", ArrayList(NmeaListenerRouting.subscriptions().map { it.toBundle() }))
                     putParcelableArrayList("raw", ArrayList(RawGnssCallbacks.subscriptions().map { it.toBundle() }))
                     putParcelableArrayList("peers", ArrayList(ProxyCommand.subscriptions().map { it.toBundle() }))
+                    putParcelableArrayList("carrier_listeners", com.system.location.service.hook.hooks.telephony
+                        .CarrierRegistryHook.saveReloadState())
                     putLong("peer_sequence", ProxyCommand.publicationSequence())
                     putBundle("carrier_identity", com.system.location.service.hook.hooks.telephony
                         .CarrierConfigGlobalController.saveReloadState())
@@ -109,6 +111,7 @@ class PortalModule : XposedModule() {
                     { NmeaListenerRouting.clear() },
                     { RawGnssCallbacks.clear() },
                     { ProxyCommand.retireSubscriptions() },
+                    { com.system.location.service.hook.hooks.telephony.CarrierRegistryHook.retire() },
                 ).forEach { retire -> runCatching(retire).onFailure { HookRuntime.log(it) } }
                 android.util.Log.i("PortalModule", "hot reloading system_server")
         }, abort = {
@@ -146,6 +149,8 @@ class PortalModule : XposedModule() {
             com.system.location.service.hook.hooks.telephony.CarrierConfigGlobalController
                 .restoreReloadState(saved?.getBundle("carrier_identity"))
             lifecycle.systemServerStarting(loader)
+            com.system.location.service.hook.hooks.telephony.CarrierRegistryHook
+                .restoreReloadState(saved?.getParcelableArrayList<Bundle>("carrier_listeners").orEmpty())
             restoreCallbacks(saved)
             ProxyCommand.restorePublicationSequence(saved?.getLong("peer_sequence") ?: 0L)
             restorePeers(saved)

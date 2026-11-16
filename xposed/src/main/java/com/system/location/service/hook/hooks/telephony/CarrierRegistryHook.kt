@@ -27,16 +27,7 @@ internal object CarrierRegistryHook {
                 remove(binder)
                 return@Hooker result
             }
-            listener.javaClass.onceHookAllMethod("onServiceStateChanged", Hooker { callback ->
-                val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
-                val entry = listeners[target.asBinder()] ?: return@Hooker callback.proceed()
-                val original = callback.args.firstOrNull() as? ServiceState ?: return@Hooker callback.proceed()
-                val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
-                    listOf(entry.subId), entry.uid) ?: return@Hooker callback.proceed()
-                val args = callback.args.toTypedArray()
-                args[0] = CarrierServiceStateHook.copyWithIdentity(original, profile)
-                callback.proceed(args)
-            })
+            installCallback(listener)
             // Registry may send its cached state synchronously while registering. Install before
             // proceeding, but roll back if framework permission validation throws.
             val previous = listeners[binder]
@@ -48,6 +39,67 @@ internal object CarrierRegistryHook {
                 throw failure
             }
         })
+    }
+
+    private fun installCallback(listener: IInterface) {
+        listener.javaClass.onceHookAllMethod("onServiceStateChanged", Hooker { callback ->
+            val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
+            val entry = listeners[target.asBinder()] ?: return@Hooker callback.proceed()
+            val original = callback.args.firstOrNull() as? ServiceState ?: return@Hooker callback.proceed()
+            val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
+                listOf(entry.subId), entry.uid)
+            val args = callback.args.toTypedArray()
+            args[0] = when {
+                profile != null -> CarrierServiceStateHook.copyWithIdentity(original, profile)
+                CarrierIdentityRuntime.protectsLocation(entry.uid) -> CarrierServiceStateHook.copyWithoutCellIdentity(original)
+                else -> return@Hooker callback.proceed()
+            }
+            callback.proceed(args)
+        })
+        listener.javaClass.onceHookAllMethod("onCellInfoChanged", Hooker { callback ->
+            val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
+            val entry = listeners[target.asBinder()] ?: return@Hooker callback.proceed()
+            val identity = CarrierIdentityRuntime.profileForCall("getAllCellInfo", listOf(entry.subId), entry.uid)
+            if (identity == null && !CarrierIdentityRuntime.protectsLocation(entry.uid)) return@Hooker callback.proceed()
+            val result = runCatching { CellInfoSynthesis.resultForCaller(null, entry.uid, entry.subId) }
+                .getOrDefault(CellInfoSynthesisResult.Unavailable)
+            val cells = when (result) {
+                CellInfoSynthesisResult.PassThrough -> return@Hooker callback.proceed()
+                CellInfoSynthesisResult.Unavailable -> emptyList<android.telephony.CellInfo>()
+                is CellInfoSynthesisResult.Synthetic -> result.cells
+            }
+            val args = callback.args.toTypedArray()
+            if (args.isEmpty()) return@Hooker null
+            args[0] = cells
+            callback.proceed(args)
+        })
+    }
+
+    fun saveReloadState(): ArrayList<android.os.Bundle> = ArrayList(listeners.entries.map { (binder, entry) ->
+        android.os.Bundle().apply {
+            putBinder("binder", binder)
+            putInt("uid", entry.uid)
+            putInt("subscription", entry.subId)
+        }
+    })
+
+    fun retire() { listeners.keys.toList().forEach(::remove) }
+
+    fun restoreReloadState(rows: List<android.os.Bundle>) {
+        rows.forEach { row ->
+            val binder = row.getBinder("binder") ?: return@forEach
+            if (!binder.isBinderAlive) return@forEach
+            try {
+                val stub = Class.forName("com.android.internal.telephony.IPhoneStateListener\$Stub")
+                val listener = stub.getMethod("asInterface", IBinder::class.java).invoke(null, binder) as IInterface
+                installCallback(listener)
+                val death = IBinder.DeathRecipient { remove(binder) }
+                binder.linkToDeath(death, 0)
+                listeners[binder] = Entry(row.getInt("uid"), row.getInt("subscription"), death)
+            } catch (failure: Exception) {
+                com.system.location.service.hook.utils.Logger.warn("Carrier listener restore failed: ${failure.javaClass.simpleName}")
+            }
+        }
     }
 
     private fun remove(binder: IBinder) {

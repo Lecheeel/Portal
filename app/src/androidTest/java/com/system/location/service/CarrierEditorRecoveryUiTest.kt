@@ -19,6 +19,13 @@ import org.junit.runner.RunWith
 class CarrierEditorRecoveryUiTest {
     @get:Rule val compose = createEmptyComposeRule()
 
+    private fun editorText(text: String): SemanticsNodeInteraction {
+        compose.onNode(hasScrollToIndexAction() and SemanticsMatcher.keyIsDefined(
+            androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange))
+            .performScrollToNode(hasText(text))
+        return compose.onNodeWithText(text)
+    }
+
     @Test(timeout = 120_000)
     fun dualSimDraftsAndAppSelectionsSurviveNavigationAndRecreation() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -33,15 +40,19 @@ class CarrierEditorRecoveryUiTest {
             assertTrue(preferences.edit().putBoolean("carrierIdentityEnabled", false)
                 .putString("carrierIdentityJson", Json.encodeToString(CarrierIdentityConfig.serializer(), config)).commit())
             ActivityScenario.launch(CarrierEditorTestActivity::class.java).use { scenario ->
-                compose.scrollToText("运营商名称").performTextReplacement("Unsaved one")
-                compose.scrollToText("仅分应用").performClick()
-                compose.scrollToText("SIM 2").performClick()
-                compose.scrollToText("运营商名称").performTextReplacement("Unsaved two")
+                editorText("与已保存配置一致").assertIsDisplayed()
+                editorText("SIM 1 · Saved one").assertIsDisplayed()
+                editorText("SIM 2 · Saved two").assertIsDisplayed()
+                editorText("运营商名称").performTextReplacement("Unsaved one")
+                editorText("有未保存的修改").assertIsDisplayed()
+                editorText("仅分应用").performClick()
+                editorText("SIM 2").performClick()
+                editorText("运营商名称").performTextReplacement("Unsaved two")
                 scenario.onActivity { activity ->
                     activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
                         .hideSoftInputFromWindow(activity.window.decorView.windowToken, 0)
                 }
-                compose.scrollToText("添加应用").performClick()
+                editorText("添加应用").performClick()
                 compose.onNodeWithText("搜索应用名称或包名").performTextInput(context.packageName)
                 scenario.onActivity { activity ->
                     activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
@@ -49,16 +60,19 @@ class CarrierEditorRecoveryUiTest {
                 }
                 compose.onNode(hasText(context.packageName) and isToggleable()).performClick()
                 compose.onNodeWithText("保存选择（1）").performClick()
-                compose.scrollToText("运营商名称")
+                editorText("运营商名称")
                 compose.onNode(hasSetTextAction() and hasText("Unsaved two")).assertIsDisplayed()
                 scenario.recreate()
-                compose.scrollToText("仅分应用").assertIsSelected()
-                compose.scrollToText("运营商名称")
+                editorText("有未保存的修改").assertIsDisplayed()
+                editorText("SIM 1 · Unsaved one").assertIsDisplayed()
+                editorText("SIM 2 · Unsaved two").assertIsDisplayed()
+                editorText("仅分应用").assertIsSelected()
+                editorText("运营商名称")
                 compose.onNode(hasSetTextAction() and hasText("Unsaved two")).assertIsDisplayed()
-                compose.scrollToText("SIM 1").performClick()
-                compose.scrollToText("运营商名称")
+                editorText("SIM 1").performClick()
+                editorText("运营商名称")
                 compose.onNode(hasSetTextAction() and hasText("Unsaved one")).assertIsDisplayed()
-                compose.scrollToText(context.packageName).assertIsDisplayed()
+                editorText(context.packageName).assertIsDisplayed()
             }
         } finally {
             val edit = preferences.edit()

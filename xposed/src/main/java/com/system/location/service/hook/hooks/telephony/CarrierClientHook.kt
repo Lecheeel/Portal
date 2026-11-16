@@ -41,7 +41,8 @@ object CarrierClientHook {
                 val name = chain.executable.name
                 val requested = chain.args.firstOrNull() as? Int
                 val manager = chain.thisObject as? TelephonyManager
-                val phoneId = name.endsWith("ForPhone") || name == "getNetworkCountryIso" && requested != null
+                val phoneId = name.endsWith("ForPhone") || requested != null &&
+                    (name == "getNetworkCountryIso" || name == "getSimState")
                 val id = requested ?: manager?.subscriptionId ?: -1
                 val profile = snapshot(if (phoneId) "phone" else "subscription", id)
                     ?: return@Hooker original
@@ -92,8 +93,13 @@ object CarrierClientHook {
             try {
                 val original = chain.proceed()
                 val name = chain.executable.name
-                val requestedSlot = (chain.args.firstOrNull() as? Int)?.plus(1) ?: 1
-                val profile = virtualForSlot(requestedSlot) ?: return@Hooker original
+                val requestedSlot = (chain.args.firstOrNull() as? Int)?.plus(1)
+                val profile = if (requestedSlot != null) virtualForSlot(requestedSlot) else {
+                    if (original is Int && android.telephony.SubscriptionManager.isValidSubscriptionId(original)) {
+                        return@Hooker original
+                    }
+                    snapshot("subscription", Int.MAX_VALUE)?.takeIf { it.virtual }
+                } ?: return@Hooker original
                 when (name) {
                     "getSubId" -> intArrayOf(CarrierVirtualIdentity.subscriptionId(profile.slot))
                     "getDefaultSubscriptionId", "getDefaultDataSubscriptionId",
@@ -118,8 +124,8 @@ object CarrierClientHook {
     }
 
     private fun virtualForSlot(slot: Int): SimCarrierProfile? {
-        val profile = statusBarProfile() ?: return null
-        return profile.takeIf { it.slot == slot && it.virtual }
+        if (slot !in 1..2) return null
+        return snapshot("phone", slot - 1)?.takeIf { it.slot == slot && it.virtual }
     }
 
     private fun snapshot(kind: String, id: Int): SimCarrierProfile? = runCatching {

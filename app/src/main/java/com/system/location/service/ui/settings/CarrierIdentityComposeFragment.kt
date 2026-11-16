@@ -73,6 +73,7 @@ import com.system.location.service.designsystem.components.PortalSectionTitle
 import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.ext.carrierIdentityEnabled
 import com.system.location.service.ext.carrierIdentityJson
+import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.service.MockServiceHelper
 import kotlinx.serialization.json.Json
 import java.util.Locale
@@ -158,7 +159,7 @@ class CarrierIdentityComposeFragment : Fragment() {
     private fun loadConfig(context: Context): CarrierIdentityConfig {
         val saved = context.carrierIdentityJson
         if (saved.isNotBlank()) {
-            runCatching { Json.decodeFromString(CarrierIdentityConfig.serializer(), saved) }
+            runCatching { com.system.location.service.core.carrier.CarrierIdentityCodec.decode(saved) }
                 .getOrNull()?.let { return it }
         }
         return CarrierIdentityConfig(
@@ -463,9 +464,10 @@ private fun CarrierIdentityScreen(
                             }
                             require(!enabled || sims.any { it.enabled }) { "开启后至少配置一张 SIM" }
                             val config = CarrierIdentityConfig(mode = mode, sims = sims, appRoutes = routes.toList())
-                            val json = Json.encodeToString(CarrierIdentityConfig.serializer(), config)
-                            context.carrierIdentityJson = json
-                            context.carrierIdentityEnabled = enabled
+                            val json = com.system.location.service.core.carrier.CarrierIdentityCodec.encode(config)
+                            check(context.sharedPrefs.edit()
+                                .putString("carrierIdentityJson", json)
+                                .putBoolean("carrierIdentityEnabled", enabled).commit()) { "保存失败，请重试" }
                             saving = true
                             scope.launch {
                                 try {

@@ -21,7 +21,25 @@ internal object CarrierSubscriptionHook {
                 if (CarrierIdentityRuntime.isResolving()) return@Hooker chain.proceed()
                 val original = chain.proceed()
                 val virtuals = CarrierIdentityRuntime.virtualProfilesForCall(Binder.getCallingUid())
+                val requested = chain.args.firstOrNull() as? Int
+                val topology = com.system.location.service.core.carrier.CarrierVirtualTopology
                 when (chain.executable.name) {
+                    "getPhoneId", "getSlotIndex" -> requested?.let {
+                        topology.slotForSubscription(virtuals, it)?.minus(1)
+                    } ?: original
+                    "getSubId", "getSubIds", "getSubscriptionId" -> {
+                        val id = requested?.let { topology.subscriptionForPhone(virtuals, it) }
+                        if (id == null) original else when ((chain.executable as java.lang.reflect.Method).returnType) {
+                            IntArray::class.java -> intArrayOf(id)
+                            Int::class.javaPrimitiveType -> id
+                            else -> original
+                        }
+                    }
+                    "isActiveSubId", "isActiveSubscriptionId" ->
+                        if (requested != null && topology.slotForSubscription(virtuals, requested) != null)
+                            true else original
+                    "getActiveSubIdList" -> if (original is IntArray)
+                        topology.activeIds(original, virtuals) else original
                     "getActiveSubscriptionInfoList", "getAccessibleSubscriptionInfoList",
                     "getAvailableSubscriptionInfoList", "getSelectableSubscriptionInfoList" ->
                         mergeList(original, virtuals)
@@ -39,10 +57,12 @@ internal object CarrierSubscriptionHook {
                         virtuals.firstOrNull { it.slot == slot }
                             ?.let(CarrierVirtualSubscription::info) ?: overlay(original)
                     }
-                    "getActiveSubscriptionInfoCount", "getActiveSubscriptionInfoCountMax" -> {
+                    "getActiveSubscriptionInfoCount" -> {
                         val physical = (original as? Int) ?: 0
-                        (physical + virtuals.size).coerceAtMost(2)
+                        physical + virtuals.size
                     }
+                    "getActiveSubscriptionInfoCountMax" ->
+                        maxOf((original as? Int) ?: 0, virtuals.maxOfOrNull { it.slot } ?: 0)
                     "getDefaultSubId", "getDefaultDataSubId", "getDefaultVoiceSubId",
                     "getDefaultSmsSubId" -> {
                         val current = (original as? Int) ?: SubscriptionManager.INVALID_SUBSCRIPTION_ID
@@ -53,7 +73,9 @@ internal object CarrierSubscriptionHook {
                     else -> overlay(original)
                 }
             }
-            listOf("getActiveSubscriptionInfo", "getActiveSubscriptionInfoForIccId",
+            listOf("getPhoneId", "getSlotIndex", "getSubId", "getSubIds", "getSubscriptionId",
+                "isActiveSubId", "isActiveSubscriptionId", "getActiveSubIdList",
+                "getActiveSubscriptionInfo", "getActiveSubscriptionInfoForIccId",
                 "getActiveSubscriptionInfoForSimSlotIndex", "getActiveSubscriptionInfoList",
                 "getAccessibleSubscriptionInfoList", "getAvailableSubscriptionInfoList",
                 "getSelectableSubscriptionInfoList", "getActiveSubscriptionInfoCount",

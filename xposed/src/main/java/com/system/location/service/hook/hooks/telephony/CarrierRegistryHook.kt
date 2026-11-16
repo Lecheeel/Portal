@@ -15,6 +15,7 @@ internal object CarrierRegistryHook {
     private const val EVENT_CELL_INFO_CHANGED = 11
     private class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient,
         val serviceState: Boolean, val cellInfo: Boolean) {
+        val movementGate = com.system.location.service.core.carrier.CarrierCellPublicationGate()
         @Volatile var cellsSent = false
         @Volatile var lastRealState: ServiceState? = null
         @Volatile var virtualSent = false
@@ -163,20 +164,34 @@ internal object CarrierRegistryHook {
         }
     }
 
-    private val movementGate = com.system.location.service.core.carrier.CarrierCellPublicationGate()
+    private var lastMovementCheck = Long.MIN_VALUE
     private val movementPending = java.util.concurrent.atomic.AtomicBoolean()
 
+    @Synchronized
     fun onSamplePublished() {
         if (updates.isShutdown || listeners.values.none { it.cellInfo }) return
         val state = com.system.location.service.hook.utils.FakeLoc.runtimeSnapshots.current()
         if (!state.configuration.enabled || !state.configuration.carrierIdentityEnabled) return
         if (movementPending.get()) return
-        if (!movementGate.changed(state.latitude, state.longitude, android.os.SystemClock.elapsedRealtimeNanos())) return
+        val now = android.os.SystemClock.elapsedRealtimeNanos()
+        if (lastMovementCheck != Long.MIN_VALUE && now >= lastMovementCheck && now - lastMovementCheck < 1_500_000_000L) return
         if (!movementPending.compareAndSet(false, true)) return
+        lastMovementCheck = now
         try {
             updates.execute {
-                try { listeners.entries.toList().forEach { (binder, entry) -> updateCells(binder, entry) } }
-                finally { movementPending.set(false) }
+                try {
+                    val current = com.system.location.service.hook.utils.FakeLoc.runtimeSnapshots.current()
+                    listeners.entries.toList().forEach { (binder, entry) ->
+                        if (!entry.cellInfo) return@forEach
+                        runCatching {
+                            val point = CellInfoSynthesis.pointForCaller(entry.uid, current) ?: return@runCatching
+                            if (entry.movementGate.changed(point.latitude, point.longitude,
+                                    android.os.SystemClock.elapsedRealtimeNanos())) updateCells(binder, entry)
+                        }.onFailure {
+                            com.system.location.service.hook.utils.Logger.warn("Carrier movement update failed: ${it.javaClass.simpleName}")
+                        }
+                    }
+                } finally { movementPending.set(false) }
             }
         } catch (_: java.util.concurrent.RejectedExecutionException) { movementPending.set(false) }
     }

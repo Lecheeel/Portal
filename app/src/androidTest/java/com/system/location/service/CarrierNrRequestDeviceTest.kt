@@ -193,6 +193,21 @@ class CarrierNrRequestDeviceTest {
                 val servingSignal = (cells.single { it.isRegistered } as CellInfoNr).cellSignalStrength
                 assertEquals(servingSignal, signals.single())
                 assertEquals(servingSignal.level, aggregate.level)
+                val signalEvents = java.util.concurrent.LinkedBlockingQueue<SignalStrength>()
+                val signalListener = object : TelephonyCallback(), TelephonyCallback.SignalStrengthsListener {
+                    override fun onSignalStrengthsChanged(signalStrength: SignalStrength) { signalEvents.offer(signalStrength) }
+                }
+                manager.registerTelephonyCallback({ it.run() }, signalListener)
+                try {
+                    val until = android.os.SystemClock.elapsedRealtime() + 5000
+                    var received: SignalStrength? = null
+                    do {
+                        val event = signalEvents.poll(200, TimeUnit.MILLISECONDS)
+                        if (event?.cellSignalStrengths == signals) received = event
+                    } while (received == null && android.os.SystemClock.elapsedRealtime() < until)
+                    assertNotNull("Signal listener did not receive matching virtual NR", received)
+                    assertEquals(aggregate.level, received!!.level)
+                } finally { manager.unregisterTelephonyCallback(signalListener) }
                 val profile = config.sims.first { it.slot == info.simSlotIndex + 1 }
                 cells.forEach { cell ->
                     assertTrue(cell is CellInfoNr)

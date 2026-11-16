@@ -11,17 +11,19 @@ class CarrierIdentityResolverTest {
         carrierName = "Test US")
     private val config = CarrierIdentityConfig(sims = listOf(sim1, sim2))
 
-    @Test fun globalUsesPhysicalSlotEvenForSystemCallers() {
+    @Test fun globalUsesPhysicalSlotAndVirtualizesOnlyAnExplicitEmptySlotProfile() {
         assertEquals(sim2, CarrierIdentityResolver.profile(config, 2, setOf(2), listOf("android"), true))
-        assertNull(CarrierIdentityResolver.profile(config, 1, setOf(2), listOf("android"), true))
+        assertEquals(sim1.copy(virtual = true),
+            CarrierIdentityResolver.profile(config, 1, setOf(2), listOf("android"), true))
         assertNull(CarrierIdentityResolver.profile(config, 3, setOf(1, 2, 3), listOf("app"), false))
     }
 
-    @Test fun perAppRoutesCannotInventOrSilentlySubstituteAnAbsentSim() {
+    @Test fun perAppRoutesCanUseAnExplicitVirtualSlotWithoutInventingUnconfiguredSlots() {
         val routed = config.copy(mode = CarrierIdentityMode.PER_APP,
             appRoutes = listOf(CarrierAppRoute("target.app", CarrierTarget.SIM2)))
         assertEquals(sim2, CarrierIdentityResolver.profile(routed, 1, setOf(1, 2), listOf("target.app"), false))
-        assertNull(CarrierIdentityResolver.profile(routed, 1, setOf(1), listOf("target.app"), false))
+        assertEquals(sim2.copy(virtual = true),
+            CarrierIdentityResolver.profile(routed, 1, setOf(1), listOf("target.app"), false))
         assertNull(CarrierIdentityResolver.profile(routed, 1, setOf(1, 2), listOf("other.app"), false))
         assertNull(CarrierIdentityResolver.profile(routed, 1, setOf(1, 2), listOf("target.app"), true))
     }

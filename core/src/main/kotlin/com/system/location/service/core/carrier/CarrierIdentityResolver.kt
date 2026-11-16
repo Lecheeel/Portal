@@ -1,6 +1,6 @@
 package com.system.location.service.core.carrier
 
-/** Resolves an identity without inventing a SIM in an empty physical slot. */
+/** Resolves an identity; an enabled profile in an empty real slot is a virtual SIM. */
 object CarrierIdentityResolver {
     fun profile(
         config: CarrierIdentityConfig,
@@ -9,8 +9,13 @@ object CarrierIdentityResolver {
         callerPackages: Collection<String>,
         systemCaller: Boolean,
     ): SimCarrierProfile? {
-        if (requestedSlot !in activeSlots || requestedSlot !in 1..2) return null
-        if (config.mode == CarrierIdentityMode.GLOBAL) return config.profileForSlot(requestedSlot)
+        if (requestedSlot !in 1..2) return null
+        val physical = requestedSlot in activeSlots
+        val configured = config.profileForSlot(requestedSlot)
+        if (!physical && configured == null) return null
+        if (config.mode == CarrierIdentityMode.GLOBAL) {
+            return configured?.copy(virtual = !physical)
+        }
         if (systemCaller) return null
         val targets = callerPackages.map { config.targetFor(it, false) }.distinct()
         // Shared UIDs cannot securely distinguish their packages. Preserve real identity if any
@@ -22,6 +27,7 @@ object CarrierIdentityResolver {
             CarrierTarget.INHERIT -> requestedSlot
             CarrierTarget.REAL -> return null
         }
-        return config.profileForSlot(slot).takeIf { slot in activeSlots }
+        val profile = config.profileForSlot(slot) ?: return null
+        return profile.copy(virtual = slot !in activeSlots)
     }
 }

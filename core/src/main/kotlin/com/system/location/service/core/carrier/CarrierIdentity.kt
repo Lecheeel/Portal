@@ -21,6 +21,8 @@ enum class CarrierTarget { INHERIT, SIM1, SIM2, REAL }
 data class SimCarrierProfile(
     val slot: Int,
     val enabled: Boolean = true,
+    /** True when this profile represents a slot with no usable physical subscription. */
+    val virtual: Boolean = false,
     val countryIso: String,
     val mcc: Int,
     val mnc: Int,

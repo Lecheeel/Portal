@@ -15,18 +15,19 @@ internal object CarrierSignalStrengthHook {
         listOf("getSignalStrength", "getSignalStrengthForSubscriber").forEach { name ->
             manager.hookAllMethods(name, Hooker { chain ->
                 val original = chain.proceed() // retain permission checks and platform exceptions
-                val uid = Binder.getCallingUid()
-                val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args, uid)
-                    ?: return@Hooker original
-                if (!profile.virtual || profile.radio != com.system.location.service.core.carrier.CarrierRadio.NR)
-                    return@Hooker original
                 val subId = chain.args.firstOrNull() as? Int ?: return@Hooker original
-                val cells = CellInfoSynthesis.resultForCaller(null, uid, subId)
-                val serving = (cells as? CellInfoSynthesisResult.Synthetic)?.cells
-                    ?.filterIsInstance<CellInfoNr>()?.firstOrNull { it.isRegistered } ?: return@Hooker original
-                aggregate(serving.cellSignalStrength as CellSignalStrengthNr)
+                forCaller(Binder.getCallingUid(), subId) ?: original
             })
         }
+    }
+
+    internal fun forCaller(uid: Int, subId: Int): SignalStrength? {
+        val profile = CarrierIdentityRuntime.profileForCall("getSignalStrength", listOf(subId), uid) ?: return null
+        if (!profile.virtual || profile.radio != com.system.location.service.core.carrier.CarrierRadio.NR) return null
+        val result = CellInfoSynthesis.resultForCaller(null, uid, subId) as? CellInfoSynthesisResult.Synthetic
+            ?: return null
+        val serving = result.cells.filterIsInstance<CellInfoNr>().firstOrNull { it.isRegistered } ?: return null
+        return aggregate(serving.cellSignalStrength as CellSignalStrengthNr)
     }
 
     internal fun aggregate(serving: CellSignalStrengthNr): SignalStrength =

@@ -19,6 +19,7 @@ object ConfigCommand {
             LocationTicker.stop()
             NativeCommand.disable()
         }
+        rely.putString("carrier_identity_status", CarrierConfigGlobalController.status)
         return true
     }
 
@@ -27,7 +28,10 @@ object ConfigCommand {
         val prepared = PreparedRuntimeConfiguration.prepare(values, store.current().configuration.gnssSource)
         val published = FakeLoc.configureRuntime(prepared)
         runCatching { CarrierConfigGlobalController.onConfigurationChanged(published) }
-            .onFailure { com.system.location.service.hook.utils.Logger.warn("Global carrier identity failed: ${it.message}") }
+            .onFailure {
+                CarrierConfigGlobalController.recordFailure()
+                com.system.location.service.hook.utils.Logger.warn("Global carrier identity failed: ${it.message}")
+            }
         return published
     }
 }

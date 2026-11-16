@@ -25,6 +25,10 @@ object CarrierConfigGlobalController {
     private const val HOME = "force_home_network_bool"
 
     private var appliedSubIds: Set<Int> = emptySet()
+    @Volatile var status: String = "disabled"
+        private set
+
+    fun recordFailure() { status = "failed" }
 
     @Synchronized
     fun onSimulationStopped() {
@@ -50,14 +54,24 @@ object CarrierConfigGlobalController {
             config != null && config.mode == CarrierIdentityMode.GLOBAL
         if (!enabled) {
             restoreApplied()
+            status = when {
+                appliedSubIds.isNotEmpty() -> "restore_pending"
+                !policy.carrierIdentityEnabled -> "disabled"
+                !policy.enabled -> "waiting_for_scenario"
+                config?.mode == CarrierIdentityMode.PER_APP -> "per_app"
+                else -> "unconfigured"
+            }
             return
         }
         val loader = carrierConfigLoader()
         if (loader == null) {
+            status = "service_unavailable"
             Logger.warn("Global carrier identity unavailable: carrier_config service not found")
             return
         }
         val next = LinkedHashSet<Int>()
+        var succeeded = 0
+        var failed = false
         for (slot in 1..2) {
             val profile = config?.profileForSlot(slot) ?: continue
             val subIds = subIdsForSlot(slot)
@@ -65,7 +79,9 @@ object CarrierConfigGlobalController {
                 runCatching {
                     overrideConfig(loader, subId, bundleFor(profile))
                     next += subId
+                    succeeded++
                 }.onFailure {
+                    failed = true
                     next += subId
                     Logger.warn("Global carrier identity failed for slot=$slot sub=$subId: ${it.message}")
                 }
@@ -77,11 +93,17 @@ object CarrierConfigGlobalController {
                     putString(CarrierOverrideProtocol.ACTION, CarrierOverrideProtocol.RESTORE)
                 }) }.onFailure {
                 // Keep ownership until restore succeeds, so disabling can be retried.
+                failed = true
                 next += subId
                 Logger.warn("Global carrier restore failed for sub=$subId: ${it.message}")
             }
         }
         appliedSubIds = next
+        status = when {
+            failed -> "failed"
+            succeeded == 0 -> "no_active_sim"
+            else -> "global_applied"
+        }
     }
 
     private fun restoreApplied() {

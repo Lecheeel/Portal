@@ -16,7 +16,9 @@ class CarrierIdentitySeedPreferencesTest {
                 SimCarrierProfile(1, countryIso = "US", mcc = 310, mnc = 260, carrierName = "Test"),
                 SimCarrierProfile(2, countryIso = "AU", mcc = 505, mnc = 1, mncDigits = 2, carrierName = "Test AU")))
             assertTrue(preferences.edit().putString("carrierIdentityJson", CarrierIdentityCodec.encode(legacy)).commit())
-            val first = CarrierIdentityPreferences.migrate(preferences)!!
+            val occupied = (1..65533).toSet()
+            val first = CarrierIdentityPreferences.migrate(preferences, occupied)!!
+            assertEquals(setOf(65534, 65535), first.sims.map { it.virtualSubscriptionId }.toSet())
             assertTrue(first.sims.all { it.identitySeed != 0L })
             assertNotEquals(first.sims[0].identitySeed, first.sims[1].identitySeed)
             assertEquals(first, CarrierIdentityPreferences.migrate(preferences))

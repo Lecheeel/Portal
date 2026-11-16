@@ -284,7 +284,8 @@ object MockServiceHelper {
 
         val fallback = FakeLoc.runtimeSnapshots.current()
         val values = try {
-            com.system.location.service.data.persistence.CarrierIdentityPreferences.migrate(context.sharedPrefs)
+            com.system.location.service.data.persistence.CarrierIdentityPreferences.migrate(context.sharedPrefs,
+                com.system.location.service.data.persistence.CarrierIdentityPreferences.occupiedIds(context))
             com.system.location.service.data.persistence.HookConfigurationPreferences
                 .read(context.sharedPrefs.all, fallback).toMutableMap()
         } catch (error: Exception) {

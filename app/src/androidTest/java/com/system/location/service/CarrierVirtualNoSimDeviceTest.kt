@@ -196,6 +196,44 @@ class CarrierVirtualNoSimDeviceTest {
             System.err.println("PORTAL_VIRTUAL_DUAL_SLOT_READY ${first.subscriptionId} ${second.subscriptionId}")
             val seeded = com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
                 preferences.getString("carrierIdentityJson", "")!!)
+            fun applyIdentity(next: com.system.location.service.core.carrier.CarrierIdentityConfig) {
+                check(preferences.edit().putString("carrierIdentityJson",
+                    com.system.location.service.core.carrier.CarrierIdentityCodec.encode(next)).commit())
+                assertTrue(MockServiceHelper.putConfig(location, context))
+            }
+            fun awaitIds(ids: Set<Int>) {
+                val until = android.os.SystemClock.elapsedRealtime() + 5000
+                while ((subscriptions.activeSubscriptionInfoList.orEmpty().map { it.subscriptionId }.toSet() != ids ||
+                    subscriptions.activeSubscriptionInfoCount != ids.size) &&
+                    android.os.SystemClock.elapsedRealtime() < until) Thread.sleep(100)
+                assertEquals(ids, subscriptions.activeSubscriptionInfoList.orEmpty().map { it.subscriptionId }.toSet())
+                assertEquals(ids.size, subscriptions.activeSubscriptionInfoCount)
+            }
+            val unlisted = seeded.copy(mode = com.system.location.service.core.carrier.CarrierIdentityMode.PER_APP,
+                appRoutes = emptyList())
+            applyIdentity(unlisted)
+            awaitIds(emptySet())
+            val hidden = android.os.Bundle().apply { putString("kind", "phone"); putInt("id", 1) }
+            location.sendExtraCommand("fused_ext",
+                com.system.location.service.hook.hooks.telephony.CarrierIdentitySnapshotCommand.COMMAND, hidden)
+            assertTrue("Unlisted caller received a virtual profile", !hidden.containsKey("profile"))
+            val simTwoOnly = unlisted.copy(appRoutes = listOf(com.system.location.service.core.carrier.CarrierAppRoute(
+                context.packageName, com.system.location.service.core.carrier.CarrierTarget.SIM2)))
+            applyIdentity(simTwoOnly)
+            awaitIds(setOf(second.subscriptionId))
+            assertEquals(second.subscriptionId, subscriptions.getActiveSubscriptionInfoForSimSlotIndex(1)?.subscriptionId)
+            val selected = android.os.Bundle().apply { putString("kind", "phone"); putInt("id", 0) }
+            location.sendExtraCommand("fused_ext",
+                com.system.location.service.hook.hooks.telephony.CarrierIdentitySnapshotCommand.COMMAND, selected)
+            val selectedProfile = Json.decodeFromString(SimCarrierProfile.serializer(), selected.getString("profile")!!)
+            assertEquals(2, selectedProfile.slot)
+            assertEquals("50501", selectedProfile.operatorNumeric)
+            val real = unlisted.copy(appRoutes = listOf(com.system.location.service.core.carrier.CarrierAppRoute(
+                context.packageName, com.system.location.service.core.carrier.CarrierTarget.REAL)))
+            applyIdentity(real)
+            awaitIds(emptySet())
+            applyIdentity(seeded)
+            awaitIds(setOf(first.subscriptionId, second.subscriptionId))
             val physicalOnlySecond = seeded.copy(sims = seeded.sims.map {
                 if (it.slot == 2) it.copy(virtual = false) else it
             })

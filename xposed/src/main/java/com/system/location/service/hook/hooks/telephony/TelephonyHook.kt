@@ -31,6 +31,8 @@ object TelephonyHook: BaseTelephonyHook() {
 
         Reflection.findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader)?.let { CellInfoSynthesis.hook(it) }
         PhoneTypeHooks.hook(classLoader); SimOperatorHooks.hook(classLoader)
+        CarrierConfigReadHook.install(classLoader)
+        CarrierSubscriptionHook.install(classLoader)
         if (!FakeLoc.needDowngradeToCdma) return
         val cPhoneInterfaceManager = Reflection.findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader)
             ?: return

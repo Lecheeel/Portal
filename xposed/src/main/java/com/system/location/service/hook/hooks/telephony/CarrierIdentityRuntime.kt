@@ -49,11 +49,12 @@ internal object CarrierIdentityRuntime {
             val physical = physicalSubscriptions(manager)
             val physicalSlots = physical.map { it.simSlotIndex + 1 }.toSet()
             val virtual = virtualProfiles(config, physicalSlots, packages, systemCaller)
+                .filter { profile -> physical.none { it.subscriptionId == CarrierVirtualIdentity.subscriptionId(profile) } }
             val combined = physical.associate { it.subscriptionId to (it.simSlotIndex + 1) } +
-                virtual.associate { CarrierVirtualIdentity.subscriptionId(it.slot) to it.slot }
+                virtual.associate { CarrierVirtualIdentity.subscriptionId(it) to it.slot }
             val defaultSubId: Int = physical.firstOrNull { it.subscriptionId ==
                 SubscriptionManager.getDefaultSubscriptionId() }?.subscriptionId
-                ?: virtual.firstOrNull()?.let { CarrierVirtualIdentity.subscriptionId(it.slot) }
+                ?: virtual.firstOrNull()?.let { CarrierVirtualIdentity.subscriptionId(it) }
                 ?: SubscriptionManager.getDefaultSubscriptionId()
             val requested = args.firstOrNull() as? Int
             val phoneIndex = methodName.endsWith("ForPhone") || methodName.endsWith("ForSlot")
@@ -93,6 +94,7 @@ internal object CarrierIdentityRuntime {
             val manager = context.getSystemService(SubscriptionManager::class.java) ?: return emptyList()
             val physical = physicalSubscriptions(manager)
             virtualProfiles(config, physical.map { it.simSlotIndex + 1 }.toSet(), packages, systemCaller)
+                .filter { profile -> physical.none { it.subscriptionId == CarrierVirtualIdentity.subscriptionId(profile) } }
         } catch (_: Exception) {
             emptyList()
         } finally {
@@ -108,7 +110,11 @@ internal object CarrierIdentityRuntime {
             .filter { it.simSlotIndex in 0..1 && SubscriptionManager.isValidSubscriptionId(it.subscriptionId) }
             // The SubscriptionInfo hook may have already added our synthetic slots in this
             // process. Never feed them back into the physical-slot resolver.
-            .filter { CarrierVirtualIdentity.slotForSubscriptionId(it.subscriptionId) == null }
+            .filter { info ->
+                val modeled = FakeLoc.runtimeSnapshots.current().configuration.carrierIdentity?.sims.orEmpty()
+                    .firstOrNull { CarrierVirtualIdentity.subscriptionId(it) == info.subscriptionId }
+                modeled == null || info.iccId != CarrierVirtualIdentity.iccid(modeled)
+            }
 
     private fun virtualProfiles(
         config: CarrierIdentityConfig,

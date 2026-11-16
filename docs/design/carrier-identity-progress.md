@@ -25,7 +25,11 @@
 - 两台设备冷启动加载后，扩展双卡端到端各 1 项通过：活跃列表与数量为 2，每卡活跃标志 true、订阅 ID→槽位正确，按槽/按 ID 查询均与列表同值，电话栈返回 ICCID 与控制器迁移保存的种子配置同值。此测试经过实际 Xposed/system_server 通道，不依赖仪器 hidden API 放行；没有验证状态栏显示。
 - MIUI 运营商文本适配：从设备 APK 确认 `MiuiCarrierTextControllerImpl.updateCarrierText()` 及双槽输入数组，只 Hook 该渲染入口；在渲染期间临时替换名称/可用状态，finally 恢复 ROM 缓存引用。离开全局或停止时在主线程调用原更新，由 ROM 通知视图；Binder 快照在后台读取。
 - 新增 2 项渲染单测通过（双槽、单 SIM2、不覆盖实体缓存、异常恢复）。两台无卡真机真实 SystemUI 可访问性文本测试各 1 项通过：控制中心同时显示 Portal Alpha/Portal Beta，切分应用后消失，切回全局后出现，关闭后消失，再开启后出现，停止场景后消失；finally 恢复偏好、后端、可访问性标志并收起面板。测试不放开 hidden API。这是 MIUI 控制中心运营商文字证据，不代表锁屏所有布局、5G 图标、信号强度或真实入网均已验证。
-- 每槽“无卡时模拟此 SIM”开关已加入编辑器并在草稿/保存/同步中保留；原配置 virtual=false 不会因拔卡自动虚拟化，virtual=true 的已保存虚拟配置保留行为。实体订阅优先。core 覆盖关闭虚拟、停用槽、有实体卡、分应用指定 SIM2 且请求槽未配置；core/Xposed 测试和 App 编译通过。新开关 UI 与关闭虚拟后订阅删除的真机回归待补。
+- 每槽“无卡时模拟此 SIM”开关已加入编辑器并在草稿/保存/同步中保留；原配置 virtual=false 不会因拔卡自动虚拟化，virtual=true 的已保存虚拟配置保留行为。实体订阅优先。core 覆盖关闭虚拟、停用槽、有实体卡、分应用指定 SIM2 且请求槽未配置；core/Xposed 测试和 App 编译通过。新开关 UI 真机交互回归待补；运行时关闭虚拟后的订阅删除已由下述扩展测试验证。
+- CarrierConfig 空 Bundle 始终保持为空；subset 不新增未请求的覆盖字段，原对象不修改。订阅列表 null 不扩成虚拟列表，getAccessibleSubscriptionInfoList 保留 UICC 权限过滤。两台设备真实 Bundle 回归各 1 项通过；不代表 ICCID/IMSI 等完整权限矩阵已验收。
+- 扩展逐槽删除回归暴露框架缓存问题：列表删除后 getSlotIndex 仍返回旧值。现于系统/电话进程接受身份变化后调用平台订阅缓存失效方法，启动/停止和异步 transfer 均接入，位置样本不变更身份时不失效。电话 peer 同步为异步，设备测试要求五秒内收敛，不能把命令 ACK 当作全部完成。
+- 缓存修复回归期间小米发生 system_server 崩溃，堆栈为 NetworkPolicyManagerService→getMergedImsisFromGroup 对不存在实体 SubscriptionInfo 解引用。已为虚拟订阅接入该特权入口的单卡 IMSI 集合；READ_PRIVILEGED_PHONE_STATE 未获准或非虚拟调用继续走原方法。修复后冷启动两台各 3 项通过：空 Bundle/subset、双卡逐槽删除含 slotIndex/活跃/计数、控制中心显示与恢复。该路径此前未被订阅列表测试覆盖，不隐瞒其崩溃。
+- 每槽关闭虚拟后的实际订阅删除双机已通过；新开关 UI 交互回归仍待补。测试后检查两台当前运营商偏好均非本轮双虚拟卡测试种子，不额外清空原有配置。
 - 尚待修复/验证：完整 carrierId/MVNO 策略、订阅与注册状态闭环、权限返回一致性、双卡回调及其他状态栏/锁屏布局。不能将已有订阅可见测试视为这些项目已通过。
 
 ## 进度

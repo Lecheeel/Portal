@@ -98,6 +98,24 @@ class CarrierNrRequestDeviceTest {
                         } while (android.os.SystemClock.elapsedRealtime() < deadline)
                         fail(label)
                     }
+                    val originalNcis = initial!!.filterIsInstance<CellInfoNr>().map {
+                        (it.cellIdentity as CellIdentityNr).nci
+                    }.toSet()
+                    notifications.clear()
+                    assertTrue(ScenarioRuntime.setSpeed(200.0).await())
+                    assertTrue(ScenarioRuntime.motion(0.0, true).await())
+                    awaitCells("Position change did not update virtual cells") { cells ->
+                        cells.isNotEmpty() && cells.all { it is CellInfoNr } &&
+                            cells.filterIsInstance<CellInfoNr>().map { (it.cellIdentity as CellIdentityNr).nci }.toSet() != originalNcis
+                    }
+                    notifications.clear()
+                    ScenarioRuntime.stop().await()
+                    awaitCells("Stopping did not clear active cell listener") { it.isEmpty() }
+                    notifications.clear()
+                    assertTrue(ScenarioRuntime.start(Scenario(id = "nr-request", name = "NR request",
+                        point = Wgs84(-33.8688, 151.2093))).await())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    awaitCells("Restart did not restore active cell listener") { it.isNotEmpty() }
                     val persisted = CarrierIdentityCodec.decode(preferences.getString("carrierIdentityJson", "")!!)
                     val changed = persisted.copy(sims = persisted.sims.map {
                         if (it.slot == info.simSlotIndex + 1) it.copy(nrBand = 77, nrArfcn = 650000) else it
@@ -159,7 +177,8 @@ class CarrierNrRequestDeviceTest {
             try {
                 ScenarioRuntime.stop().await()
                 val edit = preferences.edit()
-                for (key in listOf("carrierIdentityEnabled", "carrierIdentityJson")) when (val value = saved[key]) {
+                for (key in listOf("carrierIdentityEnabled", "carrierIdentityJson", "speed")) when (val value = saved[key]) {
+                    is Float -> edit.putFloat(key, value)
                     is Boolean -> edit.putBoolean(key, value)
                     is String -> edit.putString(key, value)
                     else -> edit.remove(key)

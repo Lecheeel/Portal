@@ -43,18 +43,27 @@ object CellInfoSynthesis {
         val identity = if (state.configuration.carrierIdentityEnabled) {
             CarrierIdentityRuntime.profileForCall("getAllCellInfo", listOfNotNull(subscriptionId), uid)
         } else null
+        val virtuals = if (subscriptionId == null && state.configuration.carrierIdentityEnabled)
+            CarrierIdentityRuntime.virtualProfilesForCall(uid) else emptyList()
+        val hasVirtual = identity?.virtual == true || virtuals.isNotEmpty()
         val route = com.system.location.service.hook.hooks.ListenerRouting.decisionFor(packageName, uid, state.routing)
         if (route == RoutingDecision.Deny) return CellInfoSynthesisResult.PassThrough
-        if (state.cellMode == CellMode.NO_SIM_WIFI_ONLY && identity?.virtual != true) {
+        if (state.cellMode == CellMode.NO_SIM_WIFI_ONLY && !hasVirtual) {
             return CellInfoSynthesisResult.Unavailable
         }
         val point = pointForRoute(route, state) ?: return CellInfoSynthesisResult.Unavailable
         val replay = capturedProfile(state, point)
         val hasCapturedCells = !replay?.cells.isNullOrEmpty() || !replay?.cdmaCells.isNullOrEmpty()
-        if (!state.simReady && !hasCapturedCells && identity?.virtual != true) {
+        if (!state.simReady && !hasCapturedCells && !hasVirtual) {
             return CellInfoSynthesisResult.Unavailable
         }
-        val cells = runCatching { build(state.environmentSourceMode, replay, identity, point, state.environmentSeed) }.getOrDefault(emptyList())
+        val cells = runCatching {
+            if (virtuals.isNotEmpty()) {
+                val profiles = (listOfNotNull(identity?.takeUnless { it.virtual }) + virtuals).distinctBy { it.slot }
+                val perSlot = profiles.map { build(state.environmentSourceMode, replay, it, point, state.environmentSeed) }
+                if (perSlot.any { it.isEmpty() }) emptyList() else perSlot.flatten()
+            } else build(state.environmentSourceMode, replay, identity, point, state.environmentSeed)
+        }.getOrDefault(emptyList())
         return cells.takeIf { it.isNotEmpty() }
             ?.let(CellInfoSynthesisResult::Synthetic)
             ?: CellInfoSynthesisResult.Unavailable
@@ -70,25 +79,16 @@ object CellInfoSynthesis {
                 CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
             } else null
             if (!state.configuration.enabled) return@Hooker original
-            if (identity == null && BinderUtils.isSystemAppsCall()) return@Hooker original
-            val route = com.system.location.service.hook.hooks.ListenerRouting
-                .decisionFor(chain.args.firstOrNull() as? String, BinderUtils.getCallerUid(), state.routing)
-            if (route == RoutingDecision.Deny) return@Hooker original
+            val uid = BinderUtils.getCallerUid()
+            if (identity == null && CarrierIdentityRuntime.virtualProfilesForCall(uid).isEmpty() &&
+                BinderUtils.isSystemAppsCall()) return@Hooker original
             if (original !is List<*>) return@Hooker unavailable(original, "unexpected_framework_result")
-            if (state.cellMode == CellMode.NO_SIM_WIFI_ONLY && identity?.virtual != true) {
-                return@Hooker unavailable(original, "sim_or_cell_mode_unavailable")
+            when (val result = resultForCaller(chain.args.firstOrNull() as? String, uid)) {
+                CellInfoSynthesisResult.PassThrough -> original
+                CellInfoSynthesisResult.Unavailable -> unavailable(original, "target_cell_profile_unavailable")
+                is CellInfoSynthesisResult.Synthetic ->
+                    selectCellInfoResult(protectedCall = true, frameworkResult = original, synthetic = result.cells)
             }
-            val point = pointForRoute(route, state)
-                ?: return@Hooker unavailable(original, "caller_route_denied")
-            val replay = capturedProfile(state, point)
-            val hasCapturedCells = !replay?.cells.isNullOrEmpty() || !replay?.cdmaCells.isNullOrEmpty()
-            if (!state.simReady && !hasCapturedCells && identity?.virtual != true) {
-                return@Hooker unavailable(original, "virtual_sim_not_ready")
-            }
-            val cells = runCatching { build(state.environmentSourceMode, replay, identity, point, state.environmentSeed) }.getOrDefault(emptyList())
-            if (cells.isEmpty()) return@Hooker unavailable(original, "target_cell_profile_unavailable")
-            if (FakeLoc.enableDebugLog) Logger.debug("getAllCellInfo: ${cells.size} synthetic cells")
-            selectCellInfoResult(protectedCall = true, frameworkResult = original, synthetic = cells)
         }
         com.system.location.service.hook.scope.HookInstaller.hookMethod(method, hook)
     }

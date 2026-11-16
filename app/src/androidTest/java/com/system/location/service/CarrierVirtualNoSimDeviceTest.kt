@@ -59,7 +59,9 @@ class CarrierVirtualNoSimDeviceTest {
             assertEquals("T-Mobile", info.carrierName.toString())
             assertEquals("310", info.mccString)
             assertEquals("260", info.mncString)
-            assertEquals(CarrierVirtualIdentity.iccid(profile), info.iccId)
+            val persisted = com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
+                preferences.getString("carrierIdentityJson", "")!!).sims.single()
+            assertEquals(CarrierVirtualIdentity.iccid(persisted), info.iccId)
 
             val snapshot = android.os.Bundle().apply {
                 putString("kind", "phone")
@@ -137,8 +139,10 @@ class CarrierVirtualNoSimDeviceTest {
             assertEquals("260", first.mncString)
             assertEquals("505", second.mccString)
             assertEquals("01", second.mncString)
-            assertEquals(CarrierVirtualIdentity.iccid(us), first.iccId)
-            assertEquals(CarrierVirtualIdentity.iccid(au), second.iccId)
+            val persisted = com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
+                preferences.getString("carrierIdentityJson", "")!!).sims.associateBy { it.slot }
+            assertEquals(CarrierVirtualIdentity.iccid(persisted.getValue(1)), first.iccId)
+            assertEquals(CarrierVirtualIdentity.iccid(persisted.getValue(2)), second.iccId)
             System.err.println("PORTAL_VIRTUAL_DUAL_SLOT_READY ${first.subscriptionId} ${second.subscriptionId}")
         } finally {
             try {

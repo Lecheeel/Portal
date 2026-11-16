@@ -12,9 +12,11 @@
 ## 2026-11-17 一致性修复
 
 - 已修正 n20/n26/n30/n48 下行范围及 FR1 100 kHz 栅格校验；新增边界测试，core/Xposed 回归与 App 构建通过。参考 TS 38.101-1 表 5.4.2.3-1。
-- 虚拟 SubscriptionInfo 改由平台 Builder 构造，取消 Unsafe 和静默字段赋值；小米完整对象 Parcel、equals/hashCode 与 Builder 复制回归通过。红米未完成：仪器运行停滞后 USB 断开，不计为通过。
-- **待设备清理**：红米 `MFZDWOAIBA8DGIC6` 第二次对象测试临时设置 `hidden_api_policy=1` 后断连，finally 删除设置失败。重连后优先执行 root `settings delete global hidden_api_policy`，恢复测试前默认值；小米策略已恢复。
-- 尚待修复/验证：每设备稳定身份、carrierId 的真实语义、显式虚拟插卡策略、订阅与注册状态闭环、权限返回一致性、双卡回调及 SystemUI 开启/关闭刷新。不能将已有订阅可见测试视为这些项目已通过。
+- 虚拟 SubscriptionInfo 改由平台 Builder 构造，取消 Unsafe 和静默字段赋值；小米/红米完整对象 Parcel、equals/hashCode 与 Builder 复制回归各 1 项通过。红米首次执行因 USB 中断未通过，重连后重试通过。
+- 红米遗留的 `hidden_api_policy=1` 已在重连后删除并核对为 `null`；后续对象测试 finally 也成功删除，双机临时策略均恢复。
+- 客户端按槽 SIM 状态改用 phoneIndex 解析，SIM2 不再被首张虚拟卡遮蔽；默认订阅保留有效平台值并支持仅 SIM2 配置。本地编译通过，实际目标应用路径待冷启动复核。
+- carrierId 改用 AOSP 核实的中/美/澳主要 MNO canonical ID，不再依赖卡槽计算；未知 PLMN 返回 -1。此表不是完整 MVNO 识别器，GID/SPN 子运营商细分不做无依据推断。来源：https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/refs/heads/main/assets/latest_carrier_id/carrier_list.textpb
+- 尚待修复/验证：每设备稳定身份、完整 carrierId/MVNO 策略、显式虚拟插卡策略、订阅与注册状态闭环、权限返回一致性、双卡回调及 SystemUI 开启/关闭刷新。不能将已有订阅可见测试视为这些项目已通过。
 
 ## 进度
 

@@ -20,6 +20,7 @@ internal object CarrierSubscriptionHook {
             val hook = Hooker { chain ->
                 if (CarrierIdentityRuntime.isResolving()) return@Hooker chain.proceed()
                 val original = chain.proceed()
+                if (chain.executable.name == "getAccessibleSubscriptionInfoList") return@Hooker original
                 val virtuals = CarrierIdentityRuntime.virtualProfilesForCall(Binder.getCallingUid())
                 val requested = chain.args.firstOrNull() as? Int
                 val topology = com.system.location.service.core.carrier.CarrierVirtualTopology
@@ -40,9 +41,9 @@ internal object CarrierSubscriptionHook {
                             true else original
                     "getActiveSubIdList" -> if (original is IntArray)
                         topology.activeIds(original, virtuals) else original
-                    "getActiveSubscriptionInfoList", "getAccessibleSubscriptionInfoList",
+                    "getActiveSubscriptionInfoList",
                     "getAvailableSubscriptionInfoList", "getSelectableSubscriptionInfoList" ->
-                        mergeList(original, virtuals)
+                        if (original is List<*>) mergeList(original, virtuals) else original
                     "getActiveSubscriptionInfo" -> {
                         val id = chain.args.firstOrNull() as? Int
                         virtualForSubId(virtuals, id) ?: overlay(original)

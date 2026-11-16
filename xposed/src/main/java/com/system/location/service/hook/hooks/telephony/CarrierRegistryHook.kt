@@ -21,13 +21,13 @@ internal object CarrierRegistryHook {
                 method.returnType == ServiceState::class.java
         }.forEach { method ->
             HookInstaller.hookMethod(method, Hooker { chain ->
+                val original = chain.proceed()
                 val subId = chain.args.firstOrNull() as? Int
-                if (subId == null) return@Hooker chain.proceed()
+                if (subId == null) return@Hooker original
                 val profile = CarrierIdentityRuntime.profileForCall(
                     "getServiceStateForSubscriber", listOf(subId), Binder.getCallingUid())
-                    ?: CarrierIdentityRuntime.virtualProfilesForCall(Binder.getCallingUid()).firstOrNull()
                 if (profile?.virtual == true) CarrierServiceStateHook.virtualState(profile)
-                else chain.proceed()
+                else original
             })
         }
         HookInstaller.hookAllMethods(registry, "listenWithEventList", Hooker { chain ->

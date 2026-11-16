@@ -13,6 +13,17 @@ object SimOperatorHooks {
         val manager = com.system.location.service.hook.runtime.Reflection
             .findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader) ?: return
 
+        manager.hookAllMethods("getMergedImsisFromGroup", Hooker { chain ->
+            val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+            if (profile?.virtual != true) return@Hooker chain.proceed()
+            val context = BinderUtils.getSystemContext() ?: return@Hooker chain.proceed()
+            // This API requires READ_PRIVILEGED_PHONE_STATE. Preserve the original check for
+            // every caller not holding it; never convert an invalid real subId into an identity.
+            if (context.checkCallingOrSelfPermission("android.permission.READ_PRIVILEGED_PHONE_STATE") !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED) return@Hooker chain.proceed()
+            arrayOf(CarrierVirtualIdentity.imsi(profile))
+        })
+
         val numeric = Hooker { chain ->
             val original = chain.proceed()
             val state = FakeLoc.runtimeSnapshots.current()

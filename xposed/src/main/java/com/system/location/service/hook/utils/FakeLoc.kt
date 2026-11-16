@@ -97,6 +97,14 @@ object FakeLoc {
         get() = runtimeSnapshots.current().configuration.hideMock
         set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(hideMock = value)) } }
 
+    var carrierIdentityEnabled: Boolean
+        get() = runtimeSnapshots.current().configuration.carrierIdentityEnabled
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(carrierIdentityEnabled = value)) } }
+
+    var carrierIdentity: com.system.location.service.core.carrier.CarrierIdentityConfig?
+        get() = runtimeSnapshots.current().configuration.carrierIdentity
+        set(value) { updateSnapshot { it.copy(configuration = it.configuration.copy(carrierIdentity = value)) } }
+
     /** Experimental: rewrite root/framework paths in a selected application process. */
     var antiDetectEnabled: Boolean
         get() = runtimeSnapshots.current().configuration.antiDetectEnabled

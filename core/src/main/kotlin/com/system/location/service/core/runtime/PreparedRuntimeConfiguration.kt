@@ -4,6 +4,7 @@ import com.system.location.service.core.environment.CellMode
 import com.system.location.service.core.environment.EnvironmentProfile
 import com.system.location.service.core.environment.EnvironmentProfileCodec
 import com.system.location.service.core.environment.EnvironmentSourceMode
+import com.system.location.service.core.carrier.CarrierIdentityConfig
 import com.system.location.service.core.environment.WifiFingerprintImporter
 import com.system.location.service.core.gnss.CapturedGnssSource
 import com.system.location.service.core.gnss.GnssSimulationMode
@@ -27,6 +28,7 @@ class PreparedRuntimeConfiguration private constructor(
     private val routing: RoutingConfig?,
     private val environment: EnvironmentProfile?,
     private val navigation: RinexNavigationResource?,
+    private val carrierIdentity: CarrierIdentityConfig?,
 ) {
     @Suppress("UNCHECKED_CAST")
     private fun <T> value(key: String, fallback: T): T =
@@ -51,6 +53,8 @@ class PreparedRuntimeConfiguration private constructor(
             ),
             nmeaEnabled = value("enable_nmea", old.nmeaEnabled),
             hideMock = value("hide_mock", old.hideMock),
+            carrierIdentityEnabled = value("carrier_identity_enabled", old.carrierIdentityEnabled),
+            carrierIdentity = if ("carrier_identity_json" in values) carrierIdentity else old.carrierIdentity,
             antiDetectEnabled = value("experimental_anti_detect", old.antiDetectEnabled),
             stackTraceCleanEnabled = value("experimental_stack_trace", old.stackTraceCleanEnabled),
             stackTraceReplaceEnabled = value("experimental_stack_trace_replace", old.stackTraceReplaceEnabled),
@@ -86,7 +90,10 @@ class PreparedRuntimeConfiguration private constructor(
     }
 
     companion object {
-        private val nullableStrings = setOf("gnss_capture", "gnss_navigation", "routing_json", "environment_json", "wifi_fingerprint_json")
+        private val nullableStrings = setOf(
+            "gnss_capture", "gnss_navigation", "routing_json", "environment_json",
+            "wifi_fingerprint_json", "carrier_identity_json",
+        )
         private val extraKeys = nullableStrings + "enable"
         val keys: Set<String> = PortalSettingsSchema.schema.keys() + extraKeys
 
@@ -134,10 +141,15 @@ class PreparedRuntimeConfiguration private constructor(
             (values["gnss_minimum_policy"] as String?)?.let { values["gnss_minimum_policy"] = GnssMinimumPolicy.valueOf(it) }
             (values["gnss_environment"] as String?)?.let { values["gnss_environment"] = GnssSimulationEnvironment.valueOf(it) }
             val navigation = (values["gnss_navigation"] as String?)?.let(RinexNavigationResource::decodeWire)
+            val carrierIdentity = (values["carrier_identity_json"] as String?)?.let {
+                Json.decodeFromString(CarrierIdentityConfig.serializer(), it)
+            }
             (values["sensor_targets"] as String?)?.let {
                 values["sensor_targets"] = com.system.location.service.core.sensors.SensorTargets.parse(it)
             }
-            return PreparedRuntimeConfiguration(values.toMap(), source, captureRejected, routing, environment, navigation)
+            return PreparedRuntimeConfiguration(
+                values.toMap(), source, captureRejected, routing, environment, navigation, carrierIdentity,
+            )
         }
     }
 }

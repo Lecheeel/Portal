@@ -33,6 +33,8 @@ object HookConfigurationPreferences {
             "need_downgrade_to_2g" to flag("needDowngradeToCdma", policy.downgradeToCdma),
             "enable_nmea" to flag("enableNMEA", true),
             "hide_mock" to flag("hideMock", policy.hideMock),
+            "carrier_identity_enabled" to flag("carrierIdentityEnabled", policy.carrierIdentityEnabled),
+            "carrier_identity_json" to text("carrierIdentityJson").takeIf { it.isNotBlank() },
             "experimental_anti_detect" to flag("antiDetectEnabled", policy.antiDetectEnabled),
             "experimental_stack_trace" to flag("stackTraceCleanEnabled", policy.stackTraceCleanEnabled),
             "experimental_stack_trace_replace" to flag("stackTraceReplaceEnabled", policy.stackTraceReplaceEnabled),

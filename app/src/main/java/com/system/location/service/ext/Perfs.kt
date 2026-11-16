@@ -260,6 +260,15 @@ var Context.simReady: Boolean
         putBoolean("simReady", value)
     }
 
+/** Master switch for SIM/operator identity; saved profiles remain when this is off. */
+var Context.carrierIdentityEnabled: Boolean
+    get() = sharedPrefs.getBoolean("carrierIdentityEnabled", false)
+    set(value) = sharedPrefs.edit { putBoolean("carrierIdentityEnabled", value) }
+
+var Context.carrierIdentityJson: String
+    get() = sharedPrefs.getString("carrierIdentityJson", "").orEmpty()
+    set(value) = sharedPrefs.edit { putString("carrierIdentityJson", value) }
+
 var Context.environmentApCount: Int
     get() = sharedPrefs.getInt("environmentApCount", 4).coerceIn(EnvironmentConfig.MIN_AP_PER_CELL, EnvironmentConfig.MAX_AP_PER_CELL)
     set(value) = sharedPrefs.edit {

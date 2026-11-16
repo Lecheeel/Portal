@@ -1,5 +1,8 @@
 package com.system.location.service.core
 
+import com.system.location.service.core.carrier.CarrierIdentityConfig
+import com.system.location.service.core.carrier.CarrierIdentityMode
+import com.system.location.service.core.carrier.SimCarrierProfile
 import com.system.location.service.core.environment.*
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
@@ -44,6 +47,29 @@ class PreparedRuntimeConfigurationTest {
         assertEquals(3L, result.environmentVersion)
         assertTrue(result.configuration.wifiFingerprintEnabled)
         assertEquals(initial.configuration.wifiFingerprintCatalogJson, result.configuration.wifiFingerprintCatalogJson)
+    }
+
+    @Test fun carrierIdentityIsDecodedAndCanBeClearedAtomically() {
+        val config = CarrierIdentityConfig(
+            mode = CarrierIdentityMode.GLOBAL,
+            sims = listOf(SimCarrierProfile(
+                slot = 1, countryIso = "CN", mcc = 460, mnc = 0, mncDigits = 2,
+                carrierName = "中国移动", operatorName = "China Mobile",
+            )),
+        )
+        val json = Json.encodeToString(CarrierIdentityConfig.serializer(), config)
+        val result = PreparedRuntimeConfiguration.prepare(mapOf(
+            "carrier_identity_enabled" to true,
+            "carrier_identity_json" to json,
+        )).applyTo(initial)
+        assertTrue(result.configuration.carrierIdentityEnabled)
+        assertEquals(config, result.configuration.carrierIdentity)
+        val cleared = PreparedRuntimeConfiguration.prepare(mapOf(
+            "carrier_identity_enabled" to false,
+            "carrier_identity_json" to "",
+        )).applyTo(result)
+        assertFalse(cleared.configuration.carrierIdentityEnabled)
+        assertNull(cleared.configuration.carrierIdentity)
     }
 
     @Test fun gnssPolicyUpdatesAtomicallyAndSurvivesRuntimeSerialization() {

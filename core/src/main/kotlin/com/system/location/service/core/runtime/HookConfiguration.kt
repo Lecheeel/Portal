@@ -6,6 +6,7 @@ import com.system.location.service.core.gnss.GnssSimulationPolicy
 import com.system.location.service.core.gnss.GnssSourceSelection
 import com.system.location.service.core.gnss.GnssFrameSource
 import com.system.location.service.core.gnss.RinexNavigationResource
+import com.system.location.service.core.carrier.CarrierIdentityConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -26,6 +27,9 @@ data class HookConfiguration(
     val downgradeToCdma: Boolean = false,
     val nmeaEnabled: Boolean = true,
     val hideMock: Boolean = true,
+    /** Master switch for SIM/operator identity; saved profiles are retained while this is off. */
+    val carrierIdentityEnabled: Boolean = false,
+    val carrierIdentity: CarrierIdentityConfig? = null,
     /** Experimental native path rewriting; default off and only applied to explicit targets. */
     val antiDetectEnabled: Boolean = false,
     /** Experimental global stack-frame filtering; default off, changes observable stack length. */

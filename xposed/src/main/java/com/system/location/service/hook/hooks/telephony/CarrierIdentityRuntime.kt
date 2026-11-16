@@ -33,16 +33,11 @@ internal object CarrierIdentityRuntime {
             val manager = context.getSystemService(SubscriptionManager::class.java) ?: return null
             val subscriptions = manager.activeSubscriptionInfoList.orEmpty()
                 .filter { it.simSlotIndex in 0..1 && SubscriptionManager.isValidSubscriptionId(it.subscriptionId) }
-            val id = args.firstOrNull() as? Int
-            val slot = when {
-                methodName.endsWith("ForPhone") || methodName.endsWith("ForSlot") ||
-                    methodName == "getActivePhoneType" -> id?.plus(1)
-                id != null -> subscriptions.firstOrNull { it.subscriptionId == id }?.simSlotIndex?.plus(1)
-                else -> {
-                    val defaultId = SubscriptionManager.getDefaultSubscriptionId()
-                    subscriptions.firstOrNull { it.subscriptionId == defaultId }?.simSlotIndex?.plus(1)
-                }
-            } ?: return null
+            val slot = com.system.location.service.core.carrier.CarrierSubscriptionSelection.slot(
+                methodName, args.firstOrNull() as? Int,
+                subscriptions.associate { it.subscriptionId to (it.simSlotIndex + 1) },
+                SubscriptionManager.getDefaultSubscriptionId(),
+            ) ?: return null
             CarrierIdentityResolver.profile(config, slot,
                 subscriptions.map { it.simSlotIndex + 1 }.toSet(), packages, systemCaller)
         } catch (_: Exception) {

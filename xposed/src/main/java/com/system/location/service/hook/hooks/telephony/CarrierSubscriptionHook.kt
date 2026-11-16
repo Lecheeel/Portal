@@ -19,6 +19,8 @@ internal object CarrierSubscriptionHook {
             val type = Reflection.findClassIfExists(name, loader) ?: return@forEach
             val hook = Hooker { chain ->
                 if (CarrierIdentityRuntime.isResolving()) return@Hooker chain.proceed()
+                if (Binder.getCallingUid() in setOf(1000, 1001) &&
+                    chain.args.any { it == CarrierIdentityRuntime.PHYSICAL_QUERY_TAG }) return@Hooker chain.proceed()
                 val original = chain.proceed()
                 if (chain.executable.name == "getAccessibleSubscriptionInfoList") return@Hooker original
                 val virtuals = CarrierIdentityRuntime.virtualProfilesForCall(Binder.getCallingUid())

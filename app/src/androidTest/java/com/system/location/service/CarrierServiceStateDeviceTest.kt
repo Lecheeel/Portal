@@ -67,6 +67,15 @@ class CarrierServiceStateDeviceTest {
         val originalItem = originals.first { reflection.callMethod(it, "getDomain") == 2 && reflection.callMethod(it, "getTransportType") == 1 }
         assertNotNull(reflection.callMethod(originalItem, "getCellIdentity"))
         assertEquals("46000", reflection.callMethod(originalItem, "getRegisteredPlmn"))
+        val protectedOnly = CarrierServiceStateHook.copyWithoutCellIdentity(original)
+        assertEquals("46000", protectedOnly.operatorNumeric)
+        val protectedRegistrations = reflection.callMethod(protectedOnly, "getNetworkRegistrationInfoList") as List<*>
+        val protectedItem = protectedRegistrations.first {
+            reflection.callMethod(it, "getDomain") == 2 && reflection.callMethod(it, "getTransportType") == 1
+        }
+        assertNull(reflection.callMethod(protectedItem, "getCellIdentity"))
+        assertEquals(13, reflection.callMethod(protectedItem, "getAccessNetworkTechnology"))
+        assertNotNull(reflection.callMethod(originalItem, "getCellIdentity"))
     }
 
     @Test fun unavailableOrRedactedOperatorFieldsStayUnavailable() {

@@ -14,10 +14,27 @@ object CarrierServiceStateHook {
             val original = chain.proceed()
             val state = original as? ServiceState ?: return@Hooker original
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
-                ?: return@Hooker original
-            copyWithIdentity(state, profile)
+            when {
+                profile != null -> copyWithIdentity(state, profile)
+                CarrierIdentityRuntime.protectsLocation(android.os.Binder.getCallingUid()) -> copyWithoutCellIdentity(state)
+                else -> original
+            }
         }
         listOf("getServiceStateForSubscriber", "getServiceState").forEach { type.hookAllMethods(it, hook) }
+    }
+
+    fun copyWithoutCellIdentity(original: ServiceState): ServiceState = runCatching {
+        ServiceState(original).apply {
+            @Suppress("UNCHECKED_CAST")
+            val registrations = Reflection.getObjectField(this, "mNetworkRegistrationInfos") as List<Any>
+            registrations.forEach { Reflection.setObjectField(it, "mCellIdentity", null) }
+        }
+    }.getOrElse {
+        ServiceState().apply {
+            state = original.state
+            roaming = original.roaming
+            setOperatorName(original.operatorAlphaLong, original.operatorAlphaShort, original.operatorNumeric)
+        }
     }
 
     fun copyWithIdentity(original: ServiceState, profile: SimCarrierProfile): ServiceState {

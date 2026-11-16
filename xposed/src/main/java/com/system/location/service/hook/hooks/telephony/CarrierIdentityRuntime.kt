@@ -11,6 +11,23 @@ import com.system.location.service.hook.utils.FakeLoc
 internal object CarrierIdentityRuntime {
     private val resolving = ThreadLocal.withInitial { false }
 
+    internal fun protectsLocation(uid: Int): Boolean {
+        val state = FakeLoc.runtimeSnapshots.current()
+        if (!state.configuration.enabled || uid < 0 || uid % 100000 < 10000) return false
+        val context = BinderUtils.getSystemContext() ?: return true
+        val packages = runCatching { context.packageManager.getPackagesForUid(uid)?.toList().orEmpty() }
+            .getOrDefault(emptyList())
+        if (packages.isEmpty()) return true
+        if (packages.any { name -> runCatching {
+            context.packageManager.getApplicationInfo(name, 0).flags and
+                (android.content.pm.ApplicationInfo.FLAG_SYSTEM or android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        }.getOrDefault(false) }) return false
+        return runCatching {
+            com.system.location.service.hook.hooks.ListenerRouting.decisionFor(null, uid, state.routing) !=
+                com.system.location.service.core.routing.RoutingDecision.Deny
+        }.getOrDefault(true)
+    }
+
     fun profileForCall(methodName: String, args: List<Any?>,
         callerUid: Int = Binder.getCallingUid()): SimCarrierProfile? {
         val policy = FakeLoc.runtimeSnapshots.current().configuration

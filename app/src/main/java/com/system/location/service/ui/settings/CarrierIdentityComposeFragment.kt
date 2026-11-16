@@ -88,6 +88,8 @@ private data class SimDraft(
     val carrierName: String = "",
     val operatorName: String = "",
     val radio: CarrierRadio = CarrierRadio.NR,
+    val nrBand: Int = 78,
+    val nrArfcn: String = "640000",
 )
 
 private val SimDraftSaver = listSaver<SnapshotStateList<SimDraft>, String>(
@@ -368,6 +370,29 @@ private fun CarrierIdentityScreen(
                                 label = { Text("LTE") },
                             )
                         }
+                        if (draft.radio == CarrierRadio.NR) {
+                            Text("NR 生成参数", style = MaterialTheme.typography.labelLarge)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf(41, 77, 78, 79).forEach { band ->
+                                    FilterChip(selected = draft.nrBand == band,
+                                        onClick = {
+                                            drafts[selectedSlot - 1] = draft.copy(nrBand = band,
+                                                nrArfcn = com.system.location.service.core.carrier.CarrierNrChannel
+                                                    .defaultArfcn(band).toString())
+                                        }, label = { Text("n$band") })
+                                }
+                            }
+                            OutlinedTextField(value = draft.nrArfcn,
+                                onValueChange = { value ->
+                                    if (value.length <= 7 && value.all(Char::isDigit))
+                                        drafts[selectedSlot - 1] = draft.copy(nrArfcn = value)
+                                }, label = { Text("NR-ARFCN") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth())
+                            Text("没有 NR 回放数据时，按目标点和固定种子生成 NR SA 小区；LTE 仅参考相对信号。频段需按测试场景选择，不代表当地实际部署。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         if (draft.enabled && draft.mcc.isNotBlank() && draft.mnc.isNotBlank()) {
                             Text(
                                 "PLMN：${draft.mcc.padStart(3, '0')}${draft.mnc.padStart(draft.mncDigits, '0')}",
@@ -432,6 +457,8 @@ private fun CarrierIdentityScreen(
                                     carrierName = draft.carrierName.trim(),
                                     operatorName = draft.operatorName.ifBlank { draft.carrierName }.trim(),
                                     radio = draft.radio,
+                                    nrBand = draft.nrBand,
+                                    nrArfcn = draft.nrArfcn.toIntOrNull() ?: error("SIM ${draft.slot} NR-ARFCN 无效"),
                                 )
                             }
                             require(!enabled || sims.any { it.enabled }) { "开启后至少配置一张 SIM" }
@@ -613,4 +640,6 @@ private fun SimCarrierProfile.toDraft(): SimDraft = SimDraft(
     carrierName = carrierName,
     operatorName = operatorName,
     radio = radio,
+    nrBand = nrBand,
+    nrArfcn = nrArfcn.toString(),
 )

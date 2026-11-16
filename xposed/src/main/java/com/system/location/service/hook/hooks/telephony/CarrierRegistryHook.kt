@@ -14,7 +14,8 @@ internal object CarrierRegistryHook {
     private const val EVENT_SERVICE_STATE_CHANGED = 1
     private const val EVENT_CELL_INFO_CHANGED = 11
     private class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient,
-        val serviceState: Boolean) {
+        val serviceState: Boolean, val cellInfo: Boolean) {
+        @Volatile var cellsSent = false
         @Volatile var lastRealState: ServiceState? = null
         @Volatile var virtualSent = false
     }
@@ -58,7 +59,8 @@ internal object CarrierRegistryHook {
             val death = previous?.death ?: IBinder.DeathRecipient { remove(binder) }
             if (previous == null) binder.linkToDeath(death, 0)
             listeners[binder] = Entry(Binder.getCallingUid(), subId, death,
-                EVENT_SERVICE_STATE_CHANGED in events).apply {
+                EVENT_SERVICE_STATE_CHANGED in events, EVENT_CELL_INFO_CHANGED in events).apply {
+                cellsSent = previous?.cellsSent ?: false
                 lastRealState = previous?.lastRealState
                 virtualSent = previous?.virtualSent ?: false
             }
@@ -87,16 +89,7 @@ internal object CarrierRegistryHook {
                     }
                 }
                 if (profile?.virtual == true && EVENT_CELL_INFO_CHANGED in events) {
-                    runCatching {
-                        val data = CellInfoSynthesis.resultForCaller(null, callerUid, subId)
-                        if (data is CellInfoSynthesisResult.Synthetic && listeners.containsKey(binder)) {
-                            listener.javaClass.getMethod("onCellInfoChanged", List::class.java)
-                                .invoke(listener, data.cells)
-                        }
-                    }.onFailure {
-                        com.system.location.service.hook.utils.Logger.warn(
-                            "Virtual cell listener seed failed: ${it.javaClass.simpleName}")
-                    }
+                    listeners[binder]?.let { updateCells(binder, it) }
                 }
                 result
             } catch (failure: Throwable) {
@@ -126,6 +119,7 @@ internal object CarrierRegistryHook {
             result
         })
         listener.javaClass.onceHookAllMethod("onCellInfoChanged", Hooker { callback ->
+            if (dispatching.get() == true) return@Hooker callback.proceed()
             val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
             val entry = listeners[target.asBinder()] ?: return@Hooker callback.proceed()
             val identity = CarrierIdentityRuntime.profileForCall("getAllCellInfo", listOf(entry.subId), entry.uid)
@@ -140,14 +134,40 @@ internal object CarrierRegistryHook {
             val args = callback.args.toTypedArray()
             if (args.isEmpty()) return@Hooker null
             args[0] = cells
-            callback.proceed(args)
+            val delivered = callback.proceed(args)
+            entry.cellsSent = identity?.virtual == true && cells.isNotEmpty()
+            delivered
         })
+    }
+
+    private fun updateCells(binder: IBinder, entry: Entry) {
+        if (!entry.cellInfo || listeners[binder] !== entry || !binder.isBinderAlive) return
+        runCatching {
+            val profile = CarrierIdentityRuntime.profileForCall("getAllCellInfo", listOf(entry.subId), entry.uid)
+            val cells = if (profile?.virtual == true) {
+                when (val result = CellInfoSynthesis.resultForCaller(null, entry.uid, entry.subId)) {
+                    is CellInfoSynthesisResult.Synthetic -> result.cells
+                    else -> emptyList()
+                }
+            } else if (entry.cellsSent) emptyList() else return@runCatching
+            val listener = Class.forName("com.android.internal.telephony.IPhoneStateListener\$Stub")
+                .getMethod("asInterface", IBinder::class.java).invoke(null, binder) as IInterface
+            if (listeners[binder] !== entry) return@runCatching
+            dispatching.set(true)
+            try {
+                listener.javaClass.getMethod("onCellInfoChanged", List::class.java).invoke(listener, cells)
+                entry.cellsSent = profile?.virtual == true && cells.isNotEmpty()
+            } finally { dispatching.set(false) }
+        }.onFailure {
+            com.system.location.service.hook.utils.Logger.warn("Carrier cell update failed: ${it.javaClass.simpleName}")
+        }
     }
 
     fun onConfigurationChanged() {
         if (listeners.isEmpty() || updates.isShutdown) return
         runCatching { updates.execute {
             listeners.entries.toList().forEach { (binder, entry) ->
+                updateCells(binder, entry)
                 if (!entry.serviceState || listeners[binder] !== entry || !binder.isBinderAlive) return@forEach
                 runCatching {
                     val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
@@ -179,6 +199,8 @@ internal object CarrierRegistryHook {
             putInt("uid", entry.uid)
             putInt("subscription", entry.subId)
             putBoolean("service_state", entry.serviceState)
+            putBoolean("cell_info", entry.cellInfo)
+            putBoolean("cells_sent", entry.cellsSent)
             putBoolean("virtual_sent", entry.virtualSent)
             entry.lastRealState?.let { putParcelable("real_state", it) }
         }
@@ -200,7 +222,8 @@ internal object CarrierRegistryHook {
                 val death = IBinder.DeathRecipient { remove(binder) }
                 binder.linkToDeath(death, 0)
                 listeners[binder] = Entry(row.getInt("uid"), row.getInt("subscription"), death,
-                    row.getBoolean("service_state", false)).apply {
+                    row.getBoolean("service_state", false), row.getBoolean("cell_info", false)).apply {
+                    cellsSent = row.getBoolean("cells_sent", false)
                     virtualSent = row.getBoolean("virtual_sent", false)
                     @Suppress("DEPRECATION")
                     lastRealState = row.getParcelable<ServiceState>("real_state")

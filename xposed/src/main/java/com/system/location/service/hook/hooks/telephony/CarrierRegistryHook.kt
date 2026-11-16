@@ -15,7 +15,9 @@ internal object CarrierRegistryHook {
     private const val EVENT_CELL_INFO_CHANGED = 11
     private const val EVENT_SIGNAL_STRENGTHS_CHANGED = 9
     private class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient,
-        val serviceState: Boolean, val cellInfo: Boolean) {
+        val serviceState: Boolean, val cellInfo: Boolean, val signalStrength: Boolean) {
+        @Volatile var signalSent = false
+        @Volatile var lastSignal: android.telephony.SignalStrength? = null
         val movementGate = com.system.location.service.core.carrier.CarrierCellPublicationGate()
         @Volatile var cellsSent = false
         @Volatile var lastRealState: ServiceState? = null
@@ -61,7 +63,10 @@ internal object CarrierRegistryHook {
             val death = previous?.death ?: IBinder.DeathRecipient { remove(binder) }
             if (previous == null) binder.linkToDeath(death, 0)
             listeners[binder] = Entry(Binder.getCallingUid(), subId, death,
-                EVENT_SERVICE_STATE_CHANGED in events, EVENT_CELL_INFO_CHANGED in events).apply {
+                EVENT_SERVICE_STATE_CHANGED in events, EVENT_CELL_INFO_CHANGED in events,
+                EVENT_SIGNAL_STRENGTHS_CHANGED in events).apply {
+                signalSent = previous?.signalSent ?: false
+                lastSignal = previous?.lastSignal
                 cellsSent = previous?.cellsSent ?: false
                 lastRealState = previous?.lastRealState
                 virtualSent = previous?.virtualSent ?: false
@@ -94,14 +99,7 @@ internal object CarrierRegistryHook {
                     listeners[binder]?.let { updateCells(binder, it) }
                 }
                 if (profile?.virtual == true && EVENT_SIGNAL_STRENGTHS_CHANGED in events) {
-                    runCatching {
-                        CarrierSignalStrengthHook.forCaller(callerUid, subId)?.let { signal ->
-                            if (listeners.containsKey(binder)) listener.javaClass.getMethod("onSignalStrengthsChanged",
-                                android.telephony.SignalStrength::class.java).invoke(listener, signal)
-                        }
-                    }.onFailure {
-                        com.system.location.service.hook.utils.Logger.warn("Virtual signal seed failed: ${it.javaClass.simpleName}")
-                    }
+                    listeners[binder]?.let { updateSignal(binder, it) }
                 }
                 result
             } catch (failure: Throwable) {
@@ -113,13 +111,17 @@ internal object CarrierRegistryHook {
 
     private fun installCallback(listener: IInterface) {
         listener.javaClass.onceHookAllMethod("onSignalStrengthsChanged", Hooker { callback ->
+            if (dispatching.get() == true) return@Hooker callback.proceed()
             val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
             val entry = listeners[target.asBinder()] ?: return@Hooker callback.proceed()
             val signal = CarrierSignalStrengthHook.forCaller(entry.uid, entry.subId) ?: return@Hooker callback.proceed()
             val args = callback.args.toTypedArray()
             if (args.isEmpty()) return@Hooker callback.proceed()
             args[0] = signal
-            callback.proceed(args)
+            val result = callback.proceed(args)
+            entry.signalSent = true
+            entry.lastSignal = signal
+            result
         })
         listener.javaClass.onceHookAllMethod("onServiceStateChanged", Hooker { callback ->
             if (dispatching.get() == true) return@Hooker callback.proceed()
@@ -161,6 +163,29 @@ internal object CarrierRegistryHook {
         })
     }
 
+    private fun updateSignal(binder: IBinder, entry: Entry) {
+        if (!entry.signalStrength || listeners[binder] !== entry || !binder.isBinderAlive) return
+        runCatching {
+            val modeled = CarrierSignalStrengthHook.forCaller(entry.uid, entry.subId)
+            if (modeled != null && entry.signalSent && modeled == entry.lastSignal) return@runCatching
+            val signal = modeled ?: if (entry.signalSent)
+                com.system.location.service.hook.runtime.Reflection.newInstance(android.telephony.SignalStrength::class.java)
+                    as android.telephony.SignalStrength else return@runCatching
+            val listener = Class.forName("com.android.internal.telephony.IPhoneStateListener\$Stub")
+                .getMethod("asInterface", IBinder::class.java).invoke(null, binder) as IInterface
+            if (listeners[binder] !== entry) return@runCatching
+            dispatching.set(true)
+            try {
+                listener.javaClass.getMethod("onSignalStrengthsChanged", android.telephony.SignalStrength::class.java)
+                    .invoke(listener, signal)
+                entry.signalSent = modeled != null
+                entry.lastSignal = modeled
+            } finally { dispatching.set(false) }
+        }.onFailure {
+            com.system.location.service.hook.utils.Logger.warn("Carrier signal update failed: ${it.javaClass.simpleName}")
+        }
+    }
+
     private fun updateCells(binder: IBinder, entry: Entry) {
         if (!entry.cellInfo || listeners[binder] !== entry || !binder.isBinderAlive) return
         runCatching {
@@ -189,7 +214,7 @@ internal object CarrierRegistryHook {
 
     @Synchronized
     fun onSamplePublished() {
-        if (updates.isShutdown || listeners.values.none { it.cellInfo }) return
+        if (updates.isShutdown || listeners.values.none { it.cellInfo || it.signalStrength }) return
         val state = com.system.location.service.hook.utils.FakeLoc.runtimeSnapshots.current()
         if (!state.configuration.enabled || !state.configuration.carrierIdentityEnabled) return
         if (movementPending.get()) return
@@ -204,6 +229,7 @@ internal object CarrierRegistryHook {
                 try { generation.run {
                     val current = com.system.location.service.hook.utils.FakeLoc.runtimeSnapshots.current()
                     listeners.entries.toList().forEach { (binder, entry) ->
+                        updateSignal(binder, entry)
                         if (!entry.cellInfo) return@forEach
                         runCatching {
                             val point = CellInfoSynthesis.pointForCaller(entry.uid, current) ?: return@runCatching
@@ -225,6 +251,7 @@ internal object CarrierRegistryHook {
         runCatching { updates.execute { generation.run {
             listeners.entries.toList().forEach { (binder, entry) ->
                 updateCells(binder, entry)
+                updateSignal(binder, entry)
                 if (!entry.serviceState || listeners[binder] !== entry || !binder.isBinderAlive) return@forEach
                 runCatching {
                     val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
@@ -257,6 +284,9 @@ internal object CarrierRegistryHook {
             putInt("subscription", entry.subId)
             putBoolean("service_state", entry.serviceState)
             putBoolean("cell_info", entry.cellInfo)
+            putBoolean("signal_strength", entry.signalStrength)
+            putBoolean("signal_sent", entry.signalSent)
+            entry.lastSignal?.let { putParcelable("last_signal", it) }
             putBoolean("cells_sent", entry.cellsSent)
             putBoolean("virtual_sent", entry.virtualSent)
             entry.lastRealState?.let { putParcelable("real_state", it) }
@@ -279,7 +309,11 @@ internal object CarrierRegistryHook {
                 val death = IBinder.DeathRecipient { remove(binder) }
                 binder.linkToDeath(death, 0)
                 listeners[binder] = Entry(row.getInt("uid"), row.getInt("subscription"), death,
-                    row.getBoolean("service_state", false), row.getBoolean("cell_info", false)).apply {
+                    row.getBoolean("service_state", false), row.getBoolean("cell_info", false),
+                    row.getBoolean("signal_strength", false)).apply {
+                    signalSent = row.getBoolean("signal_sent", false)
+                    @Suppress("DEPRECATION")
+                    lastSignal = row.getParcelable<android.telephony.SignalStrength>("last_signal")
                     cellsSent = row.getBoolean("cells_sent", false)
                     virtualSent = row.getBoolean("virtual_sent", false)
                     @Suppress("DEPRECATION")

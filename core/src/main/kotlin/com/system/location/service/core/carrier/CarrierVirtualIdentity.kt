@@ -19,12 +19,22 @@ object CarrierVirtualIdentity {
     fun slotForSubscriptionId(subId: Int): Int? =
         (subId - VIRTUAL_SUB_ID_BASE).takeIf { it in 1..2 }
 
-    /**
-     * Stable positive carrier id. Real devices use -1 for "unknown"; a named virtual carrier with
-     * an unknown id is internally inconsistent and is a detectable fingerprint.
+    /** Base MNO identities from AOSP carrier_list.textpb (no MVNO GID/SPN matching).
+     * Unknown PLMNs retain Android's -1; a positive arbitrary number is not a carrier identity.
+     * https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/refs/heads/main/assets/latest_carrier_id/carrier_list.textpb
      */
-    fun carrierId(profile: SimCarrierProfile): Int =
-        1_000 + ((profile.mcc * 31 + profile.mnc * 17 + profile.slot) % 8_000)
+    fun carrierId(profile: SimCarrierProfile): Int = when (profile.operatorNumeric) {
+        "310260" -> 1 // T-Mobile US
+        "310410" -> 1187 // AT&T
+        "311480" -> 1839 // Verizon Wireless
+        "50501", "50539", "50571", "50572" -> 1345 // Telstra
+        "50502", "50590" -> 30 // Optus
+        "50503" -> 15 // Vodafone AU
+        "46000", "46002", "46004", "46007", "46008" -> 1435
+        "46001", "46006", "46009" -> 1436
+        "46003", "46011" -> 2237
+        else -> UNKNOWN_CARRIER_ID
+    }
 
     /** 20-digit ICCID, including the Luhn check digit. */
     fun iccid(profile: SimCarrierProfile): String {

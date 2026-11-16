@@ -403,6 +403,17 @@ object TelephonyHook: BaseTelephonyHook() {
                 data.readInt()
             }.getOrNull() ?: return@Hooker original
             val state = FakeLoc.runtimeSnapshots.current()
+            if (state.configuration.carrierIdentityEnabled) {
+                if (operation == TelephonySubOperation.NETWORK_COUNTRY_ISO) {
+                    val identity = CarrierIdentityRuntime.profileForCall("getNetworkCountryIsoForPhone", listOf(requestedId))
+                    identity?.let {
+                        rewriteSubReply(args[2] as? Parcel ?: return@Hooker original,
+                            it.countryIso.lowercase(java.util.Locale.ROOT))
+                    }
+                }
+                // Real active subscriptions and slot mappings are required by the dual-SIM model.
+                return@Hooker original
+            }
             val uid = BinderUtils.getCallerUid()
             val route = com.system.location.service.hook.hooks.ListenerRouting
                 .decisionFor(null, uid, state.routing)

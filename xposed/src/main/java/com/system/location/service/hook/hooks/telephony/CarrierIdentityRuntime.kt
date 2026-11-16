@@ -11,11 +11,12 @@ import com.system.location.service.hook.utils.FakeLoc
 internal object CarrierIdentityRuntime {
     private val resolving = ThreadLocal.withInitial { false }
 
-    fun profileForCall(methodName: String, args: List<Any?>): SimCarrierProfile? {
+    fun profileForCall(methodName: String, args: List<Any?>,
+        callerUid: Int = Binder.getCallingUid()): SimCarrierProfile? {
         val policy = FakeLoc.runtimeSnapshots.current().configuration
         if (!policy.enabled || !policy.carrierIdentityEnabled || resolving.get() == true) return null
         val config = policy.carrierIdentity ?: return null
-        val uid = Binder.getCallingUid()
+        val uid = callerUid
         val context = BinderUtils.getSystemContext() ?: return null
         val packages = runCatching { context.packageManager.getPackagesForUid(uid)?.toList().orEmpty() }
             .getOrDefault(emptyList())

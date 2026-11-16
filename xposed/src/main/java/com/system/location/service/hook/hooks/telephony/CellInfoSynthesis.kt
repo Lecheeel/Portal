@@ -40,6 +40,9 @@ object CellInfoSynthesis {
     internal fun resultForCaller(packageName: String, uid: Int): CellInfoSynthesisResult {
         val state = FakeLoc.runtimeSnapshots.current()
         if (!state.configuration.enabled) return CellInfoSynthesisResult.PassThrough
+        val identity = if (state.configuration.carrierIdentityEnabled) {
+            CarrierIdentityRuntime.profileForCall("getAllCellInfo", emptyList(), uid)
+        } else null
         val route = com.system.location.service.hook.hooks.ListenerRouting.decisionFor(packageName, uid, state.routing)
         if (route == RoutingDecision.Deny) return CellInfoSynthesisResult.PassThrough
         if (state.cellMode == CellMode.NO_SIM_WIFI_ONLY) return CellInfoSynthesisResult.Unavailable
@@ -47,7 +50,7 @@ object CellInfoSynthesis {
         val replay = capturedProfile(state, point)
         val hasCapturedCells = !replay?.cells.isNullOrEmpty() || !replay?.cdmaCells.isNullOrEmpty()
         if (!state.simReady && !hasCapturedCells) return CellInfoSynthesisResult.Unavailable
-        val cells = runCatching { build(state.environmentSourceMode, replay) }.getOrDefault(emptyList())
+        val cells = runCatching { build(state.environmentSourceMode, replay, identity) }.getOrDefault(emptyList())
         return cells.takeIf { it.isNotEmpty() }
             ?.let(CellInfoSynthesisResult::Synthetic)
             ?: CellInfoSynthesisResult.Unavailable
@@ -59,7 +62,11 @@ object CellInfoSynthesis {
             val state = FakeLoc.runtimeSnapshots.current()
             // Run the framework path first to preserve its permission and exception semantics.
             val original = chain.proceed()
-            if (!state.configuration.enabled || BinderUtils.isSystemAppsCall()) return@Hooker original
+            val identity = if (state.configuration.carrierIdentityEnabled) {
+                CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+            } else null
+            if (!state.configuration.enabled) return@Hooker original
+            if (identity == null && BinderUtils.isSystemAppsCall()) return@Hooker original
             val route = com.system.location.service.hook.hooks.ListenerRouting
                 .decisionFor(chain.args.firstOrNull() as? String, BinderUtils.getCallerUid(), state.routing)
             if (route == RoutingDecision.Deny) return@Hooker original
@@ -74,7 +81,7 @@ object CellInfoSynthesis {
             if (!state.simReady && !hasCapturedCells) {
                 return@Hooker unavailable(original, "virtual_sim_not_ready")
             }
-            val cells = runCatching { build(state.environmentSourceMode, replay) }.getOrDefault(emptyList())
+            val cells = runCatching { build(state.environmentSourceMode, replay, identity) }.getOrDefault(emptyList())
             if (cells.isEmpty()) return@Hooker unavailable(original, "target_cell_profile_unavailable")
             if (FakeLoc.enableDebugLog) Logger.debug("getAllCellInfo: ${cells.size} synthetic cells")
             selectCellInfoResult(protectedCall = true, frameworkResult = original, synthetic = cells)
@@ -114,9 +121,12 @@ object CellInfoSynthesis {
     private fun build(
         sourceMode: EnvironmentSourceMode,
         replay: com.system.location.service.core.environment.EnvironmentProfile?,
+        identity: com.system.location.service.core.carrier.SimCarrierProfile? = null,
     ): List<CellInfo> {
         val records = selectExplicitCellRecords(sourceMode, replay) ?: return emptyList()
-        val towers = records.cells
+        val towers = identity?.let {
+            com.system.location.service.core.carrier.CarrierCellIdentity.overlay(records.cells, it)
+        } ?: records.cells
         val standardCells = buildAllOrNothing(towers) { tower ->
             when (tower.type) {
                 CellType.GSM -> buildGsm(tower)
@@ -126,7 +136,7 @@ object CellInfoSynthesis {
             }
         }
         if (towers.isNotEmpty() && standardCells.isEmpty()) return emptyList()
-        val cdmaTowers = records.cdmaCells
+        val cdmaTowers = if (identity == null) records.cdmaCells else emptyList()
         val cdmaCells = buildAllOrNothing(cdmaTowers) { tower -> buildCdma(tower) }
         if (cdmaTowers.isNotEmpty() && cdmaCells.isEmpty()) return emptyList()
         return standardCells + cdmaCells
@@ -230,13 +240,18 @@ object CellInfoSynthesis {
             cell
         }.getOrNull()
 
-    private fun buildNr(tower: com.system.location.service.core.environment.CellTower): CellInfo? =
+    fun buildNr(tower: com.system.location.service.core.environment.CellTower): CellInfo? =
+        buildNrResult(tower).getOrNull()
+
+    fun buildNrResult(tower: com.system.location.service.core.environment.CellTower): Result<CellInfo> =
         runCatching {
-            val mncDigits = tower.mncDigits ?: return null
+            val mncDigits = requireNotNull(tower.mncDigits) { "NR MNC digit count is required" }
             val identity = Reflection.newInstance(
                 CellIdentityNr::class.java,
+                tower.pci ?: Int.MAX_VALUE, tower.areaCode, tower.arfcn ?: Int.MAX_VALUE,
+                intArrayOf(),
                 tower.mcc.toString().padStart(3, '0'), tower.mnc.toString().padStart(mncDigits, '0'),
-                tower.cellId, tower.pci ?: 0, tower.areaCode, tower.arfcn ?: 0,
+                tower.cellId, tower.operatorName, tower.operatorName, emptyList<String>(),
             ) as CellIdentityNr
             val signal = Reflection.newInstance(CellSignalStrengthNr::class.java) as CellSignalStrengthNr
             Reflection.setIntField(signal, "mSsRsrp", tower.rsrp)
@@ -248,8 +263,9 @@ object CellInfoSynthesis {
             Reflection.setObjectField(cell, "mCellSignalStrength", signal)
             Reflection.callMethod(cell, "setRegistered", tower.registered)
             Reflection.callMethod(cell, "setTimeStamp", SystemClock.elapsedRealtimeNanos())
+            Reflection.callMethod(cell, "setCellConnectionStatus", if (tower.registered) 1 else 0)
             cell
-        }.getOrNull()
+        }
 
     /** 3GPP TS 36.133 RSRP thresholds, so level cannot contradict the reported RSRP. */
     private fun gsmLevel(rssi: Int): Int = when {

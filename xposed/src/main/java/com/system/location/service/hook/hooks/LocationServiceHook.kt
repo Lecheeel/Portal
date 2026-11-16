@@ -563,6 +563,11 @@ internal object LocationServiceHook : BaseLocationHook() {
                 }
                 if (outResult == null) return@intercept29 chain.proceed(args)
 
+                if (command == com.system.location.service.hook.hooks.telephony.CarrierIdentitySnapshotCommand.COMMAND) {
+                    return@intercept29 com.system.location.service.hook.hooks.telephony
+                        .CarrierIdentitySnapshotCommand.read(outResult)
+                }
+
                 if (command == "get_anti_detect_state") {
                     // Read-only experiment flags for an explicitly selected sensor target.
                     val uid = BinderUtils.getCallerUid()

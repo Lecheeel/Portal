@@ -117,7 +117,7 @@ internal object CarrierIdentityRuntime {
         systemCaller: Boolean,
     ): List<SimCarrierProfile> {
         if (config.mode == CarrierIdentityMode.GLOBAL) {
-            return config.sims.filter { it.enabled && it.slot !in physicalSlots }
+            return config.sims.filter { it.enabled && it.virtual && it.slot !in physicalSlots }
                 .map { it.copy(virtual = true) }
         }
         if (systemCaller || packages.isEmpty()) return emptyList()
@@ -129,7 +129,7 @@ internal object CarrierIdentityRuntime {
             // A selected app with the default route inherits the physical slot. On a no-SIM
             // fixture that slot does not exist, so inherit the first explicitly configured
             // virtual slot rather than silently disabling per-app identity.
-            return config.sims.filter { it.enabled && it.slot !in physicalSlots }
+            return config.sims.filter { it.enabled && it.virtual && it.slot !in physicalSlots }
                 .sortedBy { it.slot }.take(1).map { it.copy(virtual = true) }
         }
         val slot = when (target) {
@@ -138,7 +138,7 @@ internal object CarrierIdentityRuntime {
             else -> return emptyList()
         }
         if (slot in physicalSlots) return emptyList()
-        return listOfNotNull(config.profileForSlot(slot)?.copy(virtual = true))
+        return listOfNotNull(config.profileForSlot(slot)?.takeIf { it.virtual })
     }
 
     private fun packagesFor(context: android.content.Context, uid: Int): List<String> =

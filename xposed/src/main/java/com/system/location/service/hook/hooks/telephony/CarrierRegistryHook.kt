@@ -15,6 +15,20 @@ internal object CarrierRegistryHook {
     private val listeners = ConcurrentHashMap<IBinder, Entry>()
 
     fun install(registry: Class<*>) {
+        registry.declaredMethods.filter { method ->
+            method.name == "getServiceStateForSubscriber" &&
+                method.returnType == ServiceState::class.java
+        }.forEach { method ->
+            HookInstaller.hookMethod(method, Hooker { chain ->
+                val subId = chain.args.firstOrNull() as? Int
+                if (subId == null) return@Hooker chain.proceed()
+                val profile = CarrierIdentityRuntime.profileForCall(
+                    "getServiceStateForSubscriber", listOf(subId), Binder.getCallingUid())
+                    ?: CarrierIdentityRuntime.virtualProfilesForCall(Binder.getCallingUid()).firstOrNull()
+                if (profile?.virtual == true) CarrierServiceStateHook.virtualState(profile)
+                else chain.proceed()
+            })
+        }
         HookInstaller.hookAllMethods(registry, "listenWithEventList", Hooker { chain ->
             val listener = chain.args.filterIsInstance<IInterface>().firstOrNull {
                 it.javaClass.methods.any { method -> method.name == "onServiceStateChanged" }

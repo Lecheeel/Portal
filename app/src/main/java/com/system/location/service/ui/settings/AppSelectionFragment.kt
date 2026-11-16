@@ -106,8 +106,13 @@ class AppSelectionFragment : Fragment() {
                                 }
                             }
                         }
-                        val overLimit = arguments.getString("purpose") == "sensors" && selected.size > 128
-                        if (overLimit) Text("最多选择 128 个应用", color = MaterialTheme.colorScheme.error)
+                        val limit = when (arguments.getString("purpose")) {
+                            "sensors" -> 128
+                            "carrier" -> com.system.location.service.core.carrier.CarrierIdentityConfig.MAX_ROUTES
+                            else -> Int.MAX_VALUE
+                        }
+                        val overLimit = selected.size > limit
+                        if (overLimit) Text("最多选择 $limit 个应用", color = MaterialTheme.colorScheme.error)
                         Button(onClick = {
                             parentFragmentManager.setFragmentResult(RESULT, Bundle(arguments).apply {
                                 putStringArrayList("selected", selected)

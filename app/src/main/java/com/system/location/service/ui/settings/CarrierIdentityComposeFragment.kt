@@ -498,8 +498,9 @@ private fun CarrierIdentityScreen(
                                 require(CarrierCountries.isValid(draft.countryIso)) {
                                     "SIM ${draft.slot} 国家/地区无效"
                                 }
-                                val mcc = draft.mcc.toIntOrNull() ?: error("SIM ${draft.slot} MCC 无效")
-                                val mnc = draft.mnc.toIntOrNull() ?: error("SIM ${draft.slot} MNC 无效")
+                                val plmn = com.system.location.service.core.carrier.CarrierPlmnInput.parse(draft.mcc, draft.mnc)
+                                val mcc = plmn.mcc
+                                val mnc = plmn.mnc
                                 require(draft.carrierName.isNotBlank()) { "SIM ${draft.slot} 运营商名称不能为空" }
                                 SimCarrierProfile(
                                     slot = draft.slot,
@@ -508,7 +509,7 @@ private fun CarrierIdentityScreen(
                                     countryIso = draft.countryIso.uppercase(Locale.ROOT),
                                     mcc = mcc,
                                     mnc = mnc,
-                                    mncDigits = draft.mncDigits,
+                                    mncDigits = plmn.mncDigits,
                                     carrierName = draft.carrierName.trim(),
                                     operatorName = draft.operatorName.ifBlank { draft.carrierName }.trim(),
                                     radio = draft.radio,

@@ -30,6 +30,35 @@ class CarrierNrCellDeviceTest {
         }
     }
 
+    @Test fun aggregateContainsOnlyServingNrAndSurvivesParcel() {
+        val tower = CellTower(CellType.NR, 310, 260, 1, 123456L, pci = 10, arfcn = 640000,
+            rsrp = -88, rsrq = -12, rssnr = 20, registered = true, mncDigits = 3, bands = listOf(78))
+        val serving = (CellInfoSynthesis.buildNrResult(tower).getOrThrow() as CellInfoNr).cellSignalStrength
+            as android.telephony.CellSignalStrengthNr
+        val type = Class.forName("com.system.location.service.hook.hooks.telephony.CarrierSignalStrengthHook")
+        val method = type.declaredMethods.single { it.name.startsWith("aggregate") && it.parameterCount == 1 }
+        method.isAccessible = true
+        val aggregate = method.invoke(type.getField("INSTANCE").get(null), serving) as android.telephony.SignalStrength
+        fun verify(signal: android.telephony.SignalStrength) {
+            val list = signal.cellSignalStrengths
+            assertEquals(1, list.size)
+            assertTrue(list.single() is android.telephony.CellSignalStrengthNr)
+            assertEquals(serving, list.single())
+            assertEquals(serving.level, signal.level)
+            assertEquals(serving.asuLevel,
+                com.system.location.service.hook.runtime.Reflection.callMethod(signal, "getAsuLevel"))
+            assertEquals(serving.dbm,
+                com.system.location.service.hook.runtime.Reflection.callMethod(signal, "getDbm"))
+        }
+        verify(aggregate)
+        val parcel = Parcel.obtain()
+        try {
+            aggregate.writeToParcel(parcel, 0)
+            parcel.setDataPosition(0)
+            verify(android.telephony.SignalStrength.CREATOR.createFromParcel(parcel))
+        } finally { parcel.recycle() }
+    }
+
     @Test fun nrIdentityAndSignalSurviveAndroidConstructionAndParcel() {
         val tower = CellTower(CellType.NR, 310, 260, 0x234567, 0x123456789L,
             pci = 777, arfcn = 640000, rsrp = -88, rsrq = -12, rssnr = 20,

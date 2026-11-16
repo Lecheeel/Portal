@@ -90,7 +90,48 @@ class CarrierNrRequestDeviceTest {
                         assertArrayEquals(intArrayOf(profileForListener.nrBand), id.bands)
                         assertEquals(profileForListener.nrArfcn, id.nrarfcn)
                     }
+                    fun awaitCells(label: String, matches: (List<CellInfo>) -> Boolean) {
+                        val deadline = android.os.SystemClock.elapsedRealtime() + 5000
+                        do {
+                            val value = notifications.poll(200, TimeUnit.MILLISECONDS)
+                            if (value != null && matches(value)) return
+                        } while (android.os.SystemClock.elapsedRealtime() < deadline)
+                        fail(label)
+                    }
+                    val persisted = CarrierIdentityCodec.decode(preferences.getString("carrierIdentityJson", "")!!)
+                    val changed = persisted.copy(sims = persisted.sims.map {
+                        if (it.slot == info.simSlotIndex + 1) it.copy(nrBand = 77, nrArfcn = 650000) else it
+                    })
+                    notifications.clear()
+                    check(preferences.edit().putString("carrierIdentityJson", CarrierIdentityCodec.encode(changed)).commit())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    awaitCells("Active cell listener did not receive new NR channel") { cells ->
+                        cells.isNotEmpty() && cells.all {
+                            it is CellInfoNr && (it.cellIdentity as CellIdentityNr).let { id ->
+                                id.nrarfcn == 650000 && id.bands.contentEquals(intArrayOf(77)) &&
+                                    id.mccString + id.mncString == profileForListener.operatorNumeric
+                            }
+                        }
+                    }
+                    notifications.clear()
+                    check(preferences.edit().putBoolean("carrierIdentityEnabled", false).commit())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    awaitCells("Disabled cell listener retained virtual cells") { it.isEmpty() }
+                    notifications.clear()
+                    check(preferences.edit().putBoolean("carrierIdentityEnabled", true)
+                        .putString("carrierIdentityJson", CarrierIdentityCodec.encode(persisted)).commit())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    awaitCells("Re-enabled cell listener did not receive cells") { cells ->
+                        cells.isNotEmpty() && cells.all { it is CellInfoNr &&
+                            (it.cellIdentity as CellIdentityNr).nrarfcn == profileForListener.nrArfcn }
+                    }
                 } finally { manager.unregisterTelephonyCallback(listener) }
+                notifications.clear()
+                val afterUnregister = CarrierIdentityCodec.decode(preferences.getString("carrierIdentityJson", "")!!)
+                check(preferences.edit().putString("carrierIdentityJson", CarrierIdentityCodec.encode(
+                    afterUnregister.copy(sims = afterUnregister.sims.map { it.copy(operatorName = "NR updated") }))).commit())
+                assertTrue(MockServiceHelper.putConfig(location, context))
+                assertNull("Unregistered cell listener received an update", notifications.poll(600, TimeUnit.MILLISECONDS))
                 val latch = CountDownLatch(1)
                 val result = AtomicReference<List<CellInfo>>()
                 val error = AtomicReference<String>()

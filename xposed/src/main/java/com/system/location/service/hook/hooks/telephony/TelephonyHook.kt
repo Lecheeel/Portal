@@ -163,6 +163,7 @@ object TelephonyHook: BaseTelephonyHook() {
     }
 
     fun hookTelephonyRegistry(cTelephonyRegistry: Class<*>) {
+        CarrierRegistryHook.install(cTelephonyRegistry)
         // The CDMA replacement is a legacy path. Leaving it active in LTE/5G mode makes callback
         // consumers see CDMA cells while getAllCellInfo returns LTE/NR cells.
         if (!FakeLoc.needDowngradeToCdma) return

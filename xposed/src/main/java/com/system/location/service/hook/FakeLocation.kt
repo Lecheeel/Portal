@@ -56,6 +56,12 @@ class FakeLocation {
             }.onFailure { Logger.error("SystemUI carrier getter installation failed", it) }
             return
         }
+        if (packageName == "miui.systemui.plugin") {
+            runCatching {
+                com.system.location.service.hook.hooks.telephony.CarrierClientHook.install(classLoader)
+            }.onFailure { Logger.error("MIUI carrier installation failed", it) }
+            return
+        }
         val status = com.system.location.service.hook.scope.HookStatusRegistry
         android.util.Log.i("PortalModule", "install process=$processName package=$packageName uid=$uid scope=$scope hooks=${status.snapshot().size}")
         com.system.location.service.hook.runtime.HookRuntime.log("install process=$processName package=$packageName uid=$uid scope=$scope hooks=${status.snapshot().size}")

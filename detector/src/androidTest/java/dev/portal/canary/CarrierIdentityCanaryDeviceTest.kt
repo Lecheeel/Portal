@@ -26,6 +26,9 @@ class CarrierIdentityCanaryDeviceTest {
             append(" simCountry=").append(manager.simCountryIso)
             append(" networkOperator=").append(manager.networkOperator)
             append(" networkType=").append(manager.networkType)
+            append(" networkOperatorName=").append(manager.networkOperatorName)
+            append(" serviceState=").append(manager.serviceState?.state)
+            append(" serviceOperator=").append(manager.serviceState?.operatorNumeric)
             append(" phoneType=").append(manager.phoneType)
             append(" carrierId=").append(manager.simCarrierId)
             append(" active=").append(
@@ -39,6 +42,9 @@ class CarrierIdentityCanaryDeviceTest {
         assertEquals("310260", manager.networkOperator)
         assertEquals(TelephonyManager.NETWORK_TYPE_NR, manager.networkType)
         assertEquals(TelephonyManager.PHONE_TYPE_GSM, manager.phoneType)
+        assertEquals(android.telephony.ServiceState.STATE_IN_SERVICE, manager.serviceState?.state)
+        assertEquals("310260", manager.serviceState?.operatorNumeric)
+        assertEquals("T-Mobile USA", manager.serviceState?.operatorAlphaLong)
         assertTrue(manager.simCarrierId > 0)
         assertTrue(subscriptions.activeSubscriptionInfoList.orEmpty().any {
             it.subscriptionId == 900000001 && it.carrierName == "T-Mobile"

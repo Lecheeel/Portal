@@ -29,7 +29,10 @@ object TelephonyHook: BaseTelephonyHook() {
             return
         }
 
-        Reflection.findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader)?.let { CellInfoSynthesis.hook(it) }
+        Reflection.findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader)?.let {
+            CellInfoSynthesis.hook(it)
+            CarrierCellRequestHook.install(it)
+        }
         PhoneTypeHooks.hook(classLoader); SimOperatorHooks.hook(classLoader)
         CarrierConfigOverrideHook.install(classLoader)
         CarrierConfigReadHook.install(classLoader)

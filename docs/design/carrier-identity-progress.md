@@ -16,7 +16,10 @@
 - 红米遗留的 `hidden_api_policy=1` 已在重连后删除并核对为 `null`；后续对象测试 finally 也成功删除，双机临时策略均恢复。
 - 客户端按槽 SIM 状态改用 phoneIndex 解析，SIM2 不再被首张虚拟卡遮蔽；默认订阅保留有效平台值并支持仅 SIM2 配置。本地编译通过，实际目标应用路径待冷启动复核。
 - carrierId 改用 AOSP 核实的中/美/澳主要 MNO canonical ID，不再依赖卡槽计算；未知 PLMN 返回 -1。此表不是完整 MVNO 识别器，GID/SPN 子运营商细分不做无依据推断。来源：https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/refs/heads/main/assets/latest_carrier_id/carrier_list.textpb
-- 尚待修复/验证：每设备稳定身份、完整 carrierId/MVNO 策略、显式虚拟插卡策略、订阅与注册状态闭环、权限返回一致性、双卡回调及 SystemUI 开启/关闭刷新。不能将已有订阅可见测试视为这些项目已通过。
+- 已加入每槽持久化 identitySeed，旧配置在控制器同步前生成并保存；编辑草稿和重复保存保留种子。core 验证身份在显示名/频段修改后稳定、不同种子身份不同、Luhn/长度及序列化一致；小米/红米各 1 项独立临时偏好迁移回归通过。不代表已验证冷启动后的全部电话进程消费路径。
+- ICCID 不再统一固定 8944 前缀，中/美/澳等使用国家电话代码；这些只是模拟格式，不是获分配的发行方 IIN/真实入网凭证。未收录国家使用中性模拟前缀，仍需完善发行方资料和用户自定义策略。
+- 固定 900000001/2 订阅 ID 仍待替换；不能因为 IMSI/ICCID 加了种子就声称所有固定特征已消除。
+- 尚待修复/验证：完整 carrierId/MVNO 策略、显式虚拟插卡策略、订阅与注册状态闭环、权限返回一致性、双卡回调及 SystemUI 开启/关闭刷新。不能将已有订阅可见测试视为这些项目已通过。
 
 ## 进度
 

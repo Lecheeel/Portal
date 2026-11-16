@@ -9,16 +9,16 @@ import java.util.Locale
 
 /** Constructs a complete platform object, including platform defaults and derived fields. */
 internal object CarrierVirtualSubscription {
-    fun info(profile: SimCarrierProfile): SubscriptionInfo? = create(profile).onFailure {
+    fun info(profile: SimCarrierProfile): SubscriptionInfo? = create(profile, CarrierIdentifierAccess.permitted()).onFailure {
         Logger.warn("Virtual SubscriptionInfo construction failed: ${it.javaClass.simpleName}")
     }.getOrNull()
 
-    internal fun create(profile: SimCarrierProfile): Result<SubscriptionInfo> = runCatching {
+    internal fun create(profile: SimCarrierProfile, includeIdentifiers: Boolean): Result<SubscriptionInfo> = runCatching {
         val builderClass = Class.forName("android.telephony.SubscriptionInfo\$Builder")
         val builder = Reflection.newInstance(builderClass)
         fun set(name: String, value: Any) { Reflection.callMethod(builder, name, value) }
         set("setId", CarrierVirtualIdentity.subscriptionId(profile.slot))
-        set("setIccId", CarrierVirtualIdentity.iccid(profile))
+        set("setIccId", if (includeIdentifiers) CarrierVirtualIdentity.iccid(profile) else "")
         set("setSimSlotIndex", profile.slot - 1)
         set("setDisplayName", profile.operatorName)
         set("setCarrierName", profile.carrierName)

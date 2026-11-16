@@ -4,5 +4,8 @@
 
     <application
         android:name=".DebugLocationServiceApp"
-        tools:replace="android:name" />
+        tools:replace="android:name">
+        <activity android:name=".debug.CarrierEditorTestActivity"
+            android:exported="false" android:theme="@style/AppTheme" />
+    </application>
 </manifest>

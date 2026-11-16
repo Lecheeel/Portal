@@ -207,6 +207,35 @@ class CarrierNrRequestDeviceTest {
                     } while (received == null && android.os.SystemClock.elapsedRealtime() < until)
                     assertNotNull("Signal listener did not receive matching virtual NR", received)
                     assertEquals(aggregate.level, received!!.level)
+                    fun awaitSignal(label: String, matches: (SignalStrength) -> Boolean) {
+                        val until = android.os.SystemClock.elapsedRealtime() + 5000
+                        var last: SignalStrength? = null
+                        do {
+                            val event = signalEvents.poll(200, TimeUnit.MILLISECONDS)
+                            if (event != null) last = event
+                            if (event != null && matches(event)) return
+                        } while (android.os.SystemClock.elapsedRealtime() < until)
+                        fail("$label; last=$last current=${manager.signalStrength}")
+                    }
+                    signalEvents.clear()
+                    check(preferences.edit().putBoolean("carrierIdentityEnabled", false).commit())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    awaitSignal("Disabling retained virtual NR signal") { it.cellSignalStrengths.isEmpty() }
+                    signalEvents.clear()
+                    check(preferences.edit().putBoolean("carrierIdentityEnabled", true).commit())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    awaitSignal("Re-enable did not restore virtual NR signal") { it.cellSignalStrengths == signals }
+                    signalEvents.clear()
+                    ScenarioRuntime.stop().await()
+                    awaitSignal("Stopping retained virtual NR signal") { it.cellSignalStrengths.isEmpty() }
+                    signalEvents.clear()
+                    assertTrue(ScenarioRuntime.start(Scenario(id = "nr-request", name = "NR request",
+                        point = Wgs84(-33.8688, 151.2093))).await())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    awaitSignal("Restart did not restore virtual NR signal") {
+                        it.cellSignalStrengths.isNotEmpty() &&
+                            it.cellSignalStrengths == manager.signalStrength?.cellSignalStrengths
+                    }
                 } finally { manager.unregisterTelephonyCallback(signalListener) }
                 val profile = config.sims.first { it.slot == info.simSlotIndex + 1 }
                 cells.forEach { cell ->

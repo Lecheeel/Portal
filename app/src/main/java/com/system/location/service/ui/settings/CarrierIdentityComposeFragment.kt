@@ -93,6 +93,7 @@ private data class SimDraft(
     val radio: CarrierRadio = CarrierRadio.NR,
     val nrBand: Int = 78,
     val nrArfcn: String = "640000",
+    val identitySeed: Long = 0L,
 )
 
 private val SimDraftSaver = listSaver<SnapshotStateList<SimDraft>, String>(
@@ -161,7 +162,7 @@ class CarrierIdentityComposeFragment : Fragment() {
     private fun loadConfig(context: Context): CarrierIdentityConfig {
         val saved = context.carrierIdentityJson
         if (saved.isNotBlank()) {
-            runCatching { com.system.location.service.core.carrier.CarrierIdentityCodec.decode(saved) }
+            runCatching { com.system.location.service.data.persistence.CarrierIdentityPreferences.migrate(context.sharedPrefs) }
                 .getOrNull()?.let { return it }
         }
         return CarrierIdentityConfig(
@@ -466,14 +467,19 @@ private fun CarrierIdentityScreen(
                                     radio = draft.radio,
                                     nrBand = draft.nrBand,
                                     nrArfcn = draft.nrArfcn.toIntOrNull() ?: error("SIM ${draft.slot} NR-ARFCN 无效"),
+                                    identitySeed = draft.identitySeed,
                                 )
                             }
                             require(!enabled || sims.any { it.enabled }) { "开启后至少配置一张 SIM" }
-                            val config = CarrierIdentityConfig(mode = mode, sims = sims, appRoutes = routes.toList())
+                            val config = com.system.location.service.data.persistence.CarrierIdentityPreferences.seedMissing(
+                                CarrierIdentityConfig(mode = mode, sims = sims, appRoutes = routes.toList()))
                             val json = com.system.location.service.core.carrier.CarrierIdentityCodec.encode(config)
                             check(context.sharedPrefs.edit()
                                 .putString("carrierIdentityJson", json)
                                 .putBoolean("carrierIdentityEnabled", enabled).commit()) { "保存失败，请重试" }
+                            config.sims.forEach { profile ->
+                                drafts[profile.slot - 1] = drafts[profile.slot - 1].copy(identitySeed = profile.identitySeed)
+                            }
                             saving = true
                             scope.launch {
                                 try {
@@ -660,4 +666,5 @@ private fun SimCarrierProfile.toDraft(): SimDraft = SimDraft(
     radio = radio,
     nrBand = nrBand,
     nrArfcn = nrArfcn.toString(),
+    identitySeed = identitySeed,
 )

@@ -34,6 +34,10 @@ internal object CarrierConfigOverrideHook {
 
     fun install(loader: ClassLoader) {
         val type = Reflection.findClassIfExists("com.android.phone.CarrierConfigLoader", loader) ?: return
+        installType(type, Binder::getCallingUid)
+    }
+
+    internal fun installType(type: Class<*>, callerUid: () -> Int) {
         val helper = type.declaredMethods.firstOrNull {
             it.name == "overrideConfig" && it.parameterTypes.toList() == listOf(
                 arrayOfNulls<PersistableBundle>(0).javaClass,
@@ -52,7 +56,7 @@ internal object CarrierConfigOverrideHook {
             val request = chain.args.getOrNull(1) as? PersistableBundle
             val action = request?.getString(CarrierOverrideProtocol.ACTION)
             if (action == null) return@Hooker chain.proceed()
-            require(Binder.getCallingUid() == 1000) { "Carrier override requires system UID" }
+            require(callerUid() == 1000) { "Carrier override requires system UID" }
             check(supported) { "Owned carrier override is unsupported on this platform" }
             require(action == CarrierOverrideProtocol.APPLY || action == CarrierOverrideProtocol.RESTORE)
             require(chain.args.getOrNull(2) == false) { "Portal carrier override must be temporary" }

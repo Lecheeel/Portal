@@ -15,6 +15,8 @@ object MockServiceHelper {
     private val commandClient = com.system.location.service.hook.security.CommandClient()
     @Volatile var carrierIdentityStatus: String? = null
         private set
+    @Volatile var carrierOverrideSupported: Boolean? = null
+        private set
 
 
     fun tryInitService(locationManager: LocationManager) {
@@ -332,8 +334,11 @@ object MockServiceHelper {
             }
         }
         carrierIdentityStatus = null
+        carrierOverrideSupported = null
         if (!commandClient.send(locationManager, rely)) return false
         carrierIdentityStatus = rely.getString("carrier_identity_status")
+        carrierOverrideSupported = if (rely.containsKey("carrier_override_supported"))
+            rely.getBoolean("carrier_override_supported") else null
         FakeLoc.runtimeSnapshots.update(prepared::applyTo)
         return true
     }

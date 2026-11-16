@@ -50,6 +50,8 @@ class CarrierNoSimDeviceTest {
             assertTrue("Scenario must start: ${ScenarioRuntime.state.value}", started)
             assertTrue(MockServiceHelper.putConfig(location, context))
             assertEquals("no_active_sim", MockServiceHelper.carrierIdentityStatus)
+            assertEquals("Phone process must advertise precise override support", true,
+                MockServiceHelper.carrierOverrideSupported)
             assertTrue(subscriptions.activeSubscriptionInfoList.orEmpty().isEmpty())
             val telephony = context.getSystemService(TelephonyManager::class.java)
             for (slot in 0..1) {

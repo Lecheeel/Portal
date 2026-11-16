@@ -34,6 +34,7 @@ object TelephonyHook: BaseTelephonyHook() {
         CarrierConfigOverrideHook.install(classLoader)
         CarrierConfigReadHook.install(classLoader)
         CarrierSubscriptionHook.install(classLoader)
+        CarrierServiceStateHook.install(classLoader)
         if (!FakeLoc.needDowngradeToCdma) return
         val cPhoneInterfaceManager = Reflection.findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader)
             ?: return

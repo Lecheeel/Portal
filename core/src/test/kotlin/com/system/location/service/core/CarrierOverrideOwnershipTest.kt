@@ -33,6 +33,34 @@ class CarrierOverrideOwnershipTest {
         assertTrue(restored(baseline, emptyMap(), patch).isEmpty())
     }
 
+    @Test fun repeatedApplyRebasesExternalChangesButKeepsOwnedOriginalValues() {
+        val baseline = mapOf("name" to "Original", "home" to false)
+        val written = mapOf("name" to "Portal", "home" to true)
+        val current = mapOf("name" to "External update", "home" to true)
+        val next = mapOf("name" to "Portal new", "home" to true)
+        val rebased = CarrierOverrideOwnership.rebase(baseline, current, written, next.keys)
+        assertEquals(mapOf("name" to "External update", "home" to false),
+            restored(rebased, current + next, next))
+        assertEquals("Original", baseline["name"])
+    }
+
+    @Test fun repeatedApplyPreservesExternalDeletionAndExplicitNull() {
+        val baseline = mapOf("name" to "Original")
+        val written = mapOf("name" to "Portal")
+        val next = mapOf("name" to "Portal new")
+        val deleted = CarrierOverrideOwnership.rebase(baseline, emptyMap(), written, next.keys)
+        assertFalse(restored(deleted, next, next).containsKey("name"))
+        val nulled = CarrierOverrideOwnership.rebase(baseline, mapOf("name" to null), written, next.keys)
+        assertTrue(restored(nulled, next, next).containsKey("name"))
+        assertNull(restored(nulled, next, next)["name"])
+    }
+
+    @Test fun ownRepeatedUpdatesDoNotReplaceBaselineWithPreviousPortalValue() {
+        val baseline = mapOf("name" to "Original")
+        val written = mapOf("name" to "Portal")
+        assertEquals(baseline, CarrierOverrideOwnership.rebase(baseline, written, written, written.keys))
+    }
+
     @Test fun absentAndExplicitNullHaveDifferentRestorationSemantics() {
         val patch = mapOf("name" to "Test")
         val result = restored(mapOf("name" to null), patch, patch)

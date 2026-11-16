@@ -7,6 +7,22 @@ data class CarrierOverrideRestorePlan(
 )
 
 object CarrierOverrideOwnership {
+    /** Update the restore baseline only where the temporary layer no longer matches our write. */
+    fun rebase(
+        baseline: Map<String, Any?>,
+        current: Map<String, Any?>,
+        written: Map<String, Any?>,
+        nextKeys: Set<String>,
+    ): Map<String, Any?> = baseline.toMutableMap().apply {
+        nextKeys.forEach { key ->
+            val stillOwned = written.containsKey(key) && current.containsKey(key) &&
+                current[key] == written[key]
+            if (!stillOwned) {
+                if (current.containsKey(key)) put(key, current[key]) else remove(key)
+            }
+        }
+    }
+
     fun restorePlan(
         baseline: Map<String, Any?>,
         current: Map<String, Any?>,

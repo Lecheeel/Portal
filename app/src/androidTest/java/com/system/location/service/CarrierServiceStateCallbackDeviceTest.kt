@@ -49,8 +49,9 @@ class CarrierServiceStateCallbackDeviceTest {
                     mncDigits = 2, carrierName = "Callback AU", radio = CarrierRadio.LTE)))
             check(preferences.edit().putBoolean("carrierIdentityEnabled", true)
                 .putString("carrierIdentityJson", CarrierIdentityCodec.encode(config)).commit())
-            assertTrue(ScenarioRuntime.start(Scenario(id = "carrier-callback", name = "Carrier callback",
-                point = Wgs84(-33.8688, 151.2093))).await())
+            val started = ScenarioRuntime.start(Scenario(id = "carrier-callback", name = "Carrier callback",
+                point = Wgs84(-33.8688, 151.2093))).await()
+            assertTrue("Scenario did not start: ${ScenarioRuntime.state.value}", started)
             assertTrue(MockServiceHelper.putConfig(location, context))
             val deadline = android.os.SystemClock.elapsedRealtime() + 5000
             while (subscriptions.activeSubscriptionInfoList.orEmpty().size != 2 &&
@@ -82,9 +83,49 @@ class CarrierServiceStateCallbackDeviceTest {
                     it.operatorNumeric == if (index == 0) "50501" else "310260"
                 })
             }
-            registered.forEach { (manager, listener) -> manager.unregisterTelephonyCallback(listener) }
+            fun awaitState(listener: Listener, label: String, predicate: (ServiceState) -> Boolean) {
+                val until = android.os.SystemClock.elapsedRealtime() + 5000
+                do {
+                    val value = listener.states.poll(200, TimeUnit.MILLISECONDS)
+                    if (value != null && predicate(value)) return
+                } while (android.os.SystemClock.elapsedRealtime() < until)
+                fail(label)
+            }
+            registered.forEach { it.second.states.clear() }
+            val persisted = CarrierIdentityCodec.decode(preferences.getString("carrierIdentityJson", "")!!)
+            val renamed = persisted.copy(sims = persisted.sims.map { it.copy(operatorName = "Updated ${it.slot}") })
+            check(preferences.edit().putString("carrierIdentityJson", CarrierIdentityCodec.encode(renamed)).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            registered.forEachIndexed { index, (_, listener) ->
+                awaitState(listener, "Active SIM ${index + 1} did not receive profile update") {
+                    it.operatorAlphaLong == "Updated ${index + 1}" &&
+                        it.operatorNumeric == if (index == 0) "310260" else "50501"
+                }
+            }
+            registered.forEach { it.second.states.clear() }
+            check(preferences.edit().putBoolean("carrierIdentityEnabled", false).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            registered.forEach { (_, listener) ->
+                awaitState(listener, "Disabling left active listener with virtual state") {
+                    it.operatorNumeric !in listOf("310260", "50501")
+                }
+            }
+            registered.forEach { it.second.states.clear() }
+            check(preferences.edit().putBoolean("carrierIdentityEnabled", true).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            registered.forEachIndexed { index, (_, listener) ->
+                awaitState(listener, "Re-enable did not notify active SIM") { it.operatorAlphaLong == "Updated ${index + 1}" }
+            }
             registered.forEach { it.second.states.clear() }
             ScenarioRuntime.stop().await()
+            registered.forEach { (_, listener) ->
+                awaitState(listener, "Stopping left active listener with virtual state") {
+                    it.operatorNumeric !in listOf("310260", "50501")
+                }
+            }
+            registered.forEach { (manager, listener) -> manager.unregisterTelephonyCallback(listener) }
+            registered.forEach { it.second.states.clear() }
+            assertTrue(MockServiceHelper.putConfig(location, context))
             registered.forEach { (_, listener) ->
                 assertNull("Unregistered listener received a callback", listener.states.poll(600, TimeUnit.MILLISECONDS))
             }

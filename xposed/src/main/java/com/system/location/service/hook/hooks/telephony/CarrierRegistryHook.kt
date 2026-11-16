@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal object CarrierRegistryHook {
     private const val EVENT_SERVICE_STATE_CHANGED = 1
     private const val EVENT_CELL_INFO_CHANGED = 11
+    private const val EVENT_SIGNAL_STRENGTHS_CHANGED = 9
     private class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient,
         val serviceState: Boolean, val cellInfo: Boolean) {
         val movementGate = com.system.location.service.core.carrier.CarrierCellPublicationGate()
@@ -92,6 +93,16 @@ internal object CarrierRegistryHook {
                 if (profile?.virtual == true && EVENT_CELL_INFO_CHANGED in events) {
                     listeners[binder]?.let { updateCells(binder, it) }
                 }
+                if (profile?.virtual == true && EVENT_SIGNAL_STRENGTHS_CHANGED in events) {
+                    runCatching {
+                        CarrierSignalStrengthHook.forCaller(callerUid, subId)?.let { signal ->
+                            if (listeners.containsKey(binder)) listener.javaClass.getMethod("onSignalStrengthsChanged",
+                                android.telephony.SignalStrength::class.java).invoke(listener, signal)
+                        }
+                    }.onFailure {
+                        com.system.location.service.hook.utils.Logger.warn("Virtual signal seed failed: ${it.javaClass.simpleName}")
+                    }
+                }
                 result
             } catch (failure: Throwable) {
                 if (previous == null) remove(binder) else listeners[binder] = previous
@@ -101,6 +112,15 @@ internal object CarrierRegistryHook {
     }
 
     private fun installCallback(listener: IInterface) {
+        listener.javaClass.onceHookAllMethod("onSignalStrengthsChanged", Hooker { callback ->
+            val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
+            val entry = listeners[target.asBinder()] ?: return@Hooker callback.proceed()
+            val signal = CarrierSignalStrengthHook.forCaller(entry.uid, entry.subId) ?: return@Hooker callback.proceed()
+            val args = callback.args.toTypedArray()
+            if (args.isEmpty()) return@Hooker callback.proceed()
+            args[0] = signal
+            callback.proceed(args)
+        })
         listener.javaClass.onceHookAllMethod("onServiceStateChanged", Hooker { callback ->
             if (dispatching.get() == true) return@Hooker callback.proceed()
             val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()

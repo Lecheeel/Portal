@@ -20,7 +20,9 @@
 - [x] 既有临时 CarrierConfig override 的字段备份与精确恢复实现；仅恢复仍由 Portal 持有的键，保留其他写入方修改。私有 helper 不支持时拒绝全局写入，实际设备路径待验证。
 - [x] 覆盖执行确认及页面状态回传：区分等待场景、无匹配 SIM、写入完成、失败和待恢复。
 - [ ] 切换全局/分应用、停止场景、模块重载的身份生命周期验证；已接入启动/停止，并交接 system_server 热重载待恢复记录，实际设备联动待测。
-- [x] 同步 ServiceState 身份副本与空字段保留；两台真机 Android 对象/Parcel 测试各 2 项通过，不代表已验证 Binder Hook 命中。
+- [x] ServiceState 副本清除内部真实 CellIdentity、重绑注册 PLMN、对齐已注册 WWAN PS 制式，并保留未注册/空字段；两台真机 Android 对象测试各 3 项通过，不代表已验证 Binder Hook 命中。
+- [x] 客户端属性 getter 的最小只读身份快照与目标应用/SystemUI 接入；不共享控制器令牌、全量路由或真实 SIM 标识。未知网络/空字段保留原值，实际 Hook 命中待验证。
+- [x] 新身份模式保留真实 ISub 卡槽和活跃订阅拓扑，不走旧无卡式返回策略。
 - [x] TelephonyRegistry 的 ServiceState 回调按原调用 UID/订阅绑定；注册前建立映射、异常回滚、注销/死亡时释放。已编译验证，实际 Binder 回调命中待测。
 - [ ] 系统属性/缓存和异步回调联动的实际设备验证。
 - [x] 导入/回放小区按 NR/LTE 身份筛选并重绑 MCC/MNC/名称，统一 serving 标记；身份解析失败不放开原有位置保护。

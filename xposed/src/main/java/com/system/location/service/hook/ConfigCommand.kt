@@ -3,6 +3,7 @@ package com.system.location.service.hook
 import android.os.Bundle
 import com.system.location.service.core.runtime.PreparedRuntimeConfiguration
 import com.system.location.service.core.runtime.RuntimeSnapshot
+import com.system.location.service.hook.hooks.telephony.CarrierConfigGlobalController
 import com.system.location.service.hook.utils.FakeLoc
 
 /** Authenticated configuration is prepared completely before one atomic publication. */
@@ -24,6 +25,9 @@ object ConfigCommand {
     internal fun publish(values: Map<String, Any?>): RuntimeSnapshot {
         val store = FakeLoc.runtimeSnapshots
         val prepared = PreparedRuntimeConfiguration.prepare(values, store.current().configuration.gnssSource)
-        return FakeLoc.configureRuntime(prepared)
+        val published = FakeLoc.configureRuntime(prepared)
+        runCatching { CarrierConfigGlobalController.onConfigurationChanged(published) }
+            .onFailure { com.system.location.service.hook.utils.Logger.warn("Global carrier identity failed: ${it.message}") }
+        return published
     }
 }

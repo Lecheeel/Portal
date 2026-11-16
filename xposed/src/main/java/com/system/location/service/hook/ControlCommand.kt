@@ -39,6 +39,10 @@ object ControlCommand {
         SampleCommand.clearLease()
         LocationTicker.stop()
         NativeCommand.disable()
+        runCatching {
+            com.system.location.service.hook.hooks.telephony.CarrierConfigGlobalController
+                .onSimulationStopped()
+        }
         return true
     }
 

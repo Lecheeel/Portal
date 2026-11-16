@@ -53,12 +53,14 @@ class FakeLocation {
         if (packageName == "com.android.systemui" && processName == packageName) {
             runCatching {
                 com.system.location.service.hook.hooks.telephony.CarrierClientHook.install(classLoader)
+                com.system.location.service.hook.hooks.telephony.CarrierStatusBarHook.install(classLoader)
             }.onFailure { Logger.error("SystemUI carrier getter installation failed", it) }
             return
         }
         if (packageName == "miui.systemui.plugin") {
             runCatching {
                 com.system.location.service.hook.hooks.telephony.CarrierClientHook.install(classLoader)
+                com.system.location.service.hook.hooks.telephony.CarrierStatusBarHook.install(classLoader)
             }.onFailure { Logger.error("MIUI carrier installation failed", it) }
             return
         }

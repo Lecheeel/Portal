@@ -48,6 +48,12 @@ class FakeLocation {
             appFlags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0)
             setOf(packageName) else emptySet()
         val scope = com.system.location.service.hook.scope.HookScopeResolver.resolve(identity, targets)
+        if (packageName == "com.android.systemui" && processName == packageName) {
+            runCatching {
+                com.system.location.service.hook.hooks.telephony.CarrierClientHook.install(classLoader)
+            }.onFailure { Logger.error("SystemUI carrier getter installation failed", it) }
+            return
+        }
         val status = com.system.location.service.hook.scope.HookStatusRegistry
         android.util.Log.i("PortalModule", "install process=$processName package=$packageName uid=$uid scope=$scope hooks=${status.snapshot().size}")
         com.system.location.service.hook.runtime.HookRuntime.log("install process=$processName package=$packageName uid=$uid scope=$scope hooks=${status.snapshot().size}")
@@ -103,6 +109,9 @@ class FakeLocation {
                 install("settings") { SettingsHook.hook(loader) }
             }
             com.system.location.service.hook.scope.HookScope.TARGET_APP -> {
+                install("application-carrier-identity") {
+                    com.system.location.service.hook.hooks.telephony.CarrierClientHook.install(loader)
+                }
                 install("application-ble-scan") {
                     com.system.location.service.hook.hooks.ble.BleScanHook.install(
                         loader, identity.packageName, identity.uid,

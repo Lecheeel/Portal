@@ -37,6 +37,26 @@ class CarrierVirtualIdentityTest {
         assertEquals(-1, CarrierVirtualIdentity.carrierId(us.copy(mcc = 999, mnc = 999)))
     }
 
+    @Test fun seedsSeparateInstallationsAndSurviveDisplayAndRadioChanges() {
+        val first = us.copy(identitySeed = 123456789L)
+        val second = us.copy(identitySeed = -987654321L)
+        assertNotEquals(CarrierVirtualIdentity.imsi(first), CarrierVirtualIdentity.imsi(second))
+        assertNotEquals(CarrierVirtualIdentity.iccid(first), CarrierVirtualIdentity.iccid(second))
+        val renamed = first.copy(carrierName = "Renamed", operatorName = "Other", nrBand = 77, nrArfcn = 650000)
+        assertEquals(CarrierVirtualIdentity.imsi(first), CarrierVirtualIdentity.imsi(renamed))
+        assertEquals(CarrierVirtualIdentity.iccid(first), CarrierVirtualIdentity.iccid(renamed))
+        val decoded = com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
+            com.system.location.service.core.carrier.CarrierIdentityCodec.encode(CarrierIdentityConfig(sims = listOf(first))))
+        assertEquals(first, decoded.sims.single())
+        assertTrue(CarrierVirtualIdentity.iccid(first).startsWith("891"))
+        assertTrue(CarrierVirtualIdentity.iccid(au).startsWith("8961"))
+        assertTrue(CarrierVirtualIdentity.iccid(cn).startsWith("8986"))
+        for (profile in listOf(first, second, cn, au)) {
+            assertTrue(luhn(CarrierVirtualIdentity.iccid(profile)))
+            assertEquals(15, CarrierVirtualIdentity.imsi(profile).length)
+        }
+    }
+
     @Test fun usAustraliaAndChinaBandCatalogsUseSupportedRasters() {
         assertTrue(CarrierNrBandCatalog.commonBands("US", 310, 260).containsAll(listOf(41, 71, 77, 78)))
         assertTrue(CarrierNrBandCatalog.commonBands("AU", 505, 1).containsAll(listOf(1, 3, 28, 40, 78, 79)))

@@ -1,11 +1,7 @@
 package com.system.location.service.core.carrier
 
-import kotlin.math.absoluteValue
-
-/**
- * Stable, checksum-valid identifiers for a virtual SIM. These are modeled values, not modem
- * identifiers: the same slot/MCC/MNC/serving profile produces the same IMSI/ICCID across processes
- * and releases so the app, SystemUI and the phone process cannot disagree.
+/** Stable modeled identifiers derived from a controller-persisted seed and slot/PLMN.
+ * A valid checksum and format do not imply an assigned issuer or a network credential.
  */
 object CarrierVirtualIdentity {
     const val VIRTUAL_SUB_ID_BASE = 900_000_000
@@ -36,30 +32,30 @@ object CarrierVirtualIdentity {
         else -> UNKNOWN_CARRIER_ID
     }
 
-    /** 20-digit ICCID, including the Luhn check digit. */
+    /** Modeled E.118-shaped 20-digit ICCID, not an assigned issuer credential. */
     fun iccid(profile: SimCarrierProfile): String {
-        val body = buildString {
-            append("8944")
-            append(profile.mcc.toString().padStart(3, '0'))
-            append(profile.mnc.toString().padStart(profile.mncDigits, '0'))
-            append((profile.slot - 1).coerceIn(0, 1))
-            append((profile.countryIso.hashCode().absoluteValue % 100_000_000).toString().padStart(8, '0'))
-        }.take(19).padEnd(19, '0')
+        // Country calling code, not MCC. Unknown issuers use a neutral modeled prefix rather
+        // than claiming every SIM was issued in the United Kingdom (the old fixed 8944).
+        val callingCode = when (profile.countryIso) {
+            "CN" -> "86"; "US", "CA" -> "1"; "AU" -> "61"
+            "GB" -> "44"; "DE" -> "49"; "FR" -> "33"
+            "JP" -> "81"; "KR" -> "82"; "HK" -> "852"; "TW" -> "886"
+            "SG" -> "65"; "NZ" -> "64"; else -> "00"
+        }
+        val prefix = "89$callingCode"
+        val body = prefix + digits(profile, "iccid", 19 - prefix.length)
         return body + luhnCheckDigit(body)
     }
 
-    /** 15-digit IMSI: MCC + MNC + deterministic subscriber digits. */
-    fun imsi(profile: SimCarrierProfile): String {
-        val subscriberDigits = 15 - 3 - profile.mncDigits
-        val body = buildString {
-            append(profile.mcc.toString().padStart(3, '0'))
-            append(profile.mnc.toString().padStart(profile.mncDigits, '0'))
-            append((profile.slot - 1).coerceIn(0, 1))
-            append((profile.countryIso.hashCode().absoluteValue % 1_000_000_000).toString()
-                .padStart(9, '0'))
-        }.take(3 + profile.mncDigits + subscriberDigits)
-            .padEnd(3 + profile.mncDigits + subscriberDigits, '0')
-        return body
+    /** MCC/MNC plus stable per-profile subscriber digits; names and radio edits preserve identity. */
+    fun imsi(profile: SimCarrierProfile): String =
+        profile.operatorNumeric + digits(profile, "imsi", 15 - profile.operatorNumeric.length)
+
+    private fun digits(profile: SimCarrierProfile, kind: String, count: Int): String {
+        val input = "$kind:${profile.identitySeed}:${profile.slot}:${profile.operatorNumeric}"
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray(Charsets.UTF_8))
+        return digest.take(count).joinToString("") { ((it.toInt() and 255) % 10).toString() }
     }
 
     private fun luhnCheckDigit(body: String): Char {

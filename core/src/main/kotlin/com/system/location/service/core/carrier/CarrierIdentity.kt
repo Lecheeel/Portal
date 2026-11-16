@@ -32,6 +32,8 @@ data class SimCarrierProfile(
     val radio: CarrierRadio = CarrierRadio.NR,
     val nrBand: Int = 78,
     val nrArfcn: Int = CarrierNrChannel.defaultArfcn(nrBand),
+    /** Persisted by the controller, not regenerated in injected processes. Zero is legacy input. */
+    val identitySeed: Long = 0L,
 ) {
     init {
         require(CarrierNrChannel.valid(nrBand, nrArfcn)) { "NR band and ARFCN are inconsistent" }

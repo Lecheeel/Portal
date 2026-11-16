@@ -12,6 +12,12 @@ class CarrierSubscriptionSelectionTest {
         assertNull(Selection.slot("getDataNetworkTypeForSubscriber", 1, subscriptions, 5))
         assertNull(Selection.slot("getSimOperatorNumericForPhone", 18, subscriptions, 5))
     }
+    @Test fun activePhoneTypeDoesNotTreatOpaqueSubscriptionAsSlotNumber() {
+        assertEquals(2, Selection.slot("getActivePhoneType", 18, subscriptions, 5))
+        assertEquals(2, Selection.slot("getActivePhoneType", null, subscriptions, 18))
+        assertEquals(2, Selection.slot("getActivePhoneTypeForSlot", 1, subscriptions, 5))
+        assertNull(Selection.slot("getActivePhoneType", 1, subscriptions, 5))
+    }
     @Test fun defaultSentinelAndNoArgumentUseCurrentDefaultButInvalidIdDoesNot() {
         assertEquals(2, Selection.slot("getServiceStateForSubscriber", Int.MAX_VALUE, subscriptions, 18))
         assertEquals(1, Selection.slot("getAllCellInfo", null, subscriptions, 5))

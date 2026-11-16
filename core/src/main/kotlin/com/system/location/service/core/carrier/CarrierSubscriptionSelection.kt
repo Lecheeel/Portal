@@ -4,8 +4,7 @@ package com.system.location.service.core.carrier
 object CarrierSubscriptionSelection {
     const val DEFAULT_SUBSCRIPTION_ID = Int.MAX_VALUE
     fun slot(method: String, requestedId: Int?, subscriptions: Map<Int, Int>, defaultSubId: Int): Int? {
-        val phoneIndex = method.endsWith("ForPhone") || method.endsWith("ForSlot") ||
-            method == "getActivePhoneType"
+        val phoneIndex = method.endsWith("ForPhone") || method.endsWith("ForSlot")
         val result = if (phoneIndex) {
             requestedId?.takeIf { it in 0..1 }?.plus(1)
         } else {

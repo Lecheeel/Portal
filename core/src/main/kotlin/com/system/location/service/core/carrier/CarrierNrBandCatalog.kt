@@ -16,8 +16,8 @@ object CarrierNrBandCatalog {
                 else -> china
             }
             "US" -> when {
-                mcc == 310 && mnc == 260 -> listOf(41, 71, 77, 78)
-                mcc == 310 && mnc == 410 -> listOf(2, 5, 12, 14, 25, 26, 77)
+                mcc == 310 && mnc == 260 -> listOf(41, 66, 71, 77, 78)
+                mcc == 310 && mnc == 410 -> listOf(2, 5, 12, 14, 25, 26, 66, 77)
                 mcc == 311 && mnc == 480 -> listOf(2, 5, 13, 66, 77, 78)
                 else -> unitedStates
             }

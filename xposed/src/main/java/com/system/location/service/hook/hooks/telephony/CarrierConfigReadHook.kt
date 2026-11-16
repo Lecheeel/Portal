@@ -53,6 +53,11 @@ internal object CarrierConfigReadHook {
                 if (!subset || "carrier_name_string" in requested || containsKey("carrier_name_string")) {
                     putString("carrier_name_string", profile.carrierName)
                 }
+                if (profile.virtual &&
+                    (!subset || "carrier_id_int" in requested || containsKey("carrier_id_int"))) {
+                    putInt("carrier_id_int", com.system.location.service.core.carrier.CarrierVirtualIdentity
+                        .carrierId(profile))
+                }
             }
         }
         listOf("getConfigForSubId", "getConfigForSubIdWithFeature", "getConfigSubsetForSubIdWithFeature")

@@ -6,7 +6,7 @@ import com.system.location.service.hook.utils.hookAllMethods
 import io.github.libxposed.api.XposedInterface.Hooker
 import java.util.Locale
 
-/** Read-side identity overlay, including PER_APP, without mutating a cached carrier bundle. */
+/** PER_APP identity overlay plus internal status handshake; GLOBAL uses the real temporary layer. */
 internal object CarrierConfigReadHook {
     fun install(loader: ClassLoader) {
         val type = Reflection.findClassIfExists("com.android.phone.CarrierConfigLoader", loader) ?: return
@@ -25,6 +25,11 @@ internal object CarrierConfigReadHook {
             // AOSP returns an empty bundle when READ_PHONE_STATE is denied. Keep that
             // redaction intact; profile availability is not authorization to expose new data.
             if (bundle.isEmpty) return@Hooker original
+            val mode = com.system.location.service.hook.utils.FakeLoc.runtimeSnapshots.current()
+                .configuration.carrierIdentity?.mode
+            // GLOBAL already changes the real temporary layer. A second read-side overlay could
+            // reintroduce the old name while the stop command is waiting for peer synchronization.
+            if (mode != com.system.location.service.core.carrier.CarrierIdentityMode.PER_APP) return@Hooker original
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
                 ?: return@Hooker original
             val subset = chain.executable.name == "getConfigSubsetForSubIdWithFeature"

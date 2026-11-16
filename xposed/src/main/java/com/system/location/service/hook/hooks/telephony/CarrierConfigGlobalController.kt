@@ -165,7 +165,8 @@ object CarrierConfigGlobalController {
         // Resolve only active subscriptions whose real slot matches. The default data/voice
         // subscription may live in either slot and must never be guessed to belong to SIM1.
         val context = BinderUtils.getSystemContext() ?: return emptyList()
-        val manager = context.getSystemService(SubscriptionManager::class.java) ?: return emptyList()
+        val manager = context.createAttributionContext(CarrierIdentityRuntime.PHYSICAL_QUERY_TAG)
+            .getSystemService(SubscriptionManager::class.java) ?: return emptyList()
         return manager.activeSubscriptionInfoList.orEmpty()
             .filter { it.simSlotIndex == slot - 1 }
             .filter { info ->

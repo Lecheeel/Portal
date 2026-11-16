@@ -177,9 +177,11 @@ internal object CarrierRegistryHook {
         if (lastMovementCheck != Long.MIN_VALUE && now >= lastMovementCheck && now - lastMovementCheck < 1_500_000_000L) return
         if (!movementPending.compareAndSet(false, true)) return
         lastMovementCheck = now
+        val generation = com.system.location.service.hook.runtime.GenerationDelivery(
+            com.system.location.service.hook.runtime.HookRuntime.executionGate)
         try {
             updates.execute {
-                try {
+                try { generation.run {
                     val current = com.system.location.service.hook.utils.FakeLoc.runtimeSnapshots.current()
                     listeners.entries.toList().forEach { (binder, entry) ->
                         if (!entry.cellInfo) return@forEach
@@ -191,14 +193,16 @@ internal object CarrierRegistryHook {
                             com.system.location.service.hook.utils.Logger.warn("Carrier movement update failed: ${it.javaClass.simpleName}")
                         }
                     }
-                } finally { movementPending.set(false) }
+                } } finally { movementPending.set(false) }
             }
         } catch (_: java.util.concurrent.RejectedExecutionException) { movementPending.set(false) }
     }
 
     fun onConfigurationChanged() {
         if (listeners.isEmpty() || updates.isShutdown) return
-        runCatching { updates.execute {
+        val generation = com.system.location.service.hook.runtime.GenerationDelivery(
+            com.system.location.service.hook.runtime.HookRuntime.executionGate)
+        runCatching { updates.execute { generation.run {
             listeners.entries.toList().forEach { (binder, entry) ->
                 updateCells(binder, entry)
                 if (!entry.serviceState || listeners[binder] !== entry || !binder.isBinderAlive) return@forEach
@@ -221,7 +225,7 @@ internal object CarrierRegistryHook {
                     com.system.location.service.hook.utils.Logger.warn("Carrier callback update failed: ${it.javaClass.simpleName}")
                 }
             }
-        } }.onFailure {
+        } } }.onFailure {
             com.system.location.service.hook.utils.Logger.warn("Carrier callback scheduling failed: ${it.javaClass.simpleName}")
         }
     }

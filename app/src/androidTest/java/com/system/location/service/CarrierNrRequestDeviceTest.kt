@@ -68,6 +68,29 @@ class CarrierNrRequestDeviceTest {
             active.forEach { info ->
                 val manager = context.getSystemService(TelephonyManager::class.java)
                     .createForSubscriptionId(info.subscriptionId)
+                val profileForListener = config.sims.first { it.slot == info.simSlotIndex + 1 }
+                val notifications = java.util.concurrent.LinkedBlockingQueue<List<CellInfo>>()
+                val listener = object : TelephonyCallback(), TelephonyCallback.CellInfoListener {
+                    override fun onCellInfoChanged(cellInfo: MutableList<CellInfo>) { notifications.offer(cellInfo.toList()) }
+                }
+                manager.registerTelephonyCallback({ it.run() }, listener)
+                try {
+                    val until = android.os.SystemClock.elapsedRealtime() + 5000
+                    var initial: List<CellInfo>? = null
+                    do {
+                        val value = notifications.poll(200, TimeUnit.MILLISECONDS)
+                        if (!value.isNullOrEmpty()) { initial = value; break }
+                    } while (android.os.SystemClock.elapsedRealtime() < until)
+                    assertNotNull("Continuous listener did not receive virtual cells", initial)
+                    assertEquals(1, initial!!.count { it.isRegistered })
+                    initial!!.forEach { cell ->
+                        assertTrue(cell is CellInfoNr)
+                        val id = (cell as CellInfoNr).cellIdentity as CellIdentityNr
+                        assertEquals(profileForListener.operatorNumeric, id.mccString + id.mncString)
+                        assertArrayEquals(intArrayOf(profileForListener.nrBand), id.bands)
+                        assertEquals(profileForListener.nrArfcn, id.nrarfcn)
+                    }
+                } finally { manager.unregisterTelephonyCallback(listener) }
                 val latch = CountDownLatch(1)
                 val result = AtomicReference<List<CellInfo>>()
                 val error = AtomicReference<String>()

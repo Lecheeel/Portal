@@ -168,9 +168,13 @@ object CarrierConfigGlobalController {
         val manager = context.getSystemService(SubscriptionManager::class.java) ?: return emptyList()
         return manager.activeSubscriptionInfoList.orEmpty()
             .filter { it.simSlotIndex == slot - 1 }
+            .filter { info ->
+                val modeled = FakeLoc.runtimeSnapshots.current().configuration.carrierIdentity?.sims.orEmpty()
+                    .firstOrNull { CarrierVirtualIdentity.subscriptionId(it) == info.subscriptionId }
+                modeled == null || info.iccId != CarrierVirtualIdentity.iccid(modeled)
+            }
             .map { it.subscriptionId }
             .filter { SubscriptionManager.isValidSubscriptionId(it) }
-            .filter { CarrierVirtualIdentity.slotForSubscriptionId(it) == null }
             .distinct()
     }
 

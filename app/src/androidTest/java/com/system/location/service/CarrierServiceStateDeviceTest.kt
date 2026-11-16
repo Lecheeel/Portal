@@ -78,6 +78,39 @@ class CarrierServiceStateDeviceTest {
         assertNotNull(reflection.callMethod(originalItem, "getCellIdentity"))
     }
 
+    @Test fun virtualPacketRegistrationMatchesRadioAndSurvivesParcel() {
+        val reflection = com.system.location.service.hook.runtime.Reflection
+        for (slot in 1..2) for (radio in com.system.location.service.core.carrier.CarrierRadio.entries) {
+            val virtual = profile.copy(slot = slot, virtual = true, radio = radio)
+            val absent = ServiceState().apply { state = ServiceState.STATE_POWER_OFF }
+            val created = CarrierServiceStateHook.copyWithIdentity(absent, virtual)
+            val parcel = Parcel.obtain()
+            try {
+                created.writeToParcel(parcel, 0)
+                parcel.setDataPosition(0)
+                val received = ServiceState.CREATOR.createFromParcel(parcel)
+                for (state in listOf(created, received)) {
+                    assertEquals(ServiceState.STATE_IN_SERVICE, state.state)
+                    assertEquals(ServiceState.STATE_IN_SERVICE, reflection.callMethod(state, "getDataRegistrationState"))
+                    assertEquals(false, reflection.callMethod(state, "isEmergencyOnly"))
+                    assertFalse(state.roaming)
+                    assertEquals("310260", state.operatorNumeric)
+                    val infos = reflection.callMethod(state, "getNetworkRegistrationInfoList") as List<*>
+                    val ps = infos.single { reflection.callMethod(it, "getDomain") == 2 &&
+                        reflection.callMethod(it, "getTransportType") == 1 }!!
+                    assertEquals(true, reflection.callMethod(ps, "isRegistered"))
+                    assertEquals("310260", reflection.callMethod(ps, "getRegisteredPlmn"))
+                    val expectedRat = if (radio == com.system.location.service.core.carrier.CarrierRadio.NR) 20 else 13
+                    assertEquals(expectedRat, reflection.callMethod(ps, "getAccessNetworkTechnology"))
+                    assertEquals(expectedRat, reflection.callMethod(state, "getDataNetworkType"))
+                    assertEquals(listOf(2), reflection.callMethod(ps, "getAvailableServices"))
+                    assertNull(reflection.callMethod(ps, "getCellIdentity"))
+                }
+                assertEquals(ServiceState.STATE_POWER_OFF, absent.state)
+            } finally { parcel.recycle() }
+        }
+    }
+
     @Test fun unavailableOrRedactedOperatorFieldsStayUnavailable() {
         val original = ServiceState().apply {
             state = ServiceState.STATE_POWER_OFF

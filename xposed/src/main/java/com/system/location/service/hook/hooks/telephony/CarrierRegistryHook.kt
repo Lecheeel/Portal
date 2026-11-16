@@ -73,6 +73,7 @@ internal object CarrierRegistryHook {
             }
             try {
                 val result = chain.proceed()
+                if (!CarrierRegistrationPolicy.notifyNow(chain.args)) return@Hooker result
                 // A no-SIM virtual subscription has no modem registration to generate the first
                 // ServiceState callback. Seed the listener so SystemUI can render the carrier.
                 val callerUid = listeners[binder]?.uid ?: -1

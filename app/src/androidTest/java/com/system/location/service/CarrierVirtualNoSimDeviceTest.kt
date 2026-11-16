@@ -129,6 +129,15 @@ class CarrierVirtualNoSimDeviceTest {
 
             val active = subscriptions.activeSubscriptionInfoList.orEmpty()
             assertEquals("virtual subscription count", 2, active.size)
+            assertEquals(2, subscriptions.activeSubscriptionInfoCount)
+            for (item in active) {
+                assertTrue("Virtual subscription is not active", subscriptions.isActiveSubscriptionId(item.subscriptionId))
+                assertEquals(item.simSlotIndex, SubscriptionManager.getSlotIndex(item.subscriptionId))
+                assertEquals(item.subscriptionId,
+                    subscriptions.getActiveSubscriptionInfoForSimSlotIndex(item.simSlotIndex)?.subscriptionId)
+                assertEquals(item.simSlotIndex,
+                    subscriptions.getActiveSubscriptionInfo(item.subscriptionId)?.simSlotIndex)
+            }
             val first = active.first { it.simSlotIndex == 0 }
             val second = active.first { it.simSlotIndex == 1 }
             assertEquals(CarrierVirtualIdentity.subscriptionId(1), first.subscriptionId)

@@ -185,6 +185,14 @@ class CarrierNrRequestDeviceTest {
                 val cells = result.get().orEmpty()
                 assertTrue("Virtual NR list must be populated", cells.isNotEmpty())
                 assertEquals(1, cells.count { it.isRegistered })
+                val aggregate = manager.signalStrength
+                assertNotNull("Virtual subscription returned no aggregate signal", aggregate)
+                val signals = aggregate!!.cellSignalStrengths
+                assertEquals("NR SA aggregate must have only one valid radio", 1, signals.size)
+                assertTrue(signals.single() is CellSignalStrengthNr)
+                val servingSignal = (cells.single { it.isRegistered } as CellInfoNr).cellSignalStrength
+                assertEquals(servingSignal, signals.single())
+                assertEquals(servingSignal.level, aggregate.level)
                 val profile = config.sims.first { it.slot == info.simSlotIndex + 1 }
                 cells.forEach { cell ->
                     assertTrue(cell is CellInfoNr)

@@ -267,11 +267,10 @@ object CellInfoSynthesis {
                 tower.mcc.toString().padStart(3, '0'), tower.mnc.toString().padStart(mncDigits, '0'),
                 tower.cellId, tower.operatorName, tower.operatorName, emptyList<String>(),
             ) as CellIdentityNr
-            val signal = Reflection.newInstance(CellSignalStrengthNr::class.java) as CellSignalStrengthNr
-            Reflection.setIntField(signal, "mSsRsrp", tower.rsrp)
-            Reflection.setIntField(signal, "mSsRsrq", tower.rsrq ?: -12)
-            Reflection.setIntField(signal, "mSsSinr", tower.rssnr ?: 2)
-            Reflection.setIntField(signal, "mLevel", nrLevel(tower.rsrp))
+            val signal = Reflection.newInstance(CellSignalStrengthNr::class.java,
+                CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE,
+                tower.rsrp, tower.rsrq ?: CellInfo.UNAVAILABLE, tower.rssnr ?: CellInfo.UNAVAILABLE,
+            ) as CellSignalStrengthNr
             val cell = Reflection.newInstance(CellInfoNr::class.java) as CellInfoNr
             Reflection.setObjectField(cell, "mCellIdentity", identity)
             Reflection.setObjectField(cell, "mCellSignalStrength", signal)
@@ -306,13 +305,6 @@ object CellInfoSynthesis {
         else -> 0
     }
 
-    private fun nrLevel(rsrp: Int): Int = when {
-        rsrp >= -80 -> 4
-        rsrp >= -90 -> 3
-        rsrp >= -100 -> 2
-        rsrp >= -110 -> 1
-        else -> 0
-    }
 }
 
 internal data class ExplicitCellRecords(

@@ -15,6 +15,7 @@ import java.util.Locale
 
 /** Resolves physical subscriptions under system identity; caller identity is captured beforehand. */
 internal object CarrierIdentityRuntime {
+    internal const val PHYSICAL_QUERY_TAG = "portal.carrier.physical-topology"
     private val resolving = ThreadLocal.withInitial { false }
 
     internal fun protectsLocation(uid: Int): Boolean {
@@ -45,7 +46,8 @@ internal object CarrierIdentityRuntime {
         resolving.set(true)
         val token = Binder.clearCallingIdentity()
         return try {
-            val manager = context.getSystemService(SubscriptionManager::class.java) ?: return null
+            val manager = context.createAttributionContext(PHYSICAL_QUERY_TAG)
+                .getSystemService(SubscriptionManager::class.java) ?: return null
             val physical = physicalSubscriptions(manager)
             val physicalSlots = physical.map { it.simSlotIndex + 1 }.toSet()
             val virtual = virtualProfiles(config, physicalSlots, packages, systemCaller)
@@ -91,7 +93,8 @@ internal object CarrierIdentityRuntime {
         resolving.set(true)
         val token = Binder.clearCallingIdentity()
         return try {
-            val manager = context.getSystemService(SubscriptionManager::class.java) ?: return emptyList()
+            val manager = context.createAttributionContext(PHYSICAL_QUERY_TAG)
+                .getSystemService(SubscriptionManager::class.java) ?: return emptyList()
             val physical = physicalSubscriptions(manager)
             virtualProfiles(config, physical.map { it.simSlotIndex + 1 }.toSet(), packages, systemCaller)
                 .filter { profile -> physical.none { it.subscriptionId == CarrierVirtualIdentity.subscriptionId(profile) } }

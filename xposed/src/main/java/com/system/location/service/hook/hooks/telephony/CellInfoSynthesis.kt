@@ -45,11 +45,15 @@ object CellInfoSynthesis {
         } else null
         val route = com.system.location.service.hook.hooks.ListenerRouting.decisionFor(packageName, uid, state.routing)
         if (route == RoutingDecision.Deny) return CellInfoSynthesisResult.PassThrough
-        if (state.cellMode == CellMode.NO_SIM_WIFI_ONLY) return CellInfoSynthesisResult.Unavailable
+        if (state.cellMode == CellMode.NO_SIM_WIFI_ONLY && identity?.virtual != true) {
+            return CellInfoSynthesisResult.Unavailable
+        }
         val point = pointForRoute(route, state) ?: return CellInfoSynthesisResult.Unavailable
         val replay = capturedProfile(state, point)
         val hasCapturedCells = !replay?.cells.isNullOrEmpty() || !replay?.cdmaCells.isNullOrEmpty()
-        if (!state.simReady && !hasCapturedCells) return CellInfoSynthesisResult.Unavailable
+        if (!state.simReady && !hasCapturedCells && identity?.virtual != true) {
+            return CellInfoSynthesisResult.Unavailable
+        }
         val cells = runCatching { build(state.environmentSourceMode, replay, identity, point, state.environmentSeed) }.getOrDefault(emptyList())
         return cells.takeIf { it.isNotEmpty() }
             ?.let(CellInfoSynthesisResult::Synthetic)
@@ -71,14 +75,14 @@ object CellInfoSynthesis {
                 .decisionFor(chain.args.firstOrNull() as? String, BinderUtils.getCallerUid(), state.routing)
             if (route == RoutingDecision.Deny) return@Hooker original
             if (original !is List<*>) return@Hooker unavailable(original, "unexpected_framework_result")
-            if (state.cellMode == CellMode.NO_SIM_WIFI_ONLY) {
+            if (state.cellMode == CellMode.NO_SIM_WIFI_ONLY && identity?.virtual != true) {
                 return@Hooker unavailable(original, "sim_or_cell_mode_unavailable")
             }
             val point = pointForRoute(route, state)
                 ?: return@Hooker unavailable(original, "caller_route_denied")
             val replay = capturedProfile(state, point)
             val hasCapturedCells = !replay?.cells.isNullOrEmpty() || !replay?.cdmaCells.isNullOrEmpty()
-            if (!state.simReady && !hasCapturedCells) {
+            if (!state.simReady && !hasCapturedCells && identity?.virtual != true) {
                 return@Hooker unavailable(original, "virtual_sim_not_ready")
             }
             val cells = runCatching { build(state.environmentSourceMode, replay, identity, point, state.environmentSeed) }.getOrDefault(emptyList())

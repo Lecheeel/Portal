@@ -34,7 +34,29 @@ internal object CarrierRegistryHook {
             val death = previous?.death ?: IBinder.DeathRecipient { remove(binder) }
             if (previous == null) binder.linkToDeath(death, 0)
             listeners[binder] = Entry(Binder.getCallingUid(), subId, death)
-            try { chain.proceed() } catch (failure: Throwable) {
+            try {
+                val result = chain.proceed()
+                // A no-SIM virtual subscription has no modem registration to generate the first
+                // ServiceState callback. Seed the listener so SystemUI can render the carrier.
+                val callerUid = listeners[binder]?.uid ?: -1
+                val profile = CarrierIdentityRuntime.profileForCall(
+                    "getServiceStateForSubscriber", listOf(subId), callerUid,
+                ) ?: CarrierIdentityRuntime.virtualProfilesForCall(callerUid).firstOrNull()
+                if (profile?.virtual == true) {
+                    val synthetic = CarrierServiceStateHook.virtualState(profile)
+                    runCatching {
+                        val method = listener.javaClass.methods.firstOrNull { method ->
+                            method.name == "onServiceStateChanged" &&
+                                method.parameterTypes.toList() == listOf(ServiceState::class.java)
+                        } ?: error("onServiceStateChanged proxy method missing")
+                        method.invoke(listener, synthetic)
+                    }.onFailure {
+                        com.system.location.service.hook.utils.Logger.warn(
+                            "virtual ServiceState seed failed: ${it.javaClass.simpleName}:${it.message}")
+                    }
+                }
+                result
+            } catch (failure: Throwable) {
                 if (previous == null) remove(binder) else listeners[binder] = previous
                 throw failure
             }
@@ -48,6 +70,7 @@ internal object CarrierRegistryHook {
             val original = callback.args.firstOrNull() as? ServiceState ?: return@Hooker callback.proceed()
             val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
                 listOf(entry.subId), entry.uid)
+                ?: CarrierIdentityRuntime.virtualProfilesForCall(entry.uid).firstOrNull()
             val args = callback.args.toTypedArray()
             args[0] = when {
                 profile != null -> CarrierServiceStateHook.copyWithIdentity(original, profile)

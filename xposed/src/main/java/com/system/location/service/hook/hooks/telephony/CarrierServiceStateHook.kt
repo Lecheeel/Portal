@@ -12,8 +12,12 @@ object CarrierServiceStateHook {
         val type = Reflection.findClassIfExists("com.android.phone.PhoneInterfaceManager", loader) ?: return
         val hook = Hooker { chain ->
             val original = chain.proceed()
-            val state = original as? ServiceState ?: return@Hooker original
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+            val state = original as? ServiceState
+            if (state == null) {
+                return@Hooker if (profile?.virtual == true) virtualState(profile)
+                else original
+            }
             when {
                 profile != null -> copyWithIdentity(state, profile)
                 CarrierIdentityRuntime.protectsLocation(android.os.Binder.getCallingUid()) -> copyWithoutCellIdentity(state)
@@ -35,6 +39,12 @@ object CarrierServiceStateHook {
             roaming = original.roaming
             setOperatorName(original.operatorAlphaLong, original.operatorAlphaShort, original.operatorNumeric)
         }
+    }
+
+    fun virtualState(profile: SimCarrierProfile): ServiceState = ServiceState().apply {
+        state = ServiceState.STATE_IN_SERVICE
+        roaming = false
+        setOperatorName(profile.operatorName, profile.carrierName, profile.operatorNumeric)
     }
 
     fun copyWithIdentity(original: ServiceState, profile: SimCarrierProfile): ServiceState {
@@ -67,11 +77,17 @@ object CarrierServiceStateHook {
             // the coarse service/roaming state in an otherwise empty platform object.
             ServiceState().apply { state = original.state; roaming = original.roaming }
         }
-        copy.setOperatorName(
-            if (original.operatorAlphaLong.isNullOrEmpty()) original.operatorAlphaLong else profile.operatorName,
-            if (original.operatorAlphaShort.isNullOrEmpty()) original.operatorAlphaShort else profile.carrierName,
-            if (original.operatorNumeric.isNullOrEmpty()) original.operatorNumeric else profile.operatorNumeric,
-        )
+        if (profile.virtual) {
+            copy.state = ServiceState.STATE_IN_SERVICE
+            copy.roaming = false
+            copy.setOperatorName(profile.operatorName, profile.carrierName, profile.operatorNumeric)
+        } else {
+            copy.setOperatorName(
+                if (original.operatorAlphaLong.isNullOrEmpty()) original.operatorAlphaLong else profile.operatorName,
+                if (original.operatorAlphaShort.isNullOrEmpty()) original.operatorAlphaShort else profile.carrierName,
+                if (original.operatorNumeric.isNullOrEmpty()) original.operatorNumeric else profile.operatorNumeric,
+            )
+        }
         return copy
     }
 }

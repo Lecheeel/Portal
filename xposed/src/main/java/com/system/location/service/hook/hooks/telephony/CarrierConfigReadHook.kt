@@ -26,17 +26,24 @@ internal object CarrierConfigReadHook {
             }
             // AOSP returns an empty bundle when READ_PHONE_STATE is denied. Keep that
             // redaction intact; profile availability is not authorization to expose new data.
-            if (bundle.isEmpty) return@Hooker original
+            if (bundle.isEmpty && chain.args.getOrNull(2) == CarrierOverrideProtocol.FEATURE) {
+                return@Hooker original
+            }
             val mode = com.system.location.service.hook.utils.FakeLoc.runtimeSnapshots.current()
                 .configuration.carrierIdentity?.mode
-            // GLOBAL already changes the real temporary layer. A second read-side overlay could
-            // reintroduce the old name while the stop command is waiting for peer synchronization.
-            if (mode != com.system.location.service.core.carrier.CarrierIdentityMode.PER_APP) return@Hooker original
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
                 ?: return@Hooker original
+            // GLOBAL physical SIMs already receive the real temporary CarrierConfig layer.
+            // Virtual slots (including no-SIM topology) need a caller-scoped read overlay.
+            if (mode == com.system.location.service.core.carrier.CarrierIdentityMode.GLOBAL &&
+                !profile.virtual) return@Hooker original
+            if (bundle.isEmpty && !profile.virtual && chain.args.getOrNull(2) != null) {
+                // Preserve the platform redaction shape for real subscriptions.
+                return@Hooker original
+            }
             val subset = chain.executable.name == "getConfigSubsetForSubIdWithFeature"
             val requested = chain.args.filterIsInstance<Array<*>>().flatMap { it.filterIsInstance<String>() }.toSet()
-            PersistableBundle(bundle).apply {
+            (if (bundle.isEmpty) PersistableBundle() else PersistableBundle(bundle)).apply {
                 if (!subset || "sim_country_iso_override_string" in requested || containsKey("sim_country_iso_override_string")) {
                     putString("sim_country_iso_override_string", profile.countryIso.lowercase(Locale.ROOT))
                 }

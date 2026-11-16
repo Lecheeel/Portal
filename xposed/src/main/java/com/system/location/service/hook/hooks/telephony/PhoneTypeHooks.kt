@@ -17,9 +17,9 @@ object PhoneTypeHooks {
             val original = chain.proceed()
             val state = FakeLoc.runtimeSnapshots.current()
             if (state.configuration.carrierIdentityEnabled) {
+                val carrier = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+                if (carrier != null) return@Hooker TelephonyManager.PHONE_TYPE_GSM
                 if (original == 0) return@Hooker original
-                return@Hooker CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
-                    ?.let { TelephonyManager.PHONE_TYPE_GSM } ?: original
             }
             val route = ListenerRouting.decisionFor(null, BinderUtils.getCallerUid(), state.routing)
             if (!TelephonyCallerPolicy.shouldRewrite(
@@ -39,12 +39,11 @@ object PhoneTypeHooks {
             val original = chain.proceed()
             val state = FakeLoc.runtimeSnapshots.current()
             if (state.configuration.carrierIdentityEnabled) {
+                val carrier = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+                if (carrier != null) return@Hooker if (carrier.radio ==
+                    com.system.location.service.core.carrier.CarrierRadio.NR)
+                    TelephonyManager.NETWORK_TYPE_NR else TelephonyManager.NETWORK_TYPE_LTE
                 if (original == 0) return@Hooker original
-                return@Hooker CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
-                    ?.let {
-                        if (it.radio == com.system.location.service.core.carrier.CarrierRadio.NR)
-                            TelephonyManager.NETWORK_TYPE_NR else TelephonyManager.NETWORK_TYPE_LTE
-                    } ?: original
             }
             val route = ListenerRouting.decisionFor(null, BinderUtils.getCallerUid(), state.routing)
             if (!TelephonyCallerPolicy.shouldRewrite(

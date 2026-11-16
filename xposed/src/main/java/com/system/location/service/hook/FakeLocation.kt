@@ -9,6 +9,8 @@ import com.system.location.service.hook.hooks.fused.ThirdPartyLocationHook
 import com.system.location.service.hook.hooks.oplus.OplusLocationHook
 import com.system.location.service.hook.hooks.telephony.miui.MiuiTelephonyManagerHook
 import com.system.location.service.hook.hooks.sensor.SystemSensorManagerHook
+import com.system.location.service.hook.hooks.telephony.CarrierClientHook
+import com.system.location.service.hook.hooks.telephony.CarrierSubscriptionHook
 import com.system.location.service.hook.hooks.telephony.TelephonyHook
 import com.system.location.service.hook.hooks.wlan.WlanHook
 import com.system.location.service.hook.hooks.LocationAvailabilityHook
@@ -83,6 +85,7 @@ class FakeLocation {
                 install("provider-registry") { ProviderRegistryHook.hook(loader) }
                 install("availability") { LocationAvailabilityHook.hook(loader) }
                 install("telephony-registry") { TelephonyHook.hookSubOnTransact(loader) }
+                install("carrier-subscription") { CarrierSubscriptionHook.install(loader) }
                 install("wifi") { WlanHook(loader) }
                 install("fused") { AndroidFusedLocationProviderHook(loader) }
                 install("sensor") { SystemSensorManagerHook(loader) }
@@ -94,6 +97,7 @@ class FakeLocation {
             }
             com.system.location.service.hook.scope.HookScope.PHONE_PROCESS -> {
                 install("phone") { TelephonyHook(loader) }
+                install("phone-carrier-client") { CarrierClientHook.install(loader) }
             }
             com.system.location.service.hook.scope.HookScope.FUSED_PROCESS -> {
                 install("fused") { AndroidFusedLocationProviderHook(loader) }

@@ -4,6 +4,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.telephony.TelephonyManager
 import com.system.location.service.core.carrier.CarrierRadio
+import com.system.location.service.core.carrier.CarrierVirtualIdentity
 import com.system.location.service.core.carrier.SimCarrierProfile
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.scope.HookInstaller
@@ -23,22 +24,33 @@ object CarrierClientHook {
         val networkName = setOf("getNetworkOperatorName")
         val country = setOf("getSimCountryIso", "getSimCountryIsoForPhone", "getNetworkCountryIso",
             "getNetworkCountryIsoForPhone")
-        val network = setOf("getDataNetworkType", "getNetworkType")
+        val network = setOf("getDataNetworkType", "getNetworkType", "getVoiceNetworkType")
         val phone = setOf("getPhoneType")
+        val simState = setOf("getSimState")
+        val subscriber = setOf("getSubscriberId")
+        val iccid = setOf("getIccId", "getSimSerialNumber")
+        val carrierId = setOf("getSimCarrierId", "getSimCarrierIdName", "getSimSpecificCarrierId",
+            "getSimSpecificCarrierIdName")
         val hook = Hooker { chain ->
             if (reading.get() == true) return@Hooker chain.proceed()
             reading.set(true)
             try {
-                // Preserve original permission checks, exceptions and missing-information shape.
+                // Preserve original permission checks and exceptions. A virtual subscription may
+                // legitimately replace an empty/absent platform result.
                 val original = chain.proceed()
-                if (original == null || original is String && original.isEmpty()) return@Hooker original
                 val name = chain.executable.name
-                if (original == 0 && (name in network || name in phone)) return@Hooker original
                 val requested = chain.args.firstOrNull() as? Int
                 val manager = chain.thisObject as? TelephonyManager
                 val phoneId = name.endsWith("ForPhone") || name == "getNetworkCountryIso" && requested != null
-                val id = requested ?: manager?.subscriptionId ?: return@Hooker original
-                val profile = snapshot(if (phoneId) "phone" else "subscription", id) ?: return@Hooker original
+                val id = requested ?: manager?.subscriptionId ?: -1
+                val profile = snapshot(if (phoneId) "phone" else "subscription", id)
+                    ?: return@Hooker original
+                if (!profile.virtual) {
+                    if (original == null || original is String && original.isEmpty()) return@Hooker original
+                    if (original == 0 && (name in network || name in phone || name in simState)) {
+                        return@Hooker original
+                    }
+                }
                 when (name) {
                     in numeric -> profile.operatorNumeric
                     in simName -> profile.carrierName
@@ -47,11 +59,22 @@ object CarrierClientHook {
                     in network -> if (profile.radio == CarrierRadio.NR) TelephonyManager.NETWORK_TYPE_NR
                         else TelephonyManager.NETWORK_TYPE_LTE
                     in phone -> TelephonyManager.PHONE_TYPE_GSM
+                    in simState -> if (profile.virtual) TelephonyManager.SIM_STATE_READY else original
+                    in subscriber -> if (profile.virtual) CarrierVirtualIdentity.imsi(profile) else original
+                    in iccid -> if (profile.virtual) CarrierVirtualIdentity.iccid(profile) else original
+                    in carrierId -> if (profile.virtual) {
+                        when (name) {
+                            "getSimCarrierId", "getSimSpecificCarrierId" ->
+                                CarrierVirtualIdentity.UNKNOWN_CARRIER_ID
+                            else -> profile.carrierName
+                        }
+                    } else original
                     else -> original
                 }
             } finally { reading.set(false) }
         }
-        (numeric + simName + networkName + country + network + phone).forEach {
+        (numeric + simName + networkName + country + network + phone + simState + subscriber +
+            iccid + carrierId).forEach {
             HookInstaller.hookAllMethods(type, it, hook)
         }
     }

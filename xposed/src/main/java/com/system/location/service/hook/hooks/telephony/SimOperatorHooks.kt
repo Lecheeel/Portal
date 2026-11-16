@@ -1,5 +1,6 @@
 package com.system.location.service.hook.hooks.telephony
 
+import com.system.location.service.core.carrier.CarrierVirtualIdentity
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -26,6 +27,8 @@ object SimOperatorHooks {
                     route,
                 )
             ) return@Hooker original
+            val carrier = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+            if (carrier != null) return@Hooker carrier.operatorNumeric
             val profile = CellInfoSynthesis.profileForRoute(state, route)
             telephonyTargetIdentity(profile)?.operatorNumeric.orEmpty()
         }
@@ -49,6 +52,8 @@ object SimOperatorHooks {
                     route,
                 )
             ) return@Hooker original
+            val carrier = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+            if (carrier != null) return@Hooker carrier.carrierName
             val profile = CellInfoSynthesis.profileForRoute(state, route)
             telephonyTargetIdentity(profile)?.operatorName.orEmpty()
         }
@@ -82,5 +87,29 @@ object SimOperatorHooks {
         listOf("getSimCountryIsoForPhone", "getSimCountryIsoForSubscriber", "getSimCountryIso",
             "getNetworkCountryIsoForPhone", "getNetworkCountryIsoForSubscriber", "getNetworkCountryIso")
             .forEach { manager.hookAllMethods(it, country) }
+
+        val simState = Hooker { chain ->
+            val original = chain.proceed()
+            val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+            if (profile?.virtual == true) android.telephony.TelephonyManager.SIM_STATE_READY else original
+        }
+        listOf("getSimStateForSlotIndex", "getSimStateForSubscriber", "getSimState")
+            .forEach { manager.hookAllMethods(it, simState) }
+
+        val subscriber = Hooker { chain ->
+            val original = chain.proceed()
+            val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+            if (profile?.virtual == true) CarrierVirtualIdentity.imsi(profile) else original
+        }
+        listOf("getSubscriberIdForSubscriber", "getSubscriberId", "getSubscriberIdForPhone")
+            .forEach { manager.hookAllMethods(it, subscriber) }
+
+        val icc = Hooker { chain ->
+            val original = chain.proceed()
+            val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+            if (profile?.virtual == true) CarrierVirtualIdentity.iccid(profile) else original
+        }
+        listOf("getIccIdForSubscriber", "getIccId", "getSimSerialNumberForSubscriber",
+            "getSimSerialNumber").forEach { manager.hookAllMethods(it, icc) }
     }
 }

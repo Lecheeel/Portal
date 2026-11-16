@@ -6,6 +6,7 @@ import com.system.location.service.hook.utils.BinderUtils
 import android.os.PersistableBundle
 import android.telephony.SubscriptionManager
 import com.system.location.service.core.carrier.CarrierIdentityMode
+import com.system.location.service.core.carrier.CarrierVirtualIdentity
 import com.system.location.service.core.carrier.SimCarrierProfile
 import com.system.location.service.core.runtime.RuntimeSnapshot
 import com.system.location.service.hook.utils.FakeLoc
@@ -129,6 +130,7 @@ object CarrierConfigGlobalController {
         appliedSubIds = next
         status = when {
             failed -> "failed"
+            succeeded == 0 && config.sims.any { it.enabled } -> "virtual_applied"
             succeeded == 0 -> "no_active_sim"
             else -> "global_applied"
         }
@@ -168,6 +170,7 @@ object CarrierConfigGlobalController {
             .filter { it.simSlotIndex == slot - 1 }
             .map { it.subscriptionId }
             .filter { SubscriptionManager.isValidSubscriptionId(it) }
+            .filter { CarrierVirtualIdentity.slotForSubscriptionId(it) == null }
             .distinct()
     }
 

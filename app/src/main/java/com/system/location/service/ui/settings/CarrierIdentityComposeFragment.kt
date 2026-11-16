@@ -369,11 +369,13 @@ private fun CarrierIdentityScreen(
                             OutlinedTextField(
                                 value = draft.mcc,
                                 onValueChange = { value ->
-                                    if (value.length <= 3 && value.all(Char::isDigit)) {
+                                    if (value.length <= 3 && value.all { it in '0'..'9' }) {
                                         drafts[selectedSlot - 1] = draft.copy(mcc = value)
                                     }
                                 },
                                 label = { Text("MCC") },
+                                isError = draft.mcc.isNotEmpty() && (draft.mcc.length != 3 || draft.mcc == "000"),
+                                supportingText = { Text(if (draft.mcc == "000") "MCC 不能为 000" else "3 位数字") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
@@ -381,7 +383,7 @@ private fun CarrierIdentityScreen(
                             OutlinedTextField(
                                 value = draft.mnc,
                                 onValueChange = { value ->
-                                    if (value.length <= 3 && value.all(Char::isDigit)) {
+                                    if (value.length <= 3 && value.all { it in '0'..'9' }) {
                                         drafts[selectedSlot - 1] = draft.copy(
                                             mnc = value,
                                             mncDigits = value.length.coerceIn(2, 3),
@@ -389,11 +391,20 @@ private fun CarrierIdentityScreen(
                                     }
                                 },
                                 label = { Text("MNC") },
+                                isError = draft.mnc.isNotEmpty() && draft.mnc.length !in 2..3,
+                                supportingText = { Text("2 或 3 位，保留前导零") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
                             )
                         }
+                        val parsedPlmn = runCatching {
+                            com.system.location.service.core.carrier.CarrierPlmnInput.parse(draft.mcc, draft.mnc)
+                        }.getOrNull()
+                        Text(if (parsedPlmn == null) "PLMN：请填写完整的 MCC 与 MNC"
+                            else "PLMN：${draft.mcc}${draft.mnc}（MNC ${parsedPlmn.mncDigits} 位）",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(
                             value = draft.carrierName,
                             onValueChange = { drafts[selectedSlot - 1] = draft.copy(carrierName = it) },
@@ -438,7 +449,7 @@ private fun CarrierIdentityScreen(
                             }
                             OutlinedTextField(value = draft.nrArfcn,
                                 onValueChange = { value ->
-                                    if (value.length <= 7 && value.all(Char::isDigit))
+                                    if (value.length <= 7 && value.all { it in '0'..'9' })
                                         drafts[selectedSlot - 1] = draft.copy(nrArfcn = value)
                                 }, label = { Text("NR-ARFCN") }, singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

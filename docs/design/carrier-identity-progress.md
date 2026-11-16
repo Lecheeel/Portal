@@ -36,7 +36,7 @@
 - [x] Android NR bands 字段的对象与 Parcel 回归，小米/红米各 1 项通过，临时 hidden API 设置均恢复。
 - [x] 物理 phoneId、订阅 ID 和默认订阅哨兵独立解析；core 测试覆盖双卡、不存在的槽、无效默认值及有效 subId=0。
 - [ ] 系统注册状态/显示状态和异步回调联动验证。
-- [x] 无卡端到端测试：显式虚拟 SIM 配置会生成稳定 subId、MCC/MNC/ICCID 的虚拟订阅，并进入 `dumpsys isub` 的默认、可用和可选订阅列表；目标应用作用域实测 `simState=5`、`simOperator=310260`、`simOperatorName=T-Mobile`、`simCountry=us`、`networkType=NR`、`phoneType=GSM`。未配置/关闭身份时不虚构订阅。测试后恢复运营商偏好并停止场景。
+- [x] 无卡端到端测试：显式虚拟 SIM 配置会生成稳定 subId、MCC/MNC/ICCID、正数 carrierId 的虚拟订阅，并进入 `dumpsys isub` 的默认、可用和可选订阅列表；目标应用作用域实测 `simState=5`、`simOperator=310260`、`simOperatorName=T-Mobile`、`simCountry=us`、`networkType=NR`、`phoneType=GSM`、`carrierId=7031`，且活跃订阅同值。未配置/关闭身份时不虚构订阅。测试后恢复运营商偏好并停止场景。
 - [x] 两台无卡设备扩展端到端测试通过：全局→分应用→关闭→停止后待启动状态符合预期；单次小区更新返回空数据或错误，未暴露非空小区列表。测试后恢复偏好。
 - [x] 两台设备冷启动后实际 system_server→phone Binder 能力握手通过：电话进程已安装精确恢复 Hook；该探测不写 CarrierConfig、不构造虚拟 SIM，也不代表有卡覆盖/状态栏已验收。
 - [x] 重复应用前重新建立外部同名字段的恢复基线；测试覆盖外部更新/删除/null，物理 phoneId 和配置层绑定拒绝换槽后复用旧记录。换卡实际行为待测。

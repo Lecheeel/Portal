@@ -11,6 +11,8 @@
 
 ## 2026-11-17 一致性修复
 
+- 同步/异步NR信号共用按原UID/订阅生成入口；平台信号回调按本槽重绑，原注册检查成功且订阅事件9时发送初始虚拟NR。两台冷启动真实SignalStrengthsListener扩展各1项通过：两槽分别收到与本槽同步getter同值的信号集合/level，单次小区serving也同值；既有路由/移动/停止/改频等小区断言继续通过。测试不放开hidden API，finally注销信号监听并恢复配置。这里只验证信号初始/已有平台回调覆盖，未实现配置/移动时信号主动推送与关闭/停止撤回，状态栏信号/5G图标仍待验收。
+
 - 冷启动两台无卡设备后真实 TelephonyManager.getSignalStrength 逐订阅扩展回归各1项通过：聚合对象非空，仅一个有效NR，CellSignalStrength完整字段与同槽单次请求的serving NR相等、level一致；原有同步双卡总览、初始监听、路由切换、运动、改频/关闭/停止/重启及单次请求继续通过。测试不放开hidden API，finally恢复carrier、速度和路由偏好、场景/后端。本项证实同步厂商getter命中，异步SignalStrength和状态栏信号/5G图标仍待实现或验收。
 
 - 新增电话进程 getSignalStrength/getSignalStrengthForSubscriber 同步适配：先执行原方法保留检查，仅有效虚拟 NR 订阅用同订阅 serving CellInfoNr 信号构造聚合对象，其他 RAT 保持平台默认不可用。Xposed回归与构建通过，双机各3项NR对象测试通过（聚合仅一个有效NR，level/dbm/ASU同值，Parcel后同值），临时hidden API设置均恢复。本轮未重启注入进程，尚未证实厂商真实同步getter命中或SignalStrength异步/状态栏图标；下一轮需真实API验收，不能把对象测试当完成。

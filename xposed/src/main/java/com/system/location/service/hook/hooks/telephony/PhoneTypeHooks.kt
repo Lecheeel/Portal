@@ -17,6 +17,7 @@ object PhoneTypeHooks {
             val original = chain.proceed()
             val state = FakeLoc.runtimeSnapshots.current()
             if (state.configuration.carrierIdentityEnabled) {
+                if (original == 0) return@Hooker original
                 return@Hooker CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
                     ?.let { TelephonyManager.PHONE_TYPE_GSM } ?: original
             }
@@ -38,6 +39,7 @@ object PhoneTypeHooks {
             val original = chain.proceed()
             val state = FakeLoc.runtimeSnapshots.current()
             if (state.configuration.carrierIdentityEnabled) {
+                if (original == 0) return@Hooker original
                 return@Hooker CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
                     ?.let {
                         if (it.radio == com.system.location.service.core.carrier.CarrierRadio.NR)

@@ -44,6 +44,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import kotlinx.serialization.Serializable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
@@ -55,6 +59,7 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.system.location.service.R
 import com.system.location.service.core.carrier.CarrierAppRoute
+import com.system.location.service.core.carrier.reconcileCarrierRoutes
 import com.system.location.service.core.carrier.CarrierCountries
 import com.system.location.service.core.carrier.CarrierCountry
 import com.system.location.service.core.carrier.CarrierIdentityConfig
@@ -72,6 +77,7 @@ import com.system.location.service.service.MockServiceHelper
 import kotlinx.serialization.json.Json
 import java.util.Locale
 
+@Serializable
 private data class SimDraft(
     val slot: Int,
     val enabled: Boolean = false,
@@ -84,21 +90,38 @@ private data class SimDraft(
     val radio: CarrierRadio = CarrierRadio.NR,
 )
 
+private val SimDraftSaver = listSaver<SnapshotStateList<SimDraft>, String>(
+    save = { drafts -> drafts.map { Json.encodeToString(SimDraft.serializer(), it) } },
+    restore = { rows -> rows.map { Json.decodeFromString(SimDraft.serializer(), it) }.toMutableStateList() },
+)
+private val CarrierRoutesSaver = listSaver<SnapshotStateList<CarrierAppRoute>, String>(
+    save = { routes -> routes.map { Json.encodeToString(CarrierAppRoute.serializer(), it) } },
+    restore = { rows -> rows.map { Json.decodeFromString(CarrierAppRoute.serializer(), it) }.toMutableStateList() },
+)
+
 /**
  * SIM/operator identity editor. The master switch is intentionally here and on the
  * system settings page; both write the same persisted boolean. GLOBAL is the default mode and
  * intentionally affects the system phone stack/status bar; PER_APP keeps system callers real.
  */
 class CarrierIdentityComposeFragment : Fragment() {
-    private var appSelectionHandler: ((List<String>) -> Unit)? = null
+    private var pendingAppSelection by mutableStateOf<List<String>?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingAppSelection = savedInstanceState?.getStringArrayList("pending_carrier_apps")
         parentFragmentManager.setFragmentResultListener(
             AppSelectionFragment.RESULT, this,
         ) { _, result ->
-            appSelectionHandler?.invoke(result.getStringArrayList("selected").orEmpty())
+            if (result.getString("purpose") == "carrier") {
+                pendingAppSelection = result.getStringArrayList("selected").orEmpty().toList()
+            }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingAppSelection?.let { outState.putStringArrayList("pending_carrier_apps", ArrayList(it)) }
     }
 
     override fun onCreateView(
@@ -106,6 +129,7 @@ class CarrierIdentityComposeFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View = ComposeView(requireContext()).apply {
+        id = R.id.nav_carrier_identity
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             PortalTheme {
@@ -115,7 +139,8 @@ class CarrierIdentityComposeFragment : Fragment() {
                     context = context,
                     initialEnabled = context.carrierIdentityEnabled,
                     initial = initial,
-                    onRegisterAppSelection = { handler -> appSelectionHandler = handler },
+                    selectedPackages = pendingAppSelection,
+                    onAppSelectionConsumed = { pendingAppSelection = null },
                     onAddApps = { selected ->
                         findNavController().navigate(R.id.nav_app_selection, Bundle().apply {
                             putString("purpose", "carrier")
@@ -181,30 +206,33 @@ private fun CarrierIdentityScreen(
     context: Context,
     initialEnabled: Boolean,
     initial: CarrierIdentityConfig,
-    onRegisterAppSelection: ((List<String>) -> Unit) -> Unit,
+    selectedPackages: List<String>?,
+    onAppSelectionConsumed: () -> Unit,
     onAddApps: (List<String>) -> Unit,
 ) {
-    var enabled by remember { mutableStateOf(initialEnabled) }
-    var mode by remember { mutableStateOf(initial.mode) }
-    val drafts = remember {
+    var enabled by rememberSaveable { mutableStateOf(initialEnabled) }
+    var mode by rememberSaveable { mutableStateOf(initial.mode) }
+    val drafts = rememberSaveable(saver = SimDraftSaver) {
         val bySlot = initial.sims.associateBy { it.slot }
         (1..2).map { slot -> bySlot[slot]?.toDraft() ?: SimDraft(slot) }.toMutableStateList()
     }
-    val routes = remember { initial.appRoutes.toMutableStateList() }
-    var selectedSlot by remember { mutableStateOf(1) }
+    val routes = rememberSaveable(saver = CarrierRoutesSaver) { initial.appRoutes.toMutableStateList() }
+    var selectedSlot by rememberSaveable { mutableStateOf(1) }
     var countryPickerSlot by remember { mutableStateOf<Int?>(null) }
     var carrierPickerSlot by remember { mutableStateOf<Int?>(null) }
     var status by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        onRegisterAppSelection { packages ->
-            packages.forEach { packageName ->
-                if (routes.none { it.packageName == packageName }) {
-                    routes += CarrierAppRoute(packageName, CarrierTarget.INHERIT)
+    LaunchedEffect(selectedPackages) {
+        selectedPackages?.let { packages ->
+            runCatching { reconcileCarrierRoutes(routes.toList(), packages) }
+                .onSuccess { updated ->
+                    routes.clear()
+                    routes.addAll(updated)
                 }
-            }
+                .onFailure { error = "应用规则超过上限，最多 ${CarrierIdentityConfig.MAX_ROUTES} 个" }
+            onAppSelectionConsumed()
         }
     }
 
@@ -357,7 +385,7 @@ private fun CarrierIdentityScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("分应用路由", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "全局模式下默认所有调用方继承 SIM 配置；这里可对单个应用选 SIM1/SIM2/真实值。",
+                            "以下规则仅在分应用模式下生效。已选应用可使用对应卡槽配置、SIM1、SIM2 或真实值；未选应用保持真实。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -444,10 +472,15 @@ private fun CarrierIdentityScreen(
                 selected = draft.countryIso,
                 onDismiss = { countryPickerSlot = null },
                 onSelect = { country ->
-                    drafts[slot - 1] = draft.copy(
-                        countryIso = country.iso,
-                        mcc = (country.mcc ?: draft.mcc.toIntOrNull())?.toString().orEmpty(),
-                    )
+                    if (country.iso != draft.countryIso) {
+                        drafts[slot - 1] = draft.copy(
+                            countryIso = country.iso,
+                            mcc = country.mcc?.toString().orEmpty(),
+                            mnc = "",
+                            carrierName = "",
+                            operatorName = "",
+                        )
+                    }
                     countryPickerSlot = null
                 },
             )
@@ -490,7 +523,7 @@ private fun CarrierTargetPicker(target: CarrierTarget, onTarget: (CarrierTarget)
 }
 
 private fun targetLabel(target: CarrierTarget): String = when (target) {
-    CarrierTarget.INHERIT -> "继承全局"
+    CarrierTarget.INHERIT -> "对应卡槽配置"
     CarrierTarget.SIM1 -> "SIM1"
     CarrierTarget.SIM2 -> "SIM2"
     CarrierTarget.REAL -> "真实值"

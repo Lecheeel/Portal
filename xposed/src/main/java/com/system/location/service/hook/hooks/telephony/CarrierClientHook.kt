@@ -44,8 +44,10 @@ object CarrierClientHook {
                 val phoneId = name.endsWith("ForPhone") || requested != null &&
                     (name == "getNetworkCountryIso" || name == "getSimState")
                 val id = requested ?: manager?.subscriptionId ?: -1
-                val profile = snapshot(if (phoneId) "phone" else "subscription", id)
+                val view = readSnapshot(if (phoneId) "phone" else "subscription", id,
+                    identifiers = name in subscriber || name in iccid)
                     ?: return@Hooker original
+                val profile = view.profile
                 if (!profile.virtual) {
                     if (original == null || original is String && original.isEmpty()) return@Hooker original
                     if (original == 0 && (name in network || name in phone || name in simState)) {
@@ -61,8 +63,8 @@ object CarrierClientHook {
                         else TelephonyManager.NETWORK_TYPE_LTE
                     in phone -> TelephonyManager.PHONE_TYPE_GSM
                     in simState -> if (profile.virtual) TelephonyManager.SIM_STATE_READY else original
-                    in subscriber -> if (profile.virtual) CarrierVirtualIdentity.imsi(profile) else original
-                    in iccid -> if (profile.virtual) CarrierVirtualIdentity.iccid(profile) else original
+                    in subscriber -> if (profile.virtual) view.imsi ?: original else original
+                    in iccid -> if (profile.virtual) view.iccid ?: original else original
                     in carrierId -> if (profile.virtual) {
                         when (name) {
                             "getSimCarrierId", "getSimSpecificCarrierId" ->
@@ -130,13 +132,21 @@ object CarrierClientHook {
         return snapshot("phone", slot - 1)?.takeIf { it.slot == slot && it.virtual }
     }
 
-    private fun snapshot(kind: String, id: Int): SimCarrierProfile? = runCatching {
+    private data class View(val profile: SimCarrierProfile, val imsi: String?, val iccid: String?)
+
+    private fun snapshot(kind: String, id: Int): SimCarrierProfile? = readSnapshot(kind, id)?.profile
+
+    private fun readSnapshot(kind: String, id: Int, identifiers: Boolean = false): View? = runCatching {
         val context = BinderUtils.getSystemContext() ?: return null
         val location = context.getSystemService(LocationManager::class.java) ?: return null
-        val reply = Bundle().apply { putString("kind", kind); putInt("id", id) }
+        val reply = Bundle().apply {
+            putString("kind", kind); putInt("id", id); putBoolean("identifiers", identifiers)
+        }
         if (!location.sendExtraCommand("fused_ext", CarrierIdentitySnapshotCommand.COMMAND, reply)) return null
         val encoded = reply.getString(CarrierIdentitySnapshotCommand.PROFILE) ?: return null
         if (encoded.length > 4096) return null
-        Json.decodeFromString(SimCarrierProfile.serializer(), encoded)
+        View(Json.decodeFromString(SimCarrierProfile.serializer(), encoded),
+            reply.getString(CarrierIdentitySnapshotCommand.IMSI),
+            reply.getString(CarrierIdentitySnapshotCommand.ICCID))
     }.getOrNull()
 }

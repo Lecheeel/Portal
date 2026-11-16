@@ -103,11 +103,11 @@ object CarrierClientHook {
                     snapshot("subscription", Int.MAX_VALUE)?.takeIf { it.virtual }
                 } ?: return@Hooker original
                 when (name) {
-                    "getSubId" -> intArrayOf(CarrierVirtualIdentity.subscriptionId(profile.slot))
+                    "getSubId" -> intArrayOf(CarrierVirtualIdentity.subscriptionId(profile))
                     "getDefaultSubscriptionId", "getDefaultDataSubscriptionId",
                     "getDefaultVoiceSubscriptionId", "getDefaultSmsSubscriptionId",
                     "getDefaultSubscriptionIdForPhone" ->
-                        CarrierVirtualIdentity.subscriptionId(profile.slot)
+                        CarrierVirtualIdentity.subscriptionId(profile)
                     else -> original
                 }
             } finally { reading.set(false) }
@@ -121,11 +121,7 @@ object CarrierClientHook {
 
     internal fun statusBarProfiles(): List<SimCarrierProfile> = (1..2).mapNotNull(::virtualForSlot)
 
-    internal fun statusBarProfile(): SimCarrierProfile? {
-        val ids = listOf(CarrierVirtualIdentity.subscriptionId(1),
-            CarrierVirtualIdentity.subscriptionId(2), -1)
-        return ids.firstNotNullOfOrNull { id -> snapshot("subscription", id) }
-    }
+    internal fun statusBarProfile(): SimCarrierProfile? = statusBarProfiles().firstOrNull()
 
     private fun virtualForSlot(slot: Int): SimCarrierProfile? {
         if (slot !in 1..2) return null

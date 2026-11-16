@@ -163,6 +163,24 @@ internal object CarrierRegistryHook {
         }
     }
 
+    private val movementGate = com.system.location.service.core.carrier.CarrierCellPublicationGate()
+    private val movementPending = java.util.concurrent.atomic.AtomicBoolean()
+
+    fun onSamplePublished() {
+        if (updates.isShutdown || listeners.values.none { it.cellInfo }) return
+        val state = com.system.location.service.hook.utils.FakeLoc.runtimeSnapshots.current()
+        if (!state.configuration.enabled || !state.configuration.carrierIdentityEnabled) return
+        if (movementPending.get()) return
+        if (!movementGate.changed(state.latitude, state.longitude, android.os.SystemClock.elapsedRealtimeNanos())) return
+        if (!movementPending.compareAndSet(false, true)) return
+        try {
+            updates.execute {
+                try { listeners.entries.toList().forEach { (binder, entry) -> updateCells(binder, entry) } }
+                finally { movementPending.set(false) }
+            }
+        } catch (_: java.util.concurrent.RejectedExecutionException) { movementPending.set(false) }
+    }
+
     fun onConfigurationChanged() {
         if (listeners.isEmpty() || updates.isShutdown) return
         runCatching { updates.execute {

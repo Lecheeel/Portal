@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** Binds callback transports to the original caller and requested subscription before notifyNow. */
 internal object CarrierRegistryHook {
+    private const val EVENT_SERVICE_STATE_CHANGED = 1
     private data class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient)
     private val listeners = ConcurrentHashMap<IBinder, Entry>()
 
@@ -55,8 +56,8 @@ internal object CarrierRegistryHook {
                 val callerUid = listeners[binder]?.uid ?: -1
                 val profile = CarrierIdentityRuntime.profileForCall(
                     "getServiceStateForSubscriber", listOf(subId), callerUid,
-                ) ?: CarrierIdentityRuntime.virtualProfilesForCall(callerUid).firstOrNull()
-                if (profile?.virtual == true) {
+                )
+                if (profile?.virtual == true && EVENT_SERVICE_STATE_CHANGED in events) {
                     val synthetic = CarrierServiceStateHook.virtualState(profile)
                     runCatching {
                         val method = listener.javaClass.methods.firstOrNull { method ->
@@ -84,7 +85,6 @@ internal object CarrierRegistryHook {
             val original = callback.args.firstOrNull() as? ServiceState ?: return@Hooker callback.proceed()
             val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
                 listOf(entry.subId), entry.uid)
-                ?: CarrierIdentityRuntime.virtualProfilesForCall(entry.uid).firstOrNull()
             val args = callback.args.toTypedArray()
             args[0] = when {
                 profile != null -> CarrierServiceStateHook.copyWithIdentity(original, profile)

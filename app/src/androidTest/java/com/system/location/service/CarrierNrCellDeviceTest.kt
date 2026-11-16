@@ -10,6 +10,26 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class CarrierNrCellDeviceTest {
+    @Test fun missingAndOutOfRangeSignalMetricsFollowPlatformNormalization() {
+        val source = CellTower(CellType.NR, 310, 260, 1, 123456L,
+            pci = 10, arfcn = 640000, rsrp = -88, registered = true,
+            mncDigits = 3, bands = listOf(78))
+        for (tower in listOf(source, source.copy(rsrq = -99, rssnr = 99))) {
+            val cell = CellInfoSynthesis.buildNrResult(tower).getOrThrow() as CellInfoNr
+            val signal = cell.cellSignalStrength as android.telephony.CellSignalStrengthNr
+            assertEquals(CellInfo.UNAVAILABLE, signal.ssRsrq)
+            assertEquals(CellInfo.UNAVAILABLE, signal.ssSinr)
+            assertEquals(CellInfo.UNAVAILABLE, signal.csiRsrp)
+            assertEquals(-88, signal.dbm)
+            assertEquals(52, signal.asuLevel)
+            val reference = com.system.location.service.hook.runtime.Reflection.newInstance(
+                android.telephony.CellSignalStrengthNr::class.java,
+                CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE,
+                -88, CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE) as android.telephony.CellSignalStrengthNr
+            assertEquals(reference.level, signal.level)
+        }
+    }
+
     @Test fun nrIdentityAndSignalSurviveAndroidConstructionAndParcel() {
         val tower = CellTower(CellType.NR, 310, 260, 0x234567, 0x123456789L,
             pci = 777, arfcn = 640000, rsrp = -88, rsrq = -12, rssnr = 20,

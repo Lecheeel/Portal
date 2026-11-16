@@ -101,6 +101,29 @@ class CarrierNrRequestDeviceTest {
                     val originalNcis = initial!!.filterIsInstance<CellInfoNr>().map {
                         (it.cellIdentity as CellIdentityNr).nci
                     }.toSet()
+                    val routingBefore = preferences.getString("routingJson", null)
+                    val routed = com.system.location.service.core.routing.RoutingConfig(
+                        mode = com.system.location.service.core.routing.RoutingMode.PER_APP,
+                        routes = listOf(com.system.location.service.core.routing.AppRoute(context.packageName,
+                            point = Wgs84(37.77, -122.42))))
+                    notifications.clear()
+                    check(preferences.edit().putString("routingJson", kotlinx.serialization.json.Json.encodeToString(
+                        com.system.location.service.core.routing.RoutingConfig.serializer(), routed)).commit())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    assertTrue(MockServiceHelper.broadcastLocation(location))
+                    awaitCells("Independent app route did not update virtual cells") { cells ->
+                        cells.isNotEmpty() && cells.all { it is CellInfoNr } &&
+                            cells.filterIsInstance<CellInfoNr>().map { (it.cellIdentity as CellIdentityNr).nci }.toSet() != originalNcis
+                    }
+                    check(preferences.edit().apply {
+                        if (routingBefore == null) remove("routingJson") else putString("routingJson", routingBefore)
+                    }.commit())
+                    assertTrue(MockServiceHelper.putConfig(location, context))
+                    assertTrue(MockServiceHelper.broadcastLocation(location))
+                    awaitCells("Restoring app route did not restore original cells") { cells ->
+                        cells.isNotEmpty() && cells.all { it is CellInfoNr } &&
+                            cells.filterIsInstance<CellInfoNr>().map { (it.cellIdentity as CellIdentityNr).nci }.toSet() == originalNcis
+                    }
                     notifications.clear()
                     assertTrue(ScenarioRuntime.setSpeed(200.0).await())
                     assertTrue(ScenarioRuntime.motion(0.0, true).await())
@@ -177,7 +200,7 @@ class CarrierNrRequestDeviceTest {
             try {
                 ScenarioRuntime.stop().await()
                 val edit = preferences.edit()
-                for (key in listOf("carrierIdentityEnabled", "carrierIdentityJson", "speed")) when (val value = saved[key]) {
+                for (key in listOf("carrierIdentityEnabled", "carrierIdentityJson", "speed", "routingJson")) when (val value = saved[key]) {
                     is Float -> edit.putFloat(key, value)
                     is Boolean -> edit.putBoolean(key, value)
                     is String -> edit.putString(key, value)

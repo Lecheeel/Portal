@@ -64,6 +64,9 @@
     <fragment android:id="@+id/nav_map_keys"
         android:name="com.system.location.service.ui.settings.MapKeyComposeFragment"
         android:label="地图 Key" />
+    <fragment android:id="@+id/nav_carrier_identity"
+        android:name="com.system.location.service.ui.settings.CarrierIdentityComposeFragment"
+        android:label="运营商身份" />
     <fragment android:id="@+id/nav_settings_motion"
         android:name="com.system.location.service.ui.settings.SettingsComposeFragment"
         android:label="运动与摇杆">

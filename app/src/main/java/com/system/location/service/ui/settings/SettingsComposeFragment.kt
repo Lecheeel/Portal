@@ -54,6 +54,7 @@ import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.ext.accuracy
 import com.system.location.service.ext.altitude
 import com.system.location.service.ext.antiDetectEnabled
+import com.system.location.service.ext.carrierIdentityEnabled
 import com.system.location.service.ext.debug
 import com.system.location.service.ext.disableFusedProvider
 import com.system.location.service.ext.hideMock
@@ -139,6 +140,7 @@ class SettingsComposeFragment : Fragment() {
                     revision = revisionState.value,
                     onMapProvider = ::showMapProvider,
                     onMapKeys = { findNavController().navigate(R.id.nav_map_keys) },
+                    onCarrierIdentity = { findNavController().navigate(R.id.nav_carrier_identity) },
                     onEditAltitude = { numberSetting = NumberSetting.ALTITUDE },
                     onEditAccuracy = { numberSetting = NumberSetting.ACCURACY },
                     onEditReportInterval = { numberSetting = NumberSetting.INTERVAL },
@@ -391,6 +393,7 @@ private data class SettingsValues(
     val disableFusedProvider: Boolean,
     val needDowngradeToCdma: Boolean,
     val hideMock: Boolean,
+    val carrierIdentityEnabled: Boolean,
     val antiDetectEnabled: Boolean,
     val stackTraceCleanEnabled: Boolean,
     val mockWifiEnabled: Boolean,
@@ -408,6 +411,7 @@ private fun SettingsScreen(
     revision: Int,
     onMapProvider: () -> Unit,
     onMapKeys: () -> Unit,
+    onCarrierIdentity: () -> Unit,
     onEditAltitude: () -> Unit,
     onEditAccuracy: () -> Unit,
     onEditReportInterval: () -> Unit,
@@ -453,6 +457,7 @@ private fun SettingsScreen(
             disableFusedProvider = context.disableFusedProvider,
             needDowngradeToCdma = context.needDowngradeToCdma,
             hideMock = context.hideMock,
+            carrierIdentityEnabled = context.carrierIdentityEnabled,
             antiDetectEnabled = context.antiDetectEnabled,
             stackTraceCleanEnabled = context.stackTraceCleanEnabled,
             mockWifiEnabled = context.mockWifiEnabled,
@@ -608,6 +613,29 @@ private fun SettingsScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("仅 Xposed/Native 后端有效；未运行或应用失败时，下次启动场景生效。", style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            PortalSettingGroup("运营商身份", 2) { index, rowModifier ->
+                                if (index == 0) {
+                                    PortalSwitchRow(
+                                        title = "运营商身份",
+                                        status = APPLY_WHILE_RUNNING,
+                                        subtitle = "默认关闭；开启后默认全局，可切换为分应用。",
+                                        checked = values.carrierIdentityEnabled,
+                                        onCheckedChange = {
+                                            context.carrierIdentityEnabled = it
+                                            refresh()
+                                            onConfigChanged()
+                                        },
+                                        modifier = rowModifier,
+                                    )
+                                } else {
+                                    PortalActionRow(
+                                        title = "编辑运营商身份",
+                                        subtitle = "双卡、国家/运营商、全局与分应用路由",
+                                        onClick = onCarrierIdentity,
+                                        modifier = rowModifier,
+                                    )
+                                }
+                            }
                             val controls: List<@Composable (Modifier) -> Unit> = listOf(
                                 { rowModifier ->
                                     PortalSwitchRow(

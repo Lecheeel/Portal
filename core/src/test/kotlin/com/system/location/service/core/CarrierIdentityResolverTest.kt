@@ -9,7 +9,7 @@ class CarrierIdentityResolverTest {
         mncDigits = 2, carrierName = "Test CN")
     private val sim2 = SimCarrierProfile(2, countryIso = "US", mcc = 310, mnc = 260,
         carrierName = "Test US")
-    private val config = CarrierIdentityConfig(sims = listOf(sim1, sim2))
+    private val config = CarrierIdentityConfig(sims = listOf(sim1.copy(virtual = true), sim2.copy(virtual = true)))
 
     @Test fun globalUsesPhysicalSlotAndVirtualizesOnlyAnExplicitEmptySlotProfile() {
         assertEquals(sim2, CarrierIdentityResolver.profile(config, 2, setOf(2), listOf("android"), true))
@@ -26,6 +26,19 @@ class CarrierIdentityResolverTest {
             CarrierIdentityResolver.profile(routed, 1, setOf(1), listOf("target.app"), false))
         assertNull(CarrierIdentityResolver.profile(routed, 1, setOf(1, 2), listOf("other.app"), false))
         assertNull(CarrierIdentityResolver.profile(routed, 1, setOf(1, 2), listOf("target.app"), true))
+    }
+
+    @Test fun emptySlotRequiresPermissionAndPhysicalSimAlwaysWins() {
+        val physicalOnly = CarrierIdentityConfig(sims = listOf(sim1))
+        assertNull(CarrierIdentityResolver.profile(physicalOnly, 1, emptySet(), listOf("app"), false))
+        assertEquals(sim1, CarrierIdentityResolver.profile(config, 1, setOf(1), listOf("android"), true))
+        assertNull(CarrierIdentityResolver.profile(config.copy(sims = listOf(sim1.copy(enabled = false, virtual = true))),
+            1, emptySet(), listOf("app"), false))
+        val routed = CarrierIdentityConfig(mode = CarrierIdentityMode.PER_APP,
+            sims = listOf(sim2.copy(virtual = true)),
+            appRoutes = listOf(CarrierAppRoute("app", CarrierTarget.SIM2)))
+        assertEquals(sim2.copy(virtual = true), CarrierIdentityResolver.profile(routed, 1, emptySet(), listOf("app"), false))
+        assertNull(CarrierIdentityResolver.profile(routed.copy(sims = listOf(sim2)), 1, emptySet(), listOf("app"), false))
     }
 
     @Test fun sharedUidRequiresUnambiguousRulesAndExplicitInheritKeepsSlot() {

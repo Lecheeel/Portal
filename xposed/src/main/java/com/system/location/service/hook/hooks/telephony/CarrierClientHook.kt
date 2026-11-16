@@ -117,6 +117,8 @@ object CarrierClientHook {
         }
     }
 
+    internal fun statusBarProfiles(): List<SimCarrierProfile> = (1..2).mapNotNull(::virtualForSlot)
+
     internal fun statusBarProfile(): SimCarrierProfile? {
         val ids = listOf(CarrierVirtualIdentity.subscriptionId(1),
             CarrierVirtualIdentity.subscriptionId(2), -1)

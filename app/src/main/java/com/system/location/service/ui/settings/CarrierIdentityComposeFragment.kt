@@ -233,6 +233,13 @@ private fun CarrierIdentityScreen(
     val scope = rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    fun draftSignature(): String = buildString {
+        append(enabled); append(mode.name)
+        drafts.forEach { append(Json.encodeToString(SimDraft.serializer(), it)) }
+        routes.forEach { append(Json.encodeToString(CarrierAppRoute.serializer(), it)) }
+    }
+    var savedSignature by rememberSaveable { mutableStateOf(draftSignature()) }
+    val hasUnsavedChanges = savedSignature != draftSignature()
     LaunchedEffect(selectedPackages) {
         selectedPackages?.let { packages ->
             runCatching { reconcileCarrierRoutes(routes.toList(), packages) }
@@ -290,6 +297,32 @@ private fun CarrierIdentityScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+            }
+            item(key = "sim-profile-summary") {
+                PortalCard {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("双卡配置概览", style = MaterialTheme.typography.titleMedium)
+                        Text(if (hasUnsavedChanges) "有未保存的修改" else "与已保存配置一致",
+                            color = if (hasUnsavedChanges) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium)
+                        drafts.forEach { draft ->
+                            val plmn = if (draft.mcc.length == 3 && draft.mnc.length in 2..3)
+                                "${draft.mcc}${draft.mnc}" else "PLMN 待完善"
+                            val label = draft.carrierName.ifBlank { "未配置运营商" }
+                            Text("SIM ${draft.slot} · $label", style = MaterialTheme.typography.titleSmall)
+                            Text(if (!draft.enabled) "未启用 · 配置保留" else buildString {
+                                append("${draft.countryIso} · $plmn · ")
+                                append(if (draft.radio == CarrierRadio.NR) "NR SA n${draft.nrBand}" else "LTE")
+                                append(if (draft.virtual) " · 允许无卡模拟" else " · 仅实体卡")
+                            }, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text("此处显示编辑中的配置；实际订阅和界面效果以应用后设备返回为准。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -497,6 +530,7 @@ private fun CarrierIdentityScreen(
                                 drafts[profile.slot - 1] = drafts[profile.slot - 1].copy(identitySeed = profile.identitySeed,
                                     virtualSubscriptionId = profile.virtualSubscriptionId)
                             }
+                            savedSignature = draftSignature()
                             saving = true
                             scope.launch {
                                 try {
@@ -514,7 +548,7 @@ private fun CarrierIdentityScreen(
                                         "disabled" -> "已保存，运营商身份已关闭"
                                         "waiting_for_scenario" -> "已保存，启动模拟场景后生效"
                                         "no_active_sim" -> "已保存，当前没有匹配的活跃 SIM 或虚拟 SIM"
-                   "virtual_applied" -> "已保存，虚拟 SIM 身份已启用"
+                                         "virtual_applied" -> "已保存并发送虚拟 SIM 配置，设备显示正在同步"
                                         "service_unavailable" -> "已保存，电话配置服务暂不可用"
                                         "failed", "restore_pending" -> "已保存，但系统覆盖或还原未完成；请重试"
                                         "unconfigured" -> "已保存，请先配置启用的 SIM"
@@ -530,7 +564,10 @@ private fun CarrierIdentityScreen(
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(if (saving) "正在应用…" else "保存并应用") }
-                status.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+                status.takeIf { it.isNotBlank() }?.let {
+                    Text(if (hasUnsavedChanges) "上次应用结果：$it" else it,
+                        color = MaterialTheme.colorScheme.primary)
+                }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         }

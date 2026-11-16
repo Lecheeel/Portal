@@ -61,6 +61,29 @@ class CarrierNoSimDeviceTest {
                 location.sendExtraCommand("fused_ext", CarrierIdentitySnapshotCommand.COMMAND, reply)
                 assertFalse("Empty slot received a synthetic identity", reply.containsKey(CarrierIdentitySnapshotCommand.PROFILE))
             }
+            val received = java.util.concurrent.atomic.AtomicReference<List<android.telephony.CellInfo>?>(null)
+            val callbackReady = java.util.concurrent.CountDownLatch(1)
+            telephony.requestCellInfoUpdate({ it.run() }, object : TelephonyManager.CellInfoCallback() {
+                override fun onCellInfo(cells: MutableList<android.telephony.CellInfo>) {
+                    received.set(cells.toList()); callbackReady.countDown()
+                }
+                override fun onError(errorCode: Int, detail: Throwable?) { callbackReady.countDown() }
+            })
+            assertTrue("CellInfo request must return data or error", callbackReady.await(15, java.util.concurrent.TimeUnit.SECONDS))
+            received.get()?.let { assertTrue("No-SIM request exposed nonempty cell data", it.isEmpty()) }
+            val routed = config.copy(mode = com.system.location.service.core.carrier.CarrierIdentityMode.PER_APP,
+                appRoutes = listOf(com.system.location.service.core.carrier.CarrierAppRoute(context.packageName)))
+            assertTrue(preferences.edit().putString("carrierIdentityJson",
+                Json.encodeToString(CarrierIdentityConfig.serializer(), routed)).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            assertEquals("per_app", MockServiceHelper.carrierIdentityStatus)
+            assertTrue(preferences.edit().putBoolean("carrierIdentityEnabled", false).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            assertEquals("disabled", MockServiceHelper.carrierIdentityStatus)
+            ScenarioRuntime.stop().await()
+            assertTrue(preferences.edit().putBoolean("carrierIdentityEnabled", true).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            assertEquals("waiting_for_scenario", MockServiceHelper.carrierIdentityStatus)
         } finally {
             try {
                 ScenarioRuntime.stop().await()

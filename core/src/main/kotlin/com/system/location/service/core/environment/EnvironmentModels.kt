@@ -109,8 +109,12 @@ data class CellTower(
     val registered: Boolean = false,
     val mncDigits: Int? = null,
     val operatorName: String? = null,
+    val bands: List<Int> = emptyList(),
 ) {
     init {
+        require(bands.size <= 16 && bands.all { it in 1..1024 } && bands.distinct().size == bands.size) {
+            "Invalid cell bands"
+        }
         require(mcc in 1..999) { "mcc out of range: $mcc" }
         require(mnc in 0..999) { "mnc out of range: $mnc" }
         mncDigits?.let {

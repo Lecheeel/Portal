@@ -28,8 +28,11 @@ data class SimCarrierProfile(
     val carrierName: String,
     val operatorName: String = carrierName,
     val radio: CarrierRadio = CarrierRadio.NR,
+    val nrBand: Int = 78,
+    val nrArfcn: Int = CarrierNrChannel.defaultArfcn(nrBand),
 ) {
     init {
+        require(CarrierNrChannel.valid(nrBand, nrArfcn)) { "NR band and ARFCN are inconsistent" }
         require(slot in 1..2) { "SIM slot must be 1 or 2" }
         require(countryIso.length == 2 && countryIso.all(Char::isLetter)) {
             "countryIso must be a two-letter ISO code"

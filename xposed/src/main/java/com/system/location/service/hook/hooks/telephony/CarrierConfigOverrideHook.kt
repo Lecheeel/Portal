@@ -19,7 +19,8 @@ internal object CarrierConfigOverrideHook {
     @Volatile var supported = false
         private set
     private data class Request(val subId: Int, val action: String, val patch: PersistableBundle)
-    private data class Ownership(val baseline: PersistableBundle, val written: PersistableBundle)
+    private data class Ownership(val baseline: PersistableBundle, val written: PersistableBundle,
+        val phoneId: Int, val layer: Array<PersistableBundle?>)
     private val pending = IdentityHashMap<PersistableBundle, Request>()
     private val owned = HashMap<Int, Ownership>()
     private val lock = Any()
@@ -77,12 +78,37 @@ internal object CarrierConfigOverrideHook {
                 check(phoneId in values.indices) { "Invalid carrier phone index" }
                 val current = values[phoneId]?.let(::PersistableBundle) ?: PersistableBundle()
                 val previous = owned[request.subId]
+                check(previous == null || previous.phoneId == phoneId && previous.layer === values) {
+                    "Subscription mapping changed; refusing to reuse carrier restore baseline"
+                }
+                check(owned.entries.none { (subId, ownership) ->
+                    subId != request.subId && ownership.phoneId == phoneId && ownership.layer === values
+                }) { "Carrier slot ownership belongs to another subscription" }
                 val args = chain.args.toTypedArray()
                 if (request.action == CarrierOverrideProtocol.APPLY) {
+                    val baseline = previous?.let {
+                        val rebased = CarrierOverrideOwnership.rebase(
+                            it.baseline.keySet().associateWith { key -> it.baseline[key] },
+                            current.keySet().associateWith { key -> current[key] },
+                            it.written.keySet().associateWith { key -> it.written[key] },
+                            request.patch.keySet(),
+                        )
+                        PersistableBundle(it.baseline).apply {
+                            request.patch.keySet().forEach { key ->
+                                remove(key)
+                                if (key in rebased) {
+                                    val source = if (it.written.containsKey(key) && current.containsKey(key) &&
+                                        current[key] == it.written[key]) it.baseline else current
+                                    putAll(PersistableBundle(source).apply {
+                                        keySet().toList().filterNot { candidate -> candidate == key }.forEach(::remove)
+                                    })
+                                }
+                            }
+                        }
+                    } ?: current
                     args[2] = request.patch
                     val result = chain.proceed(args)
-                    owned[request.subId] = Ownership(previous?.baseline ?: current,
-                        PersistableBundle(request.patch))
+                    owned[request.subId] = Ownership(baseline, PersistableBundle(request.patch), phoneId, values)
                     result
                 } else {
                     if (previous == null) return@synchronized chain.proceed()

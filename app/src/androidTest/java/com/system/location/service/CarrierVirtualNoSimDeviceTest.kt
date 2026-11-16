@@ -3,7 +3,6 @@ package com.system.location.service
 import android.Manifest
 import android.location.LocationManager
 import android.telephony.SubscriptionManager
-import android.telephony.TelephonyManager
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.core.backend.BackendType
 import com.system.location.service.core.carrier.CarrierIdentityConfig

@@ -816,6 +816,7 @@ internal object LocationServiceHook : BaseLocationHook() {
             // A free-running 1 Hz poll can repeatedly observe the same leased sample around a
             // second boundary and then skip an epoch. Drive GNSS from accepted publications.
             com.system.location.service.hook.hooks.gnss.GnssSignalInjection.onSamplePublished()
+            com.system.location.service.hook.hooks.telephony.CarrierRegistryHook.onSamplePublished()
         }
     }
 

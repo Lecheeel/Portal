@@ -110,7 +110,7 @@ object SimOperatorHooks {
         val subscriber = Hooker { chain ->
             val original = chain.proceed()
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
-            if (profile?.virtual == true) CarrierVirtualIdentity.imsi(profile) else original
+            if (profile?.virtual == true && CarrierIdentifierAccess.permitted()) CarrierVirtualIdentity.imsi(profile) else original
         }
         listOf("getSubscriberIdForSubscriber", "getSubscriberId", "getSubscriberIdForPhone")
             .forEach { manager.hookAllMethods(it, subscriber) }
@@ -118,7 +118,7 @@ object SimOperatorHooks {
         val icc = Hooker { chain ->
             val original = chain.proceed()
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
-            if (profile?.virtual == true) CarrierVirtualIdentity.iccid(profile) else original
+            if (profile?.virtual == true && CarrierIdentifierAccess.permitted()) CarrierVirtualIdentity.iccid(profile) else original
         }
         listOf("getIccIdForSubscriber", "getIccId", "getSimSerialNumberForSubscriber",
             "getSimSerialNumber").forEach { manager.hookAllMethods(it, icc) }

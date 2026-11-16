@@ -112,6 +112,9 @@ object CellInfoSynthesis {
             state.environment?.takeIf { EnvironmentReplayPolicy.isApplicable(it, point) }
         }
 
+    internal fun pointForCaller(uid: Int, state: RuntimeSnapshot): Wgs84? = pointForRoute(
+        com.system.location.service.hook.hooks.ListenerRouting.decisionFor(null, uid, state.routing), state)
+
     private fun pointForRoute(route: RoutingDecision, state: RuntimeSnapshot): Wgs84? = when (route) {
         RoutingDecision.Deny -> null
         is RoutingDecision.Point -> route.point

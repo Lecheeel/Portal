@@ -1,6 +1,8 @@
 package com.system.location.service.hook.hooks.telephony
 
+import android.os.Binder
 import android.os.IBinder
+import com.system.location.service.hook.utils.BinderUtils
 import android.os.PersistableBundle
 import android.telephony.SubscriptionManager
 import com.system.location.service.core.carrier.CarrierIdentityMode
@@ -27,12 +29,21 @@ object CarrierConfigGlobalController {
     @Synchronized
     fun onSimulationStopped() {
         if (!FakeLoc.isSystemServerProcess) return
-        restoreApplied()
+        withSystemIdentity { restoreApplied() }
     }
 
     @Synchronized
     fun onConfigurationChanged(state: RuntimeSnapshot) {
         if (!FakeLoc.isSystemServerProcess) return
+        withSystemIdentity { applyConfiguration(state) }
+    }
+
+    private inline fun <T> withSystemIdentity(action: () -> T): T {
+        val token = Binder.clearCallingIdentity()
+        return try { action() } finally { Binder.restoreCallingIdentity(token) }
+    }
+
+    private fun applyConfiguration(state: RuntimeSnapshot) {
         val policy = state.configuration
         val config = policy.carrierIdentity
         val enabled = policy.carrierIdentityEnabled &&
@@ -61,7 +72,11 @@ object CarrierConfigGlobalController {
         }
         val removed = appliedSubIds - next
         for (subId in removed) {
-            runCatching { overrideConfig(loader, subId, null) }
+            runCatching { overrideConfig(loader, subId, null) }.onFailure {
+                // Keep ownership until restore succeeds, so disabling can be retried.
+                next += subId
+                Logger.warn("Global carrier restore failed for sub=$subId: ${it.message}")
+            }
         }
         appliedSubIds = next
     }
@@ -69,10 +84,14 @@ object CarrierConfigGlobalController {
     private fun restoreApplied() {
         if (appliedSubIds.isEmpty()) return
         val loader = carrierConfigLoader() ?: return
+        val pending = LinkedHashSet<Int>()
         for (subId in appliedSubIds) {
-            runCatching { overrideConfig(loader, subId, null) }
+            runCatching { overrideConfig(loader, subId, null) }.onFailure {
+                pending += subId
+                Logger.warn("Global carrier restore failed for sub=$subId: ${it.message}")
+            }
         }
-        appliedSubIds = emptySet()
+        appliedSubIds = pending
     }
 
     private fun bundleFor(profile: SimCarrierProfile): PersistableBundle = PersistableBundle().apply {
@@ -85,21 +104,15 @@ object CarrierConfigGlobalController {
     }
 
     private fun subIdsForSlot(slot: Int): List<Int> {
-        val direct = runCatching {
-            val method = SubscriptionManager::class.java.getMethod("getSubId", Int::class.javaPrimitiveType)
-            (method.invoke(null, slot - 1) as? IntArray)?.toList().orEmpty()
-        }.getOrDefault(emptyList())
-        if (direct.isNotEmpty()) return direct.filter { it > 0 }
-        // Last-resort path for OEMs that hide the static helper: at least cover the default
-        // subscription instead of silently doing nothing.
-        val fallback = runCatching {
-            val defaultData = SubscriptionManager.getDefaultDataSubscriptionId()
-            val defaultVoice = SubscriptionManager.getDefaultVoiceSubscriptionId()
-            listOf(defaultData, defaultVoice).filter {
-                it != SubscriptionManager.INVALID_SUBSCRIPTION_ID && it > 0
-            }
-        }.getOrDefault(emptyList())
-        return if (slot == 1) fallback else emptyList()
+        // Resolve only active subscriptions whose real slot matches. The default data/voice
+        // subscription may live in either slot and must never be guessed to belong to SIM1.
+        val context = BinderUtils.getSystemContext() ?: return emptyList()
+        val manager = context.getSystemService(SubscriptionManager::class.java) ?: return emptyList()
+        return manager.activeSubscriptionInfoList.orEmpty()
+            .filter { it.simSlotIndex == slot - 1 }
+            .map { it.subscriptionId }
+            .filter { SubscriptionManager.isValidSubscriptionId(it) }
+            .distinct()
     }
 
     private fun carrierConfigLoader(): Any? = runCatching {

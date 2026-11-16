@@ -12,7 +12,15 @@ import java.util.concurrent.ConcurrentHashMap
 /** Binds callback transports to the original caller and requested subscription before notifyNow. */
 internal object CarrierRegistryHook {
     private const val EVENT_SERVICE_STATE_CHANGED = 1
-    private data class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient)
+    private class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient,
+        val serviceState: Boolean) {
+        @Volatile var lastRealState: ServiceState? = null
+        @Volatile var virtualSent = false
+    }
+    private val dispatching = ThreadLocal.withInitial { false }
+    private val updates = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "PortalCarrierCallbacks").apply { isDaemon = true }
+    }
     private val listeners = ConcurrentHashMap<IBinder, Entry>()
 
     fun install(registry: Class<*>) {
@@ -48,7 +56,11 @@ internal object CarrierRegistryHook {
             val previous = listeners[binder]
             val death = previous?.death ?: IBinder.DeathRecipient { remove(binder) }
             if (previous == null) binder.linkToDeath(death, 0)
-            listeners[binder] = Entry(Binder.getCallingUid(), subId, death)
+            listeners[binder] = Entry(Binder.getCallingUid(), subId, death,
+                EVENT_SERVICE_STATE_CHANGED in events).apply {
+                lastRealState = previous?.lastRealState
+                virtualSent = previous?.virtualSent ?: false
+            }
             try {
                 val result = chain.proceed()
                 // A no-SIM virtual subscription has no modem registration to generate the first
@@ -64,7 +76,10 @@ internal object CarrierRegistryHook {
                             method.name == "onServiceStateChanged" &&
                                 method.parameterTypes.toList() == listOf(ServiceState::class.java)
                         } ?: error("onServiceStateChanged proxy method missing")
-                        method.invoke(listener, synthetic)
+                        val entry = listeners[binder] ?: return@runCatching
+                        dispatching.set(true)
+                        try { method.invoke(listener, synthetic); entry.virtualSent = true }
+                        finally { dispatching.set(false) }
                     }.onFailure {
                         com.system.location.service.hook.utils.Logger.warn(
                             "virtual ServiceState seed failed: ${it.javaClass.simpleName}:${it.message}")
@@ -80,9 +95,11 @@ internal object CarrierRegistryHook {
 
     private fun installCallback(listener: IInterface) {
         listener.javaClass.onceHookAllMethod("onServiceStateChanged", Hooker { callback ->
+            if (dispatching.get() == true) return@Hooker callback.proceed()
             val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
             val entry = listeners[target.asBinder()] ?: return@Hooker callback.proceed()
             val original = callback.args.firstOrNull() as? ServiceState ?: return@Hooker callback.proceed()
+            entry.lastRealState = CarrierServiceStateHook.copyWithoutCellIdentity(original)
             val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
                 listOf(entry.subId), entry.uid)
             val args = callback.args.toTypedArray()
@@ -91,7 +108,9 @@ internal object CarrierRegistryHook {
                 CarrierIdentityRuntime.protectsLocation(entry.uid) -> CarrierServiceStateHook.copyWithoutCellIdentity(original)
                 else -> return@Hooker callback.proceed()
             }
-            callback.proceed(args)
+            val result = callback.proceed(args)
+            entry.virtualSent = profile?.virtual == true
+            result
         })
         listener.javaClass.onceHookAllMethod("onCellInfoChanged", Hooker { callback ->
             val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
@@ -112,15 +131,50 @@ internal object CarrierRegistryHook {
         })
     }
 
+    fun onConfigurationChanged() {
+        if (listeners.isEmpty() || updates.isShutdown) return
+        runCatching { updates.execute {
+            listeners.entries.toList().forEach { (binder, entry) ->
+                if (!entry.serviceState || listeners[binder] !== entry || !binder.isBinderAlive) return@forEach
+                runCatching {
+                    val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
+                        listOf(entry.subId), entry.uid)
+                    val state = when {
+                        profile?.virtual == true -> CarrierServiceStateHook.virtualState(profile)
+                        entry.virtualSent -> entry.lastRealState?.let(::ServiceState) ?: ServiceState()
+                        else -> return@runCatching
+                    }
+                    val listener = Class.forName("com.android.internal.telephony.IPhoneStateListener\$Stub")
+                        .getMethod("asInterface", IBinder::class.java).invoke(null, binder) as IInterface
+                    val method = listener.javaClass.getMethod("onServiceStateChanged", ServiceState::class.java)
+                    if (listeners[binder] !== entry) return@runCatching
+                    dispatching.set(true)
+                    try { method.invoke(listener, state); entry.virtualSent = profile?.virtual == true }
+                    finally { dispatching.set(false) }
+                }.onFailure {
+                    com.system.location.service.hook.utils.Logger.warn("Carrier callback update failed: ${it.javaClass.simpleName}")
+                }
+            }
+        } }.onFailure {
+            com.system.location.service.hook.utils.Logger.warn("Carrier callback scheduling failed: ${it.javaClass.simpleName}")
+        }
+    }
+
     fun saveReloadState(): ArrayList<android.os.Bundle> = ArrayList(listeners.entries.map { (binder, entry) ->
         android.os.Bundle().apply {
             putBinder("binder", binder)
             putInt("uid", entry.uid)
             putInt("subscription", entry.subId)
+            putBoolean("service_state", entry.serviceState)
+            putBoolean("virtual_sent", entry.virtualSent)
+            entry.lastRealState?.let { putParcelable("real_state", it) }
         }
     })
 
-    fun retire() { listeners.keys.toList().forEach(::remove) }
+    fun retire() {
+        updates.shutdownNow()
+        listeners.keys.toList().forEach(::remove)
+    }
 
     fun restoreReloadState(rows: List<android.os.Bundle>) {
         rows.forEach { row ->
@@ -132,7 +186,12 @@ internal object CarrierRegistryHook {
                 installCallback(listener)
                 val death = IBinder.DeathRecipient { remove(binder) }
                 binder.linkToDeath(death, 0)
-                listeners[binder] = Entry(row.getInt("uid"), row.getInt("subscription"), death)
+                listeners[binder] = Entry(row.getInt("uid"), row.getInt("subscription"), death,
+                    row.getBoolean("service_state", false)).apply {
+                    virtualSent = row.getBoolean("virtual_sent", false)
+                    @Suppress("DEPRECATION")
+                    lastRealState = row.getParcelable<ServiceState>("real_state")
+                }
             } catch (failure: Exception) {
                 com.system.location.service.hook.utils.Logger.warn("Carrier listener restore failed: ${failure.javaClass.simpleName}")
             }

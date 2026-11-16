@@ -123,10 +123,19 @@ internal object CarrierIdentityRuntime {
         if (systemCaller || packages.isEmpty()) return emptyList()
         val targets = packages.map { config.targetFor(it, false) }.distinct()
         if (targets.size != 1) return emptyList()
-        val slot = when (targets.single()) {
+        val target = targets.single()
+        if (target == CarrierTarget.REAL) return emptyList()
+        if (target == CarrierTarget.INHERIT) {
+            // A selected app with the default route inherits the physical slot. On a no-SIM
+            // fixture that slot does not exist, so inherit the first explicitly configured
+            // virtual slot rather than silently disabling per-app identity.
+            return config.sims.filter { it.enabled && it.slot !in physicalSlots }
+                .sortedBy { it.slot }.take(1).map { it.copy(virtual = true) }
+        }
+        val slot = when (target) {
             CarrierTarget.SIM1 -> 1
             CarrierTarget.SIM2 -> 2
-            CarrierTarget.REAL, CarrierTarget.INHERIT -> return emptyList()
+            else -> return emptyList()
         }
         if (slot in physicalSlots) return emptyList()
         return listOfNotNull(config.profileForSlot(slot)?.copy(virtual = true))

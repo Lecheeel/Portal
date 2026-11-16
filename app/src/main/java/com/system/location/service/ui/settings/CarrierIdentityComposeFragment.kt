@@ -450,7 +450,17 @@ private fun CarrierIdentityScreen(
                                             )
                                         }.getOrDefault(false)
                                     }
-                                    status = if (applied) "已保存并发送配置" else "已保存；当前场景未连接，下次生效"
+                                    status = if (!applied) "已保存；当前场景未连接，下次生效" else when (MockServiceHelper.carrierIdentityStatus) {
+                                        "global_applied" -> "已保存，全局临时配置已写入"
+                                        "per_app" -> "已保存，分应用规则已启用"
+                                        "disabled" -> "已保存，运营商身份已关闭"
+                                        "waiting_for_scenario" -> "已保存，启动模拟场景后生效"
+                                        "no_active_sim" -> "已保存，当前没有匹配的活跃 SIM；不会虚构插卡"
+                                        "service_unavailable" -> "已保存，电话配置服务暂不可用"
+                                        "failed", "restore_pending" -> "已保存，但系统覆盖或还原未完成；请重试"
+                                        "unconfigured" -> "已保存，请先配置启用的 SIM"
+                                        else -> "已保存并发送配置，设备效果待确认"
+                                    }
                                 } finally {
                                     saving = false
                                 }

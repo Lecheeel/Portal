@@ -13,6 +13,8 @@ import com.system.location.service.hook.utils.FakeLoc
 object MockServiceHelper {
     const val PROVIDER_NAME = "fused_ext"
     private val commandClient = com.system.location.service.hook.security.CommandClient()
+    @Volatile var carrierIdentityStatus: String? = null
+        private set
 
 
     fun tryInitService(locationManager: LocationManager) {
@@ -329,7 +331,9 @@ object MockServiceHelper {
                 }
             }
         }
+        carrierIdentityStatus = null
         if (!commandClient.send(locationManager, rely)) return false
+        carrierIdentityStatus = rely.getString("carrier_identity_status")
         FakeLoc.runtimeSnapshots.update(prepared::applyTo)
         return true
     }

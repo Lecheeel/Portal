@@ -50,6 +50,14 @@ class CellInfoResultPolicyTest {
         assertSame(synthetic, result)
     }
 
+    @Test fun nullOrUnexpectedFrameworkResultsAreNeverExpandedIntoSyntheticData() {
+        for (protected in listOf(true, false)) {
+            assertNull(selectCellInfoResult(protected, null, listOf("synthetic")))
+            val unexpected = Any()
+            assertSame(unexpected, selectCellInfoResult(protected, unexpected, listOf("synthetic")))
+        }
+    }
+
     @Test
     fun synthesisFailsAsAWholeWhenOneRecordCannotBeBuilt() {
         val built = buildAllOrNothing(listOf(1, 2, 3)) { value ->

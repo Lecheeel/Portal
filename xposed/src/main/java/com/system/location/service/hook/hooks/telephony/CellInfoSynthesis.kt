@@ -82,7 +82,7 @@ object CellInfoSynthesis {
             val uid = BinderUtils.getCallerUid()
             if (identity == null && CarrierIdentityRuntime.virtualProfilesForCall(uid).isEmpty() &&
                 BinderUtils.isSystemAppsCall()) return@Hooker original
-            if (original !is List<*>) return@Hooker unavailable(original, "unexpected_framework_result")
+            if (original !is List<*>) return@Hooker original
             when (val result = resultForCaller(chain.args.firstOrNull() as? String, uid)) {
                 CellInfoSynthesisResult.PassThrough -> original
                 CellInfoSynthesisResult.Unavailable -> unavailable(original, "target_cell_profile_unavailable")
@@ -331,7 +331,7 @@ internal fun <T> selectCellInfoResult(
     protectedCall: Boolean,
     frameworkResult: Any?,
     synthetic: List<T>,
-): Any? = if (protectedCall) synthetic else frameworkResult
+): Any? = if (protectedCall && frameworkResult is List<*>) synthetic else frameworkResult
 
 internal fun <I, O : Any> buildAllOrNothing(inputs: List<I>, build: (I) -> O?): List<O> {
     if (inputs.isEmpty()) return emptyList()

@@ -142,7 +142,7 @@ class PreparedRuntimeConfiguration private constructor(
             (values["gnss_environment"] as String?)?.let { values["gnss_environment"] = GnssSimulationEnvironment.valueOf(it) }
             val navigation = (values["gnss_navigation"] as String?)?.let(RinexNavigationResource::decodeWire)
             val carrierIdentity = (values["carrier_identity_json"] as String?)?.let {
-                Json.decodeFromString(CarrierIdentityConfig.serializer(), it)
+                com.system.location.service.core.carrier.CarrierIdentityCodec.decode(it)
             }
             (values["sensor_targets"] as String?)?.let {
                 values["sensor_targets"] = com.system.location.service.core.sensors.SensorTargets.parse(it)

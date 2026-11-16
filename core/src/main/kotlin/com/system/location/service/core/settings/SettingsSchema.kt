@@ -120,7 +120,7 @@ object PortalSettingsSchema {
             SettingSpec("need_downgrade_to_2g", SettingType.BOOLEAN, "false"),
             SettingSpec("hide_mock", SettingType.BOOLEAN, "true"),
             SettingSpec("carrier_identity_enabled", SettingType.BOOLEAN, "false"),
-            SettingSpec("carrier_identity_json", SettingType.STRING, "", maxLength = 65_536, allowBlank = true),
+            SettingSpec("carrier_identity_json", SettingType.STRING, "", maxLength = com.system.location.service.core.carrier.CarrierIdentityCodec.MAX_LENGTH, allowBlank = true),
             SettingSpec("experimental_anti_detect", SettingType.BOOLEAN, "false"),
             SettingSpec("experimental_stack_trace", SettingType.BOOLEAN, "false"),
             SettingSpec("experimental_stack_trace_replace", SettingType.BOOLEAN, "false"),

@@ -88,6 +88,8 @@ class PortalModule : XposedModule() {
                     putParcelableArrayList("raw", ArrayList(RawGnssCallbacks.subscriptions().map { it.toBundle() }))
                     putParcelableArrayList("peers", ArrayList(ProxyCommand.subscriptions().map { it.toBundle() }))
                     putLong("peer_sequence", ProxyCommand.publicationSequence())
+                    putBundle("carrier_identity", com.system.location.service.hook.hooks.telephony
+                        .CarrierConfigGlobalController.saveReloadState())
                     putString("process", "system_server")
                     putString("package", "android")
                     putInt("uid", 1000)
@@ -141,6 +143,8 @@ class PortalModule : XposedModule() {
                 val restored = FakeLoc.restoreRuntime(RuntimeTransferWire.decode(it), android.os.SystemClock.elapsedRealtimeNanos())
                 SampleCommand.restoreLease(restored.state.sample, android.os.SystemClock.elapsedRealtimeNanos())
             }
+            com.system.location.service.hook.hooks.telephony.CarrierConfigGlobalController
+                .restoreReloadState(saved?.getBundle("carrier_identity"))
             lifecycle.systemServerStarting(loader)
             restoreCallbacks(saved)
             ProxyCommand.restorePublicationSequence(saved?.getLong("peer_sequence") ?: 0L)

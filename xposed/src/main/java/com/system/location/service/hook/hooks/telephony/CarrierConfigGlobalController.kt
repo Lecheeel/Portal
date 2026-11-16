@@ -31,6 +31,20 @@ object CarrierConfigGlobalController {
     fun recordFailure() { status = "failed" }
 
     @Synchronized
+    fun saveReloadState(): android.os.Bundle = android.os.Bundle().apply {
+        putIntArray("subscriptions", appliedSubIds.toIntArray())
+        putString("status", status)
+    }
+
+    @Synchronized
+    fun restoreReloadState(saved: android.os.Bundle?) {
+        if (saved == null) return
+        appliedSubIds = (saved.getIntArray("subscriptions") ?: intArrayOf())
+            .filter { SubscriptionManager.isValidSubscriptionId(it) }.toSet()
+        status = saved.getString("status") ?: "restore_pending"
+    }
+
+    @Synchronized
     fun onSimulationStopped() {
         if (!FakeLoc.isSystemServerProcess) return
         withSystemIdentity { restoreApplied() }

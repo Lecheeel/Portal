@@ -44,9 +44,28 @@ internal object CarrierCellRequestHook {
                     } finally { remove(target.asBinder()) }
                 })
                 listener.javaClass.onceHookAllMethod("onError", Hooker { callback ->
-                    try { callback.proceed() } finally {
-                        (callback.thisObject as? IInterface)?.asBinder()?.let(::remove)
-                    }
+                    val target = callback.thisObject as? IInterface
+                    val entry = target?.asBinder()?.let { requests[it] }
+                    try {
+                        // The original request has already performed framework permission checks.
+                        // Only timeout / confirmed no-radio modem errors can become modeled data.
+                        val noRadio = canModelError(callback.args)
+                        if (entry != null && noRadio) {
+                            val profile = CarrierIdentityRuntime.profileForCall("getAllCellInfo",
+                                listOfNotNull(entry.subscription), entry.uid)
+                            if (profile?.virtual == true) {
+                                val result = runCatching {
+                                    CellInfoSynthesis.resultForCaller(null, entry.uid, entry.subscription)
+                                }.getOrNull()
+                                if (result is CellInfoSynthesisResult.Synthetic) {
+                                    target.javaClass.getMethod("onCellInfo", List::class.java)
+                                        .invoke(target, result.cells)
+                                    return@Hooker null
+                                }
+                            }
+                        }
+                        callback.proceed()
+                    } finally { target?.asBinder()?.let(::remove) }
                 })
                 val previous = requests[binder]
                 val death = previous?.death ?: IBinder.DeathRecipient { remove(binder) }
@@ -58,6 +77,14 @@ internal object CarrierCellRequestHook {
                 }
             })
         }
+    }
+
+    internal fun canModelError(args: List<Any?>): Boolean {
+        if (args.firstOrNull() == android.telephony.TelephonyManager.CellInfoCallback.ERROR_TIMEOUT) return true
+        if (args.firstOrNull() != android.telephony.TelephonyManager.CellInfoCallback.ERROR_MODEM_ERROR) return false
+        val detail = args.filterIsInstance<String>().joinToString(" ")
+        return detail.contains("CommandException") &&
+            (detail.contains("RADIO_NOT_AVAILABLE") || detail.contains("NO_NETWORK_FOUND"))
     }
 
     private fun remove(binder: IBinder) {

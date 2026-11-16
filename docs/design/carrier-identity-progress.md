@@ -12,6 +12,7 @@
 ## 2026-11-17 一致性修复
 
 - 双机真实 requestCellInfoUpdate 按两个持久订阅 ID 请求，各 1 项通过：US 310260/n71/127000、AU 50501/n78/640000，均非空且仅一个 serving，所有对象为 CellInfoNr，NCI/PCI 范围合法，不放开 hidden API。测试后恢复偏好、停止场景及原后端。这是每订阅单次异步请求证据，不是持续 CellInfo 监听或无参 getAllCellInfo 的双卡聚合验证。
+- 无参 getAllCellInfo 现与单次异步请求共用生成入口，聚合 caller 可见的虚拟槽；带订阅 ID 的请求仍仅返回对应槽。两台冷启动设备扩展各 1 项通过：总览包含 US/AU 两个 PLMN、分别为 n71/127000 与 n78/640000，每组一个 serving；随后逐订阅单次请求仍隔离。这补上同步总览证据，持续 CellInfoCallback 监听与混合实体/虚拟卡总览尚未设备验收。
 - 红米先后实测 RADIO_NOT_AVAILABLE、NO_NETWORK_FOUND、ERROR_TIMEOUT 导致原单次回调无法输出虚拟数据；已在平台原请求权限检查后，仅对当前有效虚拟订阅的这些错误/超时使用生成成功的模拟结果。未知码、SecurityException、GENERIC_FAILURE 和不可生成的情况保持原错误；错误分类 JVM 回归通过。小米原成功回调路径继续通过。
 
 - 环境页面加入“SIM 与蜂窝环境”共享配置入口与双槽运营商摘要；编辑页参考 Nrfr 的概览/选槽组织，增加双槽 PLMN、制式、无卡模拟许可与未保存提示。概览为编辑配置而非运行时探测；再次编辑将旧回复标为上次结果，虚拟配置发送 ACK 文案不再宣称全设备已生效。

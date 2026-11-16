@@ -9,6 +9,13 @@
 - NR SA 为默认无线画像；LTE 可配置。身份覆盖不会把真实调制解调器变成另一张 SIM 或远端网络。
 - 不修改 README。
 
+## 2026-11-17 一致性修复
+
+- 已修正 n20/n26/n30/n48 下行范围及 FR1 100 kHz 栅格校验；新增边界测试，core/Xposed 回归与 App 构建通过。参考 TS 38.101-1 表 5.4.2.3-1。
+- 虚拟 SubscriptionInfo 改由平台 Builder 构造，取消 Unsafe 和静默字段赋值；小米完整对象 Parcel、equals/hashCode 与 Builder 复制回归通过。红米未完成：仪器运行停滞后 USB 断开，不计为通过。
+- **待设备清理**：红米 `MFZDWOAIBA8DGIC6` 第二次对象测试临时设置 `hidden_api_policy=1` 后断连，finally 删除设置失败。重连后优先执行 root `settings delete global hidden_api_policy`，恢复测试前默认值；小米策略已恢复。
+- 尚待修复/验证：每设备稳定身份、carrierId 的真实语义、显式虚拟插卡策略、订阅与注册状态闭环、权限返回一致性、双卡回调及 SystemUI 开启/关闭刷新。不能将已有订阅可见测试视为这些项目已通过。
+
 ## 进度
 
 - [x] 核心配置、ISO/MCC/MNC 校验与运行时传输。

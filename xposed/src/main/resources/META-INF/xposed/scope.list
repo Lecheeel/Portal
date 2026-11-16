@@ -4,3 +4,4 @@ com.android.location.fused
 com.xiaomi.location.fused
 com.oplus.location
 com.android.providers.settings
+com.android.systemui

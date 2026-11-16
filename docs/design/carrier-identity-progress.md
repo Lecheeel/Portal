@@ -11,6 +11,8 @@
 
 ## 2026-11-17 一致性修复
 
+- NR 信号使用平台六参数 CellSignalStrengthNr 构造器，取消反射硬写指标与手算level；缺失RSRQ/SINR/CSI 保持 UNAVAILABLE，越界值按平台归一化，不再补固定测量。Xposed 回归和构建通过，两台对象各2项通过（身份/信号Parcel、缺失/越界、dbm/ASU与平台level一致），临时hidden API策略均恢复。本轮未重启注入进程，不作为电话Hook或状态栏信号图标已验收证据。
+
 - 编辑器为 MCC/MNC 增加即时错误状态、位数说明及使用同一严格解析器的 PLMN 预览；MCC/MNC/NR-ARFCN 输入过滤统一 ASCII。App 编译通过，未重新运行设备 UI 或电话栈回归；这是输入反馈改进，不代表剩余蜂窝图标或热重载验收完成。
 
 - 手动 PLMN 保存使用统一严格解析：MCC 三位 ASCII 且非000，MNC 两/三位 ASCII，位宽从实际输入获取；拒绝一位 MNC 静默补零、Unicode 数字和空格。core 两项测试覆盖01/001生成不同 PLMN、序列化恢复和合法00；core 测试与 App 编译通过。本轮未设备重测输入交互，合法旧配置模型未改。

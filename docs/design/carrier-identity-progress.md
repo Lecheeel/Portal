@@ -11,6 +11,8 @@
 
 ## 2026-11-17 一致性修复
 
+- 新增电话进程 getSignalStrength/getSignalStrengthForSubscriber 同步适配：先执行原方法保留检查，仅有效虚拟 NR 订阅用同订阅 serving CellInfoNr 信号构造聚合对象，其他 RAT 保持平台默认不可用。Xposed回归与构建通过，双机各3项NR对象测试通过（聚合仅一个有效NR，level/dbm/ASU同值，Parcel后同值），临时hidden API设置均恢复。本轮未重启注入进程，尚未证实厂商真实同步getter命中或SignalStrength异步/状态栏图标；下一轮需真实API验收，不能把对象测试当完成。
+
 - NR 信号使用平台六参数 CellSignalStrengthNr 构造器，取消反射硬写指标与手算level；缺失RSRQ/SINR/CSI 保持 UNAVAILABLE，越界值按平台归一化，不再补固定测量。Xposed 回归和构建通过，两台对象各2项通过（身份/信号Parcel、缺失/越界、dbm/ASU与平台level一致），临时hidden API策略均恢复。本轮未重启注入进程，不作为电话Hook或状态栏信号图标已验收证据。
 
 - 编辑器为 MCC/MNC 增加即时错误状态、位数说明及使用同一严格解析器的 PLMN 预览；MCC/MNC/NR-ARFCN 输入过滤统一 ASCII。App 编译通过，未重新运行设备 UI 或电话栈回归；这是输入反馈改进，不代表剩余蜂窝图标或热重载验收完成。

@@ -69,6 +69,9 @@ class CarrierIdentityTest {
             chinaMobile.copy(mcc = 1_000)
         }
         assertThrows(IllegalArgumentException::class.java) {
+            chinaMobile.copy(countryIso = "ZZ")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
             chinaMobile.copy(countryIso = "cn")
         }
         assertThrows(IllegalArgumentException::class.java) {

@@ -3,6 +3,8 @@ package com.system.location.service.core.carrier
 import java.util.Locale
 import kotlinx.serialization.Serializable
 
+private val ISO_COUNTRY_CODES = Locale.getISOCountries().toSet()
+
 /** How a caller sees the simulated SIM/operator identity. */
 @Serializable
 enum class CarrierIdentityMode { GLOBAL, PER_APP }
@@ -35,6 +37,7 @@ data class SimCarrierProfile(
         require(countryIso.uppercase(Locale.ROOT) == countryIso) {
             "countryIso must be uppercase"
         }
+        require(countryIso in ISO_COUNTRY_CODES) { "Unknown ISO 3166-1 country code" }
         require(mcc in 1..999) { "MCC out of range" }
         require(mnc in 0..999) { "MNC out of range" }
         require(mncDigits in 2..3) { "MNC must have 2 or 3 digits" }

@@ -38,6 +38,37 @@ class CarrierServiceStateDeviceTest {
         } finally { parcel.recycle() }
     }
 
+    @Test fun internalRegistrationNeverRetainsOriginalCellIdentity() {
+        val reflection = com.system.location.service.hook.runtime.Reflection
+        val builder = reflection.newInstance(Class.forName("android.telephony.NetworkRegistrationInfo\$Builder"))
+        reflection.callMethod(builder, "setDomain", 2)
+        reflection.callMethod(builder, "setTransportType", 1)
+        reflection.callMethod(builder, "setRegistrationState", 1)
+        reflection.callMethod(builder, "setAccessNetworkTechnology", 13)
+        reflection.callMethod(builder, "setRegisteredPlmn", "46000")
+        val tower = com.system.location.service.core.environment.CellTower(
+            com.system.location.service.core.environment.CellType.NR, 460, 0, 1234, 123456L,
+            pci = 10, arfcn = 640000, rsrp = -90, registered = true, mncDigits = 2)
+        val cell = com.system.location.service.hook.hooks.telephony.CellInfoSynthesis
+            .buildNrResult(tower).getOrThrow() as android.telephony.CellInfoNr
+        reflection.callMethod(builder, "setCellIdentity", cell.cellIdentity)
+        val registration = reflection.callMethod(builder, "build")!!
+        val original = ServiceState().apply {
+            setOperatorName("Original", "Original", "46000")
+        }
+        reflection.callMethod(original, "addNetworkRegistrationInfo", registration)
+        val copy = CarrierServiceStateHook.copyWithIdentity(original, profile)
+        val results = reflection.callMethod(copy, "getNetworkRegistrationInfoList") as List<*>
+        val item = results.first { reflection.callMethod(it, "getDomain") == 2 && reflection.callMethod(it, "getTransportType") == 1 }
+        assertNull(reflection.callMethod(item, "getCellIdentity"))
+        assertEquals("310260", reflection.callMethod(item, "getRegisteredPlmn"))
+        assertEquals(20, reflection.callMethod(item, "getAccessNetworkTechnology"))
+        val originals = reflection.callMethod(original, "getNetworkRegistrationInfoList") as List<*>
+        val originalItem = originals.first { reflection.callMethod(it, "getDomain") == 2 && reflection.callMethod(it, "getTransportType") == 1 }
+        assertNotNull(reflection.callMethod(originalItem, "getCellIdentity"))
+        assertEquals("46000", reflection.callMethod(originalItem, "getRegisteredPlmn"))
+    }
+
     @Test fun unavailableOrRedactedOperatorFieldsStayUnavailable() {
         val original = ServiceState().apply {
             state = ServiceState.STATE_POWER_OFF

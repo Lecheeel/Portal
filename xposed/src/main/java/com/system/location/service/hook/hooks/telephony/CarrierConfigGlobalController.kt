@@ -130,7 +130,7 @@ object CarrierConfigGlobalController {
         appliedSubIds = next
         status = when {
             failed -> "failed"
-            succeeded == 0 && config.sims.any { it.enabled } -> "virtual_applied"
+            succeeded == 0 && config.sims.any { it.enabled && it.virtual } -> "virtual_applied"
             succeeded == 0 -> "no_active_sim"
             else -> "global_applied"
         }

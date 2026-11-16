@@ -5,62 +5,35 @@ import com.system.location.service.core.carrier.CarrierVirtualIdentity
 import com.system.location.service.core.carrier.SimCarrierProfile
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.Logger
+import java.util.Locale
 
-/** Builds the platform's opaque SubscriptionInfo object for a virtual slot. */
+/** Constructs a complete platform object, including platform defaults and derived fields. */
 internal object CarrierVirtualSubscription {
-    fun info(profile: SimCarrierProfile): SubscriptionInfo? = runCatching {
-        val info = allocate()
-        val subId = CarrierVirtualIdentity.subscriptionId(profile.slot)
-        set(info, "mId", subId)
-        set(info, "mSubscriptionId", subId)
-        set(info, "mIccId", CarrierVirtualIdentity.iccid(profile))
-        set(info, "mSimSlotIndex", profile.slot - 1)
-        set(info, "mDisplayName", profile.operatorName)
-        set(info, "mCarrierName", profile.carrierName)
-        set(info, "mNameSource", 1)
-        set(info, "mIconTint", 0)
-        set(info, "mNumber", "")
-        set(info, "mDataRoaming", 0)
-        set(info, "mIcon", 0)
-        set(info, "mMcc", profile.mcc.toString().padStart(3, '0'))
-        set(info, "mMnc", profile.mnc.toString().padStart(profile.mncDigits, '0'))
-        set(info, "mCountryIso", profile.countryIso.lowercase(java.util.Locale.ROOT))
-        set(info, "mIsEmbedded", false)
-        set(info, "mCardId", 0)
-        set(info, "mCarrierId", CarrierVirtualIdentity.carrierId(profile))
-        set(info, "mProfileClass", 0)
-        set(info, "mSubscriptionType", 0)
-        set(info, "mGroupUUID", null)
-        set(info, "mIsOnlyNonTerrestrialNetwork", false)
-        set(info, "mType", 0)
-        set(info, "mPortIndex", -1)
-        set(info, "mIsOpportunistic", false)
-        set(info, "mServiceCapabilities", emptySet<Int>())
-        set(info, "mUsageSetting", 0)
-        set(info, "mStreamingAppMaxDownlinkKbps", 0L)
-        set(info, "mStreamingAppMaxUplinkKbps", 0L)
-        set(info, "mNativeAccessRules", emptyList<Any>())
-        info
-    }.onFailure {
+    fun info(profile: SimCarrierProfile): SubscriptionInfo? = create(profile).onFailure {
         Logger.warn("Virtual SubscriptionInfo construction failed: ${it.javaClass.simpleName}")
     }.getOrNull()
 
-    private fun allocate(): SubscriptionInfo {
-        // Framework filters the package-private constructor in some processes. Allocate the
-        // platform object without invoking it, then initialize every field getters rely on.
-        return runCatching {
-            val unsafeClass = Class.forName("sun.misc.Unsafe")
-            val unsafe = unsafeClass.getDeclaredField("theUnsafe").apply { isAccessible = true }
-                .get(null)
-            unsafeClass.getMethod("allocateInstance", Class::class.java)
-                .invoke(unsafe, SubscriptionInfo::class.java) as SubscriptionInfo
-        }.getOrElse {
-            Reflection.newInstance(SubscriptionInfo::class.java) as SubscriptionInfo
-        }
-    }
-
-    private fun set(target: Any, name: String, value: Any?) {
-        val field = Reflection.findFieldIfExists(target.javaClass, name) ?: return
-        runCatching { field.set(target, value) }
+    internal fun create(profile: SimCarrierProfile): Result<SubscriptionInfo> = runCatching {
+        val builderClass = Class.forName("android.telephony.SubscriptionInfo\$Builder")
+        val builder = Reflection.newInstance(builderClass)
+        fun set(name: String, value: Any) { Reflection.callMethod(builder, name, value) }
+        set("setId", CarrierVirtualIdentity.subscriptionId(profile.slot))
+        set("setIccId", CarrierVirtualIdentity.iccid(profile))
+        set("setSimSlotIndex", profile.slot - 1)
+        set("setDisplayName", profile.operatorName)
+        set("setCarrierName", profile.carrierName)
+        set("setMcc", profile.mcc.toString().padStart(3, '0'))
+        set("setMnc", profile.mnc.toString().padStart(profile.mncDigits, '0'))
+        set("setCountryIso", profile.countryIso.lowercase(Locale.ROOT))
+        set("setCarrierId", CarrierVirtualIdentity.carrierId(profile))
+        // A virtual logical UICC port within its physical slot. Other fields deliberately keep
+        // the framework Builder defaults, rather than Unsafe's null/zero uninitialized fields.
+        set("setPortIndex", 0)
+        val info = Reflection.callMethod(builder, "build") as SubscriptionInfo
+        check(info.subscriptionId == CarrierVirtualIdentity.subscriptionId(profile.slot))
+        check(info.simSlotIndex == profile.slot - 1)
+        check(info.mccString == profile.mcc.toString().padStart(3, '0'))
+        check(info.mncString == profile.mnc.toString().padStart(profile.mncDigits, '0'))
+        info
     }
 }

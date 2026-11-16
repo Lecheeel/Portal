@@ -15,6 +15,10 @@ object SimOperatorHooks {
         val numeric = Hooker { chain ->
             val original = chain.proceed()
             val state = FakeLoc.runtimeSnapshots.current()
+            if (state.configuration.carrierIdentityEnabled) {
+                return@Hooker CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+                    ?.operatorNumeric ?: original
+            }
             val route = ListenerRouting.decisionFor(null, BinderUtils.getCallerUid(), state.routing)
             if (!TelephonyCallerPolicy.shouldRewrite(
                     state.configuration.enabled,
@@ -34,6 +38,10 @@ object SimOperatorHooks {
         val name = Hooker { chain ->
             val original = chain.proceed()
             val state = FakeLoc.runtimeSnapshots.current()
+            if (state.configuration.carrierIdentityEnabled) {
+                return@Hooker CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+                    ?.carrierName ?: original
+            }
             val route = ListenerRouting.decisionFor(null, BinderUtils.getCallerUid(), state.routing)
             if (!TelephonyCallerPolicy.shouldRewrite(
                     state.configuration.enabled,
@@ -49,5 +57,30 @@ object SimOperatorHooks {
             "getSimOperatorNameForSubscriber",
             "getSimOperatorName",
         ).forEach { manager.hookAllMethods(it, name) }
+
+        // These methods are version-dependent. hookAllMethods simply installs nothing when a
+        // ROM lacks an entry; original execution still enforces framework permission semantics.
+        val networkNumeric = Hooker { chain ->
+            val original = chain.proceed()
+            CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+                ?.operatorNumeric ?: original
+        }
+        listOf("getNetworkOperatorForPhone", "getNetworkOperatorForSubscriber", "getNetworkOperator")
+            .forEach { manager.hookAllMethods(it, networkNumeric) }
+        val networkName = Hooker { chain ->
+            val original = chain.proceed()
+            CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+                ?.operatorName ?: original
+        }
+        listOf("getNetworkOperatorNameForPhone", "getNetworkOperatorNameForSubscriber", "getNetworkOperatorName")
+            .forEach { manager.hookAllMethods(it, networkName) }
+        val country = Hooker { chain ->
+            val original = chain.proceed()
+            CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+                ?.countryIso?.lowercase(java.util.Locale.ROOT) ?: original
+        }
+        listOf("getSimCountryIsoForPhone", "getSimCountryIsoForSubscriber", "getSimCountryIso",
+            "getNetworkCountryIsoForPhone", "getNetworkCountryIsoForSubscriber", "getNetworkCountryIso")
+            .forEach { manager.hookAllMethods(it, country) }
     }
 }

@@ -22,6 +22,9 @@ internal object CarrierConfigReadHook {
                     putBoolean(CarrierOverrideProtocol.PENDING, status.second)
                 }
             }
+            // AOSP returns an empty bundle when READ_PHONE_STATE is denied. Keep that
+            // redaction intact; profile availability is not authorization to expose new data.
+            if (bundle.isEmpty) return@Hooker original
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
                 ?: return@Hooker original
             val subset = chain.executable.name == "getConfigSubsetForSubIdWithFeature"

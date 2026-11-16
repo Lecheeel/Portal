@@ -20,6 +20,8 @@ internal object CarrierConfigReadHook {
                     putBoolean(CarrierOverrideProtocol.SUPPORTED, CarrierConfigOverrideHook.supported)
                     putBoolean(CarrierOverrideProtocol.OWNED, status.first)
                     putBoolean(CarrierOverrideProtocol.PENDING, status.second)
+                    putBoolean(CarrierOverrideProtocol.FAILED,
+                        CarrierConfigOverrideHook.failed(chain.args.firstOrNull() as? Int ?: -1))
                 }
             }
             // AOSP returns an empty bundle when READ_PHONE_STATE is denied. Keep that

@@ -6,6 +6,7 @@ internal object CarrierOverrideProtocol {
     const val SUPPORTED = "portal_carrier_override_supported"
     const val OWNED = "portal_carrier_override_owned"
     const val PENDING = "portal_carrier_override_pending"
+    const val FAILED = "portal_carrier_override_failed"
     const val ACTION = "portal_carrier_override_action"
     const val APPLY = "apply"
     const val RESTORE = "restore"

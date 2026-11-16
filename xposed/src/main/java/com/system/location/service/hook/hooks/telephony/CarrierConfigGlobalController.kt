@@ -200,6 +200,9 @@ object CarrierConfigGlobalController {
         val deadline = android.os.SystemClock.elapsedRealtime() + 1_000L
         do {
             val state = probe()
+            check(state?.getBoolean(CarrierOverrideProtocol.FAILED) != true) {
+                "Phone process rejected carrier override; previous restore ownership is retained"
+            }
             if (state != null && !state.getBoolean(CarrierOverrideProtocol.PENDING) &&
                 state.getBoolean(CarrierOverrideProtocol.OWNED) == shouldOwn) return
             Thread.sleep(20)

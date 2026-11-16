@@ -23,7 +23,10 @@ internal object CarrierConfigOverrideHook {
         val phoneId: Int, val layer: Array<PersistableBundle?>)
     private val pending = IdentityHashMap<PersistableBundle, Request>()
     private val owned = HashMap<Int, Ownership>()
+    private val failures = HashSet<Int>()
     private val lock = Any()
+
+    fun failed(subId: Int): Boolean = synchronized(lock) { subId in failures }
 
     fun status(subId: Int): Pair<Boolean, Boolean> = synchronized(lock) {
         owned.containsKey(subId) to pending.values.any { it.subId == subId }
@@ -60,10 +63,11 @@ internal object CarrierConfigOverrideHook {
             synchronized(lock) {
                 check(pending.size < 64) { "Carrier update queue is full" }
                 pending[clean] = Request(subId, action, patch)
+                failures.remove(subId)
             }
             val args = chain.args.toTypedArray().apply { this[1] = clean }
             try { chain.proceed(args) } catch (failure: Throwable) {
-                synchronized(lock) { pending.remove(clean) }
+                synchronized(lock) { pending.remove(clean); failures.add(subId) }
                 throw failure
             }
         }, exceptionMode = io.github.libxposed.api.XposedInterface.ExceptionMode.PASSTHROUGH)
@@ -72,6 +76,7 @@ internal object CarrierConfigOverrideHook {
             val bundle = chain.args.getOrNull(2) as? PersistableBundle ?: return@Hooker chain.proceed()
             synchronized(lock) {
                 val request = pending.remove(bundle) ?: return@synchronized chain.proceed()
+                failures.add(request.subId)
                 @Suppress("UNCHECKED_CAST")
                 val values = chain.args[0] as Array<PersistableBundle?>
                 val phoneId = chain.args[1] as Int
@@ -109,9 +114,14 @@ internal object CarrierConfigOverrideHook {
                     args[2] = request.patch
                     val result = chain.proceed(args)
                     owned[request.subId] = Ownership(baseline, PersistableBundle(request.patch), phoneId, values)
+                    failures.remove(request.subId)
                     result
                 } else {
-                    if (previous == null) return@synchronized chain.proceed()
+                    if (previous == null) {
+                        val result = chain.proceed()
+                        failures.remove(request.subId)
+                        return@synchronized result
+                    }
                     val restored = PersistableBundle(current)
                     val baselineFields = PersistableBundle(previous.baseline)
                     val plan = CarrierOverrideOwnership.restorePlan(
@@ -135,6 +145,7 @@ internal object CarrierConfigOverrideHook {
                         throw failure
                     }
                     owned.remove(request.subId)
+                    failures.remove(request.subId)
                     result
                 }
             }

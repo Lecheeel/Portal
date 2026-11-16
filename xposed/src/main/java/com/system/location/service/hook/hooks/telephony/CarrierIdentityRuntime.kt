@@ -66,6 +66,8 @@ internal object CarrierIdentityRuntime {
                 // Some PhoneInterfaceManager getters omit the phone index and resolve the current
                 // default phone internally. Treat them like the default subscription.
                 combined[defaultSubId] ?: combined.values.firstOrNull()
+            } else if (phoneIndex && requested != null) {
+                requested.takeIf { it in 0..1 }?.plus(1)
             } else {
                 com.system.location.service.core.carrier.CarrierSubscriptionSelection.slot(
                     methodName, requested, combined, defaultSubId,

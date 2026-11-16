@@ -30,7 +30,9 @@
 - 扩展逐槽删除回归暴露框架缓存问题：列表删除后 getSlotIndex 仍返回旧值。现于系统/电话进程接受身份变化后调用平台订阅缓存失效方法，启动/停止和异步 transfer 均接入，位置样本不变更身份时不失效。电话 peer 同步为异步，设备测试要求五秒内收敛，不能把命令 ACK 当作全部完成。
 - 缓存修复回归期间小米发生 system_server 崩溃，堆栈为 NetworkPolicyManagerService→getMergedImsisFromGroup 对不存在实体 SubscriptionInfo 解引用。已为虚拟订阅接入该特权入口的单卡 IMSI 集合；READ_PRIVILEGED_PHONE_STATE 未获准或非虚拟调用继续走原方法。修复后冷启动两台各 3 项通过：空 Bundle/subset、双卡逐槽删除含 slotIndex/活跃/计数、控制中心显示与恢复。该路径此前未被订阅列表测试覆盖，不隐瞒其崩溃。
 - 每槽关闭虚拟后的实际订阅删除双机已通过；新开关 UI 交互回归仍待补。测试后检查两台当前运营商偏好均非本轮双虚拟卡测试种子，不额外清空原有配置。
-- 尚待修复/验证：完整 carrierId/MVNO 策略、订阅与注册状态闭环、权限返回一致性、双卡回调及其他状态栏/锁屏布局。不能将已有订阅可见测试视为这些项目已通过。
+- 公开 caller-scoped 身份快照移除 identitySeed；IMSI/ICCID 只有显式请求且 Binder 调用持有 READ_PRIVILEGED_PHONE_STATE 时单独返回，普通画像即使特权调用也不带标识。请求中预置的回复字段每次先清除。客户端受限 getter 不再从公开 profile 推导标识，订阅对象无特权时 ICCID 为空。
+- 两台无卡设备冷启动后各 2 项通过：扩展双卡/逐槽删除测试内对比普通 READ_PHONE_STATE 与特权读取、断言种子不出快照/伪造回复字段被清除/特权显式请求标识同值/普通请求移除字段；控制中心双名与模式/停止恢复继续通过。不依赖 hidden API 放行。虚拟卡没有真实 carrier privilege、SMS role 或 device-owner 委托，不能据此宣称覆盖所有真实卡授权路径。
+- 尚待修复/验证：完整 carrierId/MVNO 策略、订阅与注册状态闭环、其余权限返回路径、双卡回调及其他状态栏/锁屏布局。不能将已有订阅可见测试视为这些项目已通过。
 
 ## 进度
 

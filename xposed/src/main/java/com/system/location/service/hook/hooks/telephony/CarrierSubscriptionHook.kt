@@ -68,7 +68,7 @@ internal object CarrierSubscriptionHook {
                     "getDefaultSmsSubId" -> {
                         val current = (original as? Int) ?: SubscriptionManager.INVALID_SUBSCRIPTION_ID
                         if (SubscriptionManager.isValidSubscriptionId(current)) current
-                        else virtuals.firstOrNull()?.let { CarrierVirtualIdentity.subscriptionId(it.slot) }
+                        else virtuals.firstOrNull()?.let { CarrierVirtualIdentity.subscriptionId(it) }
                             ?: current
                     }
                     else -> overlay(original)
@@ -98,7 +98,7 @@ internal object CarrierSubscriptionHook {
         virtuals: List<SimCarrierProfile>,
         subId: Int?,
     ): SubscriptionInfo? {
-        val slot = subId?.let(CarrierVirtualIdentity::slotForSubscriptionId) ?: return null
+        val slot = subId?.let { CarrierVirtualIdentity.slotForSubscriptionId(it, virtuals) } ?: return null
         return virtuals.firstOrNull { it.slot == slot }?.let(CarrierVirtualSubscription::info)
     }
 

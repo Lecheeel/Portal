@@ -64,6 +64,7 @@ import com.system.location.service.environment.EnvironmentCollector
 import com.system.location.service.environment.EnvironmentCaptureLocation
 import com.system.location.service.environment.EnvironmentStore
 import com.system.location.service.ext.cellMode
+import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.ext.environmentApCount
 import com.system.location.service.ext.environmentSourceMode
 import com.system.location.service.ext.wifiFingerprintCatalogJson
@@ -214,6 +215,7 @@ open class EnvironmentComposeFragment : Fragment() {
                     replayModel = replayModel,
                     library = state,
                     onOpenLibrary = { findNavController().navigate(R.id.nav_environment_library) },
+                    onOpenSim = { findNavController().navigate(R.id.nav_carrier_identity) },
                     onCapture = ::requestEnvironmentCapture,
                     onCreate = { editEnvironmentProfile("") },
                     capture = capture,
@@ -381,6 +383,7 @@ private fun EnvironmentScreen(
     replayModel: com.system.location.service.ui.viewmodel.QuickReplayViewModel,
     library: EnvironmentLibraryState,
     onOpenLibrary: () -> Unit,
+    onOpenSim: () -> Unit,
     onCapture: () -> Unit,
     onCreate: () -> Unit,
     capture: EnvironmentCaptureState,
@@ -477,6 +480,29 @@ private fun EnvironmentScreen(
             }
             item {
                 EnvironmentCreationActions(onCreate, onCapture, onImport, capture, onCancelCapture)
+            }
+            item(key = "sim-environment") {
+                val enabled = context.sharedPrefs.getBoolean("carrierIdentityEnabled", false)
+                val config = remember(revision) {
+                    runCatching {
+                        com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
+                            context.sharedPrefs.getString("carrierIdentityJson", "").orEmpty())
+                    }.getOrNull()
+                }
+                val summary = config?.sims.orEmpty().filter { it.enabled }
+                    .sortedBy { it.slot }.joinToString(" · ") { "SIM ${it.slot} ${it.carrierName}" }
+                PortalSettingGroup("SIM 与蜂窝环境", 1) { _, rowModifier ->
+                    PortalActionRow(
+                        title = "双卡与运营商",
+                        subtitle = if (summary.isEmpty()) "配置国家、运营商和 NR 频段；支持无卡模拟"
+                            else summary,
+                        onClick = onOpenSim,
+                        status = if (!enabled) "未启用" else if (config?.mode ==
+                            com.system.location.service.core.carrier.CarrierIdentityMode.PER_APP)
+                            "分应用" else "全局",
+                        modifier = rowModifier,
+                    )
+                }
             }
             item {
                 PortalSettingGroup("环境资料库", 1) { _, rowModifier ->

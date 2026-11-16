@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -64,6 +65,7 @@ import com.system.location.service.core.carrier.CarrierCountries
 import com.system.location.service.core.carrier.CarrierCountry
 import com.system.location.service.core.carrier.CarrierIdentityConfig
 import com.system.location.service.core.carrier.CarrierIdentityMode
+import com.system.location.service.core.carrier.CarrierNrBandCatalog
 import com.system.location.service.core.carrier.CarrierPresetCatalog
 import com.system.location.service.core.carrier.CarrierRadio
 import com.system.location.service.core.carrier.CarrierTarget
@@ -373,8 +375,12 @@ private fun CarrierIdentityScreen(
                         }
                         if (draft.radio == CarrierRadio.NR) {
                             Text("NR 生成参数", style = MaterialTheme.typography.labelLarge)
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(41, 77, 78, 79).forEach { band ->
+                            val bands = (CarrierNrBandCatalog.commonBands(
+                                draft.countryIso, draft.mcc.toIntOrNull() ?: 0,
+                                draft.mnc.toIntOrNull() ?: 0,
+                            ) + draft.nrBand).distinct()
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(bands) { band ->
                                     FilterChip(selected = draft.nrBand == band,
                                         onClick = {
                                             drafts[selectedSlot - 1] = draft.copy(nrBand = band,
@@ -484,7 +490,8 @@ private fun CarrierIdentityScreen(
                                         "per_app" -> "已保存，分应用规则已启用"
                                         "disabled" -> "已保存，运营商身份已关闭"
                                         "waiting_for_scenario" -> "已保存，启动模拟场景后生效"
-                                        "no_active_sim" -> "已保存，当前没有匹配的活跃 SIM；不会虚构插卡"
+                                        "no_active_sim" -> "已保存，当前没有匹配的活跃 SIM 或虚拟 SIM"
+                   "virtual_applied" -> "已保存，虚拟 SIM 身份已启用"
                                         "service_unavailable" -> "已保存，电话配置服务暂不可用"
                                         "failed", "restore_pending" -> "已保存，但系统覆盖或还原未完成；请重试"
                                         "unconfigured" -> "已保存，请先配置启用的 SIM"
@@ -512,12 +519,17 @@ private fun CarrierIdentityScreen(
                 onDismiss = { countryPickerSlot = null },
                 onSelect = { country ->
                     if (country.iso != draft.countryIso) {
+                        val mcc = country.mcc ?: 0
+                        val band = CarrierNrBandCatalog.defaultBand(country.iso, mcc, 0)
                         drafts[slot - 1] = draft.copy(
                             countryIso = country.iso,
                             mcc = country.mcc?.toString().orEmpty(),
                             mnc = "",
                             carrierName = "",
                             operatorName = "",
+                            nrBand = band,
+                            nrArfcn = com.system.location.service.core.carrier.CarrierNrChannel
+                                .defaultArfcn(band).toString(),
                         )
                     }
                     countryPickerSlot = null
@@ -530,6 +542,7 @@ private fun CarrierIdentityScreen(
                 countryIso = draft.countryIso,
                 onDismiss = { carrierPickerSlot = null },
                 onSelect = { preset ->
+                    val band = CarrierNrBandCatalog.defaultBand(draft.countryIso, preset.mcc, preset.mnc)
                     drafts[slot - 1] = draft.copy(
                         mcc = preset.mcc.toString(),
                         mnc = preset.mnc.toString().padStart(preset.mncDigits, '0'),
@@ -537,6 +550,9 @@ private fun CarrierIdentityScreen(
                         carrierName = preset.carrierName,
                         operatorName = preset.operatorName,
                         radio = preset.radio,
+                        nrBand = band,
+                        nrArfcn = com.system.location.service.core.carrier.CarrierNrChannel
+                            .defaultArfcn(band).toString(),
                     )
                     carrierPickerSlot = null
                 },

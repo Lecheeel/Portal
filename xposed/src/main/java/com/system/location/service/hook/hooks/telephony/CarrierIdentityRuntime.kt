@@ -13,7 +13,7 @@ internal object CarrierIdentityRuntime {
 
     fun profileForCall(methodName: String, args: List<Any?>): SimCarrierProfile? {
         val policy = FakeLoc.runtimeSnapshots.current().configuration
-        if (!policy.carrierIdentityEnabled || resolving.get() == true) return null
+        if (!policy.enabled || !policy.carrierIdentityEnabled || resolving.get() == true) return null
         val config = policy.carrierIdentity ?: return null
         val uid = Binder.getCallingUid()
         val context = BinderUtils.getSystemContext() ?: return null

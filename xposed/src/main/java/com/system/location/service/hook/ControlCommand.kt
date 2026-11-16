@@ -26,6 +26,10 @@ object ControlCommand {
     fun start(rely: Bundle): Boolean {
         val prepared = prepareStart(startKeys.filter(rely::containsKey).associateWith { rely.get(it) })
         FakeLoc.startRuntime(prepared)
+        runCatching {
+            com.system.location.service.hook.hooks.telephony.CarrierConfigGlobalController
+                .onConfigurationChanged(FakeLoc.runtimeSnapshots.current())
+        }
         SampleCommand.clearLease()
         if (FakeLoc.isSystemServerProcess) {
             LocationServiceHook.callOnLocationChanged()

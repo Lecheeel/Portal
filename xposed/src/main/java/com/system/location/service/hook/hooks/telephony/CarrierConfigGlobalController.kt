@@ -46,7 +46,7 @@ object CarrierConfigGlobalController {
     private fun applyConfiguration(state: RuntimeSnapshot) {
         val policy = state.configuration
         val config = policy.carrierIdentity
-        val enabled = policy.carrierIdentityEnabled &&
+        val enabled = policy.enabled && policy.carrierIdentityEnabled &&
             config != null && config.mode == CarrierIdentityMode.GLOBAL
         if (!enabled) {
             restoreApplied()
@@ -66,13 +66,16 @@ object CarrierConfigGlobalController {
                     overrideConfig(loader, subId, bundleFor(profile))
                     next += subId
                 }.onFailure {
+                    next += subId
                     Logger.warn("Global carrier identity failed for slot=$slot sub=$subId: ${it.message}")
                 }
             }
         }
         val removed = appliedSubIds - next
         for (subId in removed) {
-            runCatching { overrideConfig(loader, subId, null) }.onFailure {
+            runCatching { overrideConfig(loader, subId, PersistableBundle().apply {
+                    putString(CarrierOverrideProtocol.ACTION, CarrierOverrideProtocol.RESTORE)
+                }) }.onFailure {
                 // Keep ownership until restore succeeds, so disabling can be retried.
                 next += subId
                 Logger.warn("Global carrier restore failed for sub=$subId: ${it.message}")
@@ -86,7 +89,9 @@ object CarrierConfigGlobalController {
         val loader = carrierConfigLoader() ?: return
         val pending = LinkedHashSet<Int>()
         for (subId in appliedSubIds) {
-            runCatching { overrideConfig(loader, subId, null) }.onFailure {
+            runCatching { overrideConfig(loader, subId, PersistableBundle().apply {
+                    putString(CarrierOverrideProtocol.ACTION, CarrierOverrideProtocol.RESTORE)
+                }) }.onFailure {
                 pending += subId
                 Logger.warn("Global carrier restore failed for sub=$subId: ${it.message}")
             }
@@ -95,7 +100,8 @@ object CarrierConfigGlobalController {
     }
 
     private fun bundleFor(profile: SimCarrierProfile): PersistableBundle = PersistableBundle().apply {
-        putString(COUNTRY, profile.countryIso.lowercase())
+        putString(CarrierOverrideProtocol.ACTION, CarrierOverrideProtocol.APPLY)
+        putString(COUNTRY, profile.countryIso.lowercase(java.util.Locale.ROOT))
         putBoolean(NAME_OVERRIDE, true)
         putString(NAME, profile.carrierName)
         // Matches the AOSP CTS carrier-name path used by Nrfr; it keeps the override active on
@@ -123,7 +129,14 @@ object CarrierConfigGlobalController {
         stub.getMethod("asInterface", IBinder::class.java).invoke(null, binder)
     }.getOrNull()
 
-    private fun overrideConfig(loader: Any, subId: Int, bundle: PersistableBundle?) {
+    private fun overrideConfig(loader: Any, subId: Int, bundle: PersistableBundle) {
+        val probeMethod = loader.javaClass.getMethod("getConfigForSubIdWithFeature",
+            Int::class.javaPrimitiveType, String::class.java, String::class.java)
+        fun probe(): PersistableBundle? = probeMethod.invoke(loader, subId, "android",
+            CarrierOverrideProtocol.FEATURE) as? PersistableBundle
+        check(probe()?.getBoolean(CarrierOverrideProtocol.SUPPORTED) == true) {
+            "Phone process does not support owned carrier overrides"
+        }
         val method = loader.javaClass.methods.firstOrNull {
             it.name == "overrideConfig" &&
                 it.parameterTypes.toList() == listOf(
@@ -133,5 +146,14 @@ object CarrierConfigGlobalController {
                 )
         } ?: error("overrideConfig signature missing")
         method.invoke(loader, subId, bundle, false)
+        val shouldOwn = bundle.getString(CarrierOverrideProtocol.ACTION) == CarrierOverrideProtocol.APPLY
+        val deadline = android.os.SystemClock.elapsedRealtime() + 1_000L
+        do {
+            val state = probe()
+            if (state != null && !state.getBoolean(CarrierOverrideProtocol.PENDING) &&
+                state.getBoolean(CarrierOverrideProtocol.OWNED) == shouldOwn) return
+            Thread.sleep(20)
+        } while (android.os.SystemClock.elapsedRealtime() < deadline)
+        error("Carrier override did not complete within the verification deadline")
     }
 }

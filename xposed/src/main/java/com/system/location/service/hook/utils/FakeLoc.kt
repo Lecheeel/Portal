@@ -264,8 +264,10 @@ object FakeLoc {
     @Synchronized
     fun restoreRuntime(transfer: RuntimeTransfer, now: Long = SystemClock.elapsedRealtimeNanos()): RuntimeTransfer {
         val received = transfer.atReception(now)
+        val previous = runtimeSnapshots.current()
         scenarioSamples.replace(received.scenarios)
         runtimeSnapshots.set(received.state)
+        com.system.location.service.hook.hooks.telephony.CarrierSubscriptionCaches.onChanged(previous, received.state)
         externallyDriven = received.externallyDriven
         movementSpeed = received.movementSpeedMps
         lastMovementNanos = received.lastMovementNanos
@@ -277,7 +279,9 @@ object FakeLoc {
     fun startRuntime(start: com.system.location.service.core.runtime.RuntimeStart,
         nowNanos: Long = SystemClock.elapsedRealtimeNanos()): RuntimeSnapshot {
         require(nowNanos >= 0L)
+        val previous = runtimeSnapshots.current()
         val state = runtimeSnapshots.update(start::applyTo)
+        com.system.location.service.hook.hooks.telephony.CarrierSubscriptionCaches.onChanged(previous, state)
         movementSpeed = 0f
         lastMovementNanos = nowNanos
         externallyDriven = false
@@ -286,11 +290,13 @@ object FakeLoc {
 
     @Synchronized
     fun configureRuntime(prepared: com.system.location.service.core.runtime.PreparedRuntimeConfiguration): RuntimeSnapshot {
+        val previous = runtimeSnapshots.current()
         val published = runtimeSnapshots.update { current ->
             prepared.applyTo(current).let { next ->
                 if (next.configuration.enabled) next else next.copy(sample = null, provider = null, hasBearings = false)
             }
         }
+        com.system.location.service.hook.hooks.telephony.CarrierSubscriptionCaches.onChanged(previous, published)
         if (!published.configuration.enabled) {
             externallyDriven = false
             movementSpeed = 0f
@@ -301,10 +307,12 @@ object FakeLoc {
 
     @Synchronized
     fun stopRuntime(): RuntimeSnapshot {
+        val previous = runtimeSnapshots.current()
         val stopped = runtimeSnapshots.update {
             it.copy(configuration = it.configuration.copy(enabled = false), hasBearings = false, sample = null, provider = null,
                 configRevision = Math.addExact(it.configRevision, 1L))
         }
+        com.system.location.service.hook.hooks.telephony.CarrierSubscriptionCaches.onChanged(previous, stopped)
         externallyDriven = false
         movementSpeed = 0f
         scenarioSamples.replace(emptyMap())

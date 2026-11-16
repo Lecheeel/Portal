@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 /** Binds callback transports to the original caller and requested subscription before notifyNow. */
 internal object CarrierRegistryHook {
     private const val EVENT_SERVICE_STATE_CHANGED = 1
+    private const val EVENT_CELL_INFO_CHANGED = 11
     private class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient,
         val serviceState: Boolean) {
         @Volatile var lastRealState: ServiceState? = null
@@ -83,6 +84,18 @@ internal object CarrierRegistryHook {
                     }.onFailure {
                         com.system.location.service.hook.utils.Logger.warn(
                             "virtual ServiceState seed failed: ${it.javaClass.simpleName}:${it.message}")
+                    }
+                }
+                if (profile?.virtual == true && EVENT_CELL_INFO_CHANGED in events) {
+                    runCatching {
+                        val data = CellInfoSynthesis.resultForCaller(null, callerUid, subId)
+                        if (data is CellInfoSynthesisResult.Synthetic && listeners.containsKey(binder)) {
+                            listener.javaClass.getMethod("onCellInfoChanged", List::class.java)
+                                .invoke(listener, data.cells)
+                        }
+                    }.onFailure {
+                        com.system.location.service.hook.utils.Logger.warn(
+                            "Virtual cell listener seed failed: ${it.javaClass.simpleName}")
                     }
                 }
                 result

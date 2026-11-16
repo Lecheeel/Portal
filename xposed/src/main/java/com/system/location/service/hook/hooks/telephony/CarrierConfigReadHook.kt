@@ -13,6 +13,15 @@ internal object CarrierConfigReadHook {
         val hook = Hooker { chain ->
             val original = chain.proceed()
             val bundle = original as? PersistableBundle ?: return@Hooker original
+            if (chain.args.getOrNull(2) == CarrierOverrideProtocol.FEATURE &&
+                android.os.Binder.getCallingUid() == 1000) {
+                val status = CarrierConfigOverrideHook.status(chain.args.firstOrNull() as? Int ?: -1)
+                return@Hooker PersistableBundle().apply {
+                    putBoolean(CarrierOverrideProtocol.SUPPORTED, CarrierConfigOverrideHook.supported)
+                    putBoolean(CarrierOverrideProtocol.OWNED, status.first)
+                    putBoolean(CarrierOverrideProtocol.PENDING, status.second)
+                }
+            }
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
                 ?: return@Hooker original
             val subset = chain.executable.name == "getConfigSubsetForSubIdWithFeature"

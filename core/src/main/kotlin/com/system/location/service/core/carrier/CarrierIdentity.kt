@@ -36,8 +36,13 @@ data class SimCarrierProfile(
     val identitySeed: Long = 0L,
     /** Controller-allocated opaque ID; zero is an unassigned legacy profile. */
     val virtualSubscriptionId: Int = 0,
+    /** Optional modeled subscriber number, stable until explicitly edited or regenerated. */
+    val phoneNumber: String = "",
+    val phoneNumberCity: String = "",
 ) {
     init {
+        require(phoneNumber.isEmpty() || phoneNumber.matches(Regex("\\+?[1-9][0-9]{5,14}"))) { "Invalid modeled phone number" }
+        require(phoneNumberCity.length <= 80 && phoneNumberCity.none { it.isISOControl() }) { "Invalid phone number city" }
         require(virtualSubscriptionId in 0 until Int.MAX_VALUE) { "Invalid virtual subscription id" }
         require(CarrierNrChannel.valid(nrBand, nrArfcn)) { "NR band and ARFCN are inconsistent" }
         require(slot in 1..2) { "SIM slot must be 1 or 2" }

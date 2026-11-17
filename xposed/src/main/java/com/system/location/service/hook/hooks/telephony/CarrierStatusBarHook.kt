@@ -89,6 +89,8 @@ internal object CarrierStatusBarHook {
         val originalCustom = customField.get(target)
         val originalDisabled = disabledField.get(target) as? BooleanArray ?: return render()
         val originalErrors = errorsField.get(target) as? BooleanArray ?: return render()
+        val emergencyField = Reflection.findFieldIfExists(target.javaClass, "mEmergencyOnly")
+        val originalEmergency = emergencyField?.get(target) as? Boolean
         val carrier = originalCarrier.copyOf()
         @Suppress("UNCHECKED_CAST")
         val custom = (originalCustom as? Array<*>)?.copyOf() ?: arrayOfNulls<String>(carrier.size)
@@ -109,12 +111,14 @@ internal object CarrierStatusBarHook {
             customField.set(target, custom)
             disabledField.set(target, disabled)
             errorsField.set(target, errors)
+            if (originalEmergency != null) emergencyField?.setBoolean(target, false)
             return render()
         } finally {
             carrierField.set(target, originalCarrier)
             customField.set(target, originalCustom)
             disabledField.set(target, originalDisabled)
             errorsField.set(target, originalErrors)
+            if (originalEmergency != null) emergencyField?.setBoolean(target, originalEmergency)
         }
     }
 }

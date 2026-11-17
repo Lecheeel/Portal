@@ -97,6 +97,19 @@ class CarrierServiceStateCallbackDeviceTest {
                 assertNotNull("SIM ${index + 1} did not receive its display RAT", display)
                 assertEquals(android.telephony.TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE, display!!.overrideNetworkType)
             }
+            fun awaitDisplay(listener: Listener, expected: Int, label: String) {
+                val deadline = android.os.SystemClock.elapsedRealtime() + 5000
+                var last: android.telephony.TelephonyDisplayInfo? = null
+                do {
+                    val next = listener.displays.poll(200, TimeUnit.MILLISECONDS)
+                    if (next != null) last = next
+                    if (next?.networkType == expected) {
+                        assertEquals(android.telephony.TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE, next.overrideNetworkType)
+                        return
+                    }
+                } while (android.os.SystemClock.elapsedRealtime() < deadline)
+                fail("$label expected=$expected last=$last")
+            }
             fun awaitState(listener: Listener, label: String, predicate: (ServiceState) -> Boolean) {
                 val until = android.os.SystemClock.elapsedRealtime() + 5000
                 do {
@@ -107,10 +120,22 @@ class CarrierServiceStateCallbackDeviceTest {
             }
             registered.forEach { it.second.states.clear() }
             val persisted = CarrierIdentityCodec.decode(preferences.getString("carrierIdentityJson", "")!!)
+            registered.forEach { it.second.displays.clear() }
+            val switched = persisted.copy(sims = persisted.sims.map { it.copy(
+                radio = if (it.radio == CarrierRadio.NR) CarrierRadio.LTE else CarrierRadio.NR) })
+            check(preferences.edit().putString("carrierIdentityJson", CarrierIdentityCodec.encode(switched)).commit())
+            assertTrue(MockServiceHelper.putConfig(location, context))
+            registered.forEachIndexed { index, (_, listener) ->
+                awaitDisplay(listener, if (index == 0) TelephonyManager.NETWORK_TYPE_LTE else TelephonyManager.NETWORK_TYPE_NR,
+                    "Active display did not switch SIM ${index + 1}")
+            }
+            registered.forEach { it.second.displays.clear() }
             val renamed = persisted.copy(sims = persisted.sims.map { it.copy(operatorName = "Updated ${it.slot}") })
             check(preferences.edit().putString("carrierIdentityJson", CarrierIdentityCodec.encode(renamed)).commit())
             assertTrue(MockServiceHelper.putConfig(location, context))
             registered.forEachIndexed { index, (_, listener) ->
+                awaitDisplay(listener, if (index == 0) TelephonyManager.NETWORK_TYPE_NR else TelephonyManager.NETWORK_TYPE_LTE,
+                    "Restoring display did not update SIM ${index + 1}")
                 awaitState(listener, "Active SIM ${index + 1} did not receive profile update") {
                     it.operatorAlphaLong == "Updated ${index + 1}" &&
                         it.operatorNumeric == if (index == 0) "310260" else "50501"
@@ -131,18 +156,21 @@ class CarrierServiceStateCallbackDeviceTest {
                 } while (!cleared && android.os.SystemClock.elapsedRealtime() < until)
                 assertTrue("Disabling retained virtual display RAT", cleared)
             }
-            registered.forEach { it.second.states.clear() }
+            registered.forEach { it.second.states.clear(); it.second.displays.clear() }
             check(preferences.edit().putBoolean("carrierIdentityEnabled", true).commit())
             assertTrue(MockServiceHelper.putConfig(location, context))
             registered.forEachIndexed { index, (_, listener) ->
                 awaitState(listener, "Re-enable did not notify active SIM") { it.operatorAlphaLong == "Updated ${index + 1}" }
+                awaitDisplay(listener, if (index == 0) TelephonyManager.NETWORK_TYPE_NR else TelephonyManager.NETWORK_TYPE_LTE,
+                    "Re-enabling did not restore display SIM ${index + 1}")
             }
-            registered.forEach { it.second.states.clear() }
+            registered.forEach { it.second.states.clear(); it.second.displays.clear() }
             ScenarioRuntime.stop().await()
             registered.forEach { (_, listener) ->
                 awaitState(listener, "Stopping left active listener with virtual state") {
                     it.operatorNumeric !in listOf("310260", "50501")
                 }
+                awaitDisplay(listener, TelephonyManager.NETWORK_TYPE_UNKNOWN, "Stopping retained display RAT")
             }
             registered.forEach { (manager, listener) -> manager.unregisterTelephonyCallback(listener) }
             registered.forEach { it.second.states.clear() }

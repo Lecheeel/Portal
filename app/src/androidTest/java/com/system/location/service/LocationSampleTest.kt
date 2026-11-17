@@ -1,6 +1,7 @@
 package com.system.location.service
 
 import android.location.Location
+import android.os.Build
 import android.os.Parcel
 import com.system.location.service.core.providers.ProviderKind
 import com.system.location.service.core.providers.ProviderMixer
@@ -79,11 +80,11 @@ class LocationSampleTest {
         assertTrue(gps.hasAltitude())
         assertTrue(gps.hasSpeed())
         assertTrue(gps.hasBearing())
-        assertFalse(gps.hasMslAltitude())
+        if (Build.VERSION.SDK_INT >= 34) assertFalse(gps.hasMslAltitude())
         assertFalse(network.hasAltitude())
         assertFalse(network.hasSpeed())
         assertFalse(network.hasBearing())
-        assertFalse(network.hasMslAltitude())
+        if (Build.VERSION.SDK_INT >= 34) assertFalse(network.hasMslAltitude())
         assertTrue(network.hasVerticalAccuracy())
         assertEquals(0f, network.speed, 0f)
     }

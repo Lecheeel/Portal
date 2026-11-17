@@ -2,6 +2,7 @@ package com.system.location.service.hook.utils
 
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import android.os.Bundle
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.location.LocationSanitizer
@@ -23,6 +24,7 @@ fun LocationSample.toLocation(provider: String?, route: GnssFrameRoute = GnssFra
     val mslAltitude = providerSample?.mslAltitudeMeters
     val publication = if (policy.enabled && policy.gnssEnabled && effectiveProvider == LocationManager.GPS_PROVIDER)
         GnssReceiverRuntime.frameForSample(sample, route, state, validationAtMillis) else null
+    // Each publication starts empty; absent fields need no API 33/34 removal calls.
     return Location(effectiveProvider).also {
         it.latitude = sample.latitude
         it.longitude = sample.longitude
@@ -30,25 +32,26 @@ fun LocationSample.toLocation(provider: String?, route: GnssFrameRoute = GnssFra
         it.time = sample.timeMillis
         it.elapsedRealtimeNanos = sample.elapsedNanos
         fun has(mask: Int) = providerSample == null || providerSample.has(mask)
-        if (has(ProviderFieldMask.ALTITUDE)) it.altitude = sample.altitude else it.removeAltitude()
-        if (has(ProviderFieldMask.SPEED)) it.speed = sample.speed else it.removeSpeed()
-        if (has(ProviderFieldMask.BEARING)) it.bearing = sample.bearing else it.removeBearing()
+        if (has(ProviderFieldMask.ALTITUDE)) it.altitude = sample.altitude
+        if (has(ProviderFieldMask.SPEED)) it.speed = sample.speed
+        if (has(ProviderFieldMask.BEARING)) it.bearing = sample.bearing
         if (has(ProviderFieldMask.VERTICAL_ACCURACY)) {
             it.verticalAccuracyMeters = providerSample?.verticalAccuracyMeters ?: fields.verticalAccuracyMeters
-        } else it.removeVerticalAccuracy()
+        }
         if (has(ProviderFieldMask.SPEED_ACCURACY)) {
             it.speedAccuracyMetersPerSecond = providerSample?.speedAccuracyMps ?: fields.speedAccuracyMetersPerSecond
-        } else it.removeSpeedAccuracy()
+        }
         if (has(ProviderFieldMask.BEARING_ACCURACY)) {
             it.bearingAccuracyDegrees = providerSample?.bearingAccuracyDeg ?: fields.bearingAccuracyDegrees
-        } else it.removeBearingAccuracy()
+        }
         if (has(ProviderFieldMask.ELAPSED_REALTIME_UNCERTAINTY)) {
             it.elapsedRealtimeUncertaintyNanos =
                 (providerSample?.elapsedRealtimeUncertaintyNanos ?: fields.elapsedRealtimeUncertaintyNanos).toDouble()
-        } else it.removeElapsedRealtimeUncertaintyNanos()
-        if (providerSample?.has(ProviderFieldMask.MSL_ALTITUDE) == true && mslAltitude != null) {
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            providerSample?.has(ProviderFieldMask.MSL_ALTITUDE) == true && mslAltitude != null) {
             it.mslAltitudeMeters = mslAltitude
-        } else it.removeMslAltitude()
+        }
         it.extras = if (effectiveProvider == LocationManager.GPS_PROVIDER) {
             // A GPS fix without the standard satellite extras is itself a fingerprint. Keep the
             // shape even when GNSS simulation is disabled; zero means no satellites used.

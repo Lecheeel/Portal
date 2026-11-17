@@ -34,14 +34,20 @@ class CarrierPhoneNumberDeviceTest {
         var started = false
         var opChanged = false
         var smsOpChanged = false
+        val testDeniedOps = InstrumentationRegistry.getArguments().getString("appop_denial") == "true"
         val ops = context.getSystemService(AppOpsManager::class.java)
-        val oldSmsOp = ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_READ_SMS, android.os.Process.myUid(), context.packageName)
-        val oldOp = ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_READ_PHONE_NUMBERS, android.os.Process.myUid(), context.packageName)
         fun setOp(mode: String, operation: String = "READ_PHONE_NUMBERS") = ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(
             "cmd appops set ${context.packageName} $operation $mode")).use { it.readBytes() }
-        fun modeName(mode: Int): String = when (mode) { AppOpsManager.MODE_ALLOWED -> "allow";
-            AppOpsManager.MODE_IGNORED -> "ignore"; AppOpsManager.MODE_ERRORED -> "deny";
-            AppOpsManager.MODE_FOREGROUND -> "foreground"; else -> "default" }
+        var uidOpChanged = false
+        fun shellText(command: String) = ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command))
+            .use { String(it.readBytes(), Charsets.UTF_8) }
+        val oldUidText = shellText("cmd appops get ${android.os.Process.myUid()} READ_PHONE_NUMBERS")
+        val oldUidMode = Regex(": (allow|ignore|deny|default|foreground)").find(oldUidText)?.groupValues?.get(1) ?: "default"
+        fun setUidOp(mode: String) { shellText("cmd appops set --uid ${context.packageName} READ_PHONE_NUMBERS $mode"); uidOpChanged = true }
+        fun packageMode(operation: String): String = Regex("(?m)^${Regex.escape(operation)}: (allow|ignore|deny|default|foreground)")
+            .find(shellText("cmd appops get ${context.packageName} $operation"))?.groupValues?.get(1) ?: "default"
+        val oldPackageMode = packageMode("READ_PHONE_NUMBERS")
+        val oldSmsPackageMode = packageMode("READ_SMS")
         try {
             assumeTrue("Requires no active SIM fixture", subscriptions.activeSubscriptionInfoList.orEmpty().isEmpty())
             assertTrue(ScenarioRuntime.selectBackend(BackendType.XPOSED).await())
@@ -83,6 +89,17 @@ class CarrierPhoneNumberDeviceTest {
                 }
             }
             verifyNumbers()
+            for (info in active) {
+                for (source in listOf(2, 3)) {
+                    assertTrue("Non-UICC source $source invented a number",
+                        subscriptions.getPhoneNumber(info.subscriptionId, source).isEmpty())
+                }
+                try {
+                    subscriptions.getPhoneNumber(info.subscriptionId, -1)
+                    fail("Invalid number source did not retain framework exception")
+                } catch (_: IllegalArgumentException) { }
+            }
+            if (testDeniedOps) { setUidOp("ignore"); opChanged = true }
             automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE)
             for (info in subscriptions.activeSubscriptionInfoList.orEmpty()) {
                 @Suppress("DEPRECATION")
@@ -95,6 +112,7 @@ class CarrierPhoneNumberDeviceTest {
                     assertTrue(telephony.createForSubscriptionId(info.subscriptionId).line1Number.isNullOrEmpty())
                 } catch (_: SecurityException) { }
             }
+            if (!testDeniedOps) {
             setOp("allow", "READ_SMS"); smsOpChanged = true
             automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_SMS)
             for (info in active) {
@@ -105,8 +123,36 @@ class CarrierPhoneNumberDeviceTest {
                     assertTrue("Modern number API accepted legacy SMS permission", subscriptions.getPhoneNumber(info.subscriptionId).isEmpty())
                 } catch (_: SecurityException) { }
             }
+            }
             setOp("allow"); opChanged = true
-            automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_PHONE_NUMBERS)
+            automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE)
+            if (testDeniedOps) {
+                assertEquals(android.content.pm.PackageManager.PERMISSION_GRANTED,
+                    context.checkSelfPermission(Manifest.permission.READ_PHONE_NUMBERS))
+            for (deniedMode in listOf("ignore", "deny")) {
+                setUidOp(deniedMode)
+                val effectiveMode = ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_READ_PHONE_NUMBERS,
+                    android.os.Process.myUid(), context.packageName)
+                assertTrue("AppOp $deniedMode was not effectively denied: $effectiveMode",
+                    effectiveMode == AppOpsManager.MODE_IGNORED || effectiveMode == AppOpsManager.MODE_ERRORED)
+                System.err.println("PORTAL_NUMBER_APPOP requested=$deniedMode effective=$effectiveMode")
+                for (info in subscriptions.activeSubscriptionInfoList.orEmpty()) {
+                    @Suppress("DEPRECATION")
+                    assertTrue("AppOp $deniedMode leaked list number", info.number.isNullOrEmpty())
+                    try {
+                        assertTrue("AppOp $deniedMode leaked new number", subscriptions.getPhoneNumber(info.subscriptionId).isEmpty())
+                    } catch (_: SecurityException) { }
+                    try {
+                        @Suppress("DEPRECATION")
+                        assertTrue("AppOp $deniedMode leaked line1", telephony.createForSubscriptionId(info.subscriptionId).line1Number.isNullOrEmpty())
+                    } catch (_: SecurityException) { }
+                }
+            }
+            }
+            if (!testDeniedOps) automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.READ_PHONE_NUMBERS)
+            if (testDeniedOps) setUidOp("allow")
+            setOp("allow")
             verifyNumbers()
             automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE, "android.permission.READ_PRIVILEGED_PHONE_STATE")
             val off = CarrierIdentityCodec.decode(prefs.getString("carrierIdentityJson", "")!!)
@@ -122,8 +168,9 @@ class CarrierPhoneNumberDeviceTest {
             }
         } finally {
             try {
-                if (opChanged) setOp(modeName(oldOp))
-                if (smsOpChanged) setOp(modeName(oldSmsOp), "READ_SMS")
+                if (uidOpChanged) { shellText("cmd appops set --uid ${context.packageName} READ_PHONE_NUMBERS $oldUidMode") }
+                if (opChanged) setOp(oldPackageMode)
+                if (smsOpChanged) setOp(oldSmsPackageMode, "READ_SMS")
                 if (started) {
                     ScenarioRuntime.stop().await()
                     val edit = prefs.edit()
@@ -140,3 +187,4 @@ class CarrierPhoneNumberDeviceTest {
         }
     }
 }
+

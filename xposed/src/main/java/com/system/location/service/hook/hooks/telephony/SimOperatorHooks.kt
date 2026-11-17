@@ -13,6 +13,17 @@ object SimOperatorHooks {
         val manager = com.system.location.service.hook.runtime.Reflection
             .findClassIfExists("com.android.phone.PhoneInterfaceManager", classLoader) ?: return
 
+        val carrierIdMethods = setOf("getSubscriptionCarrierId", "getSubscriptionSpecificCarrierId")
+        (carrierIdMethods + setOf("getSubscriptionCarrierName", "getSubscriptionSpecificCarrierName")).forEach { name ->
+            manager.hookAllMethods(name, Hooker { chain ->
+                val original = chain.proceed()
+                val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
+                if (profile?.virtual != true) return@Hooker original
+                if (chain.executable.name in carrierIdMethods) CarrierVirtualIdentity.carrierId(profile)
+                else profile.carrierName
+            })
+        }
+
         manager.hookAllMethods("getMergedImsisFromGroup", Hooker { chain ->
             val profile = CarrierIdentityRuntime.profileForCall(chain.executable.name, chain.args)
             if (profile?.virtual != true) return@Hooker chain.proceed()

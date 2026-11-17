@@ -11,6 +11,10 @@
 
 ## 2026-11-17 一致性修复
 
+- 新增独立UID并发验收夹具（本轮收尾，未全部完成）：测试APK与隔离探测器包各自实现纯Java Binder探针，服务端校验DUMP权限后clearCallingIdentity，以自身UID读电话接口；驱动并发核对两包不同UID/PID、互斥SIM1/SIM2路由、REAL退出、关闭后撤回、以及已撤回subId不返回模拟号码。测试仅在显式`independent_probes=true`时运行；号码断言默认依赖line1，`SubscriptionManager.getPhoneNumber`缺口用`strict_numbers=true`显式单列。隔离探测包通过`-PCARRIER_PROBE_APK=true`生成`.carrierprobe`后缀包名，安装/权限/AppOp/作用域由本地脚本快照与恢复，不会覆盖用户已安装的detector。
+- 实测得到并已确认的结论：两个不同安装包、不同UID/PID的独立进程并发查询时，都能看到虚拟订阅的槽位、PLMN、SIM/网络运营商名、NR制式与信号等级，说明独立应用隔离与路由本身工作；但`SubscriptionManager.getPhoneNumber()`对“权限已授予且AppOp=ALLOWED”的普通应用返回空，而同一进程`TelephonyManager.getLine1Number()`已能返回配置的模拟号码。该缺口未修复：本轮对“Binder身份被清除时按调用包名解析UID”“新增模块化订阅服务宿主类”两种假设做了验证但都未改变结果，相关未验证生产改动已撤回，保持已通过双机回归的实现。
+- 夹具层面还确认：MIUI会对未启动的新包拒绝绑定（WakePathChecker），需临时放行自动启动10008并先启动一次；`pm install -r`后运行时权限可能需重试核验；这些均只在测试包上临时设置并在finally恢复。以上收尾未再运行设备测试。
+
 - 新增每槽可选稳定号码及城市草稿，环境SIM详情支持中国选城随机、国外按国家号码规则随机、手动编辑/清空；生成后持久保存，旧配置留空。国家变更清号，自动城市号码在预设或手改MCC/MNC变更后失效，保存再验证原运营商/城市号段。离线采用Google libphonenumber固定Apache2数据：110917个明确七位中国手机号前缀、340个城市/地区标签、245地区号码规则；许可证与转换脚本保留，不引入GPL号段库，不修改README。说明见[SIM模拟号码](carrier-phone-number.md)。
 - 号码覆盖真实PhoneSubInfoController line1、PIM display-line1和SubscriptionManagerService新号码来源；原权限/包名/来源检查先执行，READ_PHONE_NUMBERS与AppOp、特权权限可读；legacy line1保留READ_SMS、旧target电话状态/默认短信角色规则，现代入口不扩大这些授权。明确UICC来源填模拟号码，不伪造IMS/运营商号码源。SubscriptionInfo号码单独脱敏，公开snapshot永远清空号码和城市。
 - core新增3项通过，遍历有匹配数据的移动/联通/电信城市与国际所有地区各多次匹配、JSON兼容/稳定保存/ASCII格式；Xposed回归与App构建通过。两台真实号码接口各1项最终通过：CN北京与AU独立号码，重复line1/new firstAvailable/UICC/list同值；普通READ_PHONE_STATE无号码，READ_PHONE_NUMBERS+AppOp可读，READ_SMS仅旧line1可读，公开快照不泄露，PER_APP未选撤回。红米首轮即时撤回断言未等待异步同步而失败，改为有限等待后通过，权限断言未放宽。

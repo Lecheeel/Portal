@@ -11,6 +11,11 @@
 
 ## 2026-11-17 一致性修复
 
+- 全局属性增加电话应用DE noBackup私有AtomicFile写前日志：每字段记录committed/pending两足迹，setter前落盘并读回核对，成功后提交；新进程先精确撤回仍匹配足迹再抓新基线，外部修改保留。日志绑定BOOT_COUNT，新开机不恢复旧非持久属性，字段/索引/长度/文件大小有界；失败不继续修改属性。两台实测文件radio:radio 0600，停止后字段记录清空。日志不包含IMSI/ICCID/seed。core四项新增回归覆盖setter前/后、撤回中断、JSON、外部更新和非法状态；SIM2单独覆盖产生的空SIM1占位纳入所有权。
+- 受控phone重启发现小米并非仅授权/时序问题：GLOBAL重启时RcsProvisioningMonitor.onSubChanged消费模拟活跃ID，构造不存在的RCS连接，RcsFeatureManager.invalidate空连接反复崩溃；前一轮关于root授权的推测未证实。按AOSP Android14该监视器仅在onSubChanged范围查询真实硬件订阅，保留原方法检查与标记归属，普通应用/SystemUI继续见模拟拓扑，不伪造IMS/RCS注册。源码：https://android.googlesource.com/platform/packages/services/Telephony/+/refs/heads/android14-release/src/com/android/phone/RcsProvisioningMonitor.java 。
+- 最终双机受控kill原phone PID后各1项通过：新PID和phone Binder就绪，全局八属性重新应用，PER_APP/停止时六个身份属性及SIM状态共七项精确恢复原值、模拟NR/LTE不残留，后续PID稳定。小米真实RAT在重启后由Unknown更新GPRS，应保留外部新值，测试仅重启模式允许此项变化；无重启的原八属性严格回归双机另各1项通过。近期crash buffer无新增phone/RCS异常。测试无需hidden API放行，finally恢复配置并停场景；root终止由唯一就绪标记协调，未更改root授权。
+- 已通过进程死亡恢复，不代表真实Vector模块热重载或跨模块实例并行写入已验收；AtomicFile非跨进程锁，当前只由电话进程持有。损坏日志阻止继续覆盖，任意外部修改/ROM初始化并发仍按精确匹配保留，不保证八字段原子事务。锁屏布局、独立应用并发与最终组合回归继续保留。
+
 - SystemUI实际dump确认两台都创建两槽MobileSignalController，收到NR/NONE和NR_5G图标组；修复前标准NR level=2而miuiLevel/optimizedLevel/控制器level=0，辅助功能为“5G 没有手机信号”。现于统一NR构造路径使用ROM可选setMiuiLevel/setOptimizedLevel同步平台已算等级，不改变测量或硬填满格；非该ROM无setter则跳过。双机对象各3项通过，含聚合标准/MIUI/优化等级与Parcel同值，临时hidden API均恢复。
 - 实际控制器等级断言两台通过，两槽均与本槽同步NR信号同为2；辅助功能采集两台均为“5G 手机信号强度为两格”，名称Portal Alpha/Beta。保存了真实截图、dump和辅助功能文本；当前模型不支持图像输入，截图未逐像素人工审阅，不以截图本身替代控制器/辅助功能断言。
 - 小米GLOBAL/PER_APP切换或重开时文字曾反复失败，失败现场控制中心仍展开且两槽控制器正常，但标题“仅可紧急通话”；实际ROM DEX证实updateCarrierText末端mEmergencyOnly覆盖运营商数组。虚拟渲染现临时false该缓存并finally恢复；关闭、PER_APP和飞机模式原逻辑保持。JVM回归验证成功/异常均恢复原数组引用和紧急标志，无试验性构造器重刷或定时硬改文字。

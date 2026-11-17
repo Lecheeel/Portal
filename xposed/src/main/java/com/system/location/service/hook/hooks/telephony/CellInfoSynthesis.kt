@@ -271,6 +271,7 @@ object CellInfoSynthesis {
                 CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE,
                 tower.rsrp, tower.rsrq ?: CellInfo.UNAVAILABLE, tower.rssnr ?: CellInfo.UNAVAILABLE,
             ) as CellSignalStrengthNr
+            CarrierSignalLevelCompatibility.initialize(signal)
             val cell = Reflection.newInstance(CellInfoNr::class.java) as CellInfoNr
             Reflection.setObjectField(cell, "mCellIdentity", identity)
             Reflection.setObjectField(cell, "mCellSignalStrength", signal)

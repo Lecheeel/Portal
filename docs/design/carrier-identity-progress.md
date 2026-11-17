@@ -11,6 +11,10 @@
 
 ## 2026-11-17 一致性修复
 
+- GLOBAL电话属性源临时覆盖：电话UID1001接受新配置/启停后，按槽维护icc_operator_numeric/alpha/iso_country与operator_numeric/alpha/iso_country；生成式TelephonyProperties setter更新后重新同步，写入递归保护。PER_APP不写全局属性，停止或模式切换按值所有权恢复；无persist属性。每字段独立提交，setter异常记录并保留恢复责任，不宣称跨六字段原子性或长名称/SELinux失败均支持。
+- core三项回归通过：双槽/空原列表恢复、外部同槽更新后重新覆盖基线、写入失败保留责任。两台冷启动实际shell getprop各1项通过：六个SIM/网络属性为双槽310260/50501、US/AU名称及us/au，切PER_APP恢复原值、切回GLOBAL再次覆盖、停止后恢复原值。读取在shell进程，绕过客户端Hook，无hidden API放行；finally恢复偏好与后端并停场景。前置Assumption跳过时不清理不属于测试的活跃状态。
+- 以上仅六个身份属性；gsm.sim.state、gsm.network.type、运营商缓存的其他写入方、电话进程异常死亡后的恢复及实际信号/5G图标不在该验收范围，仍需收束。不能把全局身份属性通过外推为调制解调器入网。
+
 - 服务宿主覆盖审查修复：IMSI/ICCID真实入口为IPhoneSubInfo/PhoneSubInfoController，新增该宿主getSubscriberIdForSubscriber/getIccSerialNumberForSubscriber覆盖，保留原检查再按特权权限返回虚拟值；PIM原别名不能代替该服务。另补PIM的四个ITelephony getSubscriptionCarrierId/Name、SpecificId/Name，不能只依赖scoped客户端getter。
 - 两台冷启动direct_subscriber扩展各1项通过：直接取得iphonesubinfo/phone Binder代理绕过客户端getter，双槽IMSI/ICCID、carrierId/名称四入口与持久配置同值；切普通READ_PHONE_STATE后直接标识查询空或SecurityException；原双卡拓扑、权限快照与PER_APP矩阵继续通过。仪器进程临时hidden API仅用于反射取得Binder代理，finally已恢复；不代表普通应用具备反射隐藏接口权限。
 - 并行只读审查发现ID碰撞列表过滤可被合法phone/slot分支绕过；最终resolved虚拟profile现必须属于已过滤virtual集合（同时匹配槽/ID），实体不受影响。本地core/Xposed回归和App编译通过并随双机包加载；真实实体卡碰撞仍未实测。审查agent未改文件或设备。

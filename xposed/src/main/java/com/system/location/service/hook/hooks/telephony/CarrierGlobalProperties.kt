@@ -16,13 +16,16 @@ import java.util.Locale
 internal object CarrierGlobalProperties {
     private val lock = Any()
     private val writing = ThreadLocal.withInitial { false }
-    private val fields: Map<String, (SimCarrierProfile) -> String> = linkedMapOf(
+    private val fields: Map<String, (SimCarrierProfile) -> String?> = linkedMapOf(
         "icc_operator_numeric" to { it.operatorNumeric },
         "icc_operator_alpha" to { it.carrierName },
         "icc_operator_iso_country" to { it.countryIso.lowercase(Locale.ROOT) },
         "operator_numeric" to { it.operatorNumeric },
         "operator_alpha" to { it.operatorName },
         "operator_iso_country" to { it.countryIso.lowercase(Locale.ROOT) },
+        "sim_state" to { if (it.virtual) "READY" else null },
+        "data_network_type" to { if (!it.virtual) null else
+            if (it.radio == com.system.location.service.core.carrier.CarrierRadio.NR) "NR" else "LTE" },
     )
     private val ownership = fields.keys.associateWith { CarrierListPropertyOwnership() }
     @Volatile private var type: Class<*>? = null
@@ -60,7 +63,9 @@ internal object CarrierGlobalProperties {
                     runCatching {
                         @Suppress("UNCHECKED_CAST")
                         val current = properties.getMethod(field).invoke(null) as List<String>
-                        val next = profiles.associate { it.slot - 1 to value(it) }
+                        val next = profiles.mapNotNull { profile ->
+                            value(profile)?.let { profile.slot - 1 to it }
+                        }.toMap()
                         owner.update(current, next) { list ->
                             properties.getMethod(field, List::class.java).invoke(null, list)
                         }

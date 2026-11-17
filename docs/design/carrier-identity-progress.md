@@ -11,6 +11,10 @@
 
 ## 2026-11-17 一致性修复
 
+- 服务宿主覆盖审查修复：IMSI/ICCID真实入口为IPhoneSubInfo/PhoneSubInfoController，新增该宿主getSubscriberIdForSubscriber/getIccSerialNumberForSubscriber覆盖，保留原检查再按特权权限返回虚拟值；PIM原别名不能代替该服务。另补PIM的四个ITelephony getSubscriptionCarrierId/Name、SpecificId/Name，不能只依赖scoped客户端getter。
+- 两台冷启动direct_subscriber扩展各1项通过：直接取得iphonesubinfo/phone Binder代理绕过客户端getter，双槽IMSI/ICCID、carrierId/名称四入口与持久配置同值；切普通READ_PHONE_STATE后直接标识查询空或SecurityException；原双卡拓扑、权限快照与PER_APP矩阵继续通过。仪器进程临时hidden API仅用于反射取得Binder代理，finally已恢复；不代表普通应用具备反射隐藏接口权限。
+- 并行只读审查发现ID碰撞列表过滤可被合法phone/slot分支绕过；最终resolved虚拟profile现必须属于已过滤virtual集合（同时匹配槽/ID），实体不受影响。本地core/Xposed回归和App编译通过并随双机包加载；真实实体卡碰撞仍未实测。审查agent未改文件或设备。
+
 - 虚拟身份解析、GLOBAL/PER_APP虚拟列表和拓扑辅助映射要求virtualSubscriptionId>0，未分配旧配置不能从fallback发布900000001/2。旧JSON仍可加载，由控制器先迁移持久ID再同步；实体槽解析不要求虚拟ID。新增core回归覆盖全局/指定槽拒绝、拓扑列表和反查不暴露旧ID及实体覆盖保持。core/Xposed回归与App编译通过；本轮未安装/重启设备，不能当作新增设备验收。
 
 - DisplayInfo活动生命周期扩展：小米真实监听1项通过，不重新注册两槽互换NR/LTE、恢复原画像、关闭UNKNOWN、重开原RAT、停止UNKNOWN，每阶段队列先清空且override均NONE。无生产改动，仅重装测试包，不重启注入进程。红米在前置条件发现活跃订阅而Assumption跳过（-4），不计通过；只读gsm.sim.state仍ABSENT,ABSENT，不能据此认定活跃订阅来源，未擅自停场景或清配置。真实图标/信号格仍未验收。

@@ -96,6 +96,8 @@ private data class SimDraft(
     val nrArfcn: String = "640000",
     val identitySeed: Long = 0L,
     val virtualSubscriptionId: Int = 0,
+    val phoneNumber: String = "",
+    val phoneNumberCity: String = "",
 )
 
 private val SimDraftSaver = listSaver<SnapshotStateList<SimDraft>, String>(
@@ -370,7 +372,9 @@ private fun CarrierIdentityScreen(
                                 value = draft.mcc,
                                 onValueChange = { value ->
                                     if (value.length <= 3 && value.all { it in '0'..'9' }) {
-                                        drafts[selectedSlot - 1] = draft.copy(mcc = value)
+                                        drafts[selectedSlot - 1] = draft.copy(mcc = value,
+                                            phoneNumber = if (value != draft.mcc && draft.phoneNumberCity.isNotEmpty()) "" else draft.phoneNumber,
+                                            phoneNumberCity = if (value != draft.mcc) "" else draft.phoneNumberCity)
                                     }
                                 },
                                 label = { Text("MCC") },
@@ -387,6 +391,8 @@ private fun CarrierIdentityScreen(
                                         drafts[selectedSlot - 1] = draft.copy(
                                             mnc = value,
                                             mncDigits = value.length.coerceIn(2, 3),
+                                            phoneNumber = if (value != draft.mnc && draft.phoneNumberCity.isNotEmpty()) "" else draft.phoneNumber,
+                                            phoneNumberCity = if (value != draft.mnc) "" else draft.phoneNumberCity,
                                         )
                                     }
                                 },
@@ -419,6 +425,10 @@ private fun CarrierIdentityScreen(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        CarrierPhoneNumberEditor(draft.countryIso, draft.mcc, draft.mnc,
+                            draft.phoneNumber, draft.phoneNumberCity) { number, city ->
+                            drafts[selectedSlot - 1] = draft.copy(phoneNumber = number, phoneNumberCity = city)
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = draft.radio == CarrierRadio.NR,
@@ -512,6 +522,15 @@ private fun CarrierIdentityScreen(
                                 val plmn = com.system.location.service.core.carrier.CarrierPlmnInput.parse(draft.mcc, draft.mnc)
                                 val mcc = plmn.mcc
                                 val mnc = plmn.mnc
+                                val number = com.system.location.service.core.carrier.CarrierPhoneNumbers.normalize(draft.phoneNumber)
+                                if (draft.phoneNumberCity.isNotEmpty() && number.isNotEmpty()) {
+                                    val operator = com.system.location.service.core.carrier.CarrierPhoneNumbers.chinaOperator(mcc, mnc, plmn.mncDigits)
+                                    require(draft.countryIso == "CN" && operator != null &&
+                                        com.system.location.service.core.carrier.CarrierPhoneNumbers.belongsToCity(number,
+                                            com.system.location.service.core.carrier.CarrierPhoneCity(draft.phoneNumberCity, operator))) {
+                                        "SIM ${draft.slot} 号码与当前城市/运营商不匹配，请重新生成"
+                                    }
+                                }
                                 require(draft.carrierName.isNotBlank()) { "SIM ${draft.slot} 运营商名称不能为空" }
                                 SimCarrierProfile(
                                     slot = draft.slot,
@@ -528,6 +547,8 @@ private fun CarrierIdentityScreen(
                                     nrArfcn = draft.nrArfcn.toIntOrNull() ?: error("SIM ${draft.slot} NR-ARFCN 无效"),
                                     identitySeed = draft.identitySeed,
                                     virtualSubscriptionId = draft.virtualSubscriptionId,
+                                    phoneNumber = number,
+                                    phoneNumberCity = draft.phoneNumberCity,
                                 )
                             }
                             require(!enabled || sims.any { it.enabled }) { "开启后至少配置一张 SIM" }
@@ -540,7 +561,8 @@ private fun CarrierIdentityScreen(
                                 .putBoolean("carrierIdentityEnabled", enabled).commit()) { "保存失败，请重试" }
                             config.sims.forEach { profile ->
                                 drafts[profile.slot - 1] = drafts[profile.slot - 1].copy(identitySeed = profile.identitySeed,
-                                    virtualSubscriptionId = profile.virtualSubscriptionId)
+                                    virtualSubscriptionId = profile.virtualSubscriptionId,
+                                    phoneNumber = profile.phoneNumber, phoneNumberCity = profile.phoneNumberCity)
                             }
                             savedSignature = draftSignature()
                             saving = true
@@ -595,6 +617,7 @@ private fun CarrierIdentityScreen(
                         val band = CarrierNrBandCatalog.defaultBand(country.iso, mcc, 0)
                         drafts[slot - 1] = draft.copy(
                             countryIso = country.iso,
+                            phoneNumber = "", phoneNumberCity = "",
                             mcc = country.mcc?.toString().orEmpty(),
                             mnc = "",
                             carrierName = "",
@@ -621,6 +644,10 @@ private fun CarrierIdentityScreen(
                         mncDigits = preset.mncDigits,
                         carrierName = preset.carrierName,
                         operatorName = preset.operatorName,
+                        phoneNumber = if (draft.phoneNumberCity.isNotEmpty() &&
+                            (draft.mcc != preset.mcc.toString() || draft.mnc != preset.mnc.toString().padStart(preset.mncDigits, '0'))) "" else draft.phoneNumber,
+                        phoneNumberCity = if (draft.phoneNumberCity.isNotEmpty() &&
+                            (draft.mcc != preset.mcc.toString() || draft.mnc != preset.mnc.toString().padStart(preset.mncDigits, '0'))) "" else draft.phoneNumberCity,
                         radio = preset.radio,
                         nrBand = band,
                         nrArfcn = com.system.location.service.core.carrier.CarrierNrChannel
@@ -735,4 +762,6 @@ private fun SimCarrierProfile.toDraft(): SimDraft = SimDraft(
     nrArfcn = nrArfcn.toString(),
     identitySeed = identitySeed,
     virtualSubscriptionId = virtualSubscriptionId,
+    phoneNumber = phoneNumber,
+    phoneNumberCity = phoneNumberCity,
 )

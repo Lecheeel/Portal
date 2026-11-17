@@ -51,7 +51,8 @@ android {
     buildTypes {
         release {
             manifestPlaceholders["APP_CHANNEL"] = "release"
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -220,6 +221,9 @@ dependencies {
 val exportReleaseApks = tasks.register("exportReleaseApks")
 androidComponents {
     onVariants(selector().withBuildType("release")) { variant ->
+        // minSdk 31 otherwise leaves DEX uncompressed. Compress Release DEX to
+        // reduce download size, keeping Debug and native packaging unchanged.
+        variant.packaging.dex.useLegacyPackaging.set(true)
         val abi = when (variant.flavorName) { "app" -> "all"; "x64" -> "x86_64"; else -> "arm64" }
         val export = tasks.register<Copy>("export${variant.name.replaceFirstChar { it.uppercase() }}Apk") {
             from(variant.artifacts.get(SingleArtifact.APK))

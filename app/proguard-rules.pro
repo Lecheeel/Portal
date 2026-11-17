@@ -19,14 +19,16 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
--keep class com.baidu.** {*;}
--keep class vi.com.** {*;}
--keep class com.baidu.vi.** {*;}
--dontwarn com.baidu.**
+# The AMap aggregate JAR has no consumer rules. Its map/location JNI and
+# dynamically loaded implementation classes must retain their names and members.
+# Tencent supplies its own consumer rules in its AARs; do not override those.
+-keep class com.amap.** { *; }
+-keep class com.autonavi.** { *; }
 
--keepclassmembers class com.dd.StrokeGradientDrawable {
-    public void setStrokeColor(int);
-}
+# Optional AMap implementations and its standalone math helper are absent from
+# this aggregate artifact, but are referenced by code paths selected at runtime.
+-dontwarn com.amap.ams.gnss.GnssSoftLocator
+-dontwarn net.jafama.FastMath
 
 -dontwarn com.tencent.bugly.**
 -keep public class com.tencent.bugly.**{*;}

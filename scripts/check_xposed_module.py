@@ -24,6 +24,7 @@ PROPERTIES = {
 SCOPES = {
     "system", "com.android.phone", "com.android.location.fused",
     "com.xiaomi.location.fused", "com.oplus.location", "com.android.providers.settings",
+    "com.android.systemui",
 }
 LEGACY_METADATA = {
     "xposedmodule", "xposeddescription", "xposedminversion", "xposedscope", "xposedsharedprefs",
@@ -50,7 +51,7 @@ def validate_metadata(resources: dict[str, bytes]) -> None:
         raise ValueError("module.prop must target API 102 with selectable app scopes and system_server hot reload enabled")
     scope = lines(resources["scope.list"])
     if set(scope) != SCOPES or len(scope) != len(SCOPES):
-        raise ValueError("scope.list must declare Portal's six modern scopes, including system")
+        raise ValueError("scope.list must declare Portal's seven modern scopes, including system")
 
 
 def source_violations(root: Path = ROOT) -> list[str]:

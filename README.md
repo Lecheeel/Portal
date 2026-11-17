@@ -78,7 +78,7 @@
 
 基于 [Portal](https://github.com/fuqiuluo/Portal) [@fuqiuluo](https://github.com/fuqiuluo)
 
-Android 定位与环境模拟工具，支持单点定位、路线播放和悬浮摇杆，支持模拟 GNSS/NMEA、WiFi/基站环境和传感器，支持无 Root/Xposed/Native + Xposed 模式。
+Android 虚拟定位/环境伪造工具，支持无Root/Native Hook、路线播放和悬浮摇杆，模拟与伪造GNSS/NMEA/WiFi/基站/SIM卡
 
 <!--
 ### 运行模式
@@ -179,23 +179,27 @@ GGA/RMC/GSA/GSV/GST/ZDA
 -->
 
 ## ✨ 功能亮点
-- 支持无 Root/Xposed/Native + Xposed（Root require）
-- 反检测/堆栈清洗/隐藏指纹
-- GPS/Network/Fused 模拟
-- 系统/Google Fused 融合定位通道（实验性）
-- 提交前反射清除模拟标记
-- 悬浮摇杆、路线规划与手绘
-- 位置与场景管理、JSON/GPX 导入导出
-- GPS/北斗/GLONASS/Galileo/QZSS
-- 同源 GnssStatus/NMEA 生成与主动投递
-- GGA/RMC/GSA/GSV/GST/ZDA
-- WiFi/基站环境采集、生成与回放（实验性）
-- 网格化 AP、固定种子、RSSI 路径损耗模型
-- 自建 WiFi 指纹库导入与回放（实验性）
-- 分应用排除与固定点
-- libxposed API 102 原生 Hooker/Chain
-- Native 传感器扩展（实验性）
-- HIDL/AIDL 传感器事件注入
+- [x] 支持无 Root/Xposed/Native + Xposed（Root require）
+- [x] 反检测/堆栈清洗/隐藏指纹
+- [x] GPS/Network/Fused 模拟
+- [x] 系统/Google Fused 融合定位通道
+- [x] 提交前反射清除模拟标记
+- [x] 悬浮摇杆、路线规划与手绘
+- [x] GPS/北斗/GLONASS/Galileo/QZSS
+- [x] GnssStatus/NMEA 生成与投递
+- [x] GGA/RMC/GSA/GSV/GST/ZDA
+- [x] WiFi/基站环境采集、生成、回放（实验性）
+- [x] 自建 WiFi 指纹库导入与回放
+- [x] 双卡运营商伪造、无卡虚拟 SIM（实验性）
+- [x] 中国/美国/澳大利亚 NR 频段与信道
+- [x] libxposed API 102 原生 Hooker/Chain
+- [x] Native 传感器扩展（实验性）
+- [x] HIDL/AIDL 传感器事件注入
+- [ ] PPP/RTK
+- [ ] 基站邻区列表
+- [ ] 5G NSA/SA 切换
+- [ ] 物理卡/虚拟卡混合
+- [ ] 场景模板分享
 
 ## 🚀 快速开始
 

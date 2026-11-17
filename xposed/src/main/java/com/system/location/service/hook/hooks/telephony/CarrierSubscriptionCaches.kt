@@ -30,5 +30,6 @@ internal object CarrierSubscriptionCaches {
                 }.forEach { method -> method.isAccessible = true; method.invoke(null) }
             } finally { Binder.restoreCallingIdentity(token) }
         }.onFailure { Logger.warn("Subscription cache invalidation unavailable: ${it.javaClass.simpleName}") }
+        if (uid == 1001) CarrierSubscriptionNotifications.schedule()
     }
 }

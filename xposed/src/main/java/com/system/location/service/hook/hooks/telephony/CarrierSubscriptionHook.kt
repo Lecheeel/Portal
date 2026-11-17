@@ -15,10 +15,42 @@ import io.github.libxposed.api.XposedInterface.Hooker
 internal object CarrierSubscriptionHook {
     private val countingPhysical = ThreadLocal.withInitial { false }
     private val countMethods = setOf("getActiveSubscriptionInfoCount", "getActiveSubInfoCount")
+    private val recentVirtual = LinkedHashMap<Pair<Int, Int>, Long>()
+    private fun remember(virtuals: List<SimCarrierProfile>, uid: Int) = synchronized(recentVirtual) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        recentVirtual.entries.removeAll { it.value < now }
+        virtuals.forEach { recentVirtual[CarrierVirtualIdentity.subscriptionId(it) to (uid / 100000)] = now + 30_000 }
+        while (recentVirtual.size > 128) recentVirtual.remove(recentVirtual.keys.first())
+    }
+    private fun knownVirtual(subId: Int): Boolean {
+        val uid = Binder.getCallingUid()
+        val active = CarrierIdentityRuntime.profileForCall("getActiveSubscriptionInfo", listOf(subId))
+        if (active?.virtual == true) return true
+        return synchronized(recentVirtual) {
+            (recentVirtual[subId to (uid / 100000)] ?: 0L) > android.os.SystemClock.elapsedRealtime()
+        }
+    }
     fun install(loader: ClassLoader) {
         listOf("com.android.internal.telephony.SubscriptionController",
             "com.android.internal.telephony.subscription.SubscriptionManagerService").forEach { name ->
             val type = Reflection.findClassIfExists(name, loader) ?: return@forEach
+            type.hookAllMethods("getSubscriptionUserHandle", Hooker { chain ->
+                try { chain.proceed() } catch (failure: IllegalArgumentException) {
+                    val subId = chain.args.firstOrNull() as? Int ?: throw failure
+                    if (failure.message != "getSubscriptionUserHandle: Invalid subId: $subId" ||
+                        !CarrierIdentifierAccess.permitted()) throw failure
+                    if (!knownVirtual(subId)) throw failure
+                    android.os.UserHandle.getUserHandleForUid(Binder.getCallingUid())
+                }
+            })
+            type.hookAllMethods("setDisplayNumber", Hooker { chain ->
+                try { chain.proceed() } catch (failure: IllegalArgumentException) {
+                    val subId = chain.args.filterIsInstance<Int>().firstOrNull() ?: throw failure
+                    if (failure.message != "Subscription doesn't exist. subId=$subId, columnName=number" ||
+                        !CarrierIdentifierAccess.permitted() || !knownVirtual(subId)) throw failure
+                    0 // No physical subscription record was updated.
+                }
+            })
             val hook = Hooker { chain ->
                 if (CarrierIdentityRuntime.isResolving() || countingPhysical.get()) return@Hooker chain.proceed()
                 if (Binder.getCallingUid() in setOf(1000, 1001) &&
@@ -29,6 +61,7 @@ internal object CarrierSubscriptionHook {
                 } else chain.proceed()
                 if (chain.executable.name == "getAccessibleSubscriptionInfoList") return@Hooker original
                 val virtuals = CarrierIdentityRuntime.virtualProfilesForCall(Binder.getCallingUid())
+                remember(virtuals, Binder.getCallingUid())
                 val requested = chain.args.firstOrNull() as? Int
                 val topology = com.system.location.service.core.carrier.CarrierVirtualTopology
                 when (chain.executable.name) {

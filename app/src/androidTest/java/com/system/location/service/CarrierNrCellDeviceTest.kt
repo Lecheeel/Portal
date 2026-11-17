@@ -45,6 +45,10 @@ class CarrierNrCellDeviceTest {
             assertTrue(list.single() is android.telephony.CellSignalStrengthNr)
             assertEquals(serving, list.single())
             assertEquals(serving.level, signal.level)
+            for (name in listOf("getMiuiLevel", "getOptimizedLevel")) {
+                val getter = com.system.location.service.hook.runtime.Reflection.findMethodExactIfExists(signal.javaClass, name)
+                if (getter != null) assertEquals("$name disagrees with serving NR", serving.level, getter.invoke(signal))
+            }
             assertEquals(serving.asuLevel,
                 com.system.location.service.hook.runtime.Reflection.callMethod(signal, "getAsuLevel"))
             assertEquals(serving.dbm,

@@ -1,5 +1,6 @@
 package com.system.location.service.hook.hooks.telephony
 
+import android.annotation.SuppressLint
 import android.os.Binder
 import android.os.IBinder
 import com.system.location.service.hook.utils.BinderUtils
@@ -161,6 +162,7 @@ object CarrierConfigGlobalController {
         putBoolean(HOME, true)
     }
 
+    @SuppressLint("MissingPermission")
     private fun subIdsForSlot(slot: Int): List<Int> {
         // Resolve only active subscriptions whose real slot matches. The default data/voice
         // subscription may live in either slot and must never be guessed to belong to SIM1.

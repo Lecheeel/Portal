@@ -1,5 +1,6 @@
 package com.system.location.service.hook.hooks.telephony
 
+import android.annotation.SuppressLint
 import android.os.Binder
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
@@ -113,6 +114,7 @@ internal object CarrierIdentityRuntime {
 
     internal fun isResolving(): Boolean = resolving.get() == true
 
+    @SuppressLint("MissingPermission")
     private fun physicalSubscriptions(manager: SubscriptionManager): List<SubscriptionInfo> =
         manager.activeSubscriptionInfoList.orEmpty()
             .filter { it.simSlotIndex in 0..1 && SubscriptionManager.isValidSubscriptionId(it.subscriptionId) }

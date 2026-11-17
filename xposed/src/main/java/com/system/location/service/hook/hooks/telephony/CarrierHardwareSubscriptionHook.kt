@@ -1,5 +1,6 @@
 package com.system.location.service.hook.hooks.telephony
 
+import android.annotation.SuppressLint
 import android.telephony.SubscriptionManager
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.BinderUtils
@@ -19,6 +20,7 @@ internal object CarrierHardwareSubscriptionHook {
         }
     }
 
+    @SuppressLint("MissingPermission")
     fun install(loader: ClassLoader) {
         val monitor = Reflection.findClassIfExists("com.android.phone.RcsProvisioningMonitor", loader) ?: return
         monitor.hookAllMethods("onSubChanged", Hooker { chain -> withHardwareQuery { chain.proceed() } })

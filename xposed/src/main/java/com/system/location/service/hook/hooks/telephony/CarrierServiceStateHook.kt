@@ -1,5 +1,6 @@
 package com.system.location.service.hook.hooks.telephony
 
+import android.annotation.SuppressLint
 import android.telephony.ServiceState
 import com.system.location.service.core.carrier.SimCarrierProfile
 import com.system.location.service.hook.runtime.Reflection
@@ -27,6 +28,7 @@ object CarrierServiceStateHook {
         listOf("getServiceStateForSubscriber", "getServiceState").forEach { type.hookAllMethods(it, hook) }
     }
 
+    @SuppressLint("MissingPermission")
     fun copyWithoutCellIdentity(original: ServiceState): ServiceState = runCatching {
         ServiceState(original).apply {
             @Suppress("UNCHECKED_CAST")
@@ -62,6 +64,7 @@ object CarrierServiceStateHook {
         setOperatorName(profile.operatorName, profile.carrierName, profile.operatorNumeric)
     }
 
+    @SuppressLint("MissingPermission")
     fun copyWithIdentity(original: ServiceState, profile: SimCarrierProfile): ServiceState {
         // Never copy absent/emergency modem registrations into a virtual subscriber. Both the
         // query and callback must use the same modeled PS registration and omit real CellIdentity.

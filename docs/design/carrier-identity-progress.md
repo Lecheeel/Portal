@@ -11,6 +11,11 @@
 
 ## 2026-11-17 一致性修复
 
+- 电话peer接受配置、同步属性和缓存后，经真实ITelephonyRegistry.notifySubscriptionInfoChanged通知订阅监听器；250ms合并快速变更，捕获提交代际，过期通知跳过。无客户端手工伪造回调。
+- 本轮首次启用真实通知触发了phone崩溃：小米NotificationMgr.updateMwi查询当前/刚撤回的虚拟getSubscriptionUserHandle抛Invalid subId；红米MIUI数据库线程setDisplayNumber对虚拟ID写number抛无记录异常。phone重启丢失内存属性基线，表现为SIM属性残留；此前“延迟重放”推测错误，core退休值补偿和重复属性刷新试验均已撤掉，未提交。
+- 最终修复：原方法权限/归属检查先执行，仅特权调用、精确异常与已知虚拟ID时处理；用户归属用调用者用户，号码写入返回0行不创建真实DB记录。近期清理记录按用户隔离，最多128项、30s有效，只给撤回系统清理使用，不恢复身份/拓扑可见性。
+- 双机冷启动真实OnSubscriptionsChangedListener各1项通过：同一监听GLOBAL两槽→PER_APP空→GLOBAL两槽→停止空；原八属性覆盖/恢复继续通过，收到撤回事件后重复观察原八属性且phone PID不变，crash buffer未新增上述phone异常。测试监听在主线程构造以兼容Android14，无hidden API放行，finally注销并恢复配置。初轮无Looper夹具失败已修正。尚未取得SystemUI两槽信号控制器/实际5G图标证据，不能把标准订阅回调通过直接当图标完成。
+
 - 全局属性进一步接入sim_state与data_network_type，仅有效虚拟槽写READY及配置NR/LTE；实体槽返回null补丁，保持平台PIN/卡状态和真实制式，不强制写READY。复用既有按槽所有权与模式/停止恢复。core/Xposed回归和构建通过。
 - 两台冷启动shell属性扩展各1项通过：gsm.sim.state=READY,READY、gsm.network.type=NR,LTE，其他六身份字段同值；PER_APP恢复原八属性，GLOBAL再覆盖，停止恢复原八属性。无hidden API放行，finally还原carrier偏好/后端并停场景。此为软件全局视图，不是实体UICC/基带入网证明；有实体卡时PIN状态保护及信号/5G可见图标仍需设备验证。
 

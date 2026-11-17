@@ -11,6 +11,9 @@
 
 ## 2026-11-17 一致性修复
 
+- 显示信息按订阅接入 TelephonyCallback 事件21：NR SA 为 NETWORK_TYPE_NR + OVERRIDE_NONE，LTE 为LTE + NONE，不伪造LTE的NSA覆盖；平台注册检查及notifyNow保留。保存实际显示基线，配置队列按值去重，关闭恢复原显示或UNKNOWN，事件/基线纳入交接。
+- 两台无卡设备冷启动真实 DisplayInfoListener 各1项扩展通过：SIM1基础NR、SIM2基础LTE且两者NONE，关闭后两槽UNKNOWN；原ServiceState改名/关闭/重开/停止/注销观察继续通过。测试不放开hidden API，finally还原carrier偏好及后端并注销监听。本轮未单独断言活动期间NR↔LTE切换、DisplayInfo停止/重开通知或真实5G图标/信号格，不将回调证据外推为图标已验收。
+
 - 注册后额外虚拟首帧遵守 listenWithEventList 的 notifyNow（事件数组后布尔值），不误用前置 fine/coarse renounce 标志；未识别签名不额外播初始值。两项 JVM 测试覆盖布尔排列与未知签名，Xposed回归和App编译通过。本轮未重启设备，也未实际调用隐藏notifyNow=false注册验收；后续已接受发布/配置变化仍可作为新事件通知，不宣称关闭notifyNow就是永久静默。
 
 - 活跃SignalStrength事件记录发送责任，配置变更异步更新，关闭/停止向曾覆盖的监听器发送平台默认不可用信号；内部发送跳过二次覆盖。发布周期按现有1.5s窗口重试信号，lastSignal相等时不重复发送，去重基线与责任加入重载交接。双机冷启动扩展各1项通过：逐槽关闭信号集合为空、重开恢复、停止为空、重启信号与当前同步getter一致；既有小区矩阵继续通过，不放开hidden API，finally恢复偏好并注销。

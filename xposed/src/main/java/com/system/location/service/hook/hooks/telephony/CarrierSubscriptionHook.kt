@@ -170,6 +170,8 @@ internal object CarrierSubscriptionHook {
         Reflection.setObjectField(copy, "mCountryIso", profile.countryIso.lowercase(java.util.Locale.ROOT))
         Reflection.setObjectField(copy, "mMcc", profile.mcc.toString().padStart(3, '0'))
         Reflection.setObjectField(copy, "mMnc", profile.mnc.toString().padStart(profile.mncDigits, '0'))
+        if (profile.phoneNumber.isNotEmpty()) Reflection.setObjectField(copy, "mNumber",
+            if (CarrierPhoneNumberAccess.permitted()) profile.phoneNumber else "")
         return copy
     }
 }

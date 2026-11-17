@@ -193,6 +193,51 @@ class CarrierVirtualNoSimDeviceTest {
             location.sendExtraCommand("fused_ext",
                 com.system.location.service.hook.hooks.telephony.CarrierIdentitySnapshotCommand.COMMAND, privilegedReply)
             assertTrue(!privilegedReply.containsKey("imsi") && !privilegedReply.containsKey("iccid"))
+            if (androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("direct_subscriber") == "true") {
+                val serviceManager = Class.forName("android.os.ServiceManager")
+                val binder = serviceManager.getMethod("getService", String::class.java).invoke(null, "iphonesubinfo")
+                assertNotNull("IPhoneSubInfo binder must exist", binder)
+                val stub = Class.forName("com.android.internal.telephony.IPhoneSubInfo\$Stub")
+                val remote = stub.getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)
+                fun readIdentifier(name: String, id: Int): String? {
+                    val method = remote.javaClass.methods.single { it.name == name && it.parameterCount == 3 }
+                    return try { method.invoke(remote, id, context.packageName, null) as? String }
+                    catch (failure: java.lang.reflect.InvocationTargetException) { throw failure.targetException }
+                }
+                for (item in active) {
+                    val expected = persisted.getValue(item.simSlotIndex + 1)
+                    assertEquals(CarrierVirtualIdentity.imsi(expected),
+                        readIdentifier("getSubscriberIdForSubscriber", item.subscriptionId))
+                    assertEquals(CarrierVirtualIdentity.iccid(expected),
+                        readIdentifier("getIccSerialNumberForSubscriber", item.subscriptionId))
+                }
+                val phoneBinder = serviceManager.getMethod("getService", String::class.java).invoke(null, "phone")
+                val phoneStub = Class.forName("com.android.internal.telephony.ITelephony\$Stub")
+                val phone = phoneStub.getMethod("asInterface", android.os.IBinder::class.java).invoke(null, phoneBinder)
+                for (item in active) {
+                    val expected = persisted.getValue(item.simSlotIndex + 1)
+                    for (name in listOf("getSubscriptionCarrierId", "getSubscriptionSpecificCarrierId")) {
+                        assertEquals(CarrierVirtualIdentity.carrierId(expected), phone.javaClass.getMethod(name,
+                            Int::class.javaPrimitiveType).invoke(phone, item.subscriptionId))
+                    }
+                    for (name in listOf("getSubscriptionCarrierName", "getSubscriptionSpecificCarrierName")) {
+                        assertEquals(expected.carrierName, phone.javaClass.getMethod(name,
+                            Int::class.javaPrimitiveType).invoke(phone, item.subscriptionId)?.toString())
+                    }
+                }
+                automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE)
+                try {
+                    for (name in listOf("getSubscriberIdForSubscriber", "getIccSerialNumberForSubscriber")) {
+                        try {
+                            assertTrue("Direct binder leaked $name without privileged permission",
+                                readIdentifier(name, first.subscriptionId).isNullOrEmpty())
+                        } catch (_: SecurityException) { /* Platform rejection remains intact. */ }
+                    }
+                } finally {
+                    automation.adoptShellPermissionIdentity(Manifest.permission.READ_PHONE_STATE,
+                        "android.permission.READ_PRIVILEGED_PHONE_STATE")
+                }
+            }
             System.err.println("PORTAL_VIRTUAL_DUAL_SLOT_READY ${first.subscriptionId} ${second.subscriptionId}")
             val seeded = com.system.location.service.core.carrier.CarrierIdentityCodec.decode(
                 preferences.getString("carrierIdentityJson", "")!!)

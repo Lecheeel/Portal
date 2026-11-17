@@ -170,6 +170,9 @@ fun configureAppSigningConfigsForRelease(project: Project) {
 }
 
 dependencies {
+    // R8 needs the framework interfaces to preserve their callbacks and SAM
+    // implementations. compileOnly in :xposed is not exported to this module.
+    compileOnly(libs.libxposed.api)
     implementation(project(":core"))
     implementation(project(":xposed"))
     implementation(project(":designsystem"))

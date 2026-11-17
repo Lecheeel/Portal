@@ -29,6 +29,8 @@ internal object CarrierGlobalProperties {
     )
     private val ownership = fields.keys.associateWith { CarrierListPropertyOwnership() }
     @Volatile private var type: Class<*>? = null
+    private var journal: CarrierPropertyJournalStore? = null
+    private var recovered = false
 
     fun install(loader: ClassLoader) {
         val properties = Reflection.findClassIfExists("android.sysprop.TelephonyProperties", loader) ?: return
@@ -43,6 +45,28 @@ internal object CarrierGlobalProperties {
         refresh()
     }
 
+    private fun store(): CarrierPropertyJournalStore = journal ?: run {
+        val system = com.system.location.service.hook.utils.BinderUtils.getSystemContext()
+            ?: error("System context unavailable")
+        val phone = system.createPackageContext("com.android.phone", 0).createDeviceProtectedStorageContext()
+        CarrierPropertyJournalStore(phone, fields.keys).also { journal = it }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun read(properties: Class<*>, field: String): List<String> =
+        properties.getMethod(field).invoke(null) as List<String>
+
+    private fun recover(properties: Class<*>, store: CarrierPropertyJournalStore) {
+        store.entries().forEach { (field, entry) ->
+            val current = read(properties, field)
+            val original = entry.recover(current)
+            if (original != current) properties.getMethod(field, List::class.java).invoke(null, original)
+        }
+        store.clear()
+        ownership.values.forEach { it.restore(com.system.location.service.core.carrier.CarrierListPropertyState()) }
+        recovered = true
+    }
+
     fun refresh() {
         if (writing.get() == true || runCatching { Process.myUid() }.getOrDefault(-1) != 1001) return
         val properties = type ?: return
@@ -51,6 +75,8 @@ internal object CarrierGlobalProperties {
             writing.set(true)
             val token = Binder.clearCallingIdentity()
             try {
+                val store = store()
+                if (!recovered) recover(properties, store)
                 val policy = FakeLoc.runtimeSnapshots.current().configuration
                 val global = policy.enabled && policy.carrierIdentityEnabled &&
                     policy.carrierIdentity?.mode == CarrierIdentityMode.GLOBAL
@@ -60,17 +86,25 @@ internal object CarrierGlobalProperties {
                 fields.forEach { (field, value) ->
                     val owner = ownership.getValue(field)
                     if (profiles.isEmpty() && !owner.ownsValues()) return@forEach
-                    runCatching {
-                        @Suppress("UNCHECKED_CAST")
-                        val current = properties.getMethod(field).invoke(null) as List<String>
-                        val next = profiles.mapNotNull { profile ->
-                            value(profile)?.let { profile.slot - 1 to it }
-                        }.toMap()
-                        owner.update(current, next) { list ->
-                            properties.getMethod(field, List::class.java).invoke(null, list)
-                        }
-                    }.onFailure { Logger.warn("Global carrier property $field unavailable: ${it.javaClass.simpleName}") }
+                    val current = read(properties, field)
+                    val next = profiles.mapNotNull { profile ->
+                        value(profile)?.let { profile.slot - 1 to it }
+                    }.toMap()
+                    if (next.isEmpty() && !owner.ownsValues()) return@forEach
+                    val before = owner.snapshot()
+                    val proposal = owner.plan(current, next)
+                    if (proposal.values == current && proposal.state == before) return@forEach
+                    store.put(field, com.system.location.service.core.carrier.CarrierPropertyJournalEntry(before, proposal.state))
+                    if (proposal.values != current)
+                        properties.getMethod(field, List::class.java).invoke(null, proposal.values)
+                    owner.restore(proposal.state)
+                    store.put(field, if (owner.ownsValues())
+                        com.system.location.service.core.carrier.CarrierPropertyJournalEntry(owner.snapshot()) else null)
                 }
+            } catch (failure: Exception) {
+                journal = null
+                recovered = false
+                Logger.warn("Global carrier property recovery/apply unavailable: ${failure.javaClass.simpleName}")
             } finally {
                 Binder.restoreCallingIdentity(token)
                 writing.set(false)

@@ -1,0 +1,4 @@
+{
+  "xposed/src/main/java/com/system/location/service/hook/hooks/LocationServiceHook.kt": 888,
+  "xposed/src/main/java/com/system/location/service/hook/hooks/telephony/TelephonyHook.kt": 489
+}

@@ -1,9 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <application>
         <!-- Test APK only. No location data or production configuration is exposed. -->
         <service
             android:name="com.system.location.service.GnssBinderTestService"
             android:exported="true"
             android:process=":gnss_binder_test" />
+        <service
+            android:name="com.system.location.service.CarrierIdentityProbeService"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:process=":carrier_probe" />
     </application>
 </manifest>

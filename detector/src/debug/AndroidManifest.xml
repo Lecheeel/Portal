@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+
     <application android:name=".DetectorDebugApp">
         <activity android:name="dev.portal.canary.CanaryForegroundActivity" android:exported="false" />
+        <service
+            android:name="com.system.location.service.detector.CarrierIdentityProbeService"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:process=":carrier_probe" />
     </application>
 </manifest>

@@ -29,6 +29,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (providers.gradleProperty("CARRIER_PROBE_APK").orNull == "true") {
+                applicationIdSuffix = ".carrierprobe"
+                versionNameSuffix = "-carrierprobe"
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

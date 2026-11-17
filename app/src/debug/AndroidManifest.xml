@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+
+    <queries>
+        <package android:name="com.system.location.service.test" />
+        <package android:name="com.system.location.service.detector.carrierprobe" />
+    </queries>
+
     <application
         android:name=".DebugLocationServiceApp"
         tools:replace="android:name">

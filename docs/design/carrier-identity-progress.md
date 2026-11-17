@@ -11,6 +11,9 @@
 
 ## 2026-11-17 一致性修复
 
+- 全局属性进一步接入sim_state与data_network_type，仅有效虚拟槽写READY及配置NR/LTE；实体槽返回null补丁，保持平台PIN/卡状态和真实制式，不强制写READY。复用既有按槽所有权与模式/停止恢复。core/Xposed回归和构建通过。
+- 两台冷启动shell属性扩展各1项通过：gsm.sim.state=READY,READY、gsm.network.type=NR,LTE，其他六身份字段同值；PER_APP恢复原八属性，GLOBAL再覆盖，停止恢复原八属性。无hidden API放行，finally还原carrier偏好/后端并停场景。此为软件全局视图，不是实体UICC/基带入网证明；有实体卡时PIN状态保护及信号/5G可见图标仍需设备验证。
+
 - GLOBAL电话属性源临时覆盖：电话UID1001接受新配置/启停后，按槽维护icc_operator_numeric/alpha/iso_country与operator_numeric/alpha/iso_country；生成式TelephonyProperties setter更新后重新同步，写入递归保护。PER_APP不写全局属性，停止或模式切换按值所有权恢复；无persist属性。每字段独立提交，setter异常记录并保留恢复责任，不宣称跨六字段原子性或长名称/SELinux失败均支持。
 - core三项回归通过：双槽/空原列表恢复、外部同槽更新后重新覆盖基线、写入失败保留责任。两台冷启动实际shell getprop各1项通过：六个SIM/网络属性为双槽310260/50501、US/AU名称及us/au，切PER_APP恢复原值、切回GLOBAL再次覆盖、停止后恢复原值。读取在shell进程，绕过客户端Hook，无hidden API放行；finally恢复偏好与后端并停场景。前置Assumption跳过时不清理不属于测试的活跃状态。
 - 以上仅六个身份属性；gsm.sim.state、gsm.network.type、运营商缓存的其他写入方、电话进程异常死亡后的恢复及实际信号/5G图标不在该验收范围，仍需收束。不能把全局身份属性通过外推为调制解调器入网。

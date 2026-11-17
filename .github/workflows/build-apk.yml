@@ -7,12 +7,12 @@ name: Verify and Build APKs
         description: Version name (for example 1.8.0-beta.1)
         required: true
         type: string
-        default: 2.3.5
+        default: 2.3.6
       version_code:
         description: Globally increasing Android version code
         required: true
         type: string
-        default: '1790000107'
+        default: '1790000108'
       release_channel:
         description: stable or beta/canary/rc pre-release metadata
         required: true
@@ -58,6 +58,7 @@ jobs:
           python3 scripts/check_license_assets.py
           python3 scripts/check_xposed_module.py
       - name: Prepare required release signing
+        if: github.event_name == 'workflow_dispatch'
         env:
           SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
           SIGN_KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
@@ -89,6 +90,7 @@ jobs:
         # Run separately to avoid a reproduced Kotlin FIR analysis failure during combined builds.
         run: ./gradlew lint --max-workers=1 --build-cache --stacktrace
       - name: Release APKs
+        if: github.event_name == 'workflow_dispatch'
         run: ./gradlew :app:assembleRelease :app:exportReleaseApks -PAPP_VERSION_NAME="$APP_VERSION_NAME" -PAPP_VERSION_CODE="$APP_VERSION_CODE" -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
         env:
           KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
@@ -97,14 +99,18 @@ jobs:
           AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
           TENCENT_MAP_KEY: ${{ secrets.TENCENT_MAP_KEY }}
       - name: Verify signed APKs and upgrade certificate
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/verify_release_apks.py --version "$APP_VERSION_NAME" --version-code "$APP_VERSION_CODE" --channel "$RELEASE_CHANNEL"
       - name: Verify modern Xposed APK packaging
+        if: github.event_name == 'workflow_dispatch'
         run: python3 scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution
       - name: Verify optimized Release callbacks and DEX compression
+        if: github.event_name == 'workflow_dispatch'
         run: python3 scripts/check_release_optimization.py --apk-dir app/build/outputs/distribution
       - name: Upload APKs
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: LocationService-${{ github.sha }}

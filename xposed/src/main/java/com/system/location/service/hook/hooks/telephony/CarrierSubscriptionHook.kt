@@ -52,7 +52,8 @@ internal object CarrierSubscriptionHook {
                 }
             })
             val hook = Hooker { chain ->
-                if (CarrierIdentityRuntime.isResolving() || countingPhysical.get()) return@Hooker chain.proceed()
+                if (CarrierHardwareSubscriptionHook.hardwareQueryActive()) return@Hooker chain.proceed()
+                if (CarrierIdentityRuntime.isResolving() || countingPhysical.get() == true) return@Hooker chain.proceed()
                 if (Binder.getCallingUid() in setOf(1000, 1001) &&
                     chain.args.any { it == CarrierIdentityRuntime.PHYSICAL_QUERY_TAG }) return@Hooker chain.proceed()
                 val original = if (chain.executable.name in countMethods) {

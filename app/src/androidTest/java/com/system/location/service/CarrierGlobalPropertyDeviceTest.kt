@@ -34,7 +34,9 @@ class CarrierGlobalPropertyDeviceTest {
             "gsm.sim.operator.iso-country" to "us,au",
             "gsm.operator.numeric" to "310260,50501",
             "gsm.operator.alpha" to "Network US,Network AU",
-            "gsm.operator.iso-country" to "us,au")
+            "gsm.operator.iso-country" to "us,au",
+            "gsm.sim.state" to "READY,READY",
+            "gsm.network.type" to "NR,LTE")
         val original = expected.keys.associateWith(::property)
         fun awaitProperties(values: Map<String, String>) {
             val until = android.os.SystemClock.elapsedRealtime() + 5000
@@ -56,7 +58,7 @@ class CarrierGlobalPropertyDeviceTest {
                 SimCarrierProfile(1, virtual = true, countryIso = "US", mcc = 310, mnc = 260,
                     carrierName = "Property US", operatorName = "Network US"),
                 SimCarrierProfile(2, virtual = true, countryIso = "AU", mcc = 505, mnc = 1,
-                    mncDigits = 2, carrierName = "Property AU", operatorName = "Network AU")))
+                    mncDigits = 2, carrierName = "Property AU", operatorName = "Network AU", radio = CarrierRadio.LTE)))
             check(prefs.edit().putBoolean("carrierIdentityEnabled", true)
                 .putString("carrierIdentityJson", CarrierIdentityCodec.encode(config)).commit())
             assertTrue(ScenarioRuntime.start(Scenario("carrier-properties", "Carrier properties", point = Wgs84(-33.86, 151.2))).await())

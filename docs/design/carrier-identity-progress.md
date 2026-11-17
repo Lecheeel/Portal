@@ -11,6 +11,8 @@
 
 ## 2026-11-17 一致性修复
 
+- DisplayInfo活动生命周期扩展：小米真实监听1项通过，不重新注册两槽互换NR/LTE、恢复原画像、关闭UNKNOWN、重开原RAT、停止UNKNOWN，每阶段队列先清空且override均NONE。无生产改动，仅重装测试包，不重启注入进程。红米在前置条件发现活跃订阅而Assumption跳过（-4），不计通过；只读gsm.sim.state仍ABSENT,ABSENT，不能据此认定活跃订阅来源，未擅自停场景或清配置。真实图标/信号格仍未验收。
+
 - 显示信息按订阅接入 TelephonyCallback 事件21：NR SA 为 NETWORK_TYPE_NR + OVERRIDE_NONE，LTE 为LTE + NONE，不伪造LTE的NSA覆盖；平台注册检查及notifyNow保留。保存实际显示基线，配置队列按值去重，关闭恢复原显示或UNKNOWN，事件/基线纳入交接。
 - 两台无卡设备冷启动真实 DisplayInfoListener 各1项扩展通过：SIM1基础NR、SIM2基础LTE且两者NONE，关闭后两槽UNKNOWN；原ServiceState改名/关闭/重开/停止/注销观察继续通过。测试不放开hidden API，finally还原carrier偏好及后端并注销监听。本轮未单独断言活动期间NR↔LTE切换、DisplayInfo停止/重开通知或真实5G图标/信号格，不将回调证据外推为图标已验收。
 

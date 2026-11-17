@@ -74,7 +74,10 @@ internal object CarrierIdentityRuntime {
                 )
             }
             val resolvedSlot = slot ?: return null
-            CarrierIdentityResolver.profile(config, resolvedSlot, physicalSlots, packages, systemCaller)
+            val resolved = CarrierIdentityResolver.profile(config, resolvedSlot, physicalSlots, packages, systemCaller)
+            resolved?.takeIf { profile -> !profile.virtual || virtual.any {
+                it.slot == profile.slot && CarrierVirtualIdentity.subscriptionId(it) == CarrierVirtualIdentity.subscriptionId(profile)
+            } }
         } catch (_: Exception) {
             // An unavailable mapping cannot be guessed: preserve the platform result.
             null

@@ -16,8 +16,6 @@ import com.system.location.service.maps.MapProvider
 import com.system.location.service.maps.mapProvider
 import com.system.location.service.ext.wgs84
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.distinctUntilChanged
 import com.system.location.service.core.runtime.RuntimePhase
 import com.system.location.service.runtime.ScenarioRuntime
 import kotlinx.coroutines.delay
@@ -774,10 +772,8 @@ private fun HomeScreen(
     onMapType: () -> Boolean,
 ) {
     val context = LocalContext.current
-    val runtimeFlow = remember(mockModel) {
-        mockModel.runtimeState.map(HomeRuntimeUi::from).distinctUntilChanged()
-    }
-    val runtime by runtimeFlow.collectAsStateWithLifecycle(initialValue = HomeRuntimeUi.from(mockModel.runtimeState.value))
+    val runtimeState by mockModel.runtimeState.collectAsStateWithLifecycle()
+    val runtime = remember(runtimeState) { HomeRuntimeUi.from(runtimeState) }
     val location by locationFlow.collectAsStateWithLifecycle()
     val target by targetFlow.collectAsStateWithLifecycle(initialValue = HomeTarget())
     val library by libraryFlow.collectAsStateWithLifecycle()

@@ -25,10 +25,12 @@ object CarrierIdentityPreferences {
         })
     }
 
-    fun occupiedIds(context: android.content.Context): Set<Int> = runCatching {
+    fun occupiedIds(context: android.content.Context): Set<Int> = try {
         context.getSystemService(android.telephony.SubscriptionManager::class.java)
             ?.activeSubscriptionInfoList.orEmpty().map { it.subscriptionId }.toSet()
-    }.getOrDefault(emptySet())
+    } catch (_: SecurityException) {
+        emptySet()
+    }
 
     @Synchronized
     fun migrate(preferences: SharedPreferences, occupiedIds: Set<Int> = emptySet()): CarrierIdentityConfig? {

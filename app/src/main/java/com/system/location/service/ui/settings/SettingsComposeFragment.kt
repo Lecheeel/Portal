@@ -86,8 +86,6 @@ import com.system.location.service.update.UpdateChecker
 import com.system.location.service.update.UpdateDialogFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -467,8 +465,8 @@ private fun SettingsScreen(
             crashReportingPendingRestart = SdkPrivacy.crashReportingPendingRestart,
         )
     }
-    val backendFlow = remember { ScenarioRuntime.state.map { it.backend }.distinctUntilChanged() }
-    val backend by backendFlow.collectAsStateWithLifecycle(initialValue = ScenarioRuntime.state.value.backend)
+    val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
+    val backend = runtime.backend
     val sensorTargets = remember(context, revision, preferencesRevision) { context.sensorTargetPackages }
     val routingSummary by produceState("正在读取应用规则" to "正在读取应用规则", preferencesRevision, category) {
         if (category == SettingsCategory.APPS) value = withContext(Dispatchers.IO) {

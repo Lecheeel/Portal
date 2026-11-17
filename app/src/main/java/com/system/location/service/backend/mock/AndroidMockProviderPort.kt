@@ -117,10 +117,14 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
             if (!enabled) return@forEach
             val signal = CancellationSignal()
             handler.postDelayed({ runCatching { signal.cancel() } }, FLUSH_TIMEOUT_MS)
-            runCatching {
+            try {
                 manager.getCurrentLocation(provider, signal, context.mainExecutor) { _ ->
                     // The provider's own last-location cache is updated by the platform.
                 }
+            } catch (_: SecurityException) {
+                // A best-effort cache refresh must not fail provider cleanup.
+            } catch (_: Exception) {
+                // Providers can disappear while cleanup is in progress.
             }
         }
     }

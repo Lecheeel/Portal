@@ -1,5 +1,6 @@
 package com.system.location.service.ui.gnss
 
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
@@ -18,12 +19,12 @@ import com.system.location.service.designsystem.theme.PortalSpacing
 import com.system.location.service.ui.viewmodel.GnssSkyPreviewViewModel
 import java.text.DateFormat
 import java.util.Date
-import java.util.Locale
 
 @Composable
 internal fun GnssSkyPreviewCard(model: GnssSkyPreviewViewModel) {
     val state by model.state.collectAsStateWithLifecycle()
     val synchronization by model.navigationSync.collectAsStateWithLifecycle()
+    val locale = LocalConfiguration.current.locales[0]
     var details by remember { mutableStateOf(false) }
     PortalCard {
         Column(verticalArrangement = Arrangement.spacedBy(PortalSpacing.sm)) {
@@ -34,7 +35,7 @@ internal fun GnssSkyPreviewCard(model: GnssSkyPreviewViewModel) {
                 style = MaterialTheme.typography.bodySmall)
             synchronization.problem?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             state.frame?.let { frame ->
-                Text(String.format(Locale.getDefault(), "目标：%.5f, %.5f · 高程 %.1f m",
+                Text(String.format(locale, "目标：%.5f, %.5f · 高程 %.1f m",
                     frame.observer.latitude, frame.observer.longitude, frame.altitudeMeters),
                     style = MaterialTheme.typography.bodyMedium)
                 Text("目标时间：${DateFormat.getDateTimeInstance().format(Date(frame.generatedAtMillis))}",
@@ -52,7 +53,7 @@ internal fun GnssSkyPreviewCard(model: GnssSkyPreviewViewModel) {
                     .joinToString(" · ") { "${it.key} ${it.value}" }.ifEmpty { "当前目标无可见卫星" },
                     style = MaterialTheme.typography.bodySmall)
                 Text(frame.geometry.dop?.let {
-                    String.format(Locale.getDefault(), "HDOP %.2f · VDOP %.2f · PDOP %.2f", it.hdop, it.vdop, it.pdop)
+                    String.format(locale, "HDOP %.2f · VDOP %.2f · PDOP %.2f", it.hdop, it.vdop, it.pdop)
                 } ?: "DOP：无有效定位解（${frame.geometry.reason ?: "观测不足"}）",
                     style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = { details = !details }) { Text(if (details) "收起来源与诊断" else "查看来源与诊断") }

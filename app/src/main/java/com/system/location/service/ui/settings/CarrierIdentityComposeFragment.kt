@@ -179,8 +179,11 @@ class CarrierIdentityComposeFragment : Fragment() {
     private fun realSimProfiles(context: Context): List<SimCarrierProfile> {
         val telephony = context.getSystemService(TelephonyManager::class.java)
         val subscriptions = context.getSystemService(SubscriptionManager::class.java)
-        val infos = runCatching { subscriptions?.activeSubscriptionInfoList.orEmpty() }
-            .getOrDefault(emptyList())
+        val infos = try {
+            subscriptions?.activeSubscriptionInfoList.orEmpty()
+        } catch (_: SecurityException) {
+            emptyList()
+        }
         return infos.mapNotNull { info ->
             val slot = info.simSlotIndex + 1
             if (slot !in 1..2) return@mapNotNull null

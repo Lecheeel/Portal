@@ -44,8 +44,6 @@ import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.displayLabel
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlin.math.roundToInt
@@ -60,12 +58,8 @@ private data class DrawerModeState(val backend: BackendType, val active: Boolean
 @Composable
 internal fun DrawerModeControl(drawerVisible: Boolean) {
     val context = LocalContext.current
-    val stateFlow = remember {
-        ScenarioRuntime.state.map { DrawerModeState(it.backend, it.isActive) }.distinctUntilChanged()
-    }
-    val state by stateFlow.collectAsStateWithLifecycle(initialValue = ScenarioRuntime.state.value.let {
-        DrawerModeState(it.backend, it.isActive)
-    })
+    val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
+    val state = DrawerModeState(runtime.backend, runtime.isActive)
     val scope = rememberCoroutineScope()
     var draft by rememberSaveable { mutableFloatStateOf(DrawerModes.indexOf(state.backend).toFloat()) }
     var confirmingNative by rememberSaveable { mutableStateOf(false) }

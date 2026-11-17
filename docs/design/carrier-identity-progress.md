@@ -11,6 +11,11 @@
 
 ## 2026-11-17 一致性修复
 
+- 新增每槽可选稳定号码及城市草稿，环境SIM详情支持中国选城随机、国外按国家号码规则随机、手动编辑/清空；生成后持久保存，旧配置留空。国家变更清号，自动城市号码在预设或手改MCC/MNC变更后失效，保存再验证原运营商/城市号段。离线采用Google libphonenumber固定Apache2数据：110917个明确七位中国手机号前缀、340个城市/地区标签、245地区号码规则；许可证与转换脚本保留，不引入GPL号段库，不修改README。说明见[SIM模拟号码](carrier-phone-number.md)。
+- 号码覆盖真实PhoneSubInfoController line1、PIM display-line1和SubscriptionManagerService新号码来源；原权限/包名/来源检查先执行，READ_PHONE_NUMBERS与AppOp、特权权限可读；legacy line1保留READ_SMS、旧target电话状态/默认短信角色规则，现代入口不扩大这些授权。明确UICC来源填模拟号码，不伪造IMS/运营商号码源。SubscriptionInfo号码单独脱敏，公开snapshot永远清空号码和城市。
+- core新增3项通过，遍历有匹配数据的移动/联通/电信城市与国际所有地区各多次匹配、JSON兼容/稳定保存/ASCII格式；Xposed回归与App构建通过。两台真实号码接口各1项最终通过：CN北京与AU独立号码，重复line1/new firstAvailable/UICC/list同值；普通READ_PHONE_STATE无号码，READ_PHONE_NUMBERS+AppOp可读，READ_SMS仅旧line1可读，公开快照不泄露，PER_APP未选撤回。红米首轮即时撤回断言未等待异步同步而失败，改为有限等待后通过，权限断言未放宽。
+- 双机真实Compose UI各1项最终通过：中国选北京生成、AU随机、切槽、Activity重建、保存回读、手改MNC清除旧城市号并重新选城生成。测试临时AppOps/亮屏按原值恢复、偏好恢复，无hidden API放行。未独立安装target≤29或默认短信角色应用验收这两条legacy路径；未宣称所有现行城市均有号段、号码未分配/能收验证码，或无权限应用必不崩溃。既有独立应用并发、锁屏及热重载等目标仍继续。
+
 - 全局属性增加电话应用DE noBackup私有AtomicFile写前日志：每字段记录committed/pending两足迹，setter前落盘并读回核对，成功后提交；新进程先精确撤回仍匹配足迹再抓新基线，外部修改保留。日志绑定BOOT_COUNT，新开机不恢复旧非持久属性，字段/索引/长度/文件大小有界；失败不继续修改属性。两台实测文件radio:radio 0600，停止后字段记录清空。日志不包含IMSI/ICCID/seed。core四项新增回归覆盖setter前/后、撤回中断、JSON、外部更新和非法状态；SIM2单独覆盖产生的空SIM1占位纳入所有权。
 - 受控phone重启发现小米并非仅授权/时序问题：GLOBAL重启时RcsProvisioningMonitor.onSubChanged消费模拟活跃ID，构造不存在的RCS连接，RcsFeatureManager.invalidate空连接反复崩溃；前一轮关于root授权的推测未证实。按AOSP Android14该监视器仅在onSubChanged范围查询真实硬件订阅，保留原方法检查与标记归属，普通应用/SystemUI继续见模拟拓扑，不伪造IMS/RCS注册。源码：https://android.googlesource.com/platform/packages/services/Telephony/+/refs/heads/android14-release/src/com/android/phone/RcsProvisioningMonitor.java 。
 - 最终双机受控kill原phone PID后各1项通过：新PID和phone Binder就绪，全局八属性重新应用，PER_APP/停止时六个身份属性及SIM状态共七项精确恢复原值、模拟NR/LTE不残留，后续PID稳定。小米真实RAT在重启后由Unknown更新GPRS，应保留外部新值，测试仅重启模式允许此项变化；无重启的原八属性严格回归双机另各1项通过。近期crash buffer无新增phone/RCS异常。测试无需hidden API放行，finally恢复配置并停场景；root终止由唯一就绪标记协调，未更改root授权。

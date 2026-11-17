@@ -14,8 +14,12 @@ internal object CarrierRegistryHook {
     private const val EVENT_SERVICE_STATE_CHANGED = 1
     private const val EVENT_CELL_INFO_CHANGED = 11
     private const val EVENT_SIGNAL_STRENGTHS_CHANGED = 9
+    private const val EVENT_DISPLAY_INFO_CHANGED = 21
     private class Entry(val uid: Int, val subId: Int, val death: IBinder.DeathRecipient,
-        val serviceState: Boolean, val cellInfo: Boolean, val signalStrength: Boolean) {
+        val serviceState: Boolean, val cellInfo: Boolean, val signalStrength: Boolean, val displayInfo: Boolean) {
+        @Volatile var displaySent = false
+        @Volatile var lastDisplay: android.telephony.TelephonyDisplayInfo? = null
+        @Volatile var realDisplay: android.telephony.TelephonyDisplayInfo? = null
         @Volatile var signalSent = false
         @Volatile var lastSignal: android.telephony.SignalStrength? = null
         val movementGate = com.system.location.service.core.carrier.CarrierCellPublicationGate()
@@ -64,7 +68,10 @@ internal object CarrierRegistryHook {
             if (previous == null) binder.linkToDeath(death, 0)
             listeners[binder] = Entry(Binder.getCallingUid(), subId, death,
                 EVENT_SERVICE_STATE_CHANGED in events, EVENT_CELL_INFO_CHANGED in events,
-                EVENT_SIGNAL_STRENGTHS_CHANGED in events).apply {
+                EVENT_SIGNAL_STRENGTHS_CHANGED in events, EVENT_DISPLAY_INFO_CHANGED in events).apply {
+                displaySent = previous?.displaySent ?: false
+                lastDisplay = previous?.lastDisplay
+                realDisplay = previous?.realDisplay
                 signalSent = previous?.signalSent ?: false
                 lastSignal = previous?.lastSignal
                 cellsSent = previous?.cellsSent ?: false
@@ -102,6 +109,9 @@ internal object CarrierRegistryHook {
                 if (profile?.virtual == true && EVENT_SIGNAL_STRENGTHS_CHANGED in events) {
                     listeners[binder]?.let { updateSignal(binder, it) }
                 }
+                if (profile?.virtual == true && EVENT_DISPLAY_INFO_CHANGED in events) {
+                    listeners[binder]?.let { updateDisplay(binder, it) }
+                }
                 result
             } catch (failure: Throwable) {
                 if (previous == null) remove(binder) else listeners[binder] = previous
@@ -111,6 +121,25 @@ internal object CarrierRegistryHook {
     }
 
     private fun installCallback(listener: IInterface) {
+        listener.javaClass.onceHookAllMethod("onDisplayInfoChanged", Hooker { callback ->
+            if (dispatching.get() == true) return@Hooker callback.proceed()
+            val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
+            val entry = listeners[target.asBinder()] ?: return@Hooker callback.proceed()
+            entry.realDisplay = callback.args.firstOrNull() as? android.telephony.TelephonyDisplayInfo
+            val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber", listOf(entry.subId), entry.uid)
+            if (profile?.virtual != true) {
+                entry.displaySent = false
+                return@Hooker callback.proceed()
+            }
+            val display = CarrierDisplayInfo.create(profile)
+            val args = callback.args.toTypedArray()
+            if (args.isEmpty()) return@Hooker callback.proceed()
+            args[0] = display
+            val result = callback.proceed(args)
+            entry.displaySent = true
+            entry.lastDisplay = display
+            result
+        })
         listener.javaClass.onceHookAllMethod("onSignalStrengthsChanged", Hooker { callback ->
             if (dispatching.get() == true) return@Hooker callback.proceed()
             val target = callback.thisObject as? IInterface ?: return@Hooker callback.proceed()
@@ -162,6 +191,29 @@ internal object CarrierRegistryHook {
             entry.cellsSent = identity?.virtual == true && cells.isNotEmpty()
             delivered
         })
+    }
+
+    private fun updateDisplay(binder: IBinder, entry: Entry) {
+        if (!entry.displayInfo || listeners[binder] !== entry || !binder.isBinderAlive) return
+        runCatching {
+            val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber", listOf(entry.subId), entry.uid)
+            val virtual = profile?.virtual == true
+            val display = if (virtual) CarrierDisplayInfo.create(profile!!) else if (entry.displaySent)
+                entry.realDisplay ?: CarrierDisplayInfo.unavailable() else return@runCatching
+            if (virtual && entry.displaySent && display == entry.lastDisplay) return@runCatching
+            val listener = Class.forName("com.android.internal.telephony.IPhoneStateListener\$Stub")
+                .getMethod("asInterface", IBinder::class.java).invoke(null, binder) as IInterface
+            if (listeners[binder] !== entry) return@runCatching
+            dispatching.set(true)
+            try {
+                listener.javaClass.getMethod("onDisplayInfoChanged", android.telephony.TelephonyDisplayInfo::class.java)
+                    .invoke(listener, display)
+                entry.displaySent = virtual
+                entry.lastDisplay = if (virtual) display else null
+            } finally { dispatching.set(false) }
+        }.onFailure {
+            com.system.location.service.hook.utils.Logger.warn("Carrier display update failed: ${it.javaClass.simpleName}")
+        }
     }
 
     private fun updateSignal(binder: IBinder, entry: Entry) {
@@ -253,6 +305,7 @@ internal object CarrierRegistryHook {
             listeners.entries.toList().forEach { (binder, entry) ->
                 updateCells(binder, entry)
                 updateSignal(binder, entry)
+                updateDisplay(binder, entry)
                 if (!entry.serviceState || listeners[binder] !== entry || !binder.isBinderAlive) return@forEach
                 runCatching {
                     val profile = CarrierIdentityRuntime.profileForCall("getServiceStateForSubscriber",
@@ -286,6 +339,10 @@ internal object CarrierRegistryHook {
             putBoolean("service_state", entry.serviceState)
             putBoolean("cell_info", entry.cellInfo)
             putBoolean("signal_strength", entry.signalStrength)
+            putBoolean("display_info", entry.displayInfo)
+            putBoolean("display_sent", entry.displaySent)
+            entry.lastDisplay?.let { putParcelable("last_display", it) }
+            entry.realDisplay?.let { putParcelable("real_display", it) }
             putBoolean("signal_sent", entry.signalSent)
             entry.lastSignal?.let { putParcelable("last_signal", it) }
             putBoolean("cells_sent", entry.cellsSent)
@@ -311,7 +368,12 @@ internal object CarrierRegistryHook {
                 binder.linkToDeath(death, 0)
                 listeners[binder] = Entry(row.getInt("uid"), row.getInt("subscription"), death,
                     row.getBoolean("service_state", false), row.getBoolean("cell_info", false),
-                    row.getBoolean("signal_strength", false)).apply {
+                    row.getBoolean("signal_strength", false), row.getBoolean("display_info", false)).apply {
+                    displaySent = row.getBoolean("display_sent", false)
+                    @Suppress("DEPRECATION")
+                    lastDisplay = row.getParcelable<android.telephony.TelephonyDisplayInfo>("last_display")
+                    @Suppress("DEPRECATION")
+                    realDisplay = row.getParcelable<android.telephony.TelephonyDisplayInfo>("real_display")
                     signalSent = row.getBoolean("signal_sent", false)
                     @Suppress("DEPRECATION")
                     lastSignal = row.getParcelable<android.telephony.SignalStrength>("last_signal")

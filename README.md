@@ -78,7 +78,7 @@
 
 基于 [Portal](https://github.com/fuqiuluo/Portal) [@fuqiuluo](https://github.com/fuqiuluo)
 
-Android 虚拟定位/环境伪造工具，支持无Root/Native Hook、路线播放和悬浮摇杆，模拟与伪造GNSS/NMEA/WiFi/基站/SIM卡
+Android 虚拟定位/环境伪造工具，支持路线播放和悬浮摇杆，模拟与伪造GNSS/NMEA/WiFi/基站/SIM卡
 
 <!--
 ### 运行模式

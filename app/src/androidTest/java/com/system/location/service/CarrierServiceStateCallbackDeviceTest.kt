@@ -23,7 +23,10 @@ import java.util.concurrent.TimeUnit
 
 /** Actual application callback transports in system_server; no reflective invocation of callbacks. */
 class CarrierServiceStateCallbackDeviceTest {
-    private class Listener : TelephonyCallback(), TelephonyCallback.ServiceStateListener {
+    private class Listener : TelephonyCallback(), TelephonyCallback.ServiceStateListener,
+        TelephonyCallback.DisplayInfoListener {
+        val displays = LinkedBlockingQueue<android.telephony.TelephonyDisplayInfo>()
+        override fun onDisplayInfoChanged(info: android.telephony.TelephonyDisplayInfo) { displays.offer(info) }
         val states = LinkedBlockingQueue<ServiceState>()
         override fun onServiceStateChanged(serviceState: ServiceState) { states.offer(serviceState) }
     }
@@ -83,6 +86,17 @@ class CarrierServiceStateCallbackDeviceTest {
                     it.operatorNumeric == if (index == 0) "50501" else "310260"
                 })
             }
+            registered.forEachIndexed { index, (_, listener) ->
+                val expectedRat = if (index == 0) TelephonyManager.NETWORK_TYPE_NR else TelephonyManager.NETWORK_TYPE_LTE
+                val deadline = android.os.SystemClock.elapsedRealtime() + 5000
+                var display: android.telephony.TelephonyDisplayInfo? = null
+                do {
+                    val next = listener.displays.poll(200, TimeUnit.MILLISECONDS)
+                    if (next?.networkType == expectedRat) display = next
+                } while (display == null && android.os.SystemClock.elapsedRealtime() < deadline)
+                assertNotNull("SIM ${index + 1} did not receive its display RAT", display)
+                assertEquals(android.telephony.TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE, display!!.overrideNetworkType)
+            }
             fun awaitState(listener: Listener, label: String, predicate: (ServiceState) -> Boolean) {
                 val until = android.os.SystemClock.elapsedRealtime() + 5000
                 do {
@@ -102,13 +116,20 @@ class CarrierServiceStateCallbackDeviceTest {
                         it.operatorNumeric == if (index == 0) "310260" else "50501"
                 }
             }
-            registered.forEach { it.second.states.clear() }
+            registered.forEach { it.second.states.clear(); it.second.displays.clear() }
             check(preferences.edit().putBoolean("carrierIdentityEnabled", false).commit())
             assertTrue(MockServiceHelper.putConfig(location, context))
             registered.forEach { (_, listener) ->
                 awaitState(listener, "Disabling left active listener with virtual state") {
                     it.operatorNumeric !in listOf("310260", "50501")
                 }
+                val until = android.os.SystemClock.elapsedRealtime() + 5000
+                var cleared = false
+                do {
+                    if (listener.displays.poll(200, TimeUnit.MILLISECONDS)?.networkType == TelephonyManager.NETWORK_TYPE_UNKNOWN)
+                        cleared = true
+                } while (!cleared && android.os.SystemClock.elapsedRealtime() < until)
+                assertTrue("Disabling retained virtual display RAT", cleared)
             }
             registered.forEach { it.second.states.clear() }
             check(preferences.edit().putBoolean("carrierIdentityEnabled", true).commit())

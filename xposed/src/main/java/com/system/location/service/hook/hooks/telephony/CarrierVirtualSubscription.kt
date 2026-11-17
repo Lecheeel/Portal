@@ -26,6 +26,7 @@ internal object CarrierVirtualSubscription {
         set("setMnc", profile.mnc.toString().padStart(profile.mncDigits, '0'))
         set("setCountryIso", profile.countryIso.lowercase(Locale.ROOT))
         set("setCarrierId", CarrierVirtualIdentity.carrierId(profile))
+        set("setNumber", if (CarrierPhoneNumberAccess.permitted()) profile.phoneNumber else "")
         // A virtual logical UICC port within its physical slot. Other fields deliberately keep
         // the framework Builder defaults, rather than Unsafe's null/zero uninitialized fields.
         set("setPortIndex", 0)

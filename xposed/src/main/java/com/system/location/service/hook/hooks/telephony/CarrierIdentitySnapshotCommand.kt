@@ -23,7 +23,7 @@ object CarrierIdentitySnapshotCommand {
         if (!request.containsKey("id")) return false
         val profile = CarrierIdentityRuntime.profileForCall(method, listOf(request.getInt("id")))
             ?: return false
-        request.putString(PROFILE, Json.encodeToString(SimCarrierProfile.serializer(), profile.copy(identitySeed = 0L)))
+        request.putString(PROFILE, Json.encodeToString(SimCarrierProfile.serializer(), profile.copy(identitySeed = 0L, phoneNumber = "", phoneNumberCity = "")))
         if (profile.virtual && request.getBoolean("identifiers", false) && CarrierIdentifierAccess.permitted()) {
             request.putString(IMSI, com.system.location.service.core.carrier.CarrierVirtualIdentity.imsi(profile))
             request.putString(ICCID, com.system.location.service.core.carrier.CarrierVirtualIdentity.iccid(profile))

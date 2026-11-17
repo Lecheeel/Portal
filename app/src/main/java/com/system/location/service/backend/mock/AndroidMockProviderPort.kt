@@ -2,7 +2,6 @@ package com.system.location.service.backend.mock
 
 import android.app.AppOpsManager
 import android.content.Context
-import android.location.Location
 import android.location.LocationManager
 import android.location.provider.ProviderProperties
 import android.os.CancellationSignal
@@ -74,7 +73,7 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
     }
     override fun publish(provider: String, sample: ProviderSample) {
         requireAuthorization("提交 $provider 前")
-        val location = sample.applyTo(Location(provider))
+        val location = sample.toLocation(provider)
         val enabled = context.experimentalClearMockFlag
         if (enabled) {
             val outcome = mockFlagExperiment.clear(location)

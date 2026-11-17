@@ -2,7 +2,6 @@ package com.system.location.service.backend.mock
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.location.Location
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.LocationServices
@@ -27,7 +26,7 @@ class AndroidGmsMockPort(context: Context) : FusedMockPort {
             check(journal.edit().putBoolean("pending", pending).commit()) { "GMS 所有权记录保存失败" }
         }
     }, { enabled -> TaskOperation(client.setMockMode(enabled)) }, { sample: ProviderSample ->
-        val location = sample.applyTo(Location("fused"))
+        val location = sample.toLocation("fused")
         if (this.context.experimentalClearMockFlag) flag.clear(location)
         TaskOperation(client.setMockLocation(location))
     }, { android.os.SystemClock.elapsedRealtimeNanos() })

@@ -205,6 +205,7 @@ dependencies {
 
     androidTestUtil("androidx.test:orchestrator:1.6.1")
     testImplementation(libs.junit)
+    testImplementation("org.robolectric:robolectric:4.16")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.libxposed.api)
     androidTestImplementation(libs.androidx.espresso.core)

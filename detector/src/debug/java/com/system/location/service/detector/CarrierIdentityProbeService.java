@@ -1,10 +1,12 @@
 package com.system.location.service.detector;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
@@ -55,6 +57,7 @@ public final class CarrierIdentityProbeService extends Service {
         return binder;
     }
 
+    @SuppressLint("MissingPermission")
     @SuppressWarnings("deprecation")
     private Bundle query(int callerUid, int forcedSubId) {
         final Bundle result = new Bundle();
@@ -93,7 +96,11 @@ public final class CarrierIdentityProbeService extends Service {
             result.putString("forcedLine1", null);
             capture(result, "forcedNumber", () -> {
                 if (subscriptions == null) throw new IllegalStateException("SubscriptionManager unavailable");
-                return subscriptions.getPhoneNumber(forcedSubId);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    return subscriptions.getPhoneNumber(forcedSubId);
+                }
+                if (telephony == null) throw new IllegalStateException("TelephonyManager unavailable");
+                return telephony.createForSubscriptionId(forcedSubId).getLine1Number();
             });
             capture(result, "forcedLine1", () -> {
                 if (telephony == null) throw new IllegalStateException("TelephonyManager unavailable");
@@ -103,6 +110,7 @@ public final class CarrierIdentityProbeService extends Service {
         return result;
     }
 
+    @SuppressLint("MissingPermission")
     @SuppressWarnings("deprecation")
     private Bundle queryRow(SubscriptionInfo info, SubscriptionManager subscriptions,
             TelephonyManager telephony) {
@@ -141,7 +149,8 @@ public final class CarrierIdentityProbeService extends Service {
         final TelephonyManager perSub = scoped;
         capture(row, "simOperator", () -> require(perSub).getSimOperator());
         capture(row, "networkOperator", () -> require(perSub).getNetworkOperator());
-        capture(row, "number", () -> subscriptions.getPhoneNumber(subId));
+        capture(row, "number", () -> Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ? subscriptions.getPhoneNumber(subId) : require(perSub).getLine1Number());
         capture(row, "line1", () -> require(perSub).getLine1Number());
         capture(row, "rat", () -> require(perSub).getDataNetworkType());
         capture(row, "signalLevel", () -> {

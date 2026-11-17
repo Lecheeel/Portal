@@ -37,6 +37,7 @@ object TelephonyHook: BaseTelephonyHook() {
         CarrierConfigOverrideHook.install(classLoader)
         CarrierConfigReadHook.install(classLoader)
         CarrierSubscriptionHook.install(classLoader)
+        CarrierHardwareSubscriptionHook.install(classLoader)
         CarrierServiceStateHook.install(classLoader)
         CarrierSignalStrengthHook.install(classLoader)
         CarrierSubscriberInfoHook.install(classLoader)

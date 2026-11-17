@@ -11,6 +11,11 @@
 
 ## 2026-11-17 一致性修复
 
+- SystemUI实际dump确认两台都创建两槽MobileSignalController，收到NR/NONE和NR_5G图标组；修复前标准NR level=2而miuiLevel/optimizedLevel/控制器level=0，辅助功能为“5G 没有手机信号”。现于统一NR构造路径使用ROM可选setMiuiLevel/setOptimizedLevel同步平台已算等级，不改变测量或硬填满格；非该ROM无setter则跳过。双机对象各3项通过，含聚合标准/MIUI/优化等级与Parcel同值，临时hidden API均恢复。
+- 实际控制器等级断言两台通过，两槽均与本槽同步NR信号同为2；辅助功能采集两台均为“5G 手机信号强度为两格”，名称Portal Alpha/Beta。保存了真实截图、dump和辅助功能文本；当前模型不支持图像输入，截图未逐像素人工审阅，不以截图本身替代控制器/辅助功能断言。
+- 小米GLOBAL/PER_APP切换或重开时文字曾反复失败，失败现场控制中心仍展开且两槽控制器正常，但标题“仅可紧急通话”；实际ROM DEX证实updateCarrierText末端mEmergencyOnly覆盖运营商数组。虚拟渲染现临时false该缓存并finally恢复；关闭、PER_APP和飞机模式原逻辑保持。JVM回归验证成功/异常均恢复原数组引用和紧急标志，无试验性构造器重刷或定时硬改文字。
+- 两台最终冷启动控制中心各1项完整通过：初始双名称/两槽标准同等级、PER_APP撤回、GLOBAL恢复、关/开恢复、停止撤回。每阶段明确展开页面；此前普通adb唤醒被MIUI拒绝，最终root唤醒且临时保持充电亮屏，finally恢复原stay_on设置。测试Assumption跳过时不再停止未接管场景，失败时自动采集现场。锁屏/其他布局、独立应用并发隔离、真实框架热重载和任意phone异常退出后的属性恢复仍待验收。
+
 - 电话peer接受配置、同步属性和缓存后，经真实ITelephonyRegistry.notifySubscriptionInfoChanged通知订阅监听器；250ms合并快速变更，捕获提交代际，过期通知跳过。无客户端手工伪造回调。
 - 本轮首次启用真实通知触发了phone崩溃：小米NotificationMgr.updateMwi查询当前/刚撤回的虚拟getSubscriptionUserHandle抛Invalid subId；红米MIUI数据库线程setDisplayNumber对虚拟ID写number抛无记录异常。phone重启丢失内存属性基线，表现为SIM属性残留；此前“延迟重放”推测错误，core退休值补偿和重复属性刷新试验均已撤掉，未提交。
 - 最终修复：原方法权限/归属检查先执行，仅特权调用、精确异常与已知虚拟ID时处理；用户归属用调用者用户，号码写入返回0行不创建真实DB记录。近期清理记录按用户隔离，最多128项、30s有效，只给撤回系统清理使用，不恢复身份/拓扑可见性。

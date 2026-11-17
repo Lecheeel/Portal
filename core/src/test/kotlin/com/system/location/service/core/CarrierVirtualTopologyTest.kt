@@ -20,6 +20,13 @@ class CarrierVirtualTopologyTest {
         assertNull(CarrierVirtualTopology.subscriptionForPhone(profiles, 2))
     }
 
+    @Test fun legacyUnassignedIdsCannotBecomeVisibleThroughTopologyHelpers() {
+        val profiles = listOf(profile(1).copy(virtualSubscriptionId = 0))
+        assertNull(CarrierVirtualTopology.subscriptionForPhone(profiles, 0))
+        assertNull(CarrierVirtualTopology.slotForSubscription(profiles, 900_000_001))
+        assertArrayEquals(intArrayOf(42), CarrierVirtualTopology.activeIds(intArrayOf(42), profiles))
+    }
+
     @Test fun simTwoOnlyAndHiddenProfilesDoNotInventSimOneOrActiveSubscriptions() {
         val profiles = listOf(profile(2))
         assertNull(CarrierVirtualTopology.subscriptionForPhone(profiles, 0))

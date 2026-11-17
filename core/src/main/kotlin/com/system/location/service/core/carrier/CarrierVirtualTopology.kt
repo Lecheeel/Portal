@@ -3,15 +3,15 @@ package com.system.location.service.core.carrier
 /** Only explicitly visible virtual profiles participate; absent slots remain absent. */
 object CarrierVirtualTopology {
     fun slotForSubscription(profiles: List<SimCarrierProfile>, subId: Int): Int? =
-        profiles.firstOrNull { it.virtual && it.enabled &&
+        profiles.firstOrNull { it.virtual && it.enabled && it.virtualSubscriptionId > 0 &&
             CarrierVirtualIdentity.subscriptionId(it) == subId }?.slot
 
     fun subscriptionForPhone(profiles: List<SimCarrierProfile>, phoneId: Int): Int? =
-        profiles.firstOrNull { it.virtual && it.enabled && it.slot == phoneId + 1 }
+        profiles.firstOrNull { it.virtual && it.enabled && it.virtualSubscriptionId > 0 && it.slot == phoneId + 1 }
             ?.let { CarrierVirtualIdentity.subscriptionId(it) }
 
     fun activeIds(physicalIds: IntArray, profiles: List<SimCarrierProfile>): IntArray =
-        (physicalIds.toList() + profiles.filter { it.virtual && it.enabled }
+        (physicalIds.toList() + profiles.filter { it.virtual && it.enabled && it.virtualSubscriptionId > 0 }
             .sortedBy { it.slot }.map { CarrierVirtualIdentity.subscriptionId(it) })
             .distinct().toIntArray()
 }

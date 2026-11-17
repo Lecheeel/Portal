@@ -6,9 +6,9 @@ import org.junit.Test
 
 class CarrierIdentityResolverTest {
     private val sim1 = SimCarrierProfile(1, countryIso = "CN", mcc = 460, mnc = 0,
-        mncDigits = 2, carrierName = "Test CN")
+        mncDigits = 2, carrierName = "Test CN", virtualSubscriptionId = 71)
     private val sim2 = SimCarrierProfile(2, countryIso = "US", mcc = 310, mnc = 260,
-        carrierName = "Test US")
+        carrierName = "Test US", virtualSubscriptionId = 83)
     private val config = CarrierIdentityConfig(sims = listOf(sim1.copy(virtual = true), sim2.copy(virtual = true)))
 
     @Test fun globalUsesPhysicalSlotAndVirtualizesOnlyAnExplicitEmptySlotProfile() {
@@ -39,6 +39,16 @@ class CarrierIdentityResolverTest {
             appRoutes = listOf(CarrierAppRoute("app", CarrierTarget.SIM2)))
         assertEquals(sim2.copy(virtual = true), CarrierIdentityResolver.profile(routed, 1, emptySet(), listOf("app"), false))
         assertNull(CarrierIdentityResolver.profile(routed.copy(sims = listOf(sim2)), 1, emptySet(), listOf("app"), false))
+    }
+
+    @Test fun unassignedLegacyVirtualProfileMustWaitForControllerMigration() {
+        val legacy = config.copy(sims = listOf(sim1.copy(virtual = true, virtualSubscriptionId = 0)))
+        assertNull(CarrierIdentityResolver.profile(legacy, 1, emptySet(), listOf("app"), false))
+        val routed = legacy.copy(mode = CarrierIdentityMode.PER_APP,
+            appRoutes = listOf(CarrierAppRoute("app", CarrierTarget.SIM1)))
+        assertNull(CarrierIdentityResolver.profile(routed, 2, emptySet(), listOf("app"), false))
+        assertEquals(sim1.copy(virtualSubscriptionId = 0),
+            CarrierIdentityResolver.profile(legacy, 1, setOf(1), listOf("app"), false))
     }
 
     @Test fun sharedUidRequiresUnambiguousRulesAndExplicitInheritKeepsSlot() {

@@ -13,7 +13,7 @@ object CarrierIdentityResolver {
         val physical = requestedSlot in activeSlots
         val configured = config.profileForSlot(requestedSlot)
         if (config.mode == CarrierIdentityMode.GLOBAL) {
-            if (!physical && configured?.virtual != true) return null
+            if (!physical && (configured?.virtual != true || configured.virtualSubscriptionId == 0)) return null
             return configured?.copy(virtual = !physical)
         }
         if (systemCaller) return null
@@ -28,7 +28,7 @@ object CarrierIdentityResolver {
             CarrierTarget.REAL -> return null
         }
         val profile = config.profileForSlot(slot) ?: return null
-        if (slot !in activeSlots && !profile.virtual) return null
+        if (slot !in activeSlots && (!profile.virtual || profile.virtualSubscriptionId == 0)) return null
         return profile.copy(virtual = slot !in activeSlots)
     }
 }

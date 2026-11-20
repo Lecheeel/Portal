@@ -20,7 +20,19 @@ import com.system.location.service.hook.utils.FakeLoc
 /** System hooks wait for the framework's system-server classloader. */
 class PortalModule : XposedModule() {
     private var processName: String = ""
-    private val lifecycle = ModuleInstallScheduler { process, pkg, loader, uid, flags ->
+    private val lifecycle = ModuleInstallScheduler(installSystemPackageHooks = { pkg, loader ->
+        HookRuntime.attach(this)
+        HookRuntime.log("shared system package ready: package=$pkg loader=${loader.javaClass.name}")
+        val installed = runCatching {
+            when (pkg) {
+                "com.android.providers.settings" -> com.system.location.service.hook.privacy.SettingsHook.hook(loader)
+                "com.android.location.fused" -> com.system.location.service.hook.hooks.fused.AndroidFusedLocationProviderHook(loader)
+                else -> false
+            }
+        }.onFailure { HookRuntime.log(it) }.getOrDefault(false)
+        HookRuntime.log("shared system package hooks: package=$pkg installed=$installed")
+        installed
+    }) { process, pkg, loader, uid, flags ->
         HookRuntime.attach(this)
         FakeLocation().install(process, pkg, loader, uid, flags)
     }
@@ -52,11 +64,9 @@ class PortalModule : XposedModule() {
         // The framework may report the shared android package before the actual phone/fused
         // package. Scope resolution, rather than isFirstPackage, decides which package to install.
         if (isSystemProcess()) {
-            // SettingsProvider can be hosted inside system_server and is only class-loadable when
-            // its package is ready; the early system-server attempt cannot see it on such ROMs.
-            if (param.packageName == "com.android.providers.settings") {
-                com.system.location.service.hook.privacy.SettingsHook.hook(param.classLoader)
-            }
+            // Shared-process packages may only become visible through their own package loader.
+            // Framework system scope covers these even when it removes their individual scopes.
+            lifecycle.systemPackageReady(param.packageName, param.classLoader)
             return
         }
         android.util.Log.i("PortalModule", "Package ready: package=${param.packageName} first=${param.isFirstPackage}")
@@ -100,7 +110,7 @@ class PortalModule : XposedModule() {
                 // This API transfers objects within this process; it does not parcel them.
                 // Share the drained platform monitor/counters so queued old interceptors see
                 // the successor generation. Copying them into a Bundle splits the gate.
-                param.setSavedInstanceState(arrayOf(state, gate.transferState()))
+                param.setSavedInstanceState(arrayOf(state, gate.transferState(), lifecycle.systemPackageLoaders()))
                 // The saved subscriptions contain framework Binders, not old module objects.
                 // Drop our old death recipients/mailboxes once the framework accepts the state;
                 // otherwise BinderProxy would keep every retired classloader alive. Complete
@@ -149,6 +159,7 @@ class PortalModule : XposedModule() {
             com.system.location.service.hook.hooks.telephony.CarrierConfigGlobalController
                 .restoreReloadState(saved?.getBundle("carrier_identity"))
             lifecycle.systemServerStarting(loader)
+            lifecycle.restoreSystemPackages(handoff?.getOrNull(2))
             com.system.location.service.hook.hooks.telephony.CarrierRegistryHook
                 .restoreReloadState(saved?.getParcelableArrayList<Bundle>("carrier_listeners").orEmpty())
             restoreCallbacks(saved)
@@ -218,21 +229,49 @@ internal object HotReloadPolicy {
         isSystemProcess && !nativeLoaded
 }
 
-/** Keeps lifecycle ordering and package idempotence independent of Android installation details. */internal class ModuleInstallScheduler(
+/** Keeps lifecycle ordering and package idempotence independent of Android installation details. */
+internal class ModuleInstallScheduler(
+    private val installSystemPackageHooks: (String, ClassLoader) -> Boolean = { _, _ -> false },
     private val installHooks: (String, String, ClassLoader, Int, Int) -> Unit,
 ) {
     private var processName = ""
     var isSystemServer = false
         private set
     private val installedPackages = mutableSetOf<String>()
+    private val readySystemPackages = mutableMapOf<String, ClassLoader>()
+    private val installedSystemPackages = mutableSetOf<String>()
 
     fun moduleLoaded(process: String, systemServer: Boolean) {
         processName = process
         isSystemServer = systemServer
     }
 
+    @Synchronized
     fun systemServerStarting(loader: ClassLoader) {
         install("system_server", "android", loader, 1000, 0)
+        readySystemPackages.toMap().forEach { (pkg, packageLoader) -> systemPackageReady(pkg, packageLoader) }
+    }
+
+    @Synchronized
+    fun systemPackageReady(pkg: String, loader: ClassLoader) {
+        if (pkg !in setOf("com.android.providers.settings", "com.android.location.fused")) return
+        readySystemPackages[pkg] = loader
+        if ("android" !in installedPackages || pkg in installedSystemPackages) return
+        if (installSystemPackageHooks(pkg, loader)) installedSystemPackages.add(pkg)
+    }
+
+    /** Framework handoff stays within this process; only platform types cross module generations. */
+    @Synchronized
+    fun systemPackageLoaders(): Array<Array<Any>> =
+        readySystemPackages.map { (pkg, loader) -> arrayOf<Any>(pkg, loader) }.toTypedArray()
+
+    fun restoreSystemPackages(state: Any?) {
+        (state as? Array<*>)?.forEach { entry ->
+            val pair = entry as? Array<*> ?: return@forEach
+            val pkg = pair.getOrNull(0) as? String ?: return@forEach
+            val loader = pair.getOrNull(1) as? ClassLoader ?: return@forEach
+            systemPackageReady(pkg, loader)
+        }
     }
 
     fun packageReady(pkg: String, loader: ClassLoader, uid: Int, flags: Int) {

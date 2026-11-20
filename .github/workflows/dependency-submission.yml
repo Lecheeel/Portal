@@ -1,0 +1,46 @@
+name: Submit Dependency Graph
+
+"on":
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-submission-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_TOOL_OPTIONS: --enable-native-access=ALL-UNNAMED
+
+jobs:
+  submit:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Gradle dependencies must be submitted before GitHub can report vulnerabilities.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install Android toolchain
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;30.0.16248370' 'cmake;4.1.2'
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@v6.4.1
+        with:
+          cache-provider: basic
+          dependency-graph: generate-and-submit

@@ -205,11 +205,11 @@ dependencies {
     // Lite omits the embedded legacy Bugly implementation; Portal controls reporting separately.
     implementation("com.tencent.openmap:foundation:0.9.1.6875646-lite")
     implementation(libs.geotools)
-    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.android.gms:play-services-location:21.4.0")
 
     androidTestUtil("androidx.test:orchestrator:1.6.1")
     testImplementation(libs.junit)
-    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation("org.robolectric:robolectric:4.18")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.libxposed.api)
     androidTestImplementation(libs.androidx.espresso.core)

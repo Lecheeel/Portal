@@ -1,0 +1,74 @@
+name: Dependabot Auto-merge
+
+"on":
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # This privileged workflow only reads metadata. Never check out or run PR code here.
+      - name: Fetch verified Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      - name: Check every dependency in the update
+        id: policy
+        env:
+          DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const allowed = new Set(['version-update:semver-minor', 'version-update:semver-patch']);
+          let eligible = false;
+          try {
+            const dependencies = JSON.parse(process.env.DEPENDENCIES);
+            eligible = Array.isArray(dependencies) && dependencies.length > 0 &&
+              dependencies.every(dependency => allowed.has(dependency?.updateType));
+          } catch {
+            // Missing or unrecognized metadata requires manual review.
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `eligible=${eligible}\n`);
+          NODE
+      - name: Configure auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ELIGIBLE: ${{ steps.policy.outputs.eligible }}
+        run: |
+          set -euo pipefail
+          if [ "$ELIGIBLE" != true ]; then
+            gh pr merge "$PR_URL" --disable-auto
+            echo 'Major or unrecognized updates require manual review.'
+            exit 0
+          fi
+
+          # Reject stale events and PRs with extra commits added after Dependabot's update.
+          gh api "repos/$GH_REPO/pulls/$PR_NUMBER" > "$RUNNER_TEMP/dependabot-pr.json"
+          jq -e --arg repo "$GH_REPO" --arg sha "$PR_HEAD_SHA" '
+            .state == "open" and .draft == false and .commits == 1 and
+            .user.login == "dependabot[bot]" and .base.ref == "main" and
+            .head.repo.full_name == $repo and .head.sha == $sha
+          ' "$RUNNER_TEMP/dependabot-pr.json" > /dev/null
+
+          # GitHub waits for the required verify and ui checks, including an up-to-date branch.
+          gh pr merge "$PR_URL" --auto --merge --match-head-commit "$PR_HEAD_SHA"

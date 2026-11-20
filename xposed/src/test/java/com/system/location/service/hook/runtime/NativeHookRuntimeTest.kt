@@ -3,6 +3,8 @@ package com.system.location.service.hook.runtime
 import com.system.location.service.hook.scope.HookInstaller
 import com.system.location.service.hook.scope.HookStatusRegistry
 import com.system.location.service.hook.utils.onceHook
+import com.system.location.service.hook.utils.FakeLoc
+import com.system.location.service.hook.hooks.fused.AndroidFusedLocationProviderHook
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.HookBuilder
@@ -226,6 +228,32 @@ class NativeHookRuntimeTest {
         assertEquals(2, framework.registrations.size)
     }
 
+    @Test
+    fun fusedHooksRetryWithThePackageLoaderWithoutDuplicatingAnEarlyInstallation() {
+        val framework = FakeFramework()
+        HookRuntime.attach(framework.api)
+        val packageLoader = javaClass.classLoader!!
+        val earlyLoader = object : ClassLoader(packageLoader) {
+            override fun loadClass(name: String, resolve: Boolean): Class<*> {
+                if (name.startsWith("com.android.location.fused.")) throw ClassNotFoundException(name)
+                return super.loadClass(name, resolve)
+            }
+        }
+        val wasSystemServer = FakeLoc.isSystemServerProcess
+        FakeLoc.isSystemServerProcess = true
+        try {
+            assertFalse(AndroidFusedLocationProviderHook(earlyLoader))
+            assertTrue(framework.registrations.isEmpty())
+            assertTrue(AndroidFusedLocationProviderHook(packageLoader))
+            assertEquals(setOf("chooseBestLocation", "onLocationChanged"),
+                framework.registrations.map { it.executable.name }.toSet())
+            assertTrue(AndroidFusedLocationProviderHook(packageLoader))
+            assertEquals(2, framework.registrations.size)
+        } finally {
+            FakeLoc.isSystemServerProcess = wasSystemServer
+        }
+    }
+
     private fun targetMethod(name: String): Method = Target::class.java.declaredMethods.single { it.name == name }
 
     private fun fakeChain(method: Method, arguments: List<Any?>, proceed: (List<Any?>) -> Any?): Chain =
@@ -262,6 +290,7 @@ class NativeHookRuntimeTest {
             when (method.name) {
                 "hook" -> builder(args!![0] as Executable)
                 "getInvoker" -> invoker(args!![0] as Method)
+                "log" -> null
                 else -> error("Unexpected framework call: ${method.name}")
             }
         }

@@ -3,10 +3,46 @@ updates:
   - package-ecosystem: gradle
     directory: "/"
     schedule:
-      interval: monthly
-      time: "21:00"
-    target-branch: master
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
     groups:
-      maven-dependencies:
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+      gradle-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      gradle-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      actions-security:
+        applies-to: security-updates
         patterns:
           - "*"

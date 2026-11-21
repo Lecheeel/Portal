@@ -266,7 +266,7 @@ class HomeComposeFragment : Fragment() {
 
     private fun openDrawer() {
         val activity = activity as? MainActivity ?: return
-        activity.binding.drawerLayout.openDrawer(GravityCompat.START)
+        activity.openDrawer()
     }
 
     private fun setTarget(wgs: Pair<Double, Double>, name: String?) {

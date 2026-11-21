@@ -83,7 +83,7 @@ import com.system.location.service.ui.viewmodel.LibraryViewModel
  * Compose route/scenario/location library. Persistence and scene construction stay in the existing
  * LibraryViewModel; SAF launchers stay in this Fragment host.
  */
-class RouteGalleryComposeFragment : Fragment() {
+open class RouteGalleryComposeFragment : Fragment() {
     private val model by viewModels<LibraryViewModel>()
     private var environmentSelected = false
     private var importKind = LibraryKind.ROUTES

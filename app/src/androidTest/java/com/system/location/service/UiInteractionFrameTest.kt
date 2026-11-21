@@ -62,11 +62,11 @@ class UiInteractionFrameTest {
                 var probe = UiFrameProbe(activity)
                 probe.use {
                     repeat(4) {
-                        scenario.onActivity { it.binding.drawerLayout.openDrawer(GravityCompat.START) }
-                        await { var open = false; scenario.onActivity { open = it.binding.drawerLayout.isDrawerOpen(GravityCompat.START) }; open }
+                        scenario.onActivity { it.openDrawer() }
+                        await { var open = false; scenario.onActivity { open = it.drawerState.isOpen }; open }
                         SystemClock.sleep(350)
-                        scenario.onActivity { it.binding.drawerLayout.closeDrawer(GravityCompat.START) }
-                        await { var open = true; scenario.onActivity { open = it.binding.drawerLayout.isDrawerVisible(GravityCompat.START) }; !open }
+                        scenario.onActivity { it.closeDrawer() }
+                        await { var open = true; scenario.onActivity { open = (it.drawerState.isOpen || it.drawerState.isAnimationRunning) }; !open }
                         SystemClock.sleep(350)
                     }
                     save(probe, "drawer-transitions")
@@ -78,7 +78,7 @@ class UiInteractionFrameTest {
                         32 * 1024 * 1024, 1_000)
                     tracing = true
                 }
-                scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_settings, 0) }
+                scenario.onActivity { it.navigateFromDrawer(R.id.nav_settings) }
                 await { findText("地图与定位") != null }
                 SystemClock.sleep(350)
                 probe = UiFrameProbe(activity)
@@ -95,10 +95,10 @@ class UiInteractionFrameTest {
                 probe = UiFrameProbe(activity)
                 probe.use {
                     repeat(4) {
-                        scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_home, 0) }
+                        scenario.onActivity { it.navigateFromDrawer(R.id.nav_home) }
                         await { findText("开始模拟") != null }
                         SystemClock.sleep(350)
-                        scenario.onActivity { it.binding.navView.menu.performIdentifierAction(R.id.nav_settings, 0) }
+                        scenario.onActivity { it.navigateFromDrawer(R.id.nav_settings) }
                         await { findText("地图与定位") != null }
                         SystemClock.sleep(350)
                     }

@@ -33,22 +33,16 @@ class DrawerGestureUiTest {
                 compose.waitUntil(5_000) {
                     var matches = false
                     scenario.onActivity {
-                        matches = if (open) it.binding.drawerLayout.isDrawerOpen(GravityCompat.START)
-                            else !it.binding.drawerLayout.isDrawerVisible(GravityCompat.START)
+                        matches = if (open) it.drawerState.isOpen
+                            else !(it.drawerState.isOpen || it.drawerState.isAnimationRunning)
                     }
                     matches
                 }
             }
-            onView(withId(R.id.drawer_layout)).perform(GeneralSwipeAction(
-                Swipe.SLOW,
-                CoordinatesProvider { view ->
-                    val xy = IntArray(2).also { view.getLocationOnScreen(it) }
-                    floatArrayOf(xy[0] + 4 * view.resources.displayMetrics.density, xy[1] + view.height * .4f)
-                },
-                CoordinatesProvider { view ->
-                    val xy = IntArray(2).also { view.getLocationOnScreen(it) }
-                    floatArrayOf(xy[0] + view.width * .75f, xy[1] + view.height * .4f)
-                }, Press.FINGER))
+            compose.onNodeWithTag("portal_shell").performTouchInput {
+                swipe(start = androidx.compose.ui.geometry.Offset(4f, centerY),
+                    end = androidx.compose.ui.geometry.Offset(width * .75f, centerY), durationMillis = 600)
+            }
             drawer(true)
             captureUi("drawer-home-selection")
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
@@ -57,7 +51,7 @@ class DrawerGestureUiTest {
 
             compose.onNodeWithContentDescription("打开菜单").performClick()
             drawer(true)
-            onView(withText("设置")).perform(click())
+            compose.onNodeWithText("设置").performClick()
             drawer(false)
             compose.onNodeWithText("地图与定位").performClick()
             compose.waitUntil(5_000) {
@@ -67,14 +61,14 @@ class DrawerGestureUiTest {
             scenario.recreate()
             compose.onNodeWithText("定位精度").assertIsDisplayed()
             scenario.onActivity {
-                assertTrue(it.binding.navView.menu.findItem(R.id.nav_settings).isChecked)
+                assertTrue((it.selectedDrawerId == R.id.nav_settings))
                 it.onSupportNavigateUp()
             }
             compose.waitUntil(5_000) {
                 runCatching { compose.onNodeWithText("地图与定位").assertIsDisplayed(); true }.getOrDefault(false)
             }
             compose.onNodeWithText("地图与定位").assertIsDisplayed()
-            scenario.onActivity { it.binding.drawerLayout.openDrawer(GravityCompat.START) }
+            scenario.onActivity { it.openDrawer() }
             drawer(true)
             scenario.recreate()
             drawer(true)

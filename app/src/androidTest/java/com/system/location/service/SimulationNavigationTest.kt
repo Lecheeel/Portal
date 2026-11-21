@@ -28,7 +28,7 @@ class SimulationNavigationTest {
             compose.openPage(scenario, R.id.nav_mock)
             compose.onNodeWithText("环境").assertIsSelected()
             compose.onNodeWithText("手动新建").assertIsDisplayed()
-            scenario.onActivity { assertNull(it.binding.navView.menu.findItem(R.id.nav_gnss_mock)) }
+            scenario.onActivity { assertFalse(com.system.location.service.ui.navigation.portalDestinations.any { target -> target.id == R.id.nav_gnss_mock }) }
             compose.onNodeWithText("卫星").performClick()
             compose.onNodeWithText("卫星").assertIsSelected()
             compose.onNodeWithText("星图信息").assertIsDisplayed()

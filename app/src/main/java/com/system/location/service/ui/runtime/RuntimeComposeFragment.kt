@@ -89,7 +89,7 @@ import java.util.Locale
  * the Fragment navigation graph for now. This keeps the migration reversible while the design
  * system and Compose shell mature.
  */
-class RuntimeComposeFragment : Fragment() {
+open class RuntimeComposeFragment : Fragment() {
     private val settingsModel by viewModels<SettingsViewModel>()
     private val exportLog = registerForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain"),

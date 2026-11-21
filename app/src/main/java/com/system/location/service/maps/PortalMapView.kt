@@ -25,7 +25,7 @@ interface MapLine : MapOverlay { fun points(points: List<Gcj02>) }
 /** Only the selected SDK view is constructed, after its consent gate. Coordinates are GCJ-02. */
 class PortalMapView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
     val provider = context.mapProvider
-    private var amap: com.amap.api.maps.MapView? = null
+    private var amap: com.amap.api.maps.TextureMapView? = null
     private var tencent: com.tencent.tencentmap.mapsdk.maps.MapView? = null
     private var current: MapMarker? = null
     private var original: MapMarker? = null
@@ -79,7 +79,7 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
         check(!destroyed && childCount == 0)
         if (provider == MapProvider.AMAP) {
             check(com.system.location.service.privacy.SdkPrivacy.mapsReady)
-            amap = com.amap.api.maps.MapView(context).also { view ->
+            amap = com.amap.api.maps.TextureMapView(context).also { view ->
                 addView(view, LayoutParams(-1, -1)); view.onCreate(state)
                 view.map.uiSettings.apply {
                     isCompassEnabled = true; isZoomControlsEnabled = false
@@ -89,6 +89,9 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
         } else {
             check(TencentPrivacy.ready(context)) { "请先同意腾讯地图隐私政策" }
             val options = TencentMapOptions().also { options ->
+                // TextureView participates in Compose/Fragment alpha and translation. A separate
+                // SurfaceView turns black while its page is being faded or resized.
+                options.setMapViewType(com.tencent.tencentmap.mapsdk.maps.model.MapViewType.TextureView)
                 TencentKeySettings.effectiveKey(context).takeIf(String::isNotBlank)
                     ?.let(options::setMapKey)
             }

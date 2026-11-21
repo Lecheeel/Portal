@@ -43,4 +43,16 @@ class ListenerRoutingSnapshotTest {
         assertEquals(RoutingDecision.Global,
             ListenerRouting.decisionForPackages(10_123, captured, listOf("system.app")) { true })
     }
+
+    @Test fun secondaryUserServicesDoNotRequirePackageLookupOrInheritAppRoutes() {
+        val config = RoutingConfig(mode = RoutingMode.PER_APP, globalScenarioId = "app-only",
+            deniedPackages = setOf("system.app"))
+        for (uid in listOf(101000, 101001, 99901000)) {
+            assertEquals(RoutingDecision.Global, ListenerRouting.decisionFor(null, uid, config))
+            assertEquals(RoutingDecision.Global,
+                ListenerRouting.decisionForPackages(uid, config, emptyList()))
+            assertEquals(RoutingDecision.Global,
+                ListenerRouting.decisionForPackages(uid, config, listOf("system.app")))
+        }
+    }
 }

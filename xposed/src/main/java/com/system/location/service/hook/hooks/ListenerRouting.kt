@@ -53,7 +53,7 @@ object ListenerRouting {
     fun decisionFor(packageName: String?, uid: Int, config: RoutingConfig?): RoutingDecision {
         config ?: return RoutingDecision.Global
         if (config.mode == RoutingMode.GLOBAL) return RoutingDecision.Global
-        if (uid < 10_000) return RoutingDecision.Global
+        if (BinderUtils.isCoreUid(uid)) return RoutingDecision.Global
         val packages = packageName?.takeIf { it.isNotBlank() }?.let { listOf(it) }
             ?: runCatching { BinderUtils.getUidPackageNames(uid = uid)?.toList().orEmpty() }.getOrDefault(emptyList())
         return decisionForPackages(uid, config, packages) { packageNameToCheck ->
@@ -67,6 +67,7 @@ object ListenerRouting {
         packages: Collection<String>,
         isSystemPackage: (String) -> Boolean = { false },
     ): RoutingDecision {
+        if (BinderUtils.isCoreUid(uid)) return RoutingDecision.Global
         if (packages.isEmpty()) return RoutingDecision.Deny
         if (packages.any(isSystemPackage)) return RoutingDecision.Global
         val table = runCatching { RoutingTable(config) }.getOrNull() ?: return RoutingDecision.Deny
@@ -79,7 +80,7 @@ object ListenerRouting {
         val config = routing ?: return Route.Default
         if (config.mode == RoutingMode.GLOBAL) return Route.Default
         val uid = callerUids[listener.asBinder()] ?: return Route.Default
-        if (uid < 10_000) return Route.Default
+        if (BinderUtils.isCoreUid(uid)) return Route.Default
         val router = routerFor(config) ?: return Route.Default
         return when (val decision = router.decision(uid)) {
             RoutingDecision.Deny -> Route.Denied

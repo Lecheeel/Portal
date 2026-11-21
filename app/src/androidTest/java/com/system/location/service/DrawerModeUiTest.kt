@@ -20,6 +20,21 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DrawerModeUiTest {
     @get:Rule val compose = createEmptyComposeRule()
+    private var previousAnimatorScale: String? = null
+    private fun animatorScale(value: String?) {
+        val command = if (value == null) "settings delete global animator_duration_scale"
+            else "settings put global animator_duration_scale $value"
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)).use { it.readBytes() }
+    }
+    @org.junit.Before fun enableAnimationForTheEnergyTrackAssertion() {
+        previousAnimatorScale = android.provider.Settings.Global.getString(
+            InstrumentationRegistry.getInstrumentation().targetContext.contentResolver, "animator_duration_scale")
+        // The UI workflow disables animations; this test specifically checks an enabled loop.
+        animatorScale("1")
+        compose.waitUntil(5_000) { android.animation.ValueAnimator.areAnimatorsEnabled() }
+    }
+    @org.junit.After fun restoreAnimatorScale() { animatorScale(previousAnimatorScale) }
 
     @Test fun sliderSelectsThreeModesAndNativeRequiresExplicitConfirmationAcrossRecreation() {
         acceptSelectedMapForUiTest()

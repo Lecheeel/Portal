@@ -90,7 +90,7 @@ Android 虚拟定位/环境伪造工具，支持路线播放和悬浮摇杆，�
 
 其中基带丢失问题会出现在**所有**Android13-15的设备上
 
-如有需要请更换至(**v2.3.5**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.5]
+已修复，请更新至(**v2.3.7**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.7]
 
 
 <!--

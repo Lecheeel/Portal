@@ -53,7 +53,7 @@ class HomeSelectionUiTest {
                 scenario.onActivity { it.openDrawer() }
                 compose.onNodeWithTag("drawer-mode-slider").assertIsNotEnabled()
                 compose.onNodeWithText("运行中 · 停止场景后可切换").assertIsDisplayed()
-                scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+                scenario.onActivity { it.systemBackForUiTest() }
                 compose.onNodeWithContentDescription("暂停模拟").assertIsEnabled().performClick()
                 compose.waitUntil(10_000) { ScenarioRuntime.state.value.phase == RuntimePhase.PAUSED }
                 val session = ScenarioRuntime.state.value.scenarioId

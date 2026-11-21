@@ -45,7 +45,7 @@ class DrawerGestureUiTest {
             }
             drawer(true)
             captureUi("drawer-home-selection")
-            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            scenario.onActivity { it.systemBackForUiTest() }
             drawer(false)
             compose.onNodeWithText("开始模拟").assertIsDisplayed()
 
@@ -73,7 +73,7 @@ class DrawerGestureUiTest {
             scenario.recreate()
             drawer(true)
             captureUi("drawer-settings-selection-restored")
-            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            scenario.onActivity { it.systemBackForUiTest() }
             drawer(false)
             scenario.onActivity {
                 assertEquals(R.id.nav_settings, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)

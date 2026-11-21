@@ -1,6 +1,7 @@
 package com.system.location.service
 
-import androidx.activity.BackEventCompat
+import androidx.navigationevent.DirectNavigationEventInput
+import androidx.navigationevent.NavigationEvent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.core.view.GravityCompat
@@ -15,12 +16,15 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PredictiveBackUiTest {
     @get:Rule val compose = createEmptyComposeRule()
-    private fun event(progress: Float) = BackEventCompat(200f * progress, 400f, progress, BackEventCompat.EDGE_LEFT)
+    private fun event(progress: Float) = NavigationEvent(swipeEdge = NavigationEvent.EDGE_LEFT,
+        progress = progress, touchX = 200f * progress, touchY = 400f)
 
     @Test fun drawerTracksProgressCancelsAndCommitsWithoutLeavingThePage() {
         acceptSelectedMapForUiTest()
         grantUiPermissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val input = DirectNavigationEventInput()
+            scenario.onActivity { it.navigationEventDispatcher.addInput(input) }
             compose.waitUntil(5_000) { runCatching { compose.onNodeWithText("开始模拟").assertIsDisplayed(); true }.getOrDefault(false) }
             scenario.onActivity { it.openDrawer() }
             compose.waitUntil(5_000) {
@@ -29,12 +33,12 @@ class PredictiveBackUiTest {
                 open
             }
             scenario.onActivity {
-                it.onBackPressedDispatcher.dispatchOnBackStarted(event(0f))
-                it.onBackPressedDispatcher.dispatchOnBackProgressed(event(.65f))
+                input.backStarted(event(0f))
+                input.backProgressed(event(.65f))
                 // The Compose drawer handles progress without navigating the underlying page.
                 assertEquals(R.id.nav_home, it.currentDestinationId)
                 assertTrue(it.drawerState.isOpen)
-                it.onBackPressedDispatcher.dispatchOnBackCancelled()
+                input.backCancelled()
             }
             compose.waitUntil(5_000) {
                 var restored = false
@@ -43,9 +47,9 @@ class PredictiveBackUiTest {
             }
             scenario.onActivity {
                 assertTrue(it.drawerState.isOpen)
-                it.onBackPressedDispatcher.dispatchOnBackStarted(event(0f))
-                it.onBackPressedDispatcher.dispatchOnBackProgressed(event(.8f))
-                it.onBackPressedDispatcher.onBackPressed()
+                input.backStarted(event(0f))
+                input.backProgressed(event(.8f))
+                input.backCompleted()
             }
             compose.waitUntil(5_000) {
                 var closed = false
@@ -62,6 +66,8 @@ class PredictiveBackUiTest {
         acceptSelectedMapForUiTest()
         grantUiPermissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val input = DirectNavigationEventInput()
+            scenario.onActivity { it.navigationEventDispatcher.addInput(input) }
             compose.openPage(scenario, R.id.nav_settings)
             compose.onNodeWithText("地图与定位").performClick()
             fun resumed() = compose.waitUntil(5_000) {
@@ -78,11 +84,11 @@ class PredictiveBackUiTest {
                 val page = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
                     .childFragmentManager.primaryNavigationFragment!!
                 assertTrue((page.returnTransition as androidx.transition.Slide).isSeekingSupported)
-                it.onBackPressedDispatcher.dispatchOnBackStarted(event(0f))
+                input.backStarted(event(0f))
             }
             compose.waitForIdle()
             scenario.onActivity {
-                it.onBackPressedDispatcher.dispatchOnBackProgressed(event(.5f))
+                input.backProgressed(event(.5f))
             }
             // A seekable Back must attach the previous page before the gesture commits.
             compose.waitUntil(5_000) {
@@ -95,17 +101,17 @@ class PredictiveBackUiTest {
                 }
                 previewing
             }
-            scenario.onActivity { it.onBackPressedDispatcher.dispatchOnBackCancelled() }
+            scenario.onActivity { input.backCancelled() }
             resumed()
             compose.onNodeWithText("定位精度").assertIsDisplayed()
             scenario.onActivity {
                 assertEquals(R.id.nav_settings_location, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
-                it.onBackPressedDispatcher.dispatchOnBackStarted(event(0f))
+                input.backStarted(event(0f))
             }
             compose.waitForIdle()
             scenario.onActivity {
-                it.onBackPressedDispatcher.dispatchOnBackProgressed(event(.8f))
-                it.onBackPressedDispatcher.onBackPressed()
+                input.backProgressed(event(.8f))
+                input.backCompleted()
             }
             resumed()
             compose.onNodeWithText("常用设置").assertIsDisplayed()

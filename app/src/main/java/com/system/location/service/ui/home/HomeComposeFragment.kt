@@ -121,7 +121,7 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /** Compose home screen; the map remains an AndroidView and owns its SDK lifecycle. */
-class HomeComposeFragment : Fragment() {
+open class HomeComposeFragment : Fragment() {
     private val replayModel by activityViewModels<com.system.location.service.ui.viewmodel.QuickReplayViewModel>()
     private val mapModel by activityViewModels<AMapViewModel>()
     private val mockModel by activityViewModels<MockServiceViewModel>()

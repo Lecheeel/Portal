@@ -202,11 +202,11 @@ class UiDesignTest {
             }
             phase("assert empty search") { compose.scrollToText("没有匹配的资料").assertIsDisplayed() }
             phase("clear search") { compose.scrollToText("搜索资料").performTextReplacement("") }
-            phase("select locations") { compose.scrollToText("位置").performClick() }
+            phase("select locations") { compose.onNode(hasText("位置") and hasClickAction()).performClick() }
             phase("await selected category") {
                 compose.waitUntil(5_000) { compose.onAllNodes(hasText("位置") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
             }
-            phase("assert selected category") { compose.scrollToText("位置").assertIsSelected() }
+            phase("assert selected category") { compose.onNode(hasText("位置") and hasClickAction()).assertIsSelected() }
             val more = phase("reveal transfer actions") { compose.scrollToText("更多") }
             phase("await transfer readiness") {
                 compose.waitUntil(5_000) { compose.onAllNodes(hasText("更多") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
@@ -294,8 +294,11 @@ class UiDesignTest {
                     compose.waitForIdle()
                     val drawer = compose.onNodeWithTag("portal_drawer").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
                     val title = compose.onNodeWithText("Portal").fetchSemanticsNode().boundsInRoot
-                    assertTrue("Drawer must reach the top edge", drawer.top <= 1f)
-                    assertTrue("Drawer title needs safe space", title.top >= 20f)
+                    val density = instrumentation.targetContext.resources.displayMetrics.density
+                    assertTrue("Compact drawer must respect the top safe area", drawer.top >= 12f * density)
+                    assertTrue("Compact drawer must stay within its width limit", drawer.width <= 288f * density + 1f)
+                    assertTrue("Compact drawer must stay within its height limit", drawer.height <= 600f * density + 1f)
+                    assertTrue("Drawer title needs safe space", title.top >= drawer.top)
                     capture("drawer-$suffix")
                     scenario.onActivity { it.closeDrawer() }
                     scenario.onActivity { activity ->
@@ -320,7 +323,7 @@ class UiDesignTest {
                     // The dialog window enter animation is independent of Compose idleness.
                     android.os.SystemClock.sleep(350)
                     capture("map-provider-$suffix")
-                    compose.onNodeWithText("取消").performClick()
+                    compose.onNodeWithText(instrumentation.targetContext.getString(android.R.string.cancel)).performClick()
                 } finally {
                     scenario.close()
                     assertEquals("Theme changes must not outlive their Activity", androidx.lifecycle.Lifecycle.State.DESTROYED, scenario.state)

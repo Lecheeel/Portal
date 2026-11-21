@@ -14,6 +14,7 @@ import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.ext.sensorTargetPackages
 import com.system.location.service.gnss.gnssReplayOnStart
 import com.system.location.service.gnss.gnssReplayProblem
+import com.system.location.service.gnss.applySatelliteStartupDefaults
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
@@ -110,7 +111,6 @@ class XposedBackend(private val context: Context) : LocationBackend {
         }
     }
     override suspend fun prepare(): BackendResult {
-        context.gnssReplayProblem()?.let { return BackendResult.Failure("GNSS_CAPTURE", it, "重新采集或在快捷回放中选择目标天空") }
         MockServiceHelper.tryInitService(manager)
         connected = MockServiceHelper.isServiceInit()
         if (!connected) return checked(false, "CONNECT", "启用 Xposed 模块的系统作用域并重启设备")
@@ -119,6 +119,9 @@ class XposedBackend(private val context: Context) : LocationBackend {
             connected = false
             return BackendResult.Failure("PROTOCOL", "已加载的系统模块不支持统一定位快照", "安装当前版本并重启设备")
         }
+        context.applySatelliteStartupDefaults(status.getString("hook_scope") == "SYSTEM_SERVER" &&
+            status.getInt("hook_installed") > 0)
+        context.gnssReplayProblem()?.let { return BackendResult.Failure("GNSS_CAPTURE", it, "重新采集或在快捷回放中选择目标天空") }
         if (!MockServiceHelper.setNativeEnabled(manager, false)) {
             return BackendResult.Failure("NATIVE_DISABLE", "无法关闭之前的 Native 传感器", "重新连接系统模块后重试")
         }

@@ -86,6 +86,7 @@ class MainActivity : AppCompatActivity() {
         controller.navigate(destination, null, navOptions { launchSingleTop = true; popUpTo(start) })
     }
 
+    @SuppressLint("RestrictedApi") // Same container reattachment used by AndroidFragment in fragment-compose.
     private fun createNavigationHost(): View {
         // Fragment navigation remains the interoperability layer for the existing Compose screens.
         // Construct its container synchronously before restoring the graph's Fragment views.
@@ -98,6 +99,9 @@ class MainActivity : AppCompatActivity() {
                         .setPrimaryNavigationFragment(it).commitNow()
                 }
             navHost = host
+            // super.onCreate restores the Fragment before Compose creates this replacement View.
+            // Rebind the restored host's view, just as AndroidFragment does for its own container.
+            supportFragmentManager.onContainerAvailable(this)
             androidx.navigation.Navigation.setViewNavController(this, host.navController)
             host.navController.addOnDestinationChangedListener { _, destination, args ->
                 currentDestinationId = destination.id

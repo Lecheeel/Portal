@@ -5,6 +5,7 @@ import android.telephony.SubscriptionManager
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.Logger
+import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.hookAllMethods
 import io.github.libxposed.api.XposedInterface.Hooker
 
@@ -26,7 +27,10 @@ internal object CarrierHardwareSubscriptionHook {
         monitor.hookAllMethods("onSubChanged", Hooker { chain -> withHardwareQuery { chain.proceed() } })
         SubscriptionManager::class.java.hookAllMethods("getActiveSubscriptionIdList", Hooker { chain ->
             val original = chain.proceed() // retain the framework's original checks
-            if (!hardwareQueryActive()) return@Hooker original
+            // Startup must use the platform's own active-ID snapshot. Querying a different
+            // subscription surface here can expose a SIM before IMS/RCS is ready for it.
+            val policy = FakeLoc.runtimeSnapshots.current().configuration
+            if (!hardwareQueryActive() || !requiresPhysicalQuery(policy)) return@Hooker original
             runCatching {
                 val context = BinderUtils.getSystemContext() ?: error("System context unavailable")
                 val physical = context.createAttributionContext(CarrierIdentityRuntime.PHYSICAL_QUERY_TAG)
@@ -40,4 +44,8 @@ internal object CarrierHardwareSubscriptionHook {
             }
         })
     }
+
+    internal fun requiresPhysicalQuery(policy: com.system.location.service.core.runtime.HookConfiguration): Boolean =
+        policy.enabled && policy.carrierIdentityEnabled &&
+            policy.carrierIdentity?.sims.orEmpty().any { it.enabled && it.virtual }
 }

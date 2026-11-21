@@ -5,6 +5,29 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class MapViewLifecycleTest {
+    @Test fun stoppedFragmentKeepsRenderingItsVisibleExitTransitionUntilTheViewDisappears() {
+        val events = mutableListOf<MapViewLifecycle.Event>()
+        val lifecycle = MapViewLifecycle { events += it }
+        lifecycle.resume()
+        lifecycle.stop(visible = true)
+        lifecycle.visibilityChanged(true)
+        assertEquals(listOf(START, RESUME), events)
+        lifecycle.visibilityChanged(false)
+        assertEquals(listOf(START, RESUME, PAUSE, STOP), events)
+    }
+
+    @Test fun returningBeforeTheExitFinishesCancelsThePendingStop() {
+        val events = mutableListOf<MapViewLifecycle.Event>()
+        val lifecycle = MapViewLifecycle { events += it }
+        lifecycle.resume()
+        lifecycle.stop(visible = true)
+        lifecycle.resume()
+        lifecycle.visibilityChanged(false)
+        assertEquals(listOf(START, RESUME), events)
+        lifecycle.close()
+        assertEquals(listOf(START, RESUME, PAUSE, STOP), events)
+    }
+
     @Test fun compositionAndLifecycleCatchupDoNotResumeTheSdkTwice() {
         val events = mutableListOf<MapViewLifecycle.Event>()
         val lifecycle = MapViewLifecycle { events += it }

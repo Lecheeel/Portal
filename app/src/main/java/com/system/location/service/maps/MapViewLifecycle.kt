@@ -6,14 +6,17 @@ internal class MapViewLifecycle(private val dispatch: (Event) -> Unit) {
     private var started = false
     private var resumed = false
     private var closed = false
+    private var stopRequested = false
 
     fun start() {
+        stopRequested = false
         if (closed || started) return
         dispatch(Event.START)
         started = true
     }
 
     fun resume() {
+        stopRequested = false
         if (closed || resumed) return
         start()
         dispatch(Event.RESUME)
@@ -26,7 +29,18 @@ internal class MapViewLifecycle(private val dispatch: (Event) -> Unit) {
         resumed = false
     }
 
-    fun stop() {
+    fun stop(visible: Boolean = false) {
+        stopRequested = true
+        if (visible) return
+        stopNow()
+    }
+
+    fun visibilityChanged(visible: Boolean) {
+        if (stopRequested && !visible) stopNow()
+    }
+
+    private fun stopNow() {
+        stopRequested = false
         pause()
         if (!started) return
         dispatch(Event.STOP)

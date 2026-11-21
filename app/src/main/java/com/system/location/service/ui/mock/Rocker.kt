@@ -19,9 +19,7 @@ import kotlin.math.round
 /** A single application-owned Compose overlay; it never retains an Activity or Fragment. */
 class Rocker(private val context: Context) {
     private val windowManager = context.getSystemService(WindowManager::class.java)
-    private val root = ComposeView(context).apply {
-        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-    }
+    private lateinit var root: ComposeView
     private val rockerView = RockerView(context, null).apply { id = R.id.rocker }
     private var owner: OverlayComposeOwner? = null
     private val targetMenu = RockerTargetMenu(context)
@@ -48,11 +46,15 @@ class Rocker(private val context: Context) {
     private var draggingSpeed = false
     var onSpeedChanged: ((Double) -> Unit)? = null
 
-    init { root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> clampPosition() } }
-
     fun show() {
         if (isStart) return
         minimize(true)
+        // A detached ComposeView retains its AndroidComposeView and window recomposer linkage.
+        // Each attachment needs a fresh view as well as a fresh lifecycle owner.
+        root = ComposeView(context).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> clampPosition() }
+        }
         val session = OverlayComposeOwner().also { it.attach(root); owner = it }
         root.setContent {
             PortalTheme {
@@ -79,7 +81,7 @@ class Rocker(private val context: Context) {
         resetMovement()
         if (isStart) windowManager.removeViewImmediate(root)
         isStart = false
-        root.disposeComposition()
+        if (::root.isInitialized) root.disposeComposition()
         owner?.close()
         owner = null
     }

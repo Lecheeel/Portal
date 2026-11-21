@@ -14,7 +14,10 @@ restore_hidden_api_policy() {
 trap restore_hidden_api_policy EXIT
 adb shell settings put global hidden_api_policy 1 || exit 1
 test_status=0
-./gradlew :app:connectedX64DebugAndroidTest --stacktrace || test_status=$?
+# Orchestrator restarts the process for each test. Clear its disposable app data too,
+# so an interrupted-scene marker or a backend choice from one fixture cannot enter
+# recovery during the next fixture's Application.onCreate.
+./gradlew :app:connectedX64DebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.clearPackageData=true --stacktrace || test_status=$?
 adb pull /sdcard/Download/Portal-ui-captures app/build/ui-captures || true
 # This script runs only on the designated UI test device/emulator. Preserve captures
 # before clearing its test app, then start a new process without consenting fixtures.

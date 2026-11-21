@@ -85,7 +85,7 @@ internal fun showPortalChoiceDialog(context: Context, title: String, choices: Li
 @Composable
 internal fun PortalDialogContent(title: String, message: String? = null,
     body: (@Composable ColumnScope.() -> Unit)? = null,
-    buttons: @Composable RowScope.() -> Unit) {
+    buttons: @Composable FlowRowScope.() -> Unit) {
     Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(24.dp).heightIn(max = 560.dp)) {
             Text(title, style = MaterialTheme.typography.headlineSmall)
@@ -93,7 +93,7 @@ internal fun PortalDialogContent(title: String, message: String? = null,
                 message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 body?.invoke(this)
             }
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End,
+            FlowRow(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End,
                 content = buttons)
         }
     }

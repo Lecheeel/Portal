@@ -20,7 +20,7 @@ jobs:
       ORG_GRADLE_PROJECT_APP_VERSION_NAME: '999.0.0'
       ORG_GRADLE_PROJECT_APP_VERSION_CODE: '2100000000'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: actions/setup-java@v4

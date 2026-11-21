@@ -67,9 +67,7 @@ class UiDesignTest {
             for (destination in listOf(R.id.nav_mock, R.id.nav_runtime, R.id.nav_gnss_mock,
                 R.id.nav_route_gallery, R.id.nav_settings, R.id.nav_route_edit)) {
                 for (useDrawer in listOf(true, false)) {
-                    scenario.onActivity { activity ->
-                        activity.findNavController(R.id.nav_host_fragment_content_main).navigate(destination)
-                    }
+                    compose.openPage(scenario, destination)
                     compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
                     if (useDrawer) {
                         scenario.onActivity { activity ->
@@ -81,7 +79,7 @@ class UiDesignTest {
                     assertEquals("Home geometry changed after destination $destination (drawer=$useDrawer)", initial, homeGeometry())
                 }
             }
-            scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_mock) }
+            compose.openPage(scenario, R.id.nav_mock)
             compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
             scenario.recreate()
             compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
@@ -163,7 +161,10 @@ class UiDesignTest {
             applyInsets()
             compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
             val toolbar = compose.onNodeWithTag("portal_toolbar").fetchSemanticsNode().boundsInRoot
-            assertTrue("Secondary toolbar must avoid the status bar", toolbar.top >= 48f)
+            assertTrue("Toolbar background must extend into the status bar", toolbar.top <= 1f)
+            val pageTitle = compose.onNode(hasText("环境/卫星") and hasAnyAncestor(hasTestTag("portal_toolbar")))
+                .fetchSemanticsNode().boundsInRoot
+            assertTrue("Toolbar title must avoid the status bar", pageTitle.top >= 48f)
         }
     }
 

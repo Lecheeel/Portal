@@ -5,6 +5,7 @@ import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.core.gnss.GnssCaptureStore
 import com.system.location.service.core.gnss.GnssCaptureValidator
 import com.system.location.service.android.root.RootEnvironmentProbe
+import com.system.location.service.runtime.XposedServiceBridge
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,7 +23,7 @@ internal suspend fun Context.applySatelliteStartupDefaults(systemModuleActive: B
     if (!systemModuleActive || sharedPrefs.contains("gnssReplayOnStart") ||
         sharedPrefs.getString("gnssSimulationMode", null) == "OFF") return
     withContext(Dispatchers.IO) {
-        val rooted = RootEnvironmentProbe.isAvailable()
+        val rooted = XposedServiceBridge.supportsSystemScope() || RootEnvironmentProbe.isAvailable()
         // Read after the probe so a manual choice made while checking Root wins.
         val additions = SatelliteStartupDefaults.additions(sharedPrefs.all, rooted, systemModuleActive)
         if (additions.isNotEmpty()) {

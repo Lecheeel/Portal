@@ -57,13 +57,13 @@ jobs:
         run: python3 scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution
 
       - name: Upload APKs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: LocationService-${{ github.sha }}
           path: app/build/outputs/distribution/*.apk
       - name: Upload verification reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verification-${{ github.sha }}
           path: |

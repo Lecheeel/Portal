@@ -106,6 +106,9 @@ open class RouteGalleryComposeFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         environmentSelected = savedInstanceState?.getBoolean("environmentSelected") ?: false
+        childFragmentManager.findFragmentByTag("library_environment")?.let {
+            childFragmentManager.beginTransaction().remove(it).commitNow()
+        }
         savedInstanceState?.getString("libraryKind")?.let { key ->
             LibraryKind.entries.firstOrNull { it.name == key }?.let(model::kind)
         }

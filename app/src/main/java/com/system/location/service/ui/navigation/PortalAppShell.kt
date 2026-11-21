@@ -40,9 +40,9 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
     val home = destination == R.id.nav_home
     val drawerWidth = minOf(288.dp, maxWidth * .78f)
     ModalNavigationDrawer(drawerState = drawer,
-        // The default drawer captures horizontal drags across the entire map. On the map,
-        // open with the menu button; keep drag-to-close and scrim dismissal once open.
-        gesturesEnabled = !home || drawer.isOpen,
+        // Open only from a menu button on every page. Once open, retain drag-to-close
+        // and scrim dismissal without intercepting horizontal content gestures.
+        gesturesEnabled = drawer.isOpen,
         drawerContent = {
         ModalDrawerSheet(drawerState = drawer, modifier = Modifier
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))

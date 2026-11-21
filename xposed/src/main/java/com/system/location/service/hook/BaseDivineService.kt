@@ -5,48 +5,42 @@ import android.location.LocationManager
 import android.os.Binder
 import android.os.Bundle
 import android.os.Parcel
+import android.os.Handler
+import android.os.Looper
+import com.system.location.service.hook.runtime.DeferredServiceConnection
 import com.system.location.service.hook.utils.BinderUtils
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.security.CommandClient
 
 abstract class BaseDivineService {
+    private var connection: DeferredServiceConnection? = null
+
     /**
-     * if the hook is TelephonyService? or other service?
-     * this service may not be in the same space as the `system_server`,
-     * so a binder is used to talk.
+     * Hooks may install immediately: their runtime stays disabled until authenticated state
+     * arrives. Never wait for location Binder calls or proxy delivery inside package binding;
+     * phone must finish starting before the location service can query its subscriptions.
      */
-    protected fun initDivineService(from: String, retryCount: Int = 0): Boolean {
-        if (FakeLoc.isSystemServerProcess) {
-            return true
+    protected fun initDivineService(from: String): Boolean {
+        if (FakeLoc.isSystemServerProcess) return true
+        val pending = synchronized(this) {
+            connection ?: DeferredServiceConnection(
+                schedule = { delay, task -> executor.schedule({ task() }, delay,
+                    java.util.concurrent.TimeUnit.MILLISECONDS); Unit },
+                connect = { connectDivineService(from) },
+                onFailure = { Logger.error("Runtime peer connection failed in $from", it) },
+            ).also { connection = it }
         }
+        // The next main-loop turn runs after the current bindApplication/onCreate has returned.
+        // Only enqueue work there; all service discovery, IPC and waits stay on the worker.
+        Handler(Looper.getMainLooper()).post { pending.start() }
+        return true
+    }
 
-        fun tryFetchLocationManager(): LocationManager? {
-            var locationManager = BinderUtils.getSystemContext()?.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-            var count = 0
-            while (locationManager == null) {
-                Thread.sleep(1000)
-                if (count++ > 10) {
-                    break
-                }
-                locationManager = BinderUtils.getSystemContext()?.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-            }
-            return locationManager
-        }
-
-        val locationManager = tryFetchLocationManager()
-        if (locationManager == null) {
-            Logger.error("LocationManager not found in $from")
-            return false
-        }
-
-        if (!locationManager.isProviderEnabled("fused_ext")) {
-            if (retryCount > 10) {
-                return false
-            }
-            Thread.sleep(100)
-            return initDivineService(from, retryCount + 1)
-        }
+    private fun connectDivineService(from: String): Boolean {
+        val locationManager = BinderUtils.getSystemContext()?.getSystemService(Context.LOCATION_SERVICE)
+            as? LocationManager ?: return false
+        if (!locationManager.isProviderEnabled("fused_ext")) return false
 
         val client = CommandClient()
         val rely = Bundle()
@@ -96,7 +90,15 @@ abstract class BaseDivineService {
             Logger.error("Initial runtime state not restored in $from")
             return false
         }
+        Logger.info("Runtime peer connected in $from")
         return true
     }
 
+    private companion object {
+        val executor by lazy {
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task ->
+                Thread(task, "Portal-runtime-connect").apply { isDaemon = true }
+            }
+        }
+    }
 }

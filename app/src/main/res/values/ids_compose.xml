@@ -2,4 +2,6 @@
 <resources>
     <item name="simulation_compose_content" type="id" />
     <item name="library_environment_content" type="id" />
+    <item name="nav_host_fragment_content_main" type="id" />
+    <item name="rocker" type="id" />
 </resources>

@@ -44,6 +44,13 @@ class SimulationComposeFragment : Fragment() {
         selectedTab = savedInstanceState?.getInt(KEY_SELECTED)
             ?: arguments?.getInt(INITIAL_TAB, 0) ?: 0
         selectedTab = selectedTab.coerceIn(0, 1)
+        // Saved tasks from the hand-built container used fixed IDs absent from the new layout.
+        val old = childFragmentManager.fragments.filter {
+            it.tag in setOf("simulation_location_compose", "simulation_satellite_compose")
+        }
+        if (old.isNotEmpty()) childFragmentManager.beginTransaction().apply {
+            old.forEach(::remove)
+        }.commitNow()
     }
 
     override fun onCreateView(

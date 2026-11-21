@@ -3,12 +3,10 @@ package com.system.location.service.maps
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Point
-import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.AttributeSet
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.ImageView
 import com.system.location.service.core.geo.Gcj02
 import com.system.location.service.core.planning.MapCamera
 import com.system.location.service.privacy.TencentPrivacy
@@ -25,7 +23,7 @@ interface MapLine : MapOverlay { fun points(points: List<Gcj02>) }
 /** Only the selected SDK view is constructed, after its consent gate. Coordinates are GCJ-02. */
 class PortalMapView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
     val provider = context.mapProvider
-    private var amap: com.amap.api.maps.MapView? = null
+    private var amap: com.amap.api.maps.TextureMapView? = null
     private var tencent: com.tencent.tencentmap.mapsdk.maps.MapView? = null
     private var current: MapMarker? = null
     private var original: MapMarker? = null
@@ -33,40 +31,6 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
     private var destroyed = false
     private var bottomObstruction = 0
     private var cameraRequest = 0L
-    private var transitionFrame: ImageView? = null
-    private var snapshotRequest = 0L
-
-    /** GL surfaces cannot be faded by Fragment transitions; animate the SDK's own last frame. */
-    fun holdTransitionFrame(ready: () -> Unit) {
-        val request = ++snapshotRequest
-        var completed = false
-        fun accept(bitmap: Bitmap?) {
-            if (completed) return
-            completed = true
-            if (request == snapshotRequest && !destroyed && isAttachedToWindow && bitmap != null) {
-                transitionFrame?.let(::removeView)
-                transitionFrame = ImageView(context).apply {
-                    scaleType = ImageView.ScaleType.FIT_XY
-                    setImageBitmap(bitmap)
-                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    addView(this, LayoutParams(-1, -1))
-                }
-            }
-            ready()
-        }
-        postDelayed({ accept(null) }, 200)
-        if (tencent != null) tencent?.map?.snapshot { bitmap -> post { accept(bitmap) } }
-        else if (amap != null) amap?.map?.getMapScreenShot(object : com.amap.api.maps.AMap.OnMapScreenShotListener {
-            override fun onMapScreenShot(bitmap: Bitmap?) { post { accept(bitmap) } }
-            override fun onMapScreenShot(bitmap: Bitmap?, status: Int) { post { accept(bitmap) } }
-        }) else accept(null)
-    }
-
-    private fun releaseTransitionFrame() {
-        snapshotRequest++
-        transitionFrame?.let { it.setImageDrawable(null); removeView(it) }
-        transitionFrame = null
-    }
     private val lifecycle = MapViewLifecycle { event ->
         when (event) {
             MapViewLifecycle.Event.START -> tencent?.onStart()
@@ -79,7 +43,7 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
         check(!destroyed && childCount == 0)
         if (provider == MapProvider.AMAP) {
             check(com.system.location.service.privacy.SdkPrivacy.mapsReady)
-            amap = com.amap.api.maps.MapView(context).also { view ->
+            amap = com.amap.api.maps.TextureMapView(context).also { view ->
                 addView(view, LayoutParams(-1, -1)); view.onCreate(state)
                 view.map.uiSettings.apply {
                     isCompassEnabled = true; isZoomControlsEnabled = false
@@ -89,6 +53,9 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
         } else {
             check(TencentPrivacy.ready(context)) { "请先同意腾讯地图隐私政策" }
             val options = TencentMapOptions().also { options ->
+                // TextureView participates in Compose/Fragment alpha and translation. A separate
+                // SurfaceView turns black while its page is being faded or resized.
+                options.setMapViewType(com.tencent.tencentmap.mapsdk.maps.model.MapViewType.TextureView)
                 TencentKeySettings.effectiveKey(context).takeIf(String::isNotBlank)
                     ?.let(options::setMapKey)
             }
@@ -250,7 +217,7 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
     }
     fun clear() { current = null; original = null; amap?.map?.clear(); tencent?.map?.clear() }
     fun onStart() = lifecycle.start()
-    fun onResume() { releaseTransitionFrame(); lifecycle.resume() }
+    fun onResume() = lifecycle.resume()
     fun onPause() = lifecycle.pause()
     fun onStop() = lifecycle.stop(isShown && windowVisibility == View.VISIBLE)
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
@@ -268,7 +235,6 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
     fun onSaveInstanceState(state: Bundle) { amap?.onSaveInstanceState(state) }
     fun onDestroy() {
         if (destroyed) return
-        releaseTransitionFrame()
         lifecycle.close()
         destroyed = true
         onClick(null); onCamera(null)

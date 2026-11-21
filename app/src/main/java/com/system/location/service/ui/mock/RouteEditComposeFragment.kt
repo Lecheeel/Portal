@@ -94,7 +94,7 @@ import kotlin.coroutines.coroutineContext
  * Compose route editor. The map and its gesture layer stay as Android Views because they are SDK
  * surfaces; all controls, dialogs and editor chrome are Compose.
  */
-class RouteEditComposeFragment : Fragment() {
+open class RouteEditComposeFragment : Fragment() {
     private val model by viewModels<RouteEditViewModel>()
     private var mapView: PortalMapView? = null
     private var gestureLayout: RouteGestureLayout? = null

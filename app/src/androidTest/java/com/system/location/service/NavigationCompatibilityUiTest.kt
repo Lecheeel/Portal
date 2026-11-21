@@ -36,11 +36,12 @@ class NavigationCompatibilityUiTest {
             scenario.onActivity { activity ->
                 val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
                 val tabs = host.childFragmentManager.primaryNavigationFragment!!.childFragmentManager
-                val current = tabs.findFragmentByTag("simulation_location_compose")!!
+                val current = tabs.fragments.single { it is com.system.location.service.ui.environment.EnvironmentComposeFragment }
+                val container = current.requireView().parent as androidx.fragment.app.FragmentContainerView
                 val legacy = tabs.fragmentFactory.instantiate(activity.classLoader,
                     "com.system.location.service.ui.mock.MockComposeFragment")
                 tabs.beginTransaction().remove(current)
-                    .add(R.id.simulation_compose_content, legacy, "simulation_location_compose")
+                    .add(container, legacy, current.tag)
                     .setPrimaryNavigationFragment(legacy).commitNow()
             }
             scenario.recreate()

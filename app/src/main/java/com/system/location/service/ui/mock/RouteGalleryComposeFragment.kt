@@ -83,7 +83,7 @@ import com.system.location.service.ui.viewmodel.LibraryViewModel
  * Compose route/scenario/location library. Persistence and scene construction stay in the existing
  * LibraryViewModel; SAF launchers stay in this Fragment host.
  */
-class RouteGalleryComposeFragment : Fragment() {
+open class RouteGalleryComposeFragment : Fragment() {
     private val model by viewModels<LibraryViewModel>()
     private var environmentSelected = false
     private var importKind = LibraryKind.ROUTES
@@ -106,6 +106,9 @@ class RouteGalleryComposeFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         environmentSelected = savedInstanceState?.getBoolean("environmentSelected") ?: false
+        childFragmentManager.findFragmentByTag("library_environment")?.let {
+            childFragmentManager.beginTransaction().remove(it).commitNow()
+        }
         savedInstanceState?.getString("libraryKind")?.let { key ->
             LibraryKind.entries.firstOrNull { it.name == key }?.let(model::kind)
         }

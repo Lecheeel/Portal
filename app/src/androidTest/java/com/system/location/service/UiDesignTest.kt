@@ -294,10 +294,12 @@ class UiDesignTest {
                     compose.waitForIdle()
                     val drawer = compose.onNodeWithTag("portal_drawer").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
                     val title = compose.onNodeWithText("Portal").fetchSemanticsNode().boundsInRoot
+                    val shell = compose.onNodeWithTag("portal_shell").fetchSemanticsNode().boundsInRoot
                     val density = instrumentation.targetContext.resources.displayMetrics.density
-                    assertTrue("Compact drawer must respect the top safe area", drawer.top >= 12f * density)
+                    assertTrue("Drawer background must reach the top edge", kotlin.math.abs(drawer.top - shell.top) <= 1f)
+                    assertTrue("Drawer background must reach the bottom edge", kotlin.math.abs(drawer.bottom - shell.bottom) <= 1f)
                     assertTrue("Compact drawer must stay within its width limit", drawer.width <= 288f * density + 1f)
-                    assertTrue("Compact drawer must stay within its height limit", drawer.height <= 600f * density + 1f)
+                    assertTrue("Drawer must leave room beside the menu", drawer.width <= shell.width * .78f + 1f)
                     assertTrue("Drawer title needs safe space", title.top >= drawer.top)
                     capture("drawer-$suffix")
                     scenario.onActivity { it.closeDrawer() }

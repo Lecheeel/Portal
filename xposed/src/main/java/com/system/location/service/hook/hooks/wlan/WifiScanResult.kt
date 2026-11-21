@@ -1,12 +1,18 @@
 package com.system.location.service.hook.hooks.wlan
 
 import android.net.wifi.ScanResult
+import android.net.wifi.WifiSsid
+import android.os.Build
 import com.system.location.service.core.environment.WifiAp
 import com.system.location.service.hook.runtime.Reflection
 
 internal fun syntheticWifiScanResult(ap: WifiAp, observedMicros: Long): ScanResult =
     ScanResult().apply {
         SSID = ap.ssid
+        val ssidBytes = ap.ssid.toByteArray(Charsets.UTF_8)
+        val wifiSsid = if (Build.VERSION.SDK_INT >= 33) WifiSsid.fromBytes(ssidBytes) else
+            Reflection.callStaticMethod(Class.forName("android.net.wifi.WifiSsid"), "createFromByteArray", ssidBytes)
+        Reflection.setObjectField(this, "wifiSsid", wifiSsid)
         BSSID = ap.bssid.lowercase()
         capabilities = ap.capabilities
         frequency = ap.frequencyMhz
@@ -19,5 +25,5 @@ internal fun syntheticWifiScanResult(ap: WifiAp, observedMicros: Long): ScanResu
         // A default ScanResult has a null array. Android's getter calls Arrays.asList(array),
         // which crashes even when a caller only wants to iterate the information elements.
         Reflection.setObjectField(this, "informationElements", emptyArray<ScanResult.InformationElement>())
-        runCatching { Reflection.setIntField(this, "wifiStandard", ap.standard) }
+        Reflection.callMethod(this, "setWifiStandard", ap.standard)
     }

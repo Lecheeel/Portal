@@ -145,7 +145,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                 // provider-enabled checks. Only then does synthetic delivery own the listener.
                 hookILocationListener(listener)
                 val result = chain.proceed(args)
-                if (result != false && FakeLoc.enable && providerExists(chain.thisObject, provider)) {
+                if (result != false && providerExists(chain.thisObject, provider)) {
                     addLocationListenerInner(provider, listener)
                 }
                 result
@@ -208,7 +208,7 @@ internal object LocationServiceHook : BaseLocationHook() {
                 }
                 hookILocationListener(listener)
                 val result = chain.proceed(args)
-                if (result != false && FakeLoc.enable) addLocationListenerInner(provider, listener)
+                if (result != false) addLocationListenerInner(provider, listener)
                 result
             },
         )

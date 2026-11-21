@@ -78,6 +78,12 @@ class PredictiveBackUiTest {
             scenario.onActivity { it.navigationEventDispatcher.addInput(input) }
             try {
                 compose.openPage(scenario, R.id.nav_settings)
+                lateinit var directory: androidx.fragment.app.Fragment
+                lateinit var detail: android.view.View
+                scenario.onActivity {
+                    directory = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                        .childFragmentManager.primaryNavigationFragment!!
+                }
                 compose.onNodeWithText("地图与定位").performClick()
                 fun resumed() = compose.waitUntil(5_000) {
                     var ready = false
@@ -94,21 +100,21 @@ class PredictiveBackUiTest {
                     val page = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
                         .childFragmentManager.primaryNavigationFragment!!
                     assertTrue((page.returnTransition as androidx.transition.Slide).isSeekingSupported)
+                    detail = page.requireView()
                     input.backStarted(event(0f))
                 }
                 compose.waitForIdle()
                 scenario.onActivity {
                     input.backProgressed(event(.5f))
                 }
-                // FragmentManager.fragments excludes the outgoing fragment as soon as the pop begins.
-                // Inspect actual container children to verify both pages are visible during preview.
+                // A disappearing page may move into the transition overlay, outside both the
+                // active fragment list and ordinary container children. Check both actual views.
                 compose.waitUntil(5_000) {
                     var previewing = false
                     scenario.onActivity {
-                        val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
-                        previewing = (host.requireView() as android.view.ViewGroup).let { container ->
-                            (0 until container.childCount).count { container.getChildAt(it).visibility == android.view.View.VISIBLE }
-                        } >= 2
+                        val previous = directory.view
+                        previewing = previous?.isAttachedToWindow == true && previous.width > 0 &&
+                            previous.height > 0 && detail.isAttachedToWindow
                     }
                     previewing
                 }
@@ -116,10 +122,7 @@ class PredictiveBackUiTest {
                 compose.waitUntil(5_000) {
                     var settled = false
                     scenario.onActivity {
-                        val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
-                        settled = (host.requireView() as android.view.ViewGroup).let { container ->
-                            (0 until container.childCount).count { container.getChildAt(it).visibility == android.view.View.VISIBLE }
-                        } == 1
+                        settled = directory.view?.isAttachedToWindow != true && detail.isAttachedToWindow
                     }
                     settled
                 }

@@ -35,9 +35,9 @@ class UiDesignTest {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             fun homeGeometry(): List<Int> {
-                compose.onNode(hasSetTextAction()).assertIsDisplayed()
+                compose.onNodeWithTag("home-search-controls").assertIsDisplayed()
                 compose.onNodeWithText("开始模拟").assertIsDisplayed()
-                val search = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+                val search = compose.onNodeWithTag("home-search-controls").fetchSemanticsNode().boundsInRoot
                 val bottom = compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot
                 var geometry = emptyList<Int>()
                 scenario.onActivity { activity ->
@@ -111,7 +111,7 @@ class UiDesignTest {
     @Test fun edgeToEdgeKeepsMapFullSizeAndControlsInsideSafeInsets() {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            compose.onNode(hasSetTextAction()).assertIsDisplayed()
+            compose.onNodeWithTag("home-search-controls").assertIsDisplayed()
             val insets = androidx.core.view.WindowInsetsCompat.Builder()
                 .setInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars(), androidx.core.graphics.Insets.of(12, 48, 16, 32))
                 .build()
@@ -120,7 +120,7 @@ class UiDesignTest {
                 compose.waitForIdle()
             }
             applyInsets()
-            val search = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+            val search = compose.onNodeWithTag("home-search-controls").fetchSemanticsNode().boundsInRoot
             val start = compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot
             var mapWidth = 0
             var mapHeight = 0
@@ -148,7 +148,7 @@ class UiDesignTest {
                 assertTrue("$description must not overlap the start action", button.bottom <= start.top)
             }
             applyInsets()
-            assertEquals(search, compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot)
+            assertEquals(search, compose.onNodeWithTag("home-search-controls").fetchSemanticsNode().boundsInRoot)
             assertEquals(start, compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot)
             compose.openPage(scenario, R.id.nav_mock)
             applyInsets()
@@ -342,7 +342,7 @@ class UiDesignTest {
                 }
                 compose.onNodeWithText("开始模拟").assertIsDisplayed()
                 compose.onNodeWithContentDescription("选择模拟目标").assertIsDisplayed()
-                val search = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+                val search = compose.onNodeWithTag("home-search-controls").fetchSemanticsNode().boundsInRoot
                 val panel = compose.onNodeWithTag("home-runtime-panel").fetchSemanticsNode().boundsInRoot
                 val root = compose.onNode(isRoot() and hasAnyDescendant(hasTestTag("home-runtime-panel")))
                     .fetchSemanticsNode().boundsInRoot

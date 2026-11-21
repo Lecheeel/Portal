@@ -39,7 +39,7 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val home = destination == R.id.nav_home
     ModalNavigationDrawer(drawerState = drawer, drawerContent = {
-        ModalDrawerSheet(Modifier.widthIn(max = 360.dp).fillMaxHeight().testTag("portal_drawer"),
+        ModalDrawerSheet(drawerState = drawer, modifier = Modifier.widthIn(max = 360.dp).fillMaxHeight().testTag("portal_drawer"),
             drawerContainerColor = MaterialTheme.colorScheme.surface,
             windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical)) {
             Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {

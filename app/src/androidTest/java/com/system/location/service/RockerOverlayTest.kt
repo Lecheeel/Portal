@@ -10,18 +10,10 @@ import android.os.Process
 import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.*
 import org.junit.Rule
 import androidx.navigation.findNavController
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.*
-import androidx.test.espresso.matcher.RootMatchers.withDecorView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.runtime.ScenarioRuntime
@@ -100,8 +92,6 @@ class RockerOverlayTest {
                 "appops set ${context.packageName} SYSTEM_ALERT_WINDOW $mode")).use { it.readBytes() }
         }
         overlayPermission("allow")
-        fun overlay(id: Int) = onView(withId(id)).inRoot(
-            withDecorView(hasDescendant(withId(R.id.rocker_minimized))))
         listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.POST_NOTIFICATIONS).forEach {
             instrumentation.uiAutomation.grantRuntimePermission(context.packageName, it)
@@ -119,43 +109,34 @@ class RockerOverlayTest {
                     assertTrue(RockerOverlay.isEnabled)
                     assertTrue("Grant overlay permission on the test device", RockerOverlay.isVisible)
                 }
-                overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
+                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
                 captureUi("overlay-minimized")
-                overlay(R.id.rocker_minimized).perform(click())
-                overlay(R.id.rocker).check(matches(isDisplayed()))
-                overlay(R.id.speed_slider).check(matches(withEffectiveVisibility(Visibility.GONE)))
+                compose.onNodeWithTag("rocker_expand").performClick()
+                compose.onNodeWithTag("rocker_direction").assertIsDisplayed()
+                compose.onNodeWithTag("rocker_speed_slider").assertDoesNotExist()
                 captureUi("overlay-expanded")
-                // Invoke the real click callback without injected tap timing: a stalled
-                // emulator can turn Espresso's down/up into a tooltip long press.
-                overlay(R.id.speed_toggle).perform(object : androidx.test.espresso.ViewAction {
-                    override fun getConstraints() = isDisplayed()
-                    override fun getDescription() = "Activate the speed panel click action"
-                    override fun perform(ui: androidx.test.espresso.UiController, view: android.view.View) {
-                        assertTrue(view.performClick())
-                        ui.loopMainThreadUntilIdle()
-                    }
-                })
-                overlay(R.id.speed_slider).check(matches(withContentDescription(R.string.rocker_speed)))
-                overlay(R.id.speed_slider).check(matches(isDisplayed()))
+                compose.onNodeWithTag("rocker_speed_toggle").performClick()
+                compose.onNodeWithTag("rocker_speed_slider").assertContentDescriptionEquals(context.getString(R.string.rocker_speed))
+                compose.onNodeWithTag("rocker_speed_slider").assertIsDisplayed()
                 captureUi("overlay-speed-expanded")
-                overlay(R.id.speed_up).perform(click())
+                compose.onNodeWithTag("rocker_speed_up").performClick()
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.15) > 0.001) delay(10) } }
-                overlay(R.id.speed).check(matches(withText(context.getString(R.string.overlay_speed_number, context.speed))))
-                overlay(R.id.speed_down).perform(click())
+                compose.onNodeWithText(context.getString(R.string.overlay_speed_number, context.speed)).assertIsDisplayed()
+                compose.onNodeWithTag("rocker_speed_down").performClick()
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.05) > 0.001) delay(10) } }
-                overlay(R.id.speed_kmh).check(matches(withText(context.getString(R.string.speed_kmh, context.speed * 3.6))))
-                overlay(R.id.expand_menu).perform(click())
-                overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
-                overlay(R.id.rocker_minimized).perform(click())
-                overlay(R.id.speed_slider).check(matches(withEffectiveVisibility(Visibility.GONE)))
-                overlay(R.id.speed_summary).check(matches(withText(context.getString(R.string.overlay_speed_value, context.speed))))
-                overlay(R.id.expand_menu).perform(click())
+                compose.onNodeWithText(context.getString(R.string.speed_kmh, context.speed * 3.6)).assertIsDisplayed()
+                compose.onNodeWithContentDescription(context.getString(R.string.overlay_minimize)).performClick()
+                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
+                compose.onNodeWithTag("rocker_expand").performClick()
+                compose.onNodeWithTag("rocker_speed_slider").assertDoesNotExist()
+                compose.onNodeWithTag("rocker_speed_toggle").assertTextContains(context.getString(R.string.overlay_speed_value, context.speed))
+                compose.onNodeWithContentDescription(context.getString(R.string.overlay_minimize)).performClick()
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
                 scenario.recreate()
-                overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
+                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
                 // Stopping even an idle scenario must not dismiss the independent overlay.
                 runBlocking { ScenarioRuntime.stop().await() }
-                overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
+                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_home) }
                 compose.onNodeWithContentDescription("关闭悬浮窗").performClick()
                 scenario.onActivity {
@@ -165,7 +146,7 @@ class RockerOverlayTest {
                 scenario.recreate()
                 scenario.onActivity { assertFalse(RockerOverlay.isVisible) }
                 compose.onNodeWithContentDescription("打开悬浮窗").performClick()
-                overlay(R.id.rocker_minimized).check(matches(isDisplayed()))
+                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
             }
         } finally {
             instrumentation.runOnMainSync { RockerOverlay.setEnabled(false) }

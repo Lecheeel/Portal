@@ -5,10 +5,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.ParcelFileDescriptor
 import android.os.Process
-import android.view.ViewGroup
-import android.view.inspector.WindowInspector
-import android.widget.TextView
-import androidx.core.view.descendants
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
@@ -27,13 +23,6 @@ import com.system.location.service.data.repository.LibraryRepositories
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.mock.RockerOverlay
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.RootMatchers.withDecorView
-import androidx.test.espresso.matcher.ViewMatchers.withId
-import androidx.test.espresso.matcher.ViewMatchers.withText
-import androidx.test.espresso.matcher.ViewMatchers.hasDescendant
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
@@ -181,41 +170,28 @@ class HomeSelectionUiTest {
                 ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
                     "appops set ${context.packageName} SYSTEM_ALERT_WINDOW $mode")).use { it.readBytes() }
             }
-            fun overlay(id: Int) = onView(withId(id)).inRoot(withDecorView(hasDescendant(withId(R.id.rocker_minimized))))
             try {
                 permission("allow")
                 instrumentation.runOnMainSync { RockerOverlay.setEnabled(false) }
                 preferences.edit().putBoolean("enabled", true).commit()
                 ActivityScenario.launch(MainActivity::class.java).use {
                     compose.onNodeWithText("开始模拟").assertIsDisplayed()
-                    overlay(R.id.rocker_minimized).perform(click())
+                    compose.onNodeWithTag("rocker_expand").performClick()
                     fun choose(label: String) {
-                        overlay(R.id.auto).perform(click())
-                        compose.waitUntil(10_000) {
-                            // Poll the separate window without Espresso's longer missing-root timeout.
-                            var visible = false
-                            instrumentation.runOnMainSync {
-                                visible = WindowInspector.getGlobalWindowViews().any { root ->
-                                    (root as? ViewGroup)?.descendants?.filterIsInstance<TextView>()
-                                        ?.any { it.isShown && it.text.toString() == label } == true
-                                }
-                            }
-                            visible
-                        }
-                        // The picker uses TYPE_APPLICATION_OVERLAY, so Espresso's default root
-                        // can select the now-unfocused Activity instead of this separate window.
-                        onView(withText(label)).inRoot(withDecorView(hasDescendant(withText(label)))).perform(click())
+                        compose.onNodeWithTag("rocker_targets").performClick()
+                        compose.waitUntil(10_000) { compose.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty() }
+                        compose.onNodeWithText(label).performClick()
                     }
                     choose(context.getString(R.string.overlay_target_route, route.route.name))
                     awaitRunning(route.route.name)
                     assertEquals(route.route.id, ScenarioRuntime.state.value.routeId)
-                    overlay(R.id.rocker).check(matches(org.hamcrest.Matchers.not(androidx.test.espresso.matcher.ViewMatchers.isEnabled())))
+                    compose.onNodeWithTag("rocker_direction").assertIsNotEnabled()
                     assertFalse(runBlocking { ScenarioRuntime.motion(90.0, true).await() })
                     choose(context.getString(R.string.overlay_target_location, location.name))
                     awaitRunning(location.name)
                     assertNull(ScenarioRuntime.state.value.routeId)
                     assertCoordinate(location.coordinate, ScenarioRuntime.state.value)
-                    overlay(R.id.rocker).check(matches(androidx.test.espresso.matcher.ViewMatchers.isEnabled()))
+                    compose.onNodeWithTag("rocker_direction").assertIsEnabled()
                 }
             } finally {
                 instrumentation.runOnMainSync { RockerOverlay.setEnabled(false) }

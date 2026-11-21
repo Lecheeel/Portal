@@ -126,9 +126,19 @@ class MockProviderDeviceTest {
             val deadline = SystemClock.uptimeMillis() + 10_000
             fun ready(): Boolean {
                 val attached = activities.runningAppProcesses.any { it.processName == "${context.packageName}:location_probe" }
-                val visible = instrumentation.uiAutomation.rootInActiveWindow
-                    ?.findAccessibilityNodeInfosByText(context.getString(R.string.probe_title))
-                    ?.any { it.isVisibleToUser } == true
+                // Compose exposes virtual accessibility children. Traverse those children:
+                // findAccessibilityNodeInfosByText is not supported by every node provider.
+                val nodes = ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
+                instrumentation.uiAutomation.rootInActiveWindow?.let(nodes::add)
+                var visible = false
+                while (nodes.isNotEmpty()) {
+                    val node = nodes.removeFirst()
+                    if (node.isVisibleToUser && node.text?.toString() == context.getString(R.string.probe_title)) {
+                        visible = true
+                        break
+                    }
+                    repeat(node.childCount) { node.getChild(it)?.let(nodes::add) }
+                }
                 return attached && visible
             }
             while (!ready() && SystemClock.uptimeMillis() < deadline) {

@@ -799,6 +799,7 @@ private fun HomeScreen(
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val requestSearch by rememberUpdatedState(onSearch)
+    val searchIsExpanded by rememberUpdatedState(searchExpanded)
     val search = remember(lifecycle, context) {
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         DebouncedSearch<List<PlaceSuggestion>>(
@@ -807,7 +808,7 @@ private fun HomeScreen(
                 override fun remove(callback: Runnable) { handler.removeCallbacks(callback) }
             },
             query = { queryState.value },
-            viewActive = { searchExpanded && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
+            viewActive = { searchIsExpanded && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
             request = { text, reply -> requestSearch(text, reply) },
             render = { result ->
                 suggestions = result

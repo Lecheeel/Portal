@@ -79,8 +79,10 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
                         Icon(painterResource(if (topLevel) R.drawable.ic_home_menu else R.drawable.baseline_arrow_back_24),
                             if (topLevel) "打开导航菜单" else "返回")
                     }
-                }, windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-                    modifier = Modifier.testTag("portal_toolbar"))
+                }, windowInsets = WindowInsets(0),
+                    modifier = Modifier.windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                    ).testTag("portal_toolbar"))
             }
         }
     }

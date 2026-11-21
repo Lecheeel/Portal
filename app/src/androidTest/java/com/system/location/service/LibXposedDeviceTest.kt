@@ -142,6 +142,42 @@ class LibXposedDeviceTest {
     }
 
     @Test
+    fun listenerRegisteredBeforeSimulationReceivesLaterPublishedSamples() {
+        val initial = connectAndReadStatus()
+        assumeFalse("Preserving the user's active simulation", initial.getBoolean("is_start"))
+        for (permission in listOf(Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
+            assumeTrue("Existing permission required: $permission", hasPermission(permission))
+        }
+        assumeTrue("GPS must already be enabled", manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
+        val received = LinkedBlockingQueue<Location>()
+        val listener = LocationListener { received.offer(Location(it)) }
+        var registered = false
+        var attempted = false
+        try {
+            manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f,
+                { task -> task.run() }, listener)
+            registered = true
+            assertFalse("Registering a listener started simulation", requireStatus().getBoolean("is_start"))
+            received.clear()
+            repeat(2) { index ->
+                val outgoing = sample(31.230416 + index * 0.01, 121.473701 + index * 0.01)
+                attempted = true
+                assertTrue("Sample command failed", MockServiceHelper.publishSample(manager, outgoing))
+                assertSample(outgoing, awaitSample(received, outgoing.elapsedNanos), "pre-existing GPS listener")
+            }
+        } finally {
+            try { if (registered) manager.removeUpdates(listener) }
+            finally {
+                if (attempted) {
+                    assertTrue("Stop command failed", MockServiceHelper.tryCloseMock(manager))
+                    assertFalse(requireStatus().getBoolean("is_start"))
+                }
+            }
+        }
+    }
+
+    @Test
     fun currentLocationCallbackUsesPublishedSampleWhenGpsCanSupplyAFix() {
         val initial = connectAndReadStatus()
         assumeFalse("Preserving the user's active simulation", initial.getBoolean("is_start"))

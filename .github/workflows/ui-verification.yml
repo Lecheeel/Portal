@@ -15,6 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JAVA_TOOL_OPTIONS: --enable-native-access=ALL-UNNAMED
+      # Keep live Release prompts out of unrelated interaction tests. These APKs are
+      # disposable emulator fixtures; signed distribution builds use build-apk.yml.
+      ORG_GRADLE_PROJECT_APP_VERSION_NAME: '999.0.0'
+      ORG_GRADLE_PROJECT_APP_VERSION_CODE: '2100000000'
     steps:
       - uses: actions/checkout@v4
         with:

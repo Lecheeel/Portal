@@ -34,15 +34,20 @@ internal val portalDestinations = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSection: Int,
-    title: String, onNavigate: (Int) -> Unit, onBack: () -> Unit, createHost: () -> View) {
+    title: String, onNavigate: (Int) -> Unit, onBack: () -> Unit, createHost: () -> View) = BoxWithConstraints(Modifier.fillMaxSize()) {
     val scope = rememberCoroutineScope()
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val home = destination == R.id.nav_home
-    ModalNavigationDrawer(drawerState = drawer, drawerContent = {
+    val drawerWidth = minOf(288.dp, maxWidth * .78f)
+    ModalNavigationDrawer(drawerState = drawer,
+        // The default drawer captures horizontal drags across the entire map. On the map,
+        // open with the menu button; keep drag-to-close and scrim dismissal once open.
+        gesturesEnabled = !home || drawer.isOpen,
+        drawerContent = {
         ModalDrawerSheet(drawerState = drawer, modifier = Modifier
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))
             .padding(vertical = 12.dp)
-            .width(288.dp).heightIn(max = 600.dp).testTag("portal_drawer"),
+            .width(drawerWidth).heightIn(max = 600.dp).testTag("portal_drawer"),
             drawerContainerColor = MaterialTheme.colorScheme.surface,
             windowInsets = WindowInsets(0)) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp)) {

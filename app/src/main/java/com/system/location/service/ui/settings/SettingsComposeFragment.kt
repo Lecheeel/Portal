@@ -717,7 +717,7 @@ private fun SettingsScreen(
                                     PortalSwitchRow(
                                         title = "隐藏模拟标记",
                                         status = APPLY_WHILE_RUNNING,
-                                        subtitle = "开启后不向应用暴露 isMock；关闭可用于验证应用的降级逻辑。",
+                                        subtitle = "开启后不向应用暴露 isMock。",
                                         checked = values.hideMock,
                                         onCheckedChange = hookAction { context.hideMock = it },
                                         modifier = rowModifier,
@@ -737,7 +737,7 @@ private fun SettingsScreen(
                                     PortalSwitchRow(
                                         title = "堆栈清洗（实验性）",
                                         status = APPLY_WHILE_RUNNING,
-                                        subtitle = "从 getStackTrace 中剔除本模块与框架帧，会改变栈长度这一可观测特征。",
+                                        subtitle = "从 getStackTrace 中剔除本模块与框架帧。",
                                         checked = values.stackTraceCleanEnabled,
                                         onCheckedChange = hookAction { context.stackTraceCleanEnabled = it },
                                         modifier = rowModifier,

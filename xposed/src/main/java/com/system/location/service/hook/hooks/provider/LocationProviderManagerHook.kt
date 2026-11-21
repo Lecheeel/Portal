@@ -10,7 +10,6 @@ import com.system.location.service.hook.hooks.LocationResultIsolation
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.FakeLoc
-import com.system.location.service.hook.utils.LocationHookArguments
 import com.system.location.service.hook.utils.Logger
 import com.system.location.service.hook.utils.ProviderView
 import com.system.location.service.hook.utils.hook
@@ -19,7 +18,6 @@ import com.system.location.service.hook.utils.onceHook
 import com.system.location.service.hook.utils.onceHookAllMethod
 import com.system.location.service.hook.utils.onceHookMethod
 import io.github.libxposed.api.XposedInterface
-import java.util.Collections
 
 object LocationProviderManagerHook {
     private val hookOnFetchLocationResult =
@@ -243,70 +241,7 @@ object LocationProviderManagerHook {
             },
         )
 
-        run {
-            val hookedListeners = Collections.synchronizedSet(HashSet<String>())
-            if (
-                cLocationProviderManager
-                    .onceHookAllMethod(
-                        "getCurrentLocation",
-                        XposedInterface.Hooker intercept47@{ chain ->
-                            val args = chain.args.toTypedArray()
-
-                            if (!LocationHookArguments.canIntercept(FakeLoc.enable, args, 3))
-                                return@intercept47 chain.proceed(args)
-
-                            val callback = args[3]
-                            if (FakeLoc.enableDebugLog) {
-                                Logger.debug("getCurrentLocation injected: $callback")
-                            }
-
-                            if (FakeLoc.disableGetCurrentLocation) {
-                                return@intercept47 null
-                            }
-
-                            val classCallback =
-                                callback?.javaClass ?: return@intercept47 chain.proceed(args)
-                            if (hookedListeners.contains(classCallback.name))
-                                return@intercept47 chain.proceed(args) // Prevent repeated hooking
-                            if (
-                                com.system.location.service.hook.scope.HookInstaller.hookAllMethods(
-                                        classCallback,
-                                        "onLocation",
-                                        XposedInterface.Hooker intercept48@{ chain ->
-                                            val args = chain.args.toTypedArray()
-
-                                            if (args.isEmpty())
-                                                return@intercept48 chain.proceed(args)
-                                            val location =
-                                                (args[0] ?: return@intercept48 chain.proceed(args))
-                                                    as Location
-
-                                            if (FakeLoc.enableDebugLog)
-                                                Logger.debug(
-                                                    "onLocation(LocationProviderManager.getCurrentLocation): injected!"
-                                                )
-                                            args[0] = injectLocation(location)
-
-                                            chain.proceed(args)
-                                        },
-                                    )
-                                    .isEmpty()
-                            ) {
-                                Logger.error(
-                                    "hook onLocation(LocationProviderManager.getCurrentLocation) failed"
-                                )
-                            }
-
-                            hookedListeners.add(classCallback.name)
-
-                            chain.proceed(args)
-                        },
-                    )
-                    .isEmpty()
-            ) {
-                Logger.error("hook LocationProviderManager.getCurrentLocation failed")
-            }
-        }
+        CurrentLocationProviderHook.install(classLoader)
 
         cLocationProviderManager.onceHookAllMethod("onReportLocation", hookOnFetchLocationResult)
     }

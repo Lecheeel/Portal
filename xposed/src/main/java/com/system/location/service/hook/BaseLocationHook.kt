@@ -9,6 +9,7 @@ import com.system.location.service.core.location.LocationBatchTimeline
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.hook.utils.ProviderView
 import com.system.location.service.hook.utils.ProviderReadContext
+import com.system.location.service.hook.runtime.CurrentLocationDelivery
 import com.system.location.service.core.gnss.GnssFrameRoute
 
 abstract class BaseLocationHook: BaseDivineService() {
@@ -30,6 +31,9 @@ abstract class BaseLocationHook: BaseDivineService() {
 
     fun injectLocation(originLocation: Location, realLocation: Boolean = true,
         context: ProviderReadContext? = null): Location {
+        // A current request already has a synthetic provider candidate. Preserve the platform's
+        // subsequent coarse filtering and copies instead of replacing them with a fine fix again.
+        if (CurrentLocationDelivery.active) return originLocation
         val captured = context ?: ProviderView.capture()
         if (!captured.state.configuration.enabled) {
             if (realLocation && originLocation.provider == LocationManager.GPS_PROVIDER) {
@@ -49,6 +53,7 @@ abstract class BaseLocationHook: BaseDivineService() {
         context: ProviderReadContext? = null,
     ): List<Location> {
         if (originLocations.isEmpty()) return emptyList()
+        if (CurrentLocationDelivery.active) return originLocations
         val captured = context ?: ProviderView.capture()
         if (!captured.state.configuration.enabled) return originLocations
         val intervalMillis = captured.state.configuration.reportIntervalMs.coerceIn(1L, 60_000L)

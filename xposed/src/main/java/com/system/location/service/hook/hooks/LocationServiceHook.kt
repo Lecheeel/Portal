@@ -496,43 +496,15 @@ internal object LocationServiceHook : BaseLocationHook() {
                 val args = chain.args.toTypedArray()
 
                 if (!FakeLoc.enable) return@intercept27 chain.proceed(args)
-                val callback = args.getOrNull(2) ?: return@intercept27 chain.proceed(args)
-
-                if (FakeLoc.enableDebugLog) {
-                    Logger.debug("getCurrentLocation: injected!")
-                }
-
                 if (FakeLoc.disableGetCurrentLocation) {
                     // A denied caller must still observe the framework's SecurityException.
                     if (!LocationCallerGuard.canReadLocation()) return@intercept27 chain.proceed(args)
                     return@intercept27 null
                 }
 
-                // Capture the caller's access level before the callback runs on another thread.
-                val coarse = LocationCallerGuard.isCoarse()
-                val classCallback = callback.javaClass
-                classCallback.onceHookAllMethod(
-                    "onLocation",
-                    XposedInterface.Hooker intercept28@{ chain ->
-                        val args = chain.args.toTypedArray()
-
-                        val location =
-                            args[0] as? Location ?: return@intercept28 chain.proceed(args)
-
-                        if (FakeLoc.enableDebugLog) {
-                            Logger.debug("onLocation(getCurrentLocation): injected!")
-                        }
-
-                        args[0] = if (coarse) {
-                            runCatching { coarseLocation() }.getOrElse { injectLocation(location) }
-                        } else {
-                            injectLocation(location)
-                        }
-
-                        chain.proceed(args)
-                    },
-                )
-
+                // Provider activation supplies the candidate before Android's delivery checks.
+                // Do not rewrite the callback again: that loses per-request permission filtering
+                // and can leak the first caller's captured state into later callbacks of its class.
                 chain.proceed(args)
             },
         )

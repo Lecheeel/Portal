@@ -178,6 +178,42 @@ class LibXposedDeviceTest {
     }
 
     @Test
+    fun currentLocationUsesPublishedSampleWithoutHardwareWarmup() {
+        val initial = connectAndReadStatus()
+        assumeFalse("Preserving the user's active simulation", initial.getBoolean("is_start"))
+        assumeTrue("Fine location permission required", hasPermission(Manifest.permission.ACCESS_FINE_LOCATION))
+        assumeTrue("Background location permission required", hasPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+        assumeTrue("GPS must already be enabled", manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
+        var attempted = false
+        try {
+            // No continuous listener or real GPS fix is required. Each request must use the
+            // latest publication, including multiple callback objects of the same transport class.
+            repeat(5) { index ->
+                val outgoing = sample(31.230416 + index * 0.01, 121.473701 + index * 0.01)
+                attempted = true
+                assertTrue("Sample command failed", MockServiceHelper.publishSample(manager, outgoing))
+                assertActive(outgoing)
+                assertSample(outgoing, boundedCurrentFix(), "current callback $index without warmup")
+            }
+            val cancelled = CancellationSignal().apply { cancel() }
+            val delivered = CountDownLatch(1)
+            manager.getCurrentLocation(LocationManager.GPS_PROVIDER, cancelled, { it.run() }) {
+                delivered.countDown()
+            }
+            assertFalse("A cancelled request invoked its consumer", delivered.await(300, TimeUnit.MILLISECONDS))
+            val invalid = runCatching {
+                manager.getCurrentLocation("portal_current_missing_provider", null, { it.run() }) { }
+            }.exceptionOrNull()
+            assertTrue("The real framework must reject an unknown provider", invalid is IllegalArgumentException)
+        } finally {
+            if (attempted) {
+                assertTrue("Stop command failed", MockServiceHelper.tryCloseMock(manager))
+                assertFalse("Simulation remained active", requireStatus().getBoolean("is_start"))
+            }
+        }
+    }
+
+    @Test
     fun currentLocationCallbackUsesPublishedSampleWhenGpsCanSupplyAFix() {
         val initial = connectAndReadStatus()
         assumeFalse("Preserving the user's active simulation", initial.getBoolean("is_start"))

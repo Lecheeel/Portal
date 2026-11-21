@@ -32,7 +32,7 @@ import kotlin.math.sqrt
 
 // https://github.com/lqxue/RockerView/blob/master/app/src/main/java/com/zcsj/rockerview/RockerView.java
 @SuppressLint("UseCompatLoadingForDrawables")
-class RockerView(context: Context, attributeSet: AttributeSet): View(context, attributeSet) {
+class RockerView(context: Context, attributeSet: AttributeSet? = null): View(context, attributeSet) {
     private var mAreaBackgroundPaint: Paint
     private var mRockerPaint: Paint
     private var mRockerPosition: Point

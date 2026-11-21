@@ -9,6 +9,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -54,6 +56,30 @@ internal class PortalDialog(context: Context, overlay: Boolean = false) : Compon
         activityOwner?.lifecycle?.removeObserver(observer)
         super.onStop()
     }
+}
+
+internal fun showPortalChoiceDialog(context: Context, title: String, choices: List<String>,
+    selected: Int? = null, onSelect: (Int) -> Unit): PortalDialog {
+    val dialog = PortalDialog(context)
+    dialog.content {
+        PortalDialogContent(title, body = {
+            choices.forEachIndexed { index, label ->
+                Row(Modifier.fillMaxWidth().selectable(selected == index, role = Role.RadioButton,
+                    onClick = { dialog.dismiss(); onSelect(index) }).padding(vertical = 12.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    if (selected != null) {
+                        RadioButton(selected == index, onClick = null)
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    Text(label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }, buttons = {
+            TextButton(onClick = { dialog.dismiss() }) { Text(context.getString(android.R.string.cancel)) }
+        })
+    }
+    dialog.show()
+    return dialog
 }
 
 @Composable

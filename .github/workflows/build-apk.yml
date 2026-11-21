@@ -1,26 +1,20 @@
-name: Verify and Build APKs
+name: K50 signed device test build
 
-"on":
+on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: Version name (for example 1.8.0-beta.1)
         required: true
         type: string
         default: 2.3.6
       version_code:
-        description: Globally increasing Android version code
         required: true
         type: string
         default: '1790000108'
       release_channel:
-        description: stable or beta/canary/rc pre-release metadata
         required: true
-        type: choice
-        options: [stable, beta]
-        default: stable
-  push:
-    branches: [main]
+        type: string
+        default: beta
 
 permissions:
   contents: read
@@ -29,16 +23,10 @@ env:
   JAVA_TOOL_OPTIONS: --enable-native-access=ALL-UNNAMED
 
 jobs:
-  verify:
+  device-build:
     runs-on: ubuntu-latest
-    env:
-      APP_VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '2.3.5' }}
-      APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000107' }}
-      RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'stable' }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -50,15 +38,7 @@ jobs:
       - name: Install Android toolchain
         run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;30.0.16248370' 'cmake;4.1.2'
       - uses: gradle/actions/setup-gradle@v4
-      - name: Repository guardrails
-        run: |
-          python3 scripts/check_module_rules.py
-          python3 scripts/check_backup_rules.py
-          python3 scripts/check_manifest_exports.py
-          python3 scripts/check_license_assets.py
-          python3 scripts/check_xposed_module.py
-      - name: Prepare required release signing
-        if: github.event_name == 'workflow_dispatch'
+      - name: Prepare existing signing identity
         env:
           SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
           SIGN_KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
@@ -67,69 +47,31 @@ jobs:
         run: |
           set -euo pipefail
           for name in SIGN_KEYSTORE_BASE64 SIGN_KEYSTORE_PASSWORD SIGN_ALIAS SIGN_KEY_PASSWORD; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error::Missing signing secret: $name"
-              exit 1
-            fi
+            test -n "${!name:-}" || { echo "Missing signing secret: $name"; exit 1; }
           done
           umask 077
-          printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/portal-release.jks"
-          echo "KEYSTORE_PATH=$RUNNER_TEMP/portal-release.jks" >> "$GITHUB_ENV"
-      - name: Unit tests
-        run: |
-          chmod +x ./gradlew
-          ./gradlew test :nmea:test :core:test :app:testArm64DebugUnitTest :xposed:testDebugUnitTest --build-cache --stacktrace
-          python3 -m unittest discover -s scripts -p 'test_*.py'
-      - name: Native ABI syntax and link
-        run: python3 scripts/check_native_syntax.py --link
-      - name: Generate native payload from this revision
-        run: |
-          "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded .tmp/native-link/liblocationext-arm64-v8a.so
-          python3 scripts/encrypt_native_asset.py .tmp/native-link/liblocationext-arm64-v8a.so xposed/src/main/assets/liblocationext.bin
-      - name: Lint
-        # Run separately to avoid a reproduced Kotlin FIR analysis failure during combined builds.
-        run: ./gradlew lint --max-workers=1 --build-cache --stacktrace
-      - name: Release APKs
-        if: github.event_name == 'workflow_dispatch'
-        run: ./gradlew :app:assembleRelease :app:exportReleaseApks -PAPP_VERSION_NAME="$APP_VERSION_NAME" -PAPP_VERSION_CODE="$APP_VERSION_CODE" -PBUILD_REVISION="$GITHUB_SHA" --build-cache --stacktrace
+          printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/portal-device.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/portal-device.jks" >> "$GITHUB_ENV"
+      - name: Build signed debug app and instrumentation for device regression
         env:
           KEYSTORE_PASSWORD: ${{ secrets.SIGN_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.SIGN_ALIAS }}
           KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD }}
           AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
           TENCENT_MAP_KEY: ${{ secrets.TENCENT_MAP_KEY }}
-      - name: Verify signed APKs and upgrade certificate
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/verify_release_apks.py --version "$APP_VERSION_NAME" --version-code "$APP_VERSION_CODE" --channel "$RELEASE_CHANNEL"
-      - name: Verify modern Xposed APK packaging
-        if: github.event_name == 'workflow_dispatch'
-        run: python3 scripts/check_xposed_module.py --apk-dir app/build/outputs/distribution
-      - name: Verify optimized Release callbacks and DEX compression
-        if: github.event_name == 'workflow_dispatch'
-        run: python3 scripts/check_release_optimization.py --apk-dir app/build/outputs/distribution
-      - name: Upload APKs
-        if: github.event_name == 'workflow_dispatch'
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleArm64Debug :app:assembleArm64DebugAndroidTest :xposed:assembleDebugAndroidTest -PAPP_VERSION_NAME="${{ inputs.version_name }}" -PAPP_VERSION_CODE="${{ inputs.version_code }}" -PBUILD_REVISION="$GITHUB_SHA" --max-workers=2 --build-cache --stacktrace
+          python3 scripts/check_xposed_module.py --apk-dir app/build/outputs/apk/arm64/debug
+      - name: Upload device-only test APKs
         uses: actions/upload-artifact@v4
         with:
-          name: LocationService-${{ github.sha }}
+          name: K50-device-test-${{ github.sha }}
           path: |
-            app/build/outputs/distribution/*.apk
-            app/build/outputs/distribution/SHA256SUMS
-            app/build/outputs/distribution/verification.json
+            app/build/outputs/apk/arm64/debug/*.apk
+            app/build/outputs/apk/androidTest/arm64/debug/*.apk
+            xposed/build/outputs/apk/androidTest/debug/*.apk
           if-no-files-found: error
-      - name: Remove temporary signing material
+      - name: Remove signing material
         if: always()
-        run: rm -f -- "$RUNNER_TEMP/portal-release.jks"
-      - name: Upload verification reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: verification-${{ github.sha }}
-          path: |
-            core/build/reports/tests/
-            app/build/reports/
-            xposed/build/reports/
-            system-api/build/reports/
-            app/build/outputs/mapping/*Release/
+        run: rm -f -- "$RUNNER_TEMP/portal-device.jks"

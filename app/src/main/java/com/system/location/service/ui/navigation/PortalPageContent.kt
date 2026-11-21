@@ -21,8 +21,9 @@ import com.system.location.service.designsystem.theme.PortalTheme
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun ComposeView.setPortalPageContent(fragment: Fragment, content: @Composable () -> Unit) {
     setContent {
-        // Tabs and editor fixtures already have their own parent chrome.
-        if (fragment.parentFragment !is NavHostFragment) {
+        // Only the app shell owns these toolbars. Standalone editor fixtures also
+        // use a NavHost, but restore its graph separately and have no drawer.
+        if (fragment.activity !is MainActivity || fragment.parentFragment !is NavHostFragment) {
             content()
             return@setContent
         }

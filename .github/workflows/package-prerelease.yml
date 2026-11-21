@@ -36,7 +36,7 @@ jobs:
       APP_VERSION_CODE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '1790000107' }}
       RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'stable' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: actions/setup-java@v4

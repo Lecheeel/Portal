@@ -1,13 +1,17 @@
 package com.system.location.service.ui.mock
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -35,8 +39,12 @@ internal fun RockerPanel(minimized: Boolean, expanded: Boolean, status: String, 
         }
     }
     val title = stringResource(if (route) R.string.overlay_route_speed else R.string.rocker_speed)
-    Surface(Modifier.padding(6.dp).testTag("rocker_overlay"), shape = MaterialTheme.shapes.large,
-        shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
+    val shape = if (minimized) CircleShape else MaterialTheme.shapes.large
+    Surface(Modifier.padding(8.dp).shadow(3.dp, shape,
+        ambientColor = Color.Black.copy(alpha = .12f),
+        spotColor = Color.Black.copy(alpha = .16f)).testTag("rocker_overlay"),
+        shape = shape, border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .08f)),
+        color = MaterialTheme.colorScheme.surface) {
         if (minimized) IconButton(onClick = { onMinimize(false) },
             modifier = drag.size(48.dp).semantics { stateDescription = status }.testTag("rocker_expand")) {
             Icon(painterResource(R.drawable.ic_home_rocker), stringResource(R.string.overlay_expand),

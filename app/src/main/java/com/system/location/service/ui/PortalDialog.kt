@@ -18,6 +18,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -88,7 +90,7 @@ internal fun PortalDialogContent(title: String, message: String? = null,
     buttons: @Composable FlowRowScope.() -> Unit) {
     Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(24.dp).heightIn(max = 560.dp)) {
-            Text(title, style = MaterialTheme.typography.headlineSmall)
+            Text(title, modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(top = 16.dp)) {
                 message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 body?.invoke(this)

@@ -45,11 +45,9 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
         gesturesEnabled = drawer.isOpen,
         drawerContent = {
         ModalDrawerSheet(drawerState = drawer, modifier = Modifier
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))
-            .padding(vertical = 12.dp)
-            .width(drawerWidth).heightIn(max = 600.dp).testTag("portal_drawer"),
+            .width(drawerWidth).fillMaxHeight().testTag("portal_drawer"),
             drawerContainerColor = MaterialTheme.colorScheme.surface,
-            windowInsets = WindowInsets(0)) {
+            windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical)) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp)) {
                 Spacer(Modifier.height(16.dp))
                 Text("Portal", Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)

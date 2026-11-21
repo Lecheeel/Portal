@@ -96,6 +96,9 @@ class PredictiveBackUiTest {
                 resumed()
                 compose.waitForIdle()
                 compose.onNodeWithText("定位精度").assertIsDisplayed()
+                val detailTitle = hasText("地图与定位") and hasAnyAncestor(hasTestTag("portal_toolbar"))
+                val titleNode = compose.onNode(detailTitle).fetchSemanticsNode()
+                val titleBeforeBack = titleNode.boundsInWindow
                 scenario.onActivity {
                     val page = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
                         .childFragmentManager.primaryNavigationFragment!!
@@ -118,6 +121,10 @@ class PredictiveBackUiTest {
                     }
                     previewing
                 }
+                captureUi("settings-back-title-preview")
+                // The outgoing Compose root temporarily leaves the test registry when its
+                // Fragment view enters the transition overlay. Follow the actual title node.
+                compose.waitUntil(5_000) { titleNode.boundsInWindow.left > titleBeforeBack.left + 1f }
                 scenario.onActivity { input.backCancelled() }
                 compose.waitUntil(5_000) {
                     var settled = false
@@ -129,6 +136,8 @@ class PredictiveBackUiTest {
                 resumed()
                 compose.waitForIdle()
                 compose.onNodeWithText("定位精度").assertIsDisplayed()
+                val cancelledTitle = compose.onNode(detailTitle).fetchSemanticsNode().boundsInWindow
+                assertEquals("Cancelling Back must restore the title with its page", titleBeforeBack.left, cancelledTitle.left, 1f)
                 scenario.onActivity {
                     assertEquals(R.id.nav_settings_location, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
                     input.backStarted(event(0f))

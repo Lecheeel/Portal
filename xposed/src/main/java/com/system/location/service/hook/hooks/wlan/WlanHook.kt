@@ -245,31 +245,7 @@ object WlanHook {
 
     private fun buildWifiInfo(profile: EnvironmentProfile): WifiInfo? {
         val ap = profile.connectedWifi() ?: profile.wifi.maxByOrNull { it.rssi } ?: return null
-        val info = runCatching { Reflection.newInstance(WifiInfo::class.java) as WifiInfo }.getOrNull()
-            ?: return null
-        val linkSpeed = if (ap.frequencyMhz >= 5_000) 433 else 144
-        val values: List<Pair<String, Any>> = listOf<Pair<String, Any>>(
-            "setBSSID" to ap.bssid.lowercase(),
-            "setSSID" to "\"${ap.ssid}\"",
-            "setMacAddress" to syntheticWifiMac(FakeLoc.environmentSeed, ap.bssid),
-            "setNetworkId" to (ap.bssid.lowercase().hashCode() and Int.MAX_VALUE),
-            "setRssi" to ap.rssi,
-            "setFrequency" to ap.frequencyMhz,
-            "setLinkSpeed" to linkSpeed,
-            "setRxLinkSpeedMbps" to linkSpeed,
-            "setTxLinkSpeedMbps" to linkSpeed,
-            "setMaxSupportedRxLinkSpeedMbps" to linkSpeed,
-            "setMaxSupportedTxLinkSpeedMbps" to linkSpeed,
-            "setWifiStandard" to ap.standard,
-            "setIpAddress" to syntheticWifiIpv4(ap.bssid),
-            "setSupplicantState" to SupplicantState.COMPLETED,
-            "setHiddenSSID" to false,
-        )
-        values.forEach { (method, value) ->
-            runCatching { Reflection.callMethod(info, method, value) }
-                .onFailure { if (FakeLoc.enableDebugLog) Logger.debug("WifiInfo.$method unavailable: ${it.javaClass.simpleName}") }
-        }
-        return info
+        return runCatching { syntheticWifiInfo(ap, FakeLoc.environmentSeed) }.getOrNull()
     }
 
     /**
@@ -281,7 +257,6 @@ object WlanHook {
     }.getOrNull()?.apply {
         listOf<Pair<String, Any>>(
             "setSupplicantState" to SupplicantState.DISCONNECTED,
-            "setSSID" to "<unknown ssid>",
             "setBSSID" to REDACTED_BSSID,
             "setNetworkId" to -1,
             "setIpAddress" to 0,

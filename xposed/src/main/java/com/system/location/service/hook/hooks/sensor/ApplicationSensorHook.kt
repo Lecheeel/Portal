@@ -11,6 +11,8 @@ import com.system.location.service.core.sensors.SensorEventValues
 import com.system.location.service.core.sensors.SensorPlayback
 import com.system.location.service.core.sensors.SensorCadence
 import com.system.location.service.hook.runtime.HookRuntime
+import com.system.location.service.hook.runtime.BackgroundQuery
+import com.system.location.service.core.sensors.SensorPlaybackState
 import com.system.location.service.hook.scope.HookInstaller
 import java.lang.reflect.Method
 
@@ -21,7 +23,8 @@ object ApplicationSensorHook {
     private val registrations = mutableListOf<Registration>()
     private var worker: Handler? = null
     private var lastPoll = 0L
-    private var location: LocationManager? = null
+    private var queryContext: Context? = null
+    private val query = BackgroundQuery()
     private lateinit var dispatch: Method
     private lateinit var sensorHandle: Method
     private var lastSyntheticCounter = 0L
@@ -64,7 +67,7 @@ object ApplicationSensorHook {
                     if (registrations.none { it.queue === eventQueue && it.handle == handle }) {
                         registrations.add(Registration(owner, listener, eventQueue, handle, sensor.type, Handler(looper)))
                     }
-                    location = context.applicationContext.getSystemService(LocationManager::class.java)
+                    queryContext = context.applicationContext ?: context
                     startWorker()
                 }
             }.onFailure { HookRuntime.log(it) }
@@ -138,7 +141,7 @@ object ApplicationSensorHook {
         // The Handler belongs to the application; remove only our tick, never its messages.
         worker?.removeCallbacks(tick)
         worker = null
-        location = null
+        queryContext = null
         lastPoll = 0L
         playback.update(null, SystemClock.elapsedRealtimeNanos())
         counterSessionActive = false
@@ -147,40 +150,52 @@ object ApplicationSensorHook {
         generation++
     }
 
-    private val tick = object : Runnable {
-        override fun run() {
-            val handler: Handler
-            val manager: LocationManager?
-            val poll: Boolean
-            synchronized(lock) {
-                handler = worker ?: return
-                manager = location
-                val now = SystemClock.elapsedRealtimeNanos()
-                poll = now - lastPoll >= 250_000_000
-                if (poll) lastPoll = now
-            }
-            if (poll) {
-                var protected: Boolean? = null
-                val state = runCatching {
-                    val result = Bundle()
-                    if (manager?.sendExtraCommand("fused_ext", SensorSnapshotCommand.COMMAND, result) != true) null
-                    else {
-                        protected = result.getBoolean(SensorSnapshotCommand.PROTECTED_KEY)
-                        SensorStateWire.read(result)
-                    }
-                }.getOrNull()
+    private data class PollResult(val protected: Boolean?, val state: SensorPlaybackState?)
+
+    private fun pollState(context: Context?, handler: Handler, epoch: Long) {
+        try {
+            query.submit({
+                val manager = context?.getSystemService(LocationManager::class.java)
+                val result = Bundle()
+                if (manager?.sendExtraCommand("fused_ext", SensorSnapshotCommand.COMMAND, result) != true)
+                    PollResult(null, null)
+                else PollResult(result.getBoolean(SensorSnapshotCommand.PROTECTED_KEY), SensorStateWire.read(result))
+            }) { result ->
                 synchronized(lock) {
-                    if (worker !== handler) return
-                    protected?.let { suppressHardware = it }
-                    if (session != state?.session) {
-                        session = state?.session
+                    // An unregister/re-register may reuse the same Handler. Its old in-flight
+                    // Binder response must not restore a motion grant into the new subscription.
+                    if (worker !== handler || generation != epoch) return@synchronized
+                    val next = result.getOrDefault(PollResult(null, null))
+                    next.protected?.let { suppressHardware = it }
+                    if (session != next.state?.session) {
+                        session = next.state?.session
                         generation++
                         counterSessionActive = false
                         registrations.forEach { it.lastSteps = -1 }
                     }
-                    playback.update(state, SystemClock.elapsedRealtimeNanos())
+                    playback.update(next.state, SystemClock.elapsedRealtimeNanos())
                 }
             }
+        } catch (failure: RuntimeException) {
+            HookRuntime.log(failure)
+        }
+    }
+
+    private val tick = object : Runnable {
+        override fun run() {
+            val handler: Handler
+            val context: Context?
+            val epoch: Long
+            val poll: Boolean
+            synchronized(lock) {
+                handler = worker ?: return
+                context = queryContext
+                epoch = generation
+                val now = SystemClock.elapsedRealtimeNanos()
+                poll = now - lastPoll >= 250_000_000
+                if (poll) lastPoll = now
+            }
+            if (poll) pollState(context, handler, epoch)
             synchronized(lock) {
                 if (worker !== handler) return
                 val now = SystemClock.elapsedRealtimeNanos()

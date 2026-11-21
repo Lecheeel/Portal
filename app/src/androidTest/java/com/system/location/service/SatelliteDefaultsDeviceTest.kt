@@ -12,6 +12,7 @@ import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.gnss.gnssReplayOnStart
 import com.system.location.service.runtime.ScenarioRuntime
+import com.system.location.service.runtime.XposedServiceBridge
 import com.system.location.service.service.MockServiceHelper
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -28,11 +29,12 @@ class SatelliteDefaultsDeviceTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         ScenarioRuntime.awaitInitialized()
         assumeFalse("Preserve local simulation", ScenarioRuntime.state.value.isActive)
-        assumeTrue("Root implementation must be available", RootEnvironmentProbe.isAvailable())
         val manager = context.getSystemService(LocationManager::class.java)
         MockServiceHelper.tryInitService(manager)
         assumeTrue("Requires a running system module", MockServiceHelper.isServiceInit())
         assumeFalse("Preserve system simulation", MockServiceHelper.isMockStart(manager))
+        assumeTrue("Root implementation or a system-capable framework must be available",
+            XposedServiceBridge.supportsSystemScope() || RootEnvironmentProbe.isAvailable())
         val preferences = context.sharedPrefs
         val keys = listOf("gnssReplayOnStart", "gnssSimulationMode")
         val saved = preferences.all.filterKeys { it in keys }

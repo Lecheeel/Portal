@@ -31,6 +31,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -735,7 +736,11 @@ private data class HomeTarget(
 /** Consistent 48 dp touch targets with 24 dp vectors, independent of font scaling. */
 @Composable
 private fun HomeMapButton(icon: Int, description: String, onClick: () -> Unit) {
-    FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
+    FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(48.dp),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = androidx.compose.ui.graphics.Color.White,
+            contentColor = androidx.compose.ui.graphics.Color(0xFF263238),
+        )) {
         Icon(painterResource(icon), contentDescription = description, modifier = Modifier.size(24.dp))
     }
 }

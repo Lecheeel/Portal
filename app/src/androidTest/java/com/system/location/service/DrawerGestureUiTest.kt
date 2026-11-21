@@ -53,6 +53,9 @@ class DrawerGestureUiTest {
             drawer(true)
             compose.onNodeWithText("设置").performClick()
             drawer(false)
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithText("地图与定位").assertIsDisplayed(); true }.getOrDefault(false)
+            }
             compose.onNodeWithText("地图与定位").performClick()
             compose.waitUntil(5_000) {
                 runCatching { compose.onNodeWithText("定位精度").assertIsDisplayed(); true }.getOrDefault(false)

@@ -47,6 +47,19 @@ class RoutingTableTest {
         assertEquals(RoutingDecision.Global, table.decision(10_123, "com.example.map", true))
     }
 
+    @Test fun secondaryUserSystemIdsBypassPackageRoutesAndExplicitDenials() {
+        val table = RoutingTable(perApp)
+        for (uid in listOf(-1, 1000, 1001, 101000, 101001, 99901000)) {
+            assertEquals("uid=$uid", RoutingDecision.Global,
+                table.decision(uid, "com.example.denied", false))
+            assertEquals("uid=$uid", RoutingDecision.Global,
+                table.decision(uid, "com.example.map", false))
+        }
+        assertEquals(RoutingDecision.Scenario("map-scenario"),
+            table.decision(110123, "com.example.map", false))
+        assertEquals(RoutingDecision.Deny, table.decision(110123, "com.example.denied", false))
+    }
+
     @Test fun deniedPackageWinsOverRoutes() {
         val table = RoutingTable(perApp.copy(
             routes = perApp.routes + AppRoute("com.example.denied", "should-not-win"),

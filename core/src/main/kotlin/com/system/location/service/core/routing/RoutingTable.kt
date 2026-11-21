@@ -85,7 +85,7 @@ class RoutingTable(private val config: RoutingConfig = RoutingConfig()) {
 
     fun decision(uid: Int, packageNames: Collection<String>, isSystemApp: Boolean): RoutingDecision {
         if (config.mode == RoutingMode.GLOBAL) return RoutingDecision.Global
-        if (isSystemApp || uid < FIRST_APP_UID) return RoutingDecision.Global
+        if (isSystemApp || uid < 0 || uid % 100000 < FIRST_APP_UID) return RoutingDecision.Global
         val normalized = packageNames.map { it.lowercase() }
         if (normalized.any { it in deniedPackages }) return RoutingDecision.Deny
         val packageRoute = normalized.firstNotNullOfOrNull { packageRoutes[it] }

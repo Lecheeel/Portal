@@ -72,31 +72,26 @@ object BinderUtils {
         CallerPolicy.resolve(uid, packages, controllerUid, systemPackages)
     }.getOrDefault(CallerRole.DENIED)
 
-    fun isSystemPackages(packageNames: String): Boolean {
-        if (packageNames.contains("com.xiaomi.location.fused") ||
-            packageNames.contains("com.xiaomi.metoknlp") ||
-            //packageNames.contains("com.android.phone") ||
-            packageNames.contains("com.android.location.fused")
-            ) {
-            return false
-        }
-        return packageNames.contains("com.android") ||
-                packageNames.contains("com.miui") ||
-                packageNames.contains("com.xiaomi") ||
-                packageNames.contains("com.oplus") ||
-                packageNames.contains("com.coloros") ||
-                packageNames.contains("com.heytap") ||
-                packageNames.contains("android.framework") ||
-                packageNames.contains("com.qualcomm") ||
-                packageNames.contains("com.google.android.permissioncontroller")
+    fun isSystemPackages(packageName: String): Boolean {
+        if (packageName in setOf("com.xiaomi.location.fused", "com.xiaomi.metoknlp",
+                "com.android.location.fused")) return false
+        return packageName == "android" || packageName.startsWith("android.framework") ||
+            listOf("com.android", "com.miui", "com.xiaomi", "com.oplus", "com.coloros",
+                "com.heytap", "com.qualcomm", "com.google.android.permissioncontroller").any {
+                packageName == it || packageName.startsWith("$it.")
+            }
     }
 
+    internal fun isCoreUid(uid: Int): Boolean = uid < 0 || uid % 100000 < 10000
+
+    internal fun systemCallForPackages(uid: Int, packages: Collection<String>?): Boolean =
+        isCoreUid(uid) || packages.isNullOrEmpty() || packages.any(::isSystemPackages)
+
     fun isSystemAppsCall(uid: Int = getCallerUid()): Boolean {
-        if (uid > 10000) {
-            val packageNames = kotlin.runCatching { getUidPackageNames(uid = uid)?.joinToString() }
-                .getOrNull() ?: return true
-            return isSystemPackages(packageNames)
-        }
-        return true
+        if (isCoreUid(uid)) return true
+        val packages = runCatching { getUidPackageNames(uid = uid)?.toList() }.getOrNull()
+        // Check each shared-UID package independently: an allowed fused package must not
+        // cancel another package's system status, and unknown callers keep physical state.
+        return systemCallForPackages(uid, packages)
     }
 }

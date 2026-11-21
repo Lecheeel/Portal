@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
+import com.system.location.service.ui.navigation.setPortalPageContent
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import com.system.location.service.R
@@ -59,7 +60,7 @@ class SimulationComposeFragment : Fragment() {
         savedInstanceState: Bundle?,
     ): View = ComposeView(requireContext()).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-        setContent {
+        setPortalPageContent(this@SimulationComposeFragment) {
             PortalTheme {
                 var selected by rememberSaveable { mutableIntStateOf(selectedTab) }
                 Column(Modifier.fillMaxSize()) {

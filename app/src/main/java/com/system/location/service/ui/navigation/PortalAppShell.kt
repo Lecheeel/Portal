@@ -33,11 +33,10 @@ internal val portalDestinations = listOf(
 /** Compose owns the entire application chrome; only the SDK-compatible navigation host is a View. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSection: Int,
-    title: String, onNavigate: (Int) -> Unit, onBack: () -> Unit, createHost: () -> View) = BoxWithConstraints(Modifier.fillMaxSize()) {
+internal fun PortalAppShell(drawer: DrawerState, selectedSection: Int,
+    onNavigate: (Int) -> Unit, createHost: () -> View) = BoxWithConstraints(Modifier.fillMaxSize()) {
     val scope = rememberCoroutineScope()
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
-    val home = destination == R.id.nav_home
     val drawerWidth = minOf(288.dp, maxWidth * .78f)
     ModalNavigationDrawer(drawerState = drawer,
         // Open only from a menu button on every page. Once open, retain drag-to-close
@@ -79,19 +78,6 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
         Surface(Modifier.fillMaxSize().testTag("portal_shell"), color = MaterialTheme.colorScheme.background) {
             Box(Modifier.fillMaxSize()) {
                 AndroidView(factory = { createHost() }, modifier = Modifier.fillMaxSize())
-                if (!home) TopAppBar(title = { Text(title) }, navigationIcon = {
-                    val topLevel = portalDestinations.any { it.id == destination } || destination == R.id.nav_gnss_mock
-                    IconButton(onClick = { if (topLevel) scope.launch { drawer.open() } else onBack() }) {
-                        Icon(painterResource(if (topLevel) R.drawable.ic_home_menu else R.drawable.baseline_arrow_back_24),
-                            if (topLevel) "打开导航菜单" else "返回")
-                    }
-                }, colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background,
-                ), windowInsets = WindowInsets(0),
-                    modifier = Modifier.windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                    ).testTag("portal_toolbar"))
             }
         }
     }

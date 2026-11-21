@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
+import com.system.location.service.ui.navigation.setPortalPageContent
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -35,7 +36,7 @@ class AppSelectionFragment : Fragment() {
             val arguments = requireArguments()
             val initial = arguments.getStringArrayList("selected") ?: arrayListOf()
             val appContext = requireContext().applicationContext
-            setContent {
+            setPortalPageContent(this@AppSelectionFragment) {
                 PortalTheme {
                     var selected by rememberSaveable { mutableStateOf(ArrayList(initial)) }
                     var query by rememberSaveable { mutableStateOf("") }

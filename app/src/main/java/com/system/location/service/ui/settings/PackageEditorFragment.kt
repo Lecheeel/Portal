@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
+import com.system.location.service.ui.navigation.setPortalPageContent
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
@@ -25,7 +26,7 @@ class PackageEditorFragment : Fragment() {
         ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             val initial = requireArguments().getStringArrayList("selected").orEmpty().sorted().joinToString("\n")
-            setContent {
+            setPortalPageContent(this@PackageEditorFragment) {
                 PortalTheme {
                     var text by rememberSaveable { mutableStateOf(initial) }
                     var error by rememberSaveable { mutableStateOf<String?>(null) }

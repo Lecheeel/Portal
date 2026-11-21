@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.ComposeView
+import com.system.location.service.ui.navigation.setPortalPageContent
 
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
@@ -123,7 +124,7 @@ open class RouteGalleryComposeFragment : Fragment() {
         savedInstanceState: Bundle?,
     ): View = ComposeView(requireContext()).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-        setContent {
+        setPortalPageContent(this@RouteGalleryComposeFragment) {
             PortalTheme {
                 val state by model.state.collectAsStateWithLifecycle()
                 var environment by rememberSaveable { mutableStateOf(environmentSelected) }

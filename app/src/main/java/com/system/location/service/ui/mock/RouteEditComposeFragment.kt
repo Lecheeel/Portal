@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
+import com.system.location.service.ui.navigation.setPortalPageContent
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -115,7 +116,7 @@ open class RouteEditComposeFragment : Fragment() {
         renderedKey = null
         mapState = savedInstanceState
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-        setContent {
+        setPortalPageContent(this@RouteEditComposeFragment) {
             PortalTheme {
                 RouteEditScreen(
                     model = model,

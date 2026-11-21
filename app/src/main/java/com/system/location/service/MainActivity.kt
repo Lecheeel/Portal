@@ -69,7 +69,6 @@ class MainActivity : AppCompatActivity() {
         private set
     internal var selectedDrawerId by androidx.compose.runtime.mutableIntStateOf(R.id.nav_home)
         private set
-    private var pageTitle by androidx.compose.runtime.mutableStateOf("Portal")
     private var shellReady = false
     private var navHost: androidx.navigation.fragment.NavHostFragment? = null
     private var drawerUiScope: kotlinx.coroutines.CoroutineScope? = null
@@ -103,11 +102,8 @@ class MainActivity : AppCompatActivity() {
             // Rebind the restored host's view, just as AndroidFragment does for its own container.
             supportFragmentManager.onContainerAvailable(this)
             androidx.navigation.Navigation.setViewNavController(this, host.navController)
-            host.navController.addOnDestinationChangedListener { _, destination, args ->
+            host.navController.addOnDestinationChangedListener { _, destination, _ ->
                 currentDestinationId = destination.id
-                pageTitle = destination.label?.toString()?.let { label ->
-                    Regex("\\{(.+?)\\}").replace(label) { match -> args?.get(match.groupValues[1])?.toString().orEmpty() }
-                }.orEmpty()
                 selectedDrawerId = when {
                     destination.arguments.containsKey("category") -> R.id.nav_settings
                     destination.id == R.id.nav_gnss_mock -> R.id.nav_mock
@@ -200,8 +196,8 @@ class MainActivity : AppCompatActivity() {
                         onDispose { if (drawerUiScope === scope) drawerUiScope = null }
                     }
                     PortalTheme {
-                        PortalAppShell(drawerState, currentDestinationId, selectedDrawerId, pageTitle,
-                            onNavigate = ::navigateFromDrawer, onBack = { onSupportNavigateUp() },
+                        PortalAppShell(drawerState, selectedDrawerId,
+                            onNavigate = ::navigateFromDrawer,
                             createHost = ::createNavigationHost)
                     }
                 }

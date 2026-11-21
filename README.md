@@ -198,6 +198,7 @@ GGA/RMC/GSA/GSV/GST/ZDA
 - [x] 悬浮摇杆、路线规划与手绘
 - [x] GPS/北斗/GLONASS/Galileo/QZSS
 - [x] GnssStatus/NMEA 生成与投递
+- [x] Root 与 Xposed 系统模块可用时，启动定位默认带上目标天空；保留已选实测回放和手动关闭
 - [x] GGA/RMC/GSA/GSV/GST/ZDA
 - [x] WiFi/基站环境采集、生成、回放（实验性）
 - [x] 自建 WiFi 指纹库导入与回放

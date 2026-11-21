@@ -31,6 +31,14 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
     private var destroyed = false
     private var bottomObstruction = 0
     private var cameraRequest = 0L
+    private val lifecycle = MapViewLifecycle { event ->
+        when (event) {
+            MapViewLifecycle.Event.START -> tencent?.onStart()
+            MapViewLifecycle.Event.RESUME -> { amap?.onResume(); tencent?.onResume() }
+            MapViewLifecycle.Event.PAUSE -> { amap?.onPause(); tencent?.onPause() }
+            MapViewLifecycle.Event.STOP -> tencent?.onStop()
+        }
+    }
     fun onCreate(state: Bundle?) {
         check(!destroyed && childCount == 0)
         if (provider == MapProvider.AMAP) {
@@ -205,13 +213,26 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
         }
     }
     fun clear() { current = null; original = null; amap?.map?.clear(); tencent?.map?.clear() }
-    fun onStart() { tencent?.onStart() }
-    fun onResume() { amap?.onResume(); tencent?.onResume() }
-    fun onPause() { amap?.onPause(); tencent?.onPause() }
-    fun onStop() { tencent?.onStop() }
+    fun onStart() = lifecycle.start()
+    fun onResume() = lifecycle.resume()
+    fun onPause() = lifecycle.pause()
+    fun onStop() = lifecycle.stop(isShown && windowVisibility == View.VISIBLE)
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility != View.VISIBLE) lifecycle.visibilityChanged(false)
+    }
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if (visibility != View.VISIBLE) lifecycle.visibilityChanged(false)
+    }
+    override fun onDetachedFromWindow() {
+        lifecycle.stop()
+        super.onDetachedFromWindow()
+    }
     fun onSaveInstanceState(state: Bundle) { amap?.onSaveInstanceState(state) }
     fun onDestroy() {
         if (destroyed) return
+        lifecycle.close()
         destroyed = true
         onClick(null); onCamera(null)
         amap?.onDestroy(); tencent?.onDestroy()

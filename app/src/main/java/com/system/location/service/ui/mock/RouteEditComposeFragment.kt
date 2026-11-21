@@ -186,7 +186,8 @@ class RouteEditComposeFragment : Fragment() {
             when (event) {
                 Lifecycle.Event.ON_START -> map.onStart()
                 Lifecycle.Event.ON_RESUME -> map.onResume()
-                Lifecycle.Event.ON_PAUSE -> { discardStroke(); map.onPause() }
+                // Stop accepting strokes immediately; the map remains visible until exit ends.
+                Lifecycle.Event.ON_PAUSE -> discardStroke()
                 Lifecycle.Event.ON_STOP -> map.onStop()
                 else -> Unit
             }

@@ -39,19 +39,22 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
     val home = destination == R.id.nav_home
     ModalNavigationDrawer(drawerState = drawer, drawerContent = {
-        ModalDrawerSheet(drawerState = drawer, modifier = Modifier.widthIn(max = 360.dp).fillMaxHeight().testTag("portal_drawer"),
+        ModalDrawerSheet(drawerState = drawer, modifier = Modifier
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))
+            .padding(vertical = 12.dp)
+            .width(288.dp).heightIn(max = 600.dp).testTag("portal_drawer"),
             drawerContainerColor = MaterialTheme.colorScheme.surface,
-            windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical)) {
-            Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-                Spacer(Modifier.height(20.dp))
+            windowInsets = WindowInsets(0)) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp)) {
+                Spacer(Modifier.height(16.dp))
                 Text("Portal", Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
                 Text(runtime.displayLabel(), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
                 DrawerModeControl(drawer.isOpen || drawer.isAnimationRunning)
                 portalDestinations.groupBy { it.section }.forEach { (section, destinations) ->
-                    Spacer(Modifier.height(16.dp))
-                    Text(section, Modifier.padding(horizontal = 12.dp, vertical = 8.dp).semantics { heading() },
+                    Spacer(Modifier.height(8.dp))
+                    Text(section, Modifier.padding(horizontal = 12.dp, vertical = 4.dp).semantics { heading() },
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     destinations.forEach { target ->
                         NavigationDrawerItem(label = { Text(target.label) },
@@ -64,7 +67,7 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
                             }, modifier = Modifier.testTag("portal_destination_${target.id}"))
                     }
                 }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
             }
         }
     }) {

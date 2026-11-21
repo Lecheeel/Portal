@@ -63,7 +63,7 @@ class SettingsNavigationUiTest {
             scenario.onActivity { it.openDrawer() }
             compose.waitForIdle()
             captureUi("drawer-green")
-            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            scenario.onActivity { it.systemBackForUiTest() }
             compose.waitUntil(5_000) {
                 var closed = false
                 scenario.onActivity { closed = !it.drawerState.isOpen }

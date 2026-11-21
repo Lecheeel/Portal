@@ -18,6 +18,13 @@ import com.system.location.service.maps.mapProvider
 import com.system.location.service.privacy.SdkPrivacy
 import com.system.location.service.privacy.TencentPrivacy
 
+/** Activity 1.13 routes system Back through NavigationEvent, including Compose drawer handlers. */
+internal fun MainActivity.systemBackForUiTest() {
+    val input = androidx.navigationevent.DirectNavigationEventInput()
+    navigationEventDispatcher.addInput(input)
+    try { input.backCompleted() } finally { navigationEventDispatcher.removeInput(input) }
+}
+
 /** ActivityScenario owns launch/recreation; the empty Compose rule only synchronizes semantics. */
 internal fun ComposeTestRule.openPage(scenario: ActivityScenario<MainActivity>, destination: Int) {
     waitForIdle()

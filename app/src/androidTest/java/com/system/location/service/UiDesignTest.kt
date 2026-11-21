@@ -74,7 +74,7 @@ class UiDesignTest {
                             activity.navigateFromDrawer(R.id.nav_home)
                         }
                     } else {
-                        scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+                        scenario.onActivity { it.systemBackForUiTest() }
                     }
                     assertEquals("Home geometry changed after destination $destination (drawer=$useDrawer)", initial, homeGeometry())
                 }
@@ -83,7 +83,7 @@ class UiDesignTest {
             compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
             scenario.recreate()
             compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
-            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            scenario.onActivity { it.systemBackForUiTest() }
             assertEquals(initial, homeGeometry())
             capture("home-after-navigation")
         }
@@ -109,7 +109,7 @@ class UiDesignTest {
                 openMock()
             }
             scenario.onActivity { it.navigateFromDrawer(R.id.nav_route_gallery) }
-            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            scenario.onActivity { it.systemBackForUiTest() }
             compose.scrollToText("手动新建").assertIsDisplayed()
         }
     }

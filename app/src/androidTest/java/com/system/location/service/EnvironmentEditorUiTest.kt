@@ -63,7 +63,10 @@ class EnvironmentEditorUiTest {
                 scenario.recreate()
                 compose.onNodeWithText("环境").assertIsSelected()
                 compose.onNodeWithText("搜索已保存环境").performTextInput(name)
-                compose.onNode(hasText(name) and hasClickAction() and hasSetTextAction().not()).performClick()
+                // The IME can cover the first library row on smaller windows.
+                androidx.test.espresso.Espresso.closeSoftKeyboard()
+                compose.onNode(hasText(name) and hasClickAction() and hasSetTextAction().not())
+                    .performScrollTo().assertIsDisplayed().performClick()
                 compose.onNodeWithText("编辑环境").performClick()
                 compose.scrollToText("manual-ap").assertIsDisplayed()
                 compose.onNodeWithText("返回").performClick()

@@ -6,6 +6,7 @@ import android.telephony.CellIdentity
 import android.telephony.CellInfo
 import com.system.location.service.hook.hooks.BasicLocationHook.injectLocation
 import com.system.location.service.hook.hooks.BasicLocationHook.injectLocationBatch
+import com.system.location.service.hook.hooks.LocationResultIsolation
 import com.system.location.service.hook.hooks.blindhook.BlindHookLocation
 import com.system.location.service.hook.runtime.Reflection
 import com.system.location.service.hook.utils.FakeLoc
@@ -46,7 +47,7 @@ object LocationProviderManagerHook {
             if (locations.isEmpty() || locations.any { it !is Location })
                 return@intercept42 chain.proceed(args)
             val context = ProviderView.capture()
-            mLocationsField.set(
+            args[0] = LocationResultIsolation.copyWithLocations(
                 locationResult,
                 injectLocationBatch(locations.map { it as Location }, context),
             )

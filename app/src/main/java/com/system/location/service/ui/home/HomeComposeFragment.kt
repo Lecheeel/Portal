@@ -29,13 +29,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,7 +50,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -121,7 +117,7 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /** Compose home screen; the map remains an AndroidView and owns its SDK lifecycle. */
-class HomeComposeFragment : Fragment() {
+open class HomeComposeFragment : Fragment() {
     private val replayModel by activityViewModels<com.system.location.service.ui.viewmodel.QuickReplayViewModel>()
     private val mapModel by activityViewModels<AMapViewModel>()
     private val mockModel by activityViewModels<MockServiceViewModel>()
@@ -776,7 +772,10 @@ private fun HomeScreen(
     val library by libraryFlow.collectAsStateWithLifecycle()
     var targetPicker by rememberSaveable { mutableStateOf(false) }
     var replayPicker by rememberSaveable { mutableStateOf(false) }
-    val queryState = remember { mutableStateOf("") }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    val queryState = rememberSaveable { mutableStateOf("") }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var query by queryState
     var suggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
     var saveDialog by remember { mutableStateOf(false) }
@@ -808,7 +807,7 @@ private fun HomeScreen(
                 override fun remove(callback: Runnable) { handler.removeCallbacks(callback) }
             },
             query = { queryState.value },
-            viewActive = { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
+            viewActive = { searchExpanded && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
             request = { text, reply -> requestSearch(text, reply) },
             render = { result ->
                 suggestions = result
@@ -824,6 +823,18 @@ private fun HomeScreen(
         onDispose { lifecycle.removeObserver(observer); search.destroy() }
     }
     fun dismissSearch() { search.select { suggestions = emptyList() } }
+    fun collapseSearch() {
+        dismissSearch()
+        searchExpanded = false
+        focusManager.clearFocus()
+        keyboard?.hide()
+    }
+    fun submitSearch() {
+        focusManager.clearFocus()
+        keyboard?.hide()
+        search.submit()
+    }
+    androidx.activity.compose.BackHandler(enabled = searchExpanded) { collapseSearch() }
 
     if (targetPicker) HomeTargetPicker(
         library = library,
@@ -842,6 +853,7 @@ private fun HomeScreen(
                     items(suggestions) { suggestion ->
                         TextButton(onClick = {
                             search.select { suggestions = emptyList(); query = suggestion.name }
+                            collapseSearch()
                             val wgs = CoordinateTransform.toWgs84(suggestion.point)
                             onTarget(wgs.latitude to wgs.longitude, suggestion.name)
                         }) { Text("${suggestion.name}\n${suggestion.address}") }
@@ -925,33 +937,16 @@ private fun HomeScreen(
         }
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(start = 16.dp, end = if (compact) 80.dp else 16.dp, top = 16.dp, bottom = 16.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Card(
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            ) {
-                Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onMenu) {
-                        Icon(painterResource(R.drawable.ic_home_menu), contentDescription = "打开菜单")
-                    }
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { text -> search.select { query = text; suggestions = emptyList() } },
-                        placeholder = { Text("搜索") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { search.submit() }),
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = { search.submit() }, enabled = query.isNotBlank()) {
-                        Icon(painterResource(R.drawable.ic_home_search), contentDescription = "搜索地点")
-                    }
-                }
-            }
+            HomeSearchBar(searchExpanded, query,
+                onQuery = { text -> search.select { query = text; suggestions = emptyList() } },
+                onExpand = { searchExpanded = true }, onCollapse = ::collapseSearch,
+                onSubmit = ::submitSearch, onMenu = { collapseSearch(); onMenu() })
             if (!runtime.isActive && (location.loading || location.issue != null || !location.mapVisible)) {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Card(modifier = Modifier.padding(end = if (compact) 64.dp else 0.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     if (compact) Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(if (location.loading) "正在获取真实位置" else location.issue?.message ?: "可直接浏览地图",
                             modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
@@ -979,6 +974,7 @@ private fun HomeScreen(
             }
             PortalCard(
                 modifier = Modifier
+                    .padding(end = if (compact) 64.dp else 0.dp)
                     .testTag("home-runtime-panel")
                     .onSizeChanged { bottomPanelHeight = it.height },
                 contentPadding = PaddingValues(12.dp),
@@ -1022,7 +1018,8 @@ private fun HomeScreen(
             }
         }
         Column(
-            Modifier.align(Alignment.CenterEnd).windowInsetsPadding(WindowInsets.safeDrawing).padding(end = 16.dp)
+            Modifier.align(Alignment.CenterEnd).windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(end = 16.dp, top = if (compact) 72.dp else 0.dp)
                 .testTag("home-map-tools"),
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(8.dp),

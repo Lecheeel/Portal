@@ -25,43 +25,47 @@ class PredictiveBackUiTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             val input = DirectNavigationEventInput()
             scenario.onActivity { it.navigationEventDispatcher.addInput(input) }
-            compose.waitUntil(5_000) { runCatching { compose.onNodeWithText("开始模拟").assertIsDisplayed(); true }.getOrDefault(false) }
-            scenario.onActivity { it.openDrawer() }
-            compose.waitUntil(5_000) {
-                var open = false
-                scenario.onActivity { open = it.drawerState.isOpen && !it.drawerState.isAnimationRunning }
-                open
+            try {
+                compose.waitUntil(5_000) { runCatching { compose.onNodeWithText("开始模拟").assertIsDisplayed(); true }.getOrDefault(false) }
+                scenario.onActivity { it.openDrawer() }
+                compose.waitUntil(5_000) {
+                    var open = false
+                    scenario.onActivity { open = it.drawerState.isOpen && !it.drawerState.isAnimationRunning }
+                    open
+                }
+                compose.waitForIdle()
+                scenario.onActivity {
+                    input.backStarted(event(0f))
+                    input.backProgressed(event(.65f))
+                    // The Compose drawer handles progress without navigating the underlying page.
+                    assertEquals(R.id.nav_home, it.currentDestinationId)
+                    assertTrue(it.drawerState.isOpen)
+                    input.backCancelled()
+                }
+                compose.waitUntil(5_000) {
+                    var restored = false
+                    scenario.onActivity { restored = it.drawerState.isOpen && !it.drawerState.isAnimationRunning }
+                    restored
+                }
+                compose.waitForIdle()
+                scenario.onActivity {
+                    assertTrue(it.drawerState.isOpen)
+                    input.backStarted(event(0f))
+                    input.backProgressed(event(.8f))
+                    input.backCompleted()
+                }
+                compose.waitUntil(5_000) {
+                    var closed = false
+                    scenario.onActivity { closed = !(it.drawerState.isOpen || it.drawerState.isAnimationRunning) }
+                    closed
+                }
+                compose.onNodeWithText("开始模拟").assertIsDisplayed()
+                scenario.onActivity { assertEquals(R.id.nav_home, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id) }
+            } finally {
+                if (scenario.state != androidx.lifecycle.Lifecycle.State.DESTROYED) scenario.onActivity {
+                    try { input.backCancelled() } finally { it.navigationEventDispatcher.removeInput(input) }
+                }
             }
-            compose.waitForIdle()
-            scenario.onActivity {
-                android.util.Log.i("PortalBackTest", "drawer before first gesture: ${it.navigationEventDispatcher.history.value}")
-                input.backStarted(event(0f))
-                input.backProgressed(event(.65f))
-                // The Compose drawer handles progress without navigating the underlying page.
-                assertEquals(R.id.nav_home, it.currentDestinationId)
-                assertTrue(it.drawerState.isOpen)
-                input.backCancelled()
-            }
-            compose.waitUntil(5_000) {
-                var restored = false
-                scenario.onActivity { restored = it.drawerState.isOpen && !it.drawerState.isAnimationRunning }
-                restored
-            }
-            compose.waitForIdle()
-            scenario.onActivity {
-                android.util.Log.i("PortalBackTest", "drawer before completion: ${it.navigationEventDispatcher.history.value}")
-                assertTrue(it.drawerState.isOpen)
-                input.backStarted(event(0f))
-                input.backProgressed(event(.8f))
-                input.backCompleted()
-            }
-            compose.waitUntil(5_000) {
-                var closed = false
-                scenario.onActivity { closed = !(it.drawerState.isOpen || it.drawerState.isAnimationRunning) }
-                closed
-            }
-            compose.onNodeWithText("开始模拟").assertIsDisplayed()
-            scenario.onActivity { assertEquals(R.id.nav_home, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id) }
         }
     }
 
@@ -72,68 +76,73 @@ class PredictiveBackUiTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             val input = DirectNavigationEventInput()
             scenario.onActivity { it.navigationEventDispatcher.addInput(input) }
-            compose.openPage(scenario, R.id.nav_settings)
-            compose.onNodeWithText("地图与定位").performClick()
-            fun resumed() = compose.waitUntil(5_000) {
-                var ready = false
-                scenario.onActivity {
-                    ready = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
-                        .childFragmentManager.primaryNavigationFragment?.lifecycle?.currentState == androidx.lifecycle.Lifecycle.State.RESUMED
+            try {
+                compose.openPage(scenario, R.id.nav_settings)
+                compose.onNodeWithText("地图与定位").performClick()
+                fun resumed() = compose.waitUntil(5_000) {
+                    var ready = false
+                    scenario.onActivity {
+                        ready = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                            .childFragmentManager.primaryNavigationFragment?.lifecycle?.currentState == androidx.lifecycle.Lifecycle.State.RESUMED
+                    }
+                    ready
                 }
-                ready
-            }
-            resumed()
-            compose.waitForIdle()
-            compose.onNodeWithText("定位精度").assertIsDisplayed()
-            scenario.onActivity {
-                val page = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
-                    .childFragmentManager.primaryNavigationFragment!!
-                assertTrue((page.returnTransition as androidx.transition.Slide).isSeekingSupported)
-                android.util.Log.i("PortalBackTest", "detail before preview: ${it.navigationEventDispatcher.history.value}")
-                input.backStarted(event(0f))
-            }
-            compose.waitForIdle()
-            scenario.onActivity {
-                android.util.Log.i("PortalBackTest", "detail progress")
-                input.backProgressed(event(.5f))
-            }
-            // A seekable Back must attach the previous page before the gesture commits.
-            compose.waitUntil(5_000) {
-                var previewing = false
+                resumed()
+                compose.waitForIdle()
+                compose.onNodeWithText("定位精度").assertIsDisplayed()
                 scenario.onActivity {
-                    val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
-                    previewing = host.childFragmentManager.fragments.count { page ->
-                        page.view?.parent != null && page.view?.visibility == android.view.View.VISIBLE
-                    } >= 2
+                    val page = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                        .childFragmentManager.primaryNavigationFragment!!
+                    assertTrue((page.returnTransition as androidx.transition.Slide).isSeekingSupported)
+                    input.backStarted(event(0f))
                 }
-                previewing
-            }
-            scenario.onActivity { android.util.Log.i("PortalBackTest", "detail cancel"); input.backCancelled() }
-            compose.waitUntil(5_000) {
-                var settled = false
+                compose.waitForIdle()
                 scenario.onActivity {
-                    val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
-                    settled = host.childFragmentManager.fragments.count { page ->
-                        page.view?.parent != null && page.view?.visibility == android.view.View.VISIBLE
-                    } == 1
+                    input.backProgressed(event(.5f))
                 }
-                settled
+                // FragmentManager.fragments excludes the outgoing fragment as soon as the pop begins.
+                // Inspect actual container children to verify both pages are visible during preview.
+                compose.waitUntil(5_000) {
+                    var previewing = false
+                    scenario.onActivity {
+                        val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                        previewing = (host.requireView() as android.view.ViewGroup).let { container ->
+                            (0 until container.childCount).count { container.getChildAt(it).visibility == android.view.View.VISIBLE }
+                        } >= 2
+                    }
+                    previewing
+                }
+                scenario.onActivity { input.backCancelled() }
+                compose.waitUntil(5_000) {
+                    var settled = false
+                    scenario.onActivity {
+                        val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                        settled = (host.requireView() as android.view.ViewGroup).let { container ->
+                            (0 until container.childCount).count { container.getChildAt(it).visibility == android.view.View.VISIBLE }
+                        } == 1
+                    }
+                    settled
+                }
+                resumed()
+                compose.waitForIdle()
+                compose.onNodeWithText("定位精度").assertIsDisplayed()
+                scenario.onActivity {
+                    assertEquals(R.id.nav_settings_location, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
+                    input.backStarted(event(0f))
+                }
+                compose.waitForIdle()
+                scenario.onActivity {
+                    input.backProgressed(event(.8f))
+                    input.backCompleted()
+                }
+                resumed()
+                compose.onNodeWithText("常用设置").assertIsDisplayed()
+                scenario.onActivity { assertEquals(R.id.nav_settings, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id) }
+            } finally {
+                if (scenario.state != androidx.lifecycle.Lifecycle.State.DESTROYED) scenario.onActivity {
+                    try { input.backCancelled() } finally { it.navigationEventDispatcher.removeInput(input) }
+                }
             }
-            resumed()
-            compose.waitForIdle()
-            compose.onNodeWithText("定位精度").assertIsDisplayed()
-            scenario.onActivity {
-                assertEquals(R.id.nav_settings_location, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
-                input.backStarted(event(0f))
-            }
-            compose.waitForIdle()
-            scenario.onActivity {
-                input.backProgressed(event(.8f))
-                input.backCompleted()
-            }
-            resumed()
-            compose.onNodeWithText("常用设置").assertIsDisplayed()
-            scenario.onActivity { assertEquals(R.id.nav_settings, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id) }
         }
     }
 }

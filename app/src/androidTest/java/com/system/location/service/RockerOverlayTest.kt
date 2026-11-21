@@ -32,6 +32,12 @@ import java.util.concurrent.atomic.AtomicReference
 @RunWith(AndroidJUnit4::class)
 class RockerOverlayTest {
     @get:Rule val compose = createEmptyComposeRule()
+    private fun awaitOverlay(tag: String) {
+        // The composition can be idle before WindowManager lays out its independent window.
+        compose.waitUntil(5_000) {
+            runCatching { compose.onNodeWithTag(tag).assertIsDisplayed(); true }.getOrDefault(false)
+        }
+    }
     @org.junit.Before fun acceptMapConsentForThisFixture() {
         acceptSelectedMapForUiTest()
     }
@@ -109,13 +115,14 @@ class RockerOverlayTest {
                     assertTrue(RockerOverlay.isEnabled)
                     assertTrue("Grant overlay permission on the test device", RockerOverlay.isVisible)
                 }
-                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
+                awaitOverlay("rocker_expand")
                 captureUi("overlay-minimized")
                 compose.onNodeWithTag("rocker_expand").performClick()
-                compose.onNodeWithTag("rocker_direction").assertIsDisplayed()
+                awaitOverlay("rocker_direction")
                 compose.onNodeWithTag("rocker_speed_slider").assertDoesNotExist()
                 captureUi("overlay-expanded")
                 compose.onNodeWithTag("rocker_speed_toggle").performClick()
+                awaitOverlay("rocker_speed_slider")
                 compose.onNodeWithTag("rocker_speed_slider").assertContentDescriptionEquals(context.getString(R.string.rocker_speed))
                 compose.onNodeWithTag("rocker_speed_slider").assertIsDisplayed()
                 captureUi("overlay-speed-expanded")
@@ -126,14 +133,15 @@ class RockerOverlayTest {
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.05) > 0.001) delay(10) } }
                 compose.onNodeWithText(context.getString(R.string.speed_kmh, context.speed * 3.6)).assertIsDisplayed()
                 compose.onNodeWithContentDescription(context.getString(R.string.overlay_minimize)).performClick()
-                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
+                awaitOverlay("rocker_expand")
                 compose.onNodeWithTag("rocker_expand").performClick()
+                awaitOverlay("rocker_direction")
                 compose.onNodeWithTag("rocker_speed_slider").assertDoesNotExist()
                 compose.onNodeWithTag("rocker_speed_toggle").assertTextContains(context.getString(R.string.overlay_speed_value, context.speed))
                 compose.onNodeWithContentDescription(context.getString(R.string.overlay_minimize)).performClick()
                 scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_runtime) }
                 scenario.recreate()
-                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
+                awaitOverlay("rocker_expand")
                 // Stopping even an idle scenario must not dismiss the independent overlay.
                 runBlocking { ScenarioRuntime.stop().await() }
                 compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
@@ -146,7 +154,7 @@ class RockerOverlayTest {
                 scenario.recreate()
                 scenario.onActivity { assertFalse(RockerOverlay.isVisible) }
                 compose.onNodeWithContentDescription("打开悬浮窗").performClick()
-                compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
+                awaitOverlay("rocker_expand")
             }
         } finally {
             instrumentation.runOnMainSync { RockerOverlay.setEnabled(false) }

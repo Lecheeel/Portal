@@ -4,11 +4,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import org.junit.Rule
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.*
-import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.*
-import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.core.gpx.GpxCodec
@@ -53,9 +48,9 @@ class SimulationFeaturesTest {
                 compose.scrollToText("最少卫星数").assertIsDisplayed()
                 compose.openPage(scenario, R.id.nav_settings_privacy)
                 compose.scrollToText("后台运行").performClick()
-                onView(withText(R.string.background_guidance)).inRoot(isDialog()).check(matches(isDisplayed()))
+                compose.onNodeWithText(context.getString(R.string.background_guidance)).assertIsDisplayed()
                 captureUi("background-guidance")
-                onView(withText(android.R.string.cancel)).inRoot(isDialog()).perform(click())
+                compose.onNodeWithText(context.getString(android.R.string.cancel)).performClick()
                 compose.openPage(scenario, R.id.nav_runtime)
                 compose.scrollToText("运行日志").performClick()
                 compose.scrollToText("导出完整诊断日志").assertIsDisplayed()

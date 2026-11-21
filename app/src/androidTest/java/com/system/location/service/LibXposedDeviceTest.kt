@@ -8,6 +8,7 @@ import android.location.LocationManager
 import android.location.LocationRequest
 import android.os.Bundle
 import android.os.CancellationSignal
+import android.os.OperationCanceledException
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -197,9 +198,13 @@ class LibXposedDeviceTest {
             }
             val cancelled = CancellationSignal().apply { cancel() }
             val delivered = CountDownLatch(1)
-            manager.getCurrentLocation(LocationManager.GPS_PROVIDER, cancelled, { it.run() }) {
-                delivered.countDown()
-            }
+            val cancelledFailure = runCatching {
+                manager.getCurrentLocation(LocationManager.GPS_PROVIDER, cancelled, { it.run() }) {
+                    delivered.countDown()
+                }
+            }.exceptionOrNull()
+            assertTrue("A pre-cancelled request must retain the platform exception",
+                cancelledFailure is OperationCanceledException)
             assertFalse("A cancelled request invoked its consumer", delivered.await(300, TimeUnit.MILLISECONDS))
             val invalid = runCatching {
                 manager.getCurrentLocation("portal_current_missing_provider", null, { it.run() }) { }

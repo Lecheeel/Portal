@@ -108,3 +108,33 @@
 结束前系统端再次确认 `is_start=false`、`native_loaded=false`、`native_enabled=false`。本轮没有新增 Portal 源码修复或创建 Release；单次空回调、上一轮的缓存残留及报告者设备兼容性仍为未解决项。
 
 收尾恢复原 APK 与原测试 runner（摘要一致）、本轮初始权限及应用设置基线，移除临时接收端与设备测试文件。保留用户当前四项作用域和健康的 7944 / schema 101，Portal 模块保持关闭；重启后确认 SIM 为 `LOADED,ABSENT`、网络为 `NR_SA`、SELinux 为 Enforcing。没有回滚到导致 7944 守护进程退出的旧框架数据库。
+
+## 单次定位修复与 7944 再验证（2026-11-21）
+
+上一节的单次空值已有 K50 上的修复与接收端验证，结果如下。仍不将这台 Android 14 设备的结论推广到报告者的一加 Android 17 或 K70 Android 15。
+
+原 Hook 在 `getCurrentLocation` 的回调上改写已有位置，遇到空值则原样返回；没有真实 GPS 样本时，模拟虽然持续发布，单次请求仍可能等到超时空回调。此外，服务端按回调类安装的闭包捕获首次请求的权限级别，可能影响同类后续请求；Provider 回调还会对同一结果重复改写。
+
+现在在 `GetCurrentLocationListenerRegistration.onActive()` 的范围内，为该 Provider 的 `getLastLocationUnsafe()` 提供当前模拟样本。仍执行 Android 的原注册流程，由平台决定请求是否可激活，再执行 AppOps 记账、粗略位置处理、单次回调、取消与注销。样本只作为本次缓存读取的返回值，不写入平台真实位置缓存；线程与 Provider 隔离的上下文在异常退出时也会清除。移除了两处回调重复改写，并在这段平台处理期间保留系统已完成的粗略位置过滤。
+
+本机 237 个 Xposed 单元测试、Xposed lint、47 个 Python 测试与 Android 测试编译通过。新增设备测试不要求真实 GPS 预热，连续发布五个不同坐标并分别请求单次定位，同时核对提前取消的 `OperationCanceledException` 和非法 Provider 的平台异常。
+
+同签名候选包来自 [CI run 44880208737](https://github.com/Lecheeel/Portal/actions/runs/44880208737)（`06a1f74a`）；修正提前取消的测试断言后，使用 [CI run 44880727636](https://github.com/Lecheeel/Portal/actions/runs/44880727636)（`7ec424f5`）的测试 runner。两者的 Xposed 运行代码相同，均没有创建 Release。
+
+| K50 / 7944 检查 | 实测结果 |
+| --- | --- |
+| 定位与生命周期集成 | 6 项全部通过，无跳过，包括无预热单次请求、认证、持续/最后定位、先订阅后启动、去重及拒绝 Provider 后清理 |
+| 独立 UID 的 GPS 单次请求 | 10/10 返回测试点，耗时 13–44 毫秒，无持续订阅预热 |
+| 独立 UID 的 Network / Fused 单次请求 | 各 3/3 返回测试点，保留各自 Provider |
+| 仅粗略位置权限 | 3/3 返回平台粗略位置，精度 2000 米；未返回测试点的精确经纬度 |
+| 无位置权限 | 系统按原规则抛出 SecurityException |
+| 有权限但 AppOps 拒绝 | 2/2 返回空值，没有取得模拟位置 |
+| 系统位置开关关闭 | 2/2 返回空值；结束恢复原开关 |
+| 停止模拟后 | 2/2 单次请求返回空值，没有返回测试点；未取得真实 GPS 新样本，不声称已证明所有历史缓存场景恢复 |
+| 通信与稳定性 | SIM 为 `LOADED,ABSENT` / NR，电话和系统进程 PID 不变；采样日志无电话崩溃、ANR 或 Wi-Fi 信息元素空指针 |
+
+独立接收端未加入作用域、未取得控制凭据。MIUI 在测试包首次初始化时撤回临时权限的轮次未算作通过；JUnit 的 assumption 跳过也未算作通过。切换位置开关后曾读到模拟已停止，重新确认开启后的样本才用于 Network / Fused 的通过结论。最后系统端确认 `is_start=false`、`native_loaded=false`、`native_enabled=false`、Hook 失败数为 0。
+
+两个独立作用域仍可能被 7944 清理，本次没有修改框架的勾选存储，也没有删掉推荐作用域来隐藏现象。Portal 保留共享系统包补装与独立进程安装路径：该机 SettingsProvider 经 `system` 安装成功；独立接收端的 Fused API 成功不代表其他 ROM 的共享 Android Fused 类路径均已验证。用户配置应保留 `system` 和实际存在的厂商定位进程，不能把“七项全部留勾”当作这类框架的有效性标准。
+
+本轮结束恢复原 APK、原测试 runner 和权限快照，撤回临时后台运行授权，移除独立接收端及测试文件；保留 7944 和当前四项作用域，Portal 模块关闭。重启后再次核验 APK 摘要、权限、框架健康状态及 `LOADED,ABSENT` / `NR_SA`，SELinux 为 Enforcing。

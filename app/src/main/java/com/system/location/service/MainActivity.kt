@@ -90,7 +90,8 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(androidx.core.content.ContextCompat.getColor(context, R.color.page_background))
             val host = supportFragmentManager.findFragmentById(id) as? androidx.navigation.fragment.NavHostFragment
                 ?: androidx.navigation.fragment.NavHostFragment.create(R.navigation.mobile_navigation).also {
-                    supportFragmentManager.beginTransaction().replace(id, it).setPrimaryNavigationFragment(it).commitNow()
+                    supportFragmentManager.beginTransaction().add(this, it, "portal_navigation_host")
+                        .setPrimaryNavigationFragment(it).commitNow()
                 }
             navHost = host
             androidx.navigation.Navigation.setViewNavController(this, host.navController)

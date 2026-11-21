@@ -40,7 +40,7 @@ androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", ve
 androidx-fragment-compose = { group = "androidx.fragment", name = "fragment-compose", version.ref = "fragment" }
 androidx-transition = { group = "androidx.transition", name = "transition", version.ref = "transition" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
-bugly = { module = "com.tencent.bugly:crashreport", version = "4.1.9.3" }
+bugly = { module = "com.tencent.bugly:crashreport", version = "4.1.9.7" }
 geotools = { module = "net.sf.geographiclib:GeographicLib-Java", version = "2.1" }
 amap-map3d-location-search = { module = "com.amap.api:3dmap-location-search", version = { strictly = "11.2.000_loc11.2.000_sea9.8.0" } }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }

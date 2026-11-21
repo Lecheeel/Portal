@@ -32,17 +32,26 @@ class NavigationCompatibilityUiTest {
         acceptSelectedMapForUiTest()
         grantUiPermissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.supportFragmentManager.registerFragmentLifecycleCallbacks(
+                    object : androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
+                        override fun onFragmentPreAttached(manager: androidx.fragment.app.FragmentManager,
+                            fragment: androidx.fragment.app.Fragment, context: android.content.Context) {
+                            if (fragment is com.system.location.service.ui.mock.SimulationComposeFragment) {
+                                fragment.childFragmentManager.fragmentFactory = object : androidx.fragment.app.FragmentFactory() {
+                                    override fun instantiate(loader: ClassLoader, name: String): androidx.fragment.app.Fragment =
+                                        super.instantiate(loader, if (name == com.system.location.service.ui.environment.EnvironmentComposeFragment::class.java.name)
+                                            "com.system.location.service.ui.mock.MockComposeFragment" else name)
+                                }
+                            }
+                        }
+                    }, true)
+            }
             compose.openPage(scenario, R.id.nav_mock)
             scenario.onActivity { activity ->
                 val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
                 val tabs = host.childFragmentManager.primaryNavigationFragment!!.childFragmentManager
-                val current = tabs.fragments.single { it is com.system.location.service.ui.environment.EnvironmentComposeFragment }
-                val container = current.requireView().parent as androidx.fragment.app.FragmentContainerView
-                val legacy = tabs.fragmentFactory.instantiate(activity.classLoader,
-                    "com.system.location.service.ui.mock.MockComposeFragment")
-                tabs.beginTransaction().remove(current)
-                    .add(container, legacy, current.tag)
-                    .setPrimaryNavigationFragment(legacy).commitNow()
+                assertTrue(tabs.fragments.any { it.javaClass.name.endsWith(".MockComposeFragment") })
             }
             scenario.recreate()
             compose.onNodeWithText("环境").assertIsSelected()

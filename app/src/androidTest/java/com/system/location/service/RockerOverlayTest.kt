@@ -155,6 +155,12 @@ class RockerOverlayTest {
                 scenario.onActivity { assertFalse(RockerOverlay.isVisible) }
                 compose.onNodeWithContentDescription("打开悬浮窗").performClick()
                 awaitOverlay("rocker_expand")
+                repeat(2) {
+                    compose.onNodeWithContentDescription("关闭悬浮窗").performClick()
+                    compose.onNodeWithTag("rocker_expand").assertDoesNotExist()
+                    compose.onNodeWithContentDescription("打开悬浮窗").performClick()
+                    awaitOverlay("rocker_expand")
+                }
             }
         } finally {
             instrumentation.runOnMainSync { RockerOverlay.setEnabled(false) }

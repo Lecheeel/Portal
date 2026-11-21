@@ -315,7 +315,8 @@ class UiDesignTest {
                     }
                     scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_settings_location) }
                     compose.scrollToText("地图提供方").performClick()
-                    compose.onNodeWithText("地图服务").assertIsDisplayed()
+                    compose.onNode(hasText("地图服务") and SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.Heading))
+                        .assertIsDisplayed()
                     // The dialog window enter animation is independent of Compose idleness.
                     android.os.SystemClock.sleep(350)
                     capture("map-provider-$suffix")

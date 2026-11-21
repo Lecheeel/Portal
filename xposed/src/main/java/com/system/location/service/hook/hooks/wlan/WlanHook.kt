@@ -168,7 +168,7 @@ object WlanHook {
     }
 
     private fun shouldRewrite(packageName: String, uid: Int = BinderUtils.getCallerUid()): Boolean =
-        FakeLoc.enable && FakeLoc.enableMockWifi && !BinderUtils.isSystemPackages(packageName) &&
+        WifiCallerPolicy.mayRewrite(packageName, uid) && FakeLoc.enable && FakeLoc.enableMockWifi &&
             ListenerRouting.decisionFor(packageName, uid) != com.system.location.service.core.routing.RoutingDecision.Deny
 
     private fun currentProfile(packageName: String? = null, uid: Int = BinderUtils.getCallerUid()): EnvironmentProfile {
@@ -239,22 +239,7 @@ object WlanHook {
     private fun buildScanResults(profile: EnvironmentProfile): List<ScanResult> {
         val baseTimestamp = SystemClock.elapsedRealtimeNanos() / 1_000L
         return profile.wifi.mapIndexed { index, ap ->
-            ScanResult().apply {
-                SSID = ap.ssid
-                // Android exposes BSSIDs in lower-case; the fake environment must not stand out.
-                BSSID = ap.bssid.lowercase()
-                capabilities = ap.capabilities
-                frequency = ap.frequencyMhz
-                level = ap.rssi
-                // Real scan results are observed at slightly different instants.
-                timestamp = baseTimestamp + index * 137L
-                channelWidth = if (ap.frequencyMhz >= 5_000) ScanResult.CHANNEL_WIDTH_80MHZ
-                    else ScanResult.CHANNEL_WIDTH_20MHZ
-                // A 5 GHz 80 MHz segment is reported around its centre, not the primary channel.
-                centerFreq0 = if (ap.frequencyMhz >= 5_000) ap.frequencyMhz + 30 else ap.frequencyMhz
-                centerFreq1 = 0
-                runCatching { Reflection.setIntField(this, "wifiStandard", ap.standard) }
-            }
+            syntheticWifiScanResult(ap, baseTimestamp + index * 137L)
         }
     }
 

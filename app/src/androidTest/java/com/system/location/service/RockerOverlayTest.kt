@@ -145,7 +145,7 @@ class RockerOverlayTest {
                 // Stopping even an idle scenario must not dismiss the independent overlay.
                 runBlocking { ScenarioRuntime.stop().await() }
                 compose.onNodeWithTag("rocker_expand").assertIsDisplayed()
-                scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_home) }
+                compose.openPage(scenario, R.id.nav_home)
                 compose.onNodeWithContentDescription("关闭悬浮窗").performClick()
                 scenario.onActivity {
                     assertFalse(RockerOverlay.isEnabled)

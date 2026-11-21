@@ -35,6 +35,15 @@ class UiDesignTest {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             fun homeGeometry(): List<Int> {
+                compose.waitUntil(5_000) {
+                    var ready = false
+                    scenario.onActivity {
+                        val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                        ready = it.currentDestinationId == R.id.nav_home &&
+                            host.childFragmentManager.primaryNavigationFragment?.lifecycle?.currentState == androidx.lifecycle.Lifecycle.State.RESUMED
+                    }
+                    ready
+                }
                 compose.onNodeWithTag("home-search-controls").assertIsDisplayed()
                 compose.onNodeWithText("开始模拟").assertIsDisplayed()
                 val search = compose.onNodeWithTag("home-search-controls").fetchSemanticsNode().boundsInRoot

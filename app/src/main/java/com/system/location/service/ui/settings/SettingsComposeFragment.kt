@@ -39,7 +39,10 @@ import com.system.location.service.ui.gnss.GnssPolicyControls
 import com.system.location.service.ui.viewmodel.GnssCaptureViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.compose.material3.TextButton
+import com.system.location.service.ui.PortalDialog
+import com.system.location.service.ui.PortalDialogContent
+import com.system.location.service.ui.showPortalChoiceDialog
 import com.system.location.service.MainActivity
 import com.system.location.service.R
 import com.system.location.service.core.backend.BackendType
@@ -232,41 +235,36 @@ class SettingsComposeFragment : Fragment() {
     private fun showMapProvider() {
         val context = requireContext()
         val selected = context.mapProvider
-        MaterialAlertDialogBuilder(context)
-            .setTitle("地图服务")
-            .setSingleChoiceItems(com.system.location.service.maps.MapProvider.entries.map { it.label }.toTypedArray(), selected.ordinal) { dialog, which ->
-                dialog.dismiss()
-                val next = com.system.location.service.maps.MapProvider.entries[which]
-                if (next != selected) {
-                    val message = if (next == com.system.location.service.maps.MapProvider.TENCENT) {
-                        getString(R.string.tencent_privacy_message)
-                    } else getString(R.string.map_privacy_message)
-                    MaterialAlertDialogBuilder(context)
-                        .setTitle("切换到${next.label}")
-                        .setMessage(message)
-                        .setNeutralButton("查看政策") { _, _ ->
+        showPortalChoiceDialog(context, "地图服务",
+            com.system.location.service.maps.MapProvider.entries.map { it.label }, selected.ordinal) { which ->
+            val next = com.system.location.service.maps.MapProvider.entries[which]
+            if (next != selected) {
+                val dialog = PortalDialog(context)
+                dialog.content {
+                    PortalDialogContent("切换到${next.label}", getString(
+                        if (next == com.system.location.service.maps.MapProvider.TENCENT) R.string.tencent_privacy_message
+                        else R.string.map_privacy_message), buttons = {
+                        TextButton(onClick = {
+                            runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(
+                                if (next == com.system.location.service.maps.MapProvider.TENCENT)
+                                    "https://lbs.qq.com/userAgreements/agreements/privacy"
+                                else "https://lbs.amap.com/pages/privacy/"))) }
+                        }) { Text("查看政策") }
+                        TextButton(onClick = { dialog.dismiss() }) { Text("取消") }
+                        TextButton(onClick = {
                             runCatching {
-                                startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(
-                                    if (next == com.system.location.service.maps.MapProvider.TENCENT) {
-                                        "https://lbs.qq.com/userAgreements/agreements/privacy"
-                                    } else "https://lbs.amap.com/pages/privacy/",
-                                )))
-                            }
-                        }
-                        .setNegativeButton("取消", null)
-                        .setPositiveButton("同意并切换") { _, _ ->
-                            runCatching {
-                                if (next == com.system.location.service.maps.MapProvider.TENCENT) {
+                                if (next == com.system.location.service.maps.MapProvider.TENCENT)
                                     com.system.location.service.privacy.TencentPrivacy.accept(context)
-                                } else SdkPrivacy.acceptMaps()
+                                else SdkPrivacy.acceptMaps()
                                 context.mapProvider = next
+                                dialog.dismiss()
                                 requireActivity().recreate()
                             }.onFailure { showToast(it.message ?: "切换失败") }
-                        }.show()
-                }
+                        }) { Text("同意并切换") }
+                    })
+                }.show()
             }
-            .setNegativeButton("取消", null)
-            .show()
+        }
     }
 
     private fun showAppRouting() {
@@ -306,36 +304,26 @@ class SettingsComposeFragment : Fragment() {
     private fun showUpdateChannel() {
         val current = UpdateChecker.currentChannel()
         val options = arrayOf(getString(R.string.update_channel_stable), getString(R.string.update_channel_beta))
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.update_channel_label)
-            .setSingleChoiceItems(options, if (current == UpdateChannel.BETA) 1 else 0) { dialog, which ->
-                dialog.dismiss()
-                val next = if (which == 1) UpdateChannel.BETA else UpdateChannel.STABLE
-                runCatching { UpdateChecker.setChannel(next) }
-                    .onSuccess {
-                        refresh()
-                        showToast("更新通道已切换")
-                        (activity as? MainActivity)?.onUpdateChannelChanged()
-                    }
-                    .onFailure { showToast(it.message ?: "无法保存更新通道") }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        showPortalChoiceDialog(requireContext(), getString(R.string.update_channel_label), options.toList(),
+            if (current == UpdateChannel.BETA) 1 else 0) { which ->
+            val next = if (which == 1) UpdateChannel.BETA else UpdateChannel.STABLE
+            runCatching { UpdateChecker.setChannel(next) }
+                .onSuccess {
+                    refresh()
+                    showToast("更新通道已切换")
+                    (activity as? MainActivity)?.onUpdateChannelChanged()
+                }.onFailure { showToast(it.message ?: "无法保存更新通道") }
+        }
     }
 
     private fun showRouteEndPosition() {
         val context = requireContext()
-        val options = RouteEndPosition.entries.toTypedArray()
-        val selected = options.indexOf(context.routeEndPosition).coerceAtLeast(0)
-        MaterialAlertDialogBuilder(context)
-            .setTitle("路线结束后停留位置")
-            .setSingleChoiceItems(options.map(::routeEndPositionLabel).toTypedArray(), selected) { dialog, which ->
-                context.routeEndPosition = options[which]
-                dialog.dismiss()
-                refresh()
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        val options = RouteEndPosition.entries
+        showPortalChoiceDialog(context, "路线结束后停留位置", options.map(::routeEndPositionLabel),
+            options.indexOf(context.routeEndPosition).coerceAtLeast(0)) { which ->
+            context.routeEndPosition = options[which]
+            refresh()
+        }
     }
 
     private fun checkForUpdate() {

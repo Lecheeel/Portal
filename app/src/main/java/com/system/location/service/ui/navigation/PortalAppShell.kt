@@ -68,19 +68,20 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
             }
         }
     }) {
-        Scaffold(modifier = Modifier.fillMaxSize().testTag("portal_shell"),
-            contentWindowInsets = if (home) WindowInsets(0) else WindowInsets.safeDrawing,
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
+        // Keep the outgoing SDK surface at its original size while the destination changes.
+        // Insets belong to each Fragment view, so showing the toolbar never resizes the old map.
+        Surface(Modifier.fillMaxSize().testTag("portal_shell"), color = MaterialTheme.colorScheme.background) {
+            Box(Modifier.fillMaxSize()) {
+                AndroidView(factory = { createHost() }, modifier = Modifier.fillMaxSize())
                 if (!home) TopAppBar(title = { Text(title) }, navigationIcon = {
                     val topLevel = portalDestinations.any { it.id == destination } || destination == R.id.nav_gnss_mock
                     IconButton(onClick = { if (topLevel) scope.launch { drawer.open() } else onBack() }) {
                         Icon(painterResource(if (topLevel) R.drawable.ic_home_menu else R.drawable.baseline_arrow_back_24),
                             if (topLevel) "打开导航菜单" else "返回")
                     }
-                }, modifier = Modifier.testTag("portal_toolbar"))
-            }) { padding ->
-            AndroidView(factory = { createHost() }, modifier = Modifier.fillMaxSize().padding(padding))
+                }, windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                    modifier = Modifier.testTag("portal_toolbar"))
+            }
         }
     }
 }

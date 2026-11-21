@@ -85,7 +85,10 @@ internal fun PortalAppShell(drawer: DrawerState, destination: Int, selectedSecti
                         Icon(painterResource(if (topLevel) R.drawable.ic_home_menu else R.drawable.baseline_arrow_back_24),
                             if (topLevel) "打开导航菜单" else "返回")
                     }
-                }, windowInsets = WindowInsets(0),
+                }, colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background,
+                ), windowInsets = WindowInsets(0),
                     modifier = Modifier.windowInsetsPadding(
                         WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
                     ).testTag("portal_toolbar"))

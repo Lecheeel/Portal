@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 # Keep screenshot collection in the same shell as the test command, including on failure.
 set -uo pipefail
+# Android object/Parcel checks run module helpers inside the test app rather than system_server.
+# Match the module's non-SDK API access on this test device, then restore the original policy.
+previous_hidden_api_policy=$(adb shell settings get global hidden_api_policy | tr -d '\r')
+restore_hidden_api_policy() {
+    if [ "$previous_hidden_api_policy" = null ]; then
+        adb shell settings delete global hidden_api_policy >/dev/null
+    else
+        adb shell settings put global hidden_api_policy "$previous_hidden_api_policy"
+    fi
+}
+trap restore_hidden_api_policy EXIT
+adb shell settings put global hidden_api_policy 1 || exit 1
 test_status=0
 ./gradlew :app:connectedX64DebugAndroidTest --stacktrace || test_status=$?
 adb pull /sdcard/Download/Portal-ui-captures app/build/ui-captures || true

@@ -26,12 +26,14 @@ internal class UiFrameProbe(activity: Activity) : AutoCloseable {
     private var firstDraws = 0
     private var attached = true
     private val listener = Window.OnFrameMetricsAvailableListener { _, metrics, dropped ->
-        droppedReports += dropped
-        if (metrics.getMetric(FrameMetrics.FIRST_DRAW_FRAME) == 1L) firstDraws++
-        else {
-            val duration = metrics.getMetric(FrameMetrics.TOTAL_DURATION)
-            val deadline = if (Build.VERSION.SDK_INT >= 31) metrics.getMetric(FrameMetrics.DEADLINE) else 0L
-            if (duration > 0) frames += duration to (deadline.takeIf { it > 0 } ?: (1_000_000_000 / refreshRate).toLong())
+        synchronized(frames) {
+            droppedReports += dropped
+            if (metrics.getMetric(FrameMetrics.FIRST_DRAW_FRAME) == 1L) firstDraws++
+            else {
+                val duration = metrics.getMetric(FrameMetrics.TOTAL_DURATION)
+                val deadline = if (Build.VERSION.SDK_INT >= 31) metrics.getMetric(FrameMetrics.DEADLINE) else 0L
+                if (duration > 0) frames += duration to (deadline.takeIf { it > 0 } ?: (1_000_000_000 / refreshRate).toLong())
+            }
         }
     }
     init { instrumentation.runOnMainSync { window.addOnFrameMetricsAvailableListener(listener, handler) } }
@@ -42,18 +44,21 @@ internal class UiFrameProbe(activity: Activity) : AutoCloseable {
         val flushed = CountDownLatch(1)
         handler.post { flushed.countDown() }
         check(flushed.await(5, TimeUnit.SECONDS))
-        check(frames.isNotEmpty()) { "No window frames were recorded for $name" }
-        val sorted = frames.map { it.first / 1_000_000.0 }.sorted()
+        val (samples, excludedDraws, lostReports) = synchronized(frames) {
+            Triple(frames.toList(), firstDraws, droppedReports)
+        }
+        check(samples.isNotEmpty()) { "No window samples were recorded for $name" }
+        val sorted = samples.map { it.first / 1_000_000.0 }.sorted()
         fun percentile(q: Double) = sorted[(kotlin.math.ceil(sorted.size * q).toInt() - 1).coerceAtLeast(0)]
         val report = JSONObject().apply {
             put("workload", name); put("build", "debug"); put("device", Build.MODEL)
             put("android", Build.VERSION.SDK_INT); put("refreshRateAtStartHz", refreshRate)
             put("scope", "app-window; excludes vendor map Surface/GPU presentation; first draws excluded")
-            put("frames", frames.size); put("excludedFirstDraws", firstDraws); put("droppedMetricReports", droppedReports)
+            put("frames", samples.size); put("excludedFirstDraws", excludedDraws); put("droppedMetricReports", lostReports)
             put("p50Ms", percentile(.50)); put("p95Ms", percentile(.95)); put("p99Ms", percentile(.99))
-            put("maxMs", sorted.last()); put("missedDeadline", frames.count { (duration, deadline) -> duration > deadline })
-            put("durationsMs", JSONArray(frames.map { it.first / 1_000_000.0 }))
-            put("deadlinesMs", JSONArray(frames.map { it.second / 1_000_000.0 }))
+            put("maxMs", sorted.last()); put("missedDeadline", samples.count { (duration, deadline) -> duration > deadline })
+            put("durationsMs", JSONArray(samples.map { it.first / 1_000_000.0 }))
+            put("deadlinesMs", JSONArray(samples.map { it.second / 1_000_000.0 }))
         }
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "ui-frame-stats").apply { check(mkdirs() || isDirectory) }
         val file = File(directory, "$name.json").apply { writeText(report.toString(2)) }

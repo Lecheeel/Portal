@@ -86,13 +86,17 @@ def parse_release_codes(releases):
 
 
 def fetch_published_codes(repository="Lecheeel/Portal"):
+    api_headers = {"Accept": "application/vnd.github+json", "User-Agent": "Portal-release-policy"}
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        api_headers["Authorization"] = f"Bearer {token}"
     try:
         releases = []
         page = 1
         while True:
             request = urllib.request.Request(
                 f"https://api.github.com/repos/{repository}/releases?per_page=100&page={page}",
-                headers={"Accept": "application/vnd.github+json", "User-Agent": "Portal-release-policy"},
+                headers=api_headers,
             )
             with open_release_url(request) as response:
                 batch = json.load(response)

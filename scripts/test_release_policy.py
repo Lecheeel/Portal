@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -9,6 +10,7 @@ from unittest.mock import patch
 from release_policy import (
     ReleasePolicyError,
     ensure_version_code_is_newer,
+    fetch_published_codes,
     parse_release_codes,
     validate_promotion_bundle,
     validate_version,
@@ -17,6 +19,29 @@ from promote_release import main as promotion_main
 
 
 class ReleasePolicyTest(unittest.TestCase):
+    def test_release_listing_uses_available_token_without_forwarding_it_to_assets(self):
+        report = {"version": "2.3.7-beta.1", "versionCode": 1790000109,
+                  "certificateSha256": "fa4547514e795b2daca48bd05e9a5f9348e62531d791d746e0ffe93bb90247a3"}
+        download = "https://github.com/Lecheeel/Portal/releases/download/v2.3.7-beta.1/verification.json"
+        releases = [{"tag_name": "v2.3.7-beta.1", "assets": [
+            {"name": "verification.json", "browser_download_url": download}]}]
+        for variable in ("GH_TOKEN", "GITHUB_TOKEN", None):
+            with self.subTest(variable=variable):
+                environment = {"GH_TOKEN": "", "GITHUB_TOKEN": ""}
+                if variable:
+                    environment[variable] = "test-only-token"
+                requests = []
+                def respond(request):
+                    requests.append(request)
+                    return io.BytesIO(json.dumps(releases if len(requests) == 1 else report).encode())
+                with patch.dict("os.environ", environment), patch("release_policy.open_release_url", side_effect=respond):
+                    self.assertEqual([1790000109], fetch_published_codes())
+                self.assertTrue(requests[0].full_url.startswith("https://api.github.com/"))
+                self.assertEqual("Bearer test-only-token" if variable else None,
+                                 requests[0].get_header("Authorization"))
+                self.assertEqual(download, requests[1].full_url)
+                self.assertIsNone(requests[1].get_header("Authorization"))
+
     def test_version_names_allow_stable_and_supported_prerelease_channels(self):
         for version in ("1.7.5", "1.7.5-beta.1", "1.7.5-canary.2", "1.7.5-rc.3"):
             with self.subTest(version=version):

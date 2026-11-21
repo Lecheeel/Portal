@@ -23,7 +23,7 @@ import org.junit.runner.RunWith
 class DrawerGestureUiTest {
     @get:Rule val compose = createEmptyComposeRule()
 
-    @Test fun edgeSwipeBackSelectionAndRecreationKeepNavigationState() {
+    @Test fun mapPansKeepDrawerClosedAndMenuNavigationSurvivesRecreation() {
         acceptSelectedMapForUiTest()
         grantUiPermissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -39,10 +39,16 @@ class DrawerGestureUiTest {
                     matches
                 }
             }
-            compose.onNodeWithTag("portal_shell").performTouchInput {
-                swipe(start = androidx.compose.ui.geometry.Offset(4f, centerY),
-                    end = androidx.compose.ui.geometry.Offset(width * .75f, centerY), durationMillis = 600)
+            // Closed navigation must not steal map drags, including diagonal and edge starts.
+            listOf(.35f to .75f, .75f to .25f, .01f to .65f).forEach { (start, end) ->
+                compose.onNodeWithTag("portal_shell").performTouchInput {
+                    swipe(start = androidx.compose.ui.geometry.Offset(width * start, centerY),
+                        end = androidx.compose.ui.geometry.Offset(width * end, centerY + height * .05f), durationMillis = 600)
+                }
+                drawer(false)
+                scenario.onActivity { assertEquals(androidx.compose.material3.DrawerValue.Closed, it.drawerState.targetValue) }
             }
+            compose.onNodeWithContentDescription("打开菜单").performClick()
             drawer(true)
             captureUi("drawer-home-selection")
             scenario.onActivity { it.systemBackForUiTest() }

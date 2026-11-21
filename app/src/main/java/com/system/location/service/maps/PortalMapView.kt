@@ -216,7 +216,19 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
     fun onStart() = lifecycle.start()
     fun onResume() = lifecycle.resume()
     fun onPause() = lifecycle.pause()
-    fun onStop() = lifecycle.stop()
+    fun onStop() = lifecycle.stop(isShown && windowVisibility == View.VISIBLE)
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility != View.VISIBLE) lifecycle.visibilityChanged(false)
+    }
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if (visibility != View.VISIBLE) lifecycle.visibilityChanged(false)
+    }
+    override fun onDetachedFromWindow() {
+        lifecycle.stop()
+        super.onDetachedFromWindow()
+    }
     fun onSaveInstanceState(state: Bundle) { amap?.onSaveInstanceState(state) }
     fun onDestroy() {
         if (destroyed) return

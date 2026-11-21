@@ -1,9 +1,12 @@
 package com.system.location.service.ui.mock
 
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
@@ -12,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.system.location.service.R
@@ -41,7 +45,7 @@ internal fun RockerPanel(minimized: Boolean, expanded: Boolean, status: String, 
             Row {
                 Icon(painterResource(R.drawable.rocker_grip), stringResource(R.string.overlay_drag),
                     modifier = drag.weight(1f).height(48.dp).padding(12.dp).semantics { stateDescription = status })
-                IconButton(onClick = onTargets, enabled = targetsEnabled, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = onTargets, enabled = targetsEnabled, modifier = Modifier.size(48.dp).testTag("rocker_targets")) {
                     Icon(painterResource(R.drawable.baseline_robot_24), stringResource(R.string.overlay_target_menu))
                 }
                 IconButton(onClick = { onMinimize(true) }, modifier = Modifier.size(48.dp)) {
@@ -52,18 +56,25 @@ internal fun RockerPanel(minimized: Boolean, expanded: Boolean, status: String, 
                 (rocker.parent as? android.view.ViewGroup)?.removeView(rocker)
                 rocker
             }, update = { it.isEnabled = canMove; it.alpha = if (canMove) 1f else .55f; it.stateDescription = status },
-                modifier = Modifier.fillMaxWidth().height(152.dp).testTag("rocker_direction"))
+                modifier = Modifier.fillMaxWidth().height(152.dp).semantics { if (!canMove) disabled() }.testTag("rocker_direction"))
             TextButton(onClick = onExpand, modifier = Modifier.fillMaxWidth().testTag("rocker_speed_toggle")) {
                 Text(stringResource(R.string.overlay_speed_value, speed))
             }
             if (expanded) {
+                val interactions = remember { MutableInteractionSource() }
+                val dragging by interactions.collectIsDraggedAsState()
+                LaunchedEffect(dragging) { onDraggingSpeed(dragging) }
+                DisposableEffect(Unit) { onDispose { onDraggingSpeed(false) } }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    IconButton(onClick = { onSpeed(speed - .1) }, enabled = speed > 0) { Text("−") }
+                    IconButton(onClick = { onSpeed(speed - .1) }, enabled = speed > 0,
+                        modifier = Modifier.testTag("rocker_speed_down")) { Text("−") }
                     Text(stringResource(R.string.overlay_speed_number, speed), Modifier.padding(top = 12.dp))
-                    IconButton(onClick = { onSpeed(speed + .1) }, enabled = speed < 1000) { Text("+") }
+                    IconButton(onClick = { onSpeed(speed + .1) }, enabled = speed < 1000,
+                        modifier = Modifier.testTag("rocker_speed_up")) { Text("+") }
                 }
                 Text(stringResource(R.string.speed_kmh, speed * 3.6), style = MaterialTheme.typography.bodySmall)
-                Slider(value = speed.toFloat(), onValueChange = { onDraggingSpeed(true); onSpeed(it.toDouble()) },
+                Slider(value = speed.toFloat(), onValueChange = { onSpeed(it.toDouble()) },
+                    interactionSource = interactions,
                     onValueChangeFinished = { onDraggingSpeed(false) },
                     valueRange = 0f..maxOf(50.0, ceil(speed / 10.0) * 10.0).toFloat(),
                     modifier = Modifier.semantics { contentDescription = title }.testTag("rocker_speed_slider"))

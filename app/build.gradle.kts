@@ -194,6 +194,7 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     // Fragment 1.7+ drives seekable transitions from predictive Back progress.
     implementation(libs.androidx.fragment.ktx)
+    implementation(libs.androidx.fragment.compose)
     implementation(libs.androidx.transition)
 
     implementation(libs.kotlinx.serialization.json)

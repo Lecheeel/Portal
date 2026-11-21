@@ -4,18 +4,23 @@ import android.app.Dialog
 import android.content.DialogInterface
 import android.os.Bundle
 import androidx.fragment.app.DialogFragment
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import com.system.location.service.ui.PortalDialog
+import com.system.location.service.ui.PortalDialogContent
 import com.system.location.service.R
 
 /** Confirmation stays attached to the fragment manager across configuration changes. */
 class NativeRiskDialog : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog =
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.native_risk_title)
-            .setMessage(R.string.native_risk_message)
-            .setNegativeButton(android.R.string.cancel) { _, _ -> report(false) }
-            .setPositiveButton(R.string.native_risk_accept) { _, _ -> report(true) }
-            .create()
+        PortalDialog(requireContext()).content {
+            PortalDialogContent(getString(R.string.native_risk_title), getString(R.string.native_risk_message),
+                buttons = {
+                    TextButton(onClick = { report(false); dismiss() }) { Text(stringResource(android.R.string.cancel)) }
+                    TextButton(onClick = { report(true); dismiss() }) { Text(stringResource(R.string.native_risk_accept)) }
+                })
+        }
 
     override fun onCancel(dialog: DialogInterface) {
         super.onCancel(dialog)

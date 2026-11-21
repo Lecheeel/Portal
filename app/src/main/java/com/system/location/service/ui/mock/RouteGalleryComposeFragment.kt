@@ -10,6 +10,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import com.system.location.service.ui.navigation.PortalFragmentTab
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -43,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -58,8 +61,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentContainerView
-import androidx.lifecycle.Lifecycle
 import com.system.location.service.ui.environment.EnvironmentComposeFragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,8 +86,6 @@ import com.system.location.service.ui.viewmodel.LibraryViewModel
 class RouteGalleryComposeFragment : Fragment() {
     private val model by viewModels<LibraryViewModel>()
     private var environmentSelected = false
-    private var libraryContent: View? = null
-    private var environmentContent: View? = null
     private var importKind = LibraryKind.ROUTES
     private var exportKind = LibraryKind.ROUTES
     private var exportRouteId: String? = null
@@ -119,14 +118,14 @@ class RouteGalleryComposeFragment : Fragment() {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?,
-    ): View = android.widget.LinearLayout(requireContext()).apply {
-        orientation = android.widget.LinearLayout.VERTICAL
-        addView(ComposeView(context).apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-            setContent {
-                PortalTheme {
-                    val state by model.state.collectAsStateWithLifecycle()
-                    var environment by rememberSaveable { mutableStateOf(environmentSelected) }
+    ): View = ComposeView(requireContext()).apply {
+        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+        setContent {
+            PortalTheme {
+                val state by model.state.collectAsStateWithLifecycle()
+                var environment by rememberSaveable { mutableStateOf(environmentSelected) }
+                val libraryUi = rememberSaveableStateHolder()
+                Column(Modifier.fillMaxSize()) {
                     PrimaryTabRow(if (environment) 3 else state.kind.ordinal,
                         containerColor = MaterialTheme.colorScheme.background, divider = {}) {
                         (LibraryKind.entries.map { it.libraryLabel() } + "环境").forEachIndexed { index, label ->
@@ -135,80 +134,36 @@ class RouteGalleryComposeFragment : Fragment() {
                                     environment = index == 3
                                     environmentSelected = environment
                                     if (!environment) model.kind(LibraryKind.entries[index])
-                                    showLibraryTab()
                                 }, enabled = !state.busy,
                                 text = { Text(label, style = MaterialTheme.typography.titleSmall) },
                                 icon = { Icon(painterResource(if (index == 3) R.drawable.ic_layers_modern
                                     else LibraryKind.entries[index].libraryIcon()), null, Modifier.size(22.dp)) })
                         }
                     }
+                    Box(Modifier.fillMaxWidth().weight(1f)) {
+                        PortalFragmentTab<EnvironmentComposeFragment>(environment, Modifier.fillMaxSize(),
+                            arguments = Bundle().apply { putBoolean("library", true) })
+                        if (!environment) libraryUi.SaveableStateProvider("library") { LibraryScreen(
+                            model = model,
+                            onAddRoute = { findNavController().navigate(R.id.nav_route_edit) },
+                            onImportJson = { kind ->
+                                importKind = kind
+                                importFile.launch(arrayOf("application/json", "text/*"))
+                            },
+                            onExportJson = { kind ->
+                                exportKind = kind
+                                exportFile.launch("location-${kind.name.lowercase()}.json")
+                            },
+                            onImportGpx = { importGpx.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) },
+                            onExportGpx = { routeId ->
+                                exportRouteId = routeId
+                                exportGpx.launch(if (routeId == null) "location-routes.gpx" else "route.gpx")
+                            },
+                        ) }
+                    }
                 }
             }
-        }, android.widget.LinearLayout.LayoutParams(-1, -2))
-        val body = android.widget.FrameLayout(context)
-        addView(body, android.widget.LinearLayout.LayoutParams(-1, 0, 1f))
-        body.addView(FragmentContainerView(context).apply {
-            id = R.id.library_environment_content
-            environmentContent = this
-        }, android.widget.FrameLayout.LayoutParams(-1, -1))
-        body.addView(ComposeView(context).apply {
-            libraryContent = this
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-            setContent {
-                PortalTheme {
-                    LibraryScreen(
-                        model = model,
-                        onAddRoute = { findNavController().navigate(R.id.nav_route_edit) },
-                        onImportJson = { kind ->
-                            importKind = kind
-                            importFile.launch(arrayOf("application/json", "text/*"))
-                        },
-                        onExportJson = { kind ->
-                            exportKind = kind
-                            exportFile.launch("location-${kind.name.lowercase()}.json")
-                        },
-                        onImportGpx = { importGpx.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) },
-                        onExportGpx = { routeId ->
-                            exportRouteId = routeId
-                            exportGpx.launch(if (routeId == null) "location-routes.gpx" else "route.gpx")
-                        },
-                    )
-                }
-            }
-        }, android.widget.FrameLayout.LayoutParams(-1, -1))
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        if (childFragmentManager.findFragmentByTag("library_environment") == null) {
-            childFragmentManager.beginTransaction().add(R.id.library_environment_content,
-                EnvironmentComposeFragment().apply { arguments = Bundle().apply { putBoolean("library", true) } },
-                "library_environment").commitNow()
         }
-        showLibraryTab()
-    }
-
-    private fun showLibraryTab() {
-        libraryContent?.visibility = if (environmentSelected) View.GONE else View.VISIBLE
-        environmentContent?.visibility = if (environmentSelected) View.VISIBLE else View.GONE
-        val fragment = childFragmentManager.findFragmentByTag("library_environment") ?: return
-        childFragmentManager.beginTransaction().apply {
-            if (environmentSelected) {
-                show(fragment)
-                setMaxLifecycle(fragment, Lifecycle.State.RESUMED)
-                setPrimaryNavigationFragment(fragment)
-            } else {
-                hide(fragment)
-                setMaxLifecycle(fragment, Lifecycle.State.CREATED)
-                setPrimaryNavigationFragment(null)
-            }
-        }.commitNow()
-    }
-
-    override fun onDestroyView() {
-        libraryContent = null
-        environmentContent = null
-        super.onDestroyView()
     }
 
     override fun onResume() {

@@ -69,11 +69,12 @@ class MainActivity : AppCompatActivity() {
     private var pageTitle by androidx.compose.runtime.mutableStateOf("Portal")
     private var shellReady = false
     private var navHost: androidx.navigation.fragment.NavHostFragment? = null
+    private var drawerUiScope: kotlinx.coroutines.CoroutineScope? = null
     internal val shellView: View get() = findViewById(android.R.id.content)
     internal val navigationController get() = requireNotNull(navHost).navController
 
-    fun openDrawer() { lifecycleScope.launch { drawerState.open() } }
-    fun closeDrawer() { lifecycleScope.launch { drawerState.close() } }
+    fun openDrawer() { drawerUiScope?.launch { drawerState.open() } }
+    fun closeDrawer() { drawerUiScope?.launch { drawerState.close() } }
     fun navigateFromDrawer(destination: Int) {
         val controller = navigationController
         if (controller.currentDestination?.id == destination) return
@@ -186,6 +187,11 @@ class MainActivity : AppCompatActivity() {
                 drawerState = androidx.compose.material3.DrawerState(if (restoreDrawerOpen)
                     androidx.compose.material3.DrawerValue.Open else androidx.compose.material3.DrawerValue.Closed)
                 setContent {
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    androidx.compose.runtime.DisposableEffect(scope) {
+                        drawerUiScope = scope
+                        onDispose { if (drawerUiScope === scope) drawerUiScope = null }
+                    }
                     PortalTheme {
                         PortalAppShell(drawerState, currentDestinationId, selectedDrawerId, pageTitle,
                             onNavigate = ::navigateFromDrawer, onBack = { onSupportNavigateUp() },

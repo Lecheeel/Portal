@@ -1,10 +1,16 @@
 package com.system.location.service.ui.mock
 
 import android.content.Context
-import android.view.WindowManager
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import com.system.location.service.ui.PortalDialog
+import com.system.location.service.ui.PortalDialogContent
 import com.system.location.service.R
 import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.data.repository.LibraryRepositories
@@ -24,19 +30,20 @@ internal class RockerTargetMenu(private val context: Context) {
     private data class Target(val id: String, val name: String, val route: Boolean)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var loading: Job? = null
-    private var dialog: AlertDialog? = null
+    private var dialog: PortalDialog? = null
+    private var targets by mutableStateOf<List<Target>>(emptyList())
+    private var message by mutableStateOf(context.getString(R.string.overlay_target_loading))
     private var starting = false
 
     fun open() {
         if (starting) return
         close()
-        if (!present(MaterialAlertDialogBuilder(context)
-                .setTitle(R.string.overlay_target_menu)
-                .setMessage(R.string.overlay_target_loading)
-                .setNegativeButton(android.R.string.cancel) { _, _ -> loading?.cancel() })) return
+        targets = emptyList()
+        message = context.getString(R.string.overlay_target_loading)
+        if (!present()) return
         loading = scope.launch {
             try {
-                val targets = withContext(Dispatchers.IO) {
+                val loaded = withContext(Dispatchers.IO) {
                     LibraryRepositories.ensureMigrated()
                     LibraryRepositories.routes.list()
                         .sortedWith(compareByDescending<com.system.location.service.core.repository.SavedRoute> { it.favorite }.thenBy { it.route.name })
@@ -44,18 +51,12 @@ internal class RockerTargetMenu(private val context: Context) {
                         LibraryRepositories.locations.list().sortedWith(compareByDescending<com.system.location.service.core.repository.SavedLocation> { it.favorite }.thenBy { it.name })
                             .map { Target(it.id, it.name, false) }
                 }
-                val builder = MaterialAlertDialogBuilder(context).setTitle(R.string.overlay_target_menu)
-                    .setNegativeButton(android.R.string.cancel, null)
-                if (targets.isEmpty()) builder.setMessage(R.string.overlay_target_empty)
-                else builder.setItems(targets.map { target ->
-                    context.getString(if (target.route) R.string.overlay_target_route else R.string.overlay_target_location, target.name)
-                }.toTypedArray()) { _, index -> start(targets[index]) }
-                present(builder)
+                targets = loaded
+                message = if (loaded.isEmpty()) context.getString(R.string.overlay_target_empty) else ""
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                present(MaterialAlertDialogBuilder(context).setTitle(R.string.overlay_target_menu)
-                    .setMessage(R.string.overlay_target_load_failed).setPositiveButton(android.R.string.ok, null))
+                message = context.getString(R.string.overlay_target_load_failed)
             }
         }
     }
@@ -91,18 +92,34 @@ internal class RockerTargetMenu(private val context: Context) {
         }
     }
 
-    private fun present(builder: MaterialAlertDialogBuilder): Boolean {
-        dialog?.dismiss()
-        val next = builder.create()
-        next.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-        next.setOnCancelListener { loading?.cancel() }
+    private fun present(): Boolean {
+        val next = PortalDialog(context, overlay = true)
+        next.content {
+            PortalDialogContent(context.getString(R.string.overlay_target_menu), message.takeIf { it.isNotBlank() },
+                body = {
+                    targets.forEach { target ->
+                        TextButton(onClick = { close(); start(target) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(context.getString(if (target.route) R.string.overlay_target_route
+                                else R.string.overlay_target_location, target.name))
+                        }
+                    }
+                }, buttons = {
+                    TextButton(onClick = ::close) { Text(context.getString(android.R.string.cancel)) }
+                })
+        }
+        next.setOnDismissListener {
+            if (dialog === next) {
+                loading?.cancel()
+                loading = null
+                dialog = null
+            }
+        }
         return try {
             next.show()
             dialog = next
             true
         } catch (_: RuntimeException) {
             next.dismiss()
-            dialog = null
             Toast.makeText(context, R.string.overlay_target_open_failed, Toast.LENGTH_LONG).show()
             false
         }

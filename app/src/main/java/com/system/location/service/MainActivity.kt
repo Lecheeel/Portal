@@ -38,7 +38,10 @@ import androidx.navigation.navOptions
 import com.system.location.service.maps.*
 import com.system.location.service.privacy.TencentPrivacy
 import com.system.location.service.privacy.SdkPrivacy
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.system.location.service.ui.PortalDialog
+import com.system.location.service.ui.PortalDialogContent
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlinx.coroutines.launch
@@ -219,27 +222,30 @@ class MainActivity : AppCompatActivity() {
     private suspend fun awaitMapConsent(): Boolean {
         if (selectedMapsReady()) return true
         return suspendCancellableCoroutine { continuation ->
-            val dialog = MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.map_privacy_title)
-                .setMessage(if (mapProvider == MapProvider.TENCENT) R.string.tencent_privacy_message else R.string.map_privacy_message)
-                .setCancelable(false)
-                .setNegativeButton(R.string.map_privacy_decline) { _, _ ->
-                    if (continuation.isActive) continuation.resume(false)
-                }
-                .setNeutralButton(R.string.map_privacy_policy, null)
-                .setPositiveButton(R.string.map_privacy_accept, null)
-                .create()
-            dialog.setOnShowListener {
-                dialog.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).setOnClickListener {
-                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(if (mapProvider == MapProvider.TENCENT) "https://lbs.qq.com/userAgreements/agreements/privacy" else "https://lbs.amap.com/pages/privacy/"))) }
-                        .onFailure { Toast.makeText(this, R.string.map_privacy_no_browser, Toast.LENGTH_LONG).show() }
-                }
-                dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
-                    runCatching { if (mapProvider == MapProvider.TENCENT) TencentPrivacy.accept(this) else SdkPrivacy.acceptMaps() }.onSuccess {
-                        if (continuation.isActive) continuation.resume(true)
-                        dialog.dismiss()
-                    }.onFailure { Toast.makeText(this, it.message ?: getString(R.string.privacy_save_failed), Toast.LENGTH_LONG).show() }
-                }
+            val dialog = PortalDialog(this)
+            dialog.setCancelable(false)
+            dialog.content {
+                PortalDialogContent(getString(R.string.map_privacy_title),
+                    getString(if (mapProvider == MapProvider.TENCENT) R.string.tencent_privacy_message else R.string.map_privacy_message),
+                    buttons = {
+                        TextButton(onClick = {
+                            if (continuation.isActive) continuation.resume(false)
+                            dialog.dismiss()
+                        }) { Text(getString(R.string.map_privacy_decline)) }
+                        TextButton(onClick = {
+                            runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
+                                if (mapProvider == MapProvider.TENCENT) "https://lbs.qq.com/userAgreements/agreements/privacy"
+                                else "https://lbs.amap.com/pages/privacy/"))) }
+                                .onFailure { Toast.makeText(this@MainActivity, R.string.map_privacy_no_browser, Toast.LENGTH_LONG).show() }
+                        }) { Text(getString(R.string.map_privacy_policy)) }
+                        TextButton(onClick = {
+                            runCatching { if (mapProvider == MapProvider.TENCENT) TencentPrivacy.accept(this@MainActivity) else SdkPrivacy.acceptMaps() }
+                                .onSuccess {
+                                    if (continuation.isActive) continuation.resume(true)
+                                    dialog.dismiss()
+                                }.onFailure { Toast.makeText(this@MainActivity, it.message ?: getString(R.string.privacy_save_failed), Toast.LENGTH_LONG).show() }
+                        }) { Text(getString(R.string.map_privacy_accept)) }
+                    })
             }
             continuation.invokeOnCancellation { dialog.dismiss() }
             dialog.show()

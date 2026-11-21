@@ -1,10 +1,9 @@
 package com.system.location.service
 
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import org.junit.Rule
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.ext.sharedPrefs
@@ -20,6 +19,8 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SdkPrivacyUiTest {
+    @get:Rule val compose = createEmptyComposeRule()
+    private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     @Before fun requireFreshPrivacyProcess() {
         assumeTrue("Run alone with -e freshPrivacy true", InstrumentationRegistry.getArguments().getString("freshPrivacy") == "true")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -30,16 +31,16 @@ class SdkPrivacyUiTest {
 
     @Test fun freshPromptSurvivesRotationDeclineAndLaterExplicitAcceptance() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            onView(withText(R.string.map_privacy_title)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isDisplayed()))
-            onView(withText(R.string.tencent_privacy_message)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isDisplayed()))
+            compose.onNodeWithText(context.getString(R.string.map_privacy_title)).assertIsDisplayed()
+            compose.onNodeWithText(context.getString(R.string.tencent_privacy_message)).assertIsDisplayed()
             scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
             assertPrivacyState(tencentAccepted = false)
             scenario.recreate()
-            onView(withText(R.string.map_privacy_title)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isDisplayed()))
-            onView(withText(R.string.tencent_privacy_message)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isDisplayed()))
+            compose.onNodeWithText(context.getString(R.string.map_privacy_title)).assertIsDisplayed()
+            compose.onNodeWithText(context.getString(R.string.tencent_privacy_message)).assertIsDisplayed()
             scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
             assertPrivacyState(tencentAccepted = false)
-            onView(withText(R.string.map_privacy_decline)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(click())
+            compose.onNodeWithText(context.getString(R.string.map_privacy_decline)).performClick()
             // finish() schedules lifecycle work; an idle main queue does not guarantee onDestroy.
             val deadline = android.os.SystemClock.uptimeMillis() + 5_000
             while (scenario.state != androidx.lifecycle.Lifecycle.State.DESTROYED &&
@@ -52,10 +53,10 @@ class SdkPrivacyUiTest {
         }
         grantUiPermissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            onView(withText(R.string.tencent_privacy_message)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isDisplayed()))
+            compose.onNodeWithText(context.getString(R.string.tencent_privacy_message)).assertIsDisplayed()
             scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
             assertPrivacyState(tencentAccepted = false)
-            onView(withText(R.string.map_privacy_accept)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(click())
+            compose.onNodeWithText(context.getString(R.string.map_privacy_accept)).performClick()
             assertPrivacyState(tencentAccepted = true)
             scenario.recreate()
             assertPrivacyState(tencentAccepted = true)

@@ -27,7 +27,7 @@ import com.system.location.service.R
 @Composable
 internal fun HomeSearchBar(expanded: Boolean, query: String, onQuery: (String) -> Unit,
     onExpand: () -> Unit, onCollapse: () -> Unit, onSubmit: () -> Unit, onMenu: () -> Unit) {
-    Row(Modifier.fillMaxWidth().testTag("home-search-controls"), verticalAlignment = Alignment.CenterVertically,
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("home-search-controls"), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         HomeHeaderButton(R.drawable.ic_home_menu, "打开菜单", onClick = onMenu)
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {

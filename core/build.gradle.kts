@@ -11,7 +11,7 @@ java {
 kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17 } }
 
 dependencies {
-    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     implementation(libs.geotools)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)

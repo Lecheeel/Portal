@@ -44,6 +44,9 @@ class CarrierEditorRecoveryUiTest {
                 editorText("SIM 1 · Saved one").assertIsDisplayed()
                 editorText("SIM 2 · Saved two").assertIsDisplayed()
                 editorText("运营商名称").performTextReplacement("Unsaved one")
+                // Finish text entry before scrolling to the summary. The IME's focused-field
+                // bring-into-view otherwise competes with the LazyColumn scroll on API 35.
+                androidx.test.espresso.Espresso.closeSoftKeyboard()
                 editorText("有未保存的修改").assertIsDisplayed()
                 editorText("仅分应用").performClick()
                 editorText("SIM 2").performClick()

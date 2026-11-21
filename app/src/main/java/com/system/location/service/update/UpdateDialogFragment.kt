@@ -5,23 +5,28 @@ import android.os.Bundle
 import androidx.core.os.bundleOf
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentManager
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.system.location.service.ui.PortalDialog
+import com.system.location.service.ui.PortalDialogContent
 
 class UpdateDialogFragment : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val args = requireArguments()
-        return MaterialAlertDialogBuilder(requireContext())
-            .setTitle(if (args.getBoolean("beta")) getString(com.system.location.service.R.string.update_release_beta) else getString(com.system.location.service.R.string.update_channel_stable))
-            .setMessage(
-                "最新版本：${args.getString("version")}\n" +
-                    "当前版本：${UpdateChecker.parseLocalVersion().versionName}\n\n" +
-                    args.getString("body").orEmpty().take(600).ifBlank { "查看 Release 页获取更新说明" }
-            )
-            .setPositiveButton("下载更新") { _, _ ->
-                UpdateChecker.openDownload(requireContext(), args.getString("url")!!)
-            }
-            .setNegativeButton("下次再说", null)
-            .create()
+        val title = if (args.getBoolean("beta")) getString(com.system.location.service.R.string.update_release_beta)
+            else getString(com.system.location.service.R.string.update_channel_stable)
+        val message = "最新版本：${args.getString("version")}\n" +
+            "当前版本：${UpdateChecker.parseLocalVersion().versionName}\n\n" +
+            args.getString("body").orEmpty().take(600).ifBlank { "查看 Release 页获取更新说明" }
+        return PortalDialog(requireContext()).content {
+            PortalDialogContent(title, message, buttons = {
+                TextButton(onClick = { dismiss() }) { Text("下次再说") }
+                TextButton(onClick = {
+                    UpdateChecker.openDownload(requireContext(), args.getString("url")!!)
+                    dismiss()
+                }) { Text("下载更新") }
+            })
+        }
     }
 
     companion object {

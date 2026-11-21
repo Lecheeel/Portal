@@ -46,3 +46,17 @@ Activity 1.13 的 Compose 返回处理通过 NavigationEvent；定向测试使�
 UI CI 中的系统对象/Parcel 检查在普通测试应用内调用模块辅助类，需要临时开放非 SDK API 访问并在退出时恢复原策略；这不表示普通应用具备系统模块权限。需要保持模拟十分钟供独立接收端检测的权限 canary 仅显式启用，不属于普通模拟器 UI 测试。
 
 相关平台接口：[AndroidFragment](https://developer.android.com/reference/kotlin/androidx/fragment/compose/package-summary)、[AndroidX Fragment](https://developer.android.com/jetpack/androidx/releases/fragment)。
+
+## 标题栏、状态栏与返回动画补测（2026-11-22）
+
+K50 截图确认旧设置页的状态栏和内容背景为 `#F6FAFD`，标题栏为白色。标题栏统一使用页面背景后，浅色顶部各区域均为 `#F6FAFD`，深色均为 `#1E201A`。标题栏背景覆盖状态栏，标题和导航按钮通过系统安全区避让。
+
+标题栏现归各导航 Fragment 的 Compose 根 View 所有，与内容一起参与 Slide/Fade 和预测返回；不再由应用外壳单独覆盖。标题从 Fragment 标签对应的导航栈条目读取，避免返回预览时跟随全局当前目的地提前切换。嵌套标签页和独立编辑器测试窗口不重复添加标题栏，首页地图保持全屏。
+
+预测返回测试保存实际标题节点，在退出页面进入过渡层后继续验证其窗口坐标移动；取消后检查标题回到原位。此时退出页面可能暂时离开 Compose 测试根注册表，不能用重新查询不到节点推断标题消失。K50 已检查预览截图、返回取消/提交、抽屉、搜索、浅深色页面及从六个目的地返回地图的尺寸。合计八项定向检查最终通过，无跳过；两项旧布局断言已按“背景覆盖状态栏、文字避让状态栏”和页面动画实际完成时序修正后单独重测通过。
+
+同轮收到 `TransitionSet.resume:697` 的越界崩溃，设备日志确认发生在本地测试应用。Transition 1.5.0 在子动画回调可修改列表时，仍按原始长度读取列表；升级至 1.7.2 后，恢复操作遍历快照。嵌套集合的回调移除同级动画用例在旧版稳定越界，在新版通过，正常页面返回与预测返回检查也通过。Android 14 K50 的结果不替代其他 ROM 验证。
+
+额外探索发现，人工重写 `pause()` 并在其中移除同级动画的用例在 1.7.2 仍可失败；该方法未使用相同快照实现。未在 Portal 实际暂停回调路径复现这一构造场景，不把本次升级描述为所有过渡方法均可任意重入。探索源文件、反汇编及失败日志保存在本机临时证据目录，发布回归覆盖报告中的恢复路径。
+
+核对依据为 Google Maven 的 [1.5.0 源码](https://dl.google.com/dl/android/maven2/androidx/transition/transition/1.5.0/transition-1.5.0-sources.jar)、[1.7.2 源码](https://dl.google.com/dl/android/maven2/androidx/transition/transition/1.7.2/transition-1.7.2-sources.jar)及实际 AAR 字节码。

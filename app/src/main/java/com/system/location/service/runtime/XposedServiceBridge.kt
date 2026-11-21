@@ -24,6 +24,12 @@ object XposedServiceBridge : XposedServiceHelper.OnServiceListener {
 
     fun bound(): Boolean = service != null
 
+    /** A system-capable framework is available even if the root manager hides su from the app. */
+    fun supportsSystemScope(): Boolean = runCatching {
+        val current = service ?: return false
+        current.getFrameworkProperties() and XposedService.PROP_CAP_SYSTEM != 0L
+    }.getOrDefault(false)
+
     override fun onServiceBind(service: XposedService) {
         this.service = service
         lastResult = "service bound: ${runCatching { service.getFrameworkName() }.getOrDefault("unknown")}"

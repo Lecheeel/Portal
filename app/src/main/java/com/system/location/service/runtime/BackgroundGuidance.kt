@@ -12,7 +12,11 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.system.location.service.ui.PortalDialog
+import com.system.location.service.ui.PortalDialogContent
+import com.system.location.service.ui.showPortalChoiceDialog
 import com.system.location.service.R
 
 object BackgroundGuidance {
@@ -37,21 +41,27 @@ object BackgroundGuidance {
         return "后台状态：电池优化豁免=${state.batteryUnrestricted}；精确位置权限=${state.locationGranted}；通知=${state.notificationsEnabled}"
     }
     fun show(context: Context) {
-        MaterialAlertDialogBuilder(context).setTitle(R.string.background_guidance)
-            .setMessage(status(context) + "\n\n" + context.getString(R.string.background_guidance_desc))
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.open_background_settings) { _, _ ->
-                MaterialAlertDialogBuilder(context).setTitle(R.string.background_settings)
-                    .setItems(context.resources.getStringArray(R.array.background_settings_options)) { _, index ->
-                        when (index) {
-                            0 -> open(context, listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS), details(context)))
-                            1 -> open(context, listOf(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")), details(context)))
-                            2 -> open(context, listOf(details(context)))
-                            3 -> open(context, listOf(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName), details(context)))
+        val dialog = PortalDialog(context)
+        dialog.content {
+            PortalDialogContent(context.getString(R.string.background_guidance),
+                status(context) + "\n\n" + context.getString(R.string.background_guidance_desc), buttons = {
+                    TextButton(onClick = { dialog.dismiss() }) { Text(context.getString(android.R.string.cancel)) }
+                    TextButton(onClick = {
+                        dialog.dismiss()
+                        showPortalChoiceDialog(context, context.getString(R.string.background_settings),
+                            context.resources.getStringArray(R.array.background_settings_options).toList()) { index ->
+                            when (index) {
+                                0 -> open(context, listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS), details(context)))
+                                1 -> open(context, listOf(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")), details(context)))
+                                2 -> open(context, listOf(details(context)))
+                                3 -> open(context, listOf(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName), details(context)))
+                            }
                         }
-                    }.show()
-            }.show()
+                    }) { Text(context.getString(R.string.open_background_settings)) }
+                })
+        }.show()
     }
+
     private fun details(context: Context) = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
     private fun open(context: Context, candidates: List<Intent>) {
         for (intent in candidates) {

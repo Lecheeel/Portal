@@ -77,6 +77,12 @@ class DrawerGestureUiTest {
                 runCatching { compose.onNodeWithText("地图与定位").assertIsDisplayed(); true }.getOrDefault(false)
             }
             compose.onNodeWithText("地图与定位").assertIsDisplayed()
+            compose.onNodeWithTag("portal_shell").performTouchInput {
+                swipe(start = androidx.compose.ui.geometry.Offset(4f, centerY),
+                    end = androidx.compose.ui.geometry.Offset(width * .75f, centerY), durationMillis = 600)
+            }
+            drawer(false)
+            scenario.onActivity { assertEquals(androidx.compose.material3.DrawerValue.Closed, it.drawerState.targetValue) }
             scenario.onActivity { it.openDrawer() }
             drawer(true)
             scenario.recreate()

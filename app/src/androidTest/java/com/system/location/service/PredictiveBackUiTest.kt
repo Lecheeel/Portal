@@ -32,7 +32,9 @@ class PredictiveBackUiTest {
                 scenario.onActivity { open = it.drawerState.isOpen && !it.drawerState.isAnimationRunning }
                 open
             }
+            compose.waitForIdle()
             scenario.onActivity {
+                android.util.Log.i("PortalBackTest", "drawer before first gesture: ${it.navigationEventDispatcher.history.value}")
                 input.backStarted(event(0f))
                 input.backProgressed(event(.65f))
                 // The Compose drawer handles progress without navigating the underlying page.
@@ -45,7 +47,9 @@ class PredictiveBackUiTest {
                 scenario.onActivity { restored = it.drawerState.isOpen && !it.drawerState.isAnimationRunning }
                 restored
             }
+            compose.waitForIdle()
             scenario.onActivity {
+                android.util.Log.i("PortalBackTest", "drawer before completion: ${it.navigationEventDispatcher.history.value}")
                 assertTrue(it.drawerState.isOpen)
                 input.backStarted(event(0f))
                 input.backProgressed(event(.8f))
@@ -79,15 +83,18 @@ class PredictiveBackUiTest {
                 ready
             }
             resumed()
+            compose.waitForIdle()
             compose.onNodeWithText("定位精度").assertIsDisplayed()
             scenario.onActivity {
                 val page = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
                     .childFragmentManager.primaryNavigationFragment!!
                 assertTrue((page.returnTransition as androidx.transition.Slide).isSeekingSupported)
+                android.util.Log.i("PortalBackTest", "detail before preview: ${it.navigationEventDispatcher.history.value}")
                 input.backStarted(event(0f))
             }
             compose.waitForIdle()
             scenario.onActivity {
+                android.util.Log.i("PortalBackTest", "detail progress")
                 input.backProgressed(event(.5f))
             }
             // A seekable Back must attach the previous page before the gesture commits.
@@ -101,8 +108,19 @@ class PredictiveBackUiTest {
                 }
                 previewing
             }
-            scenario.onActivity { input.backCancelled() }
+            scenario.onActivity { android.util.Log.i("PortalBackTest", "detail cancel"); input.backCancelled() }
+            compose.waitUntil(5_000) {
+                var settled = false
+                scenario.onActivity {
+                    val host = it.supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)!!
+                    settled = host.childFragmentManager.fragments.count { page ->
+                        page.view?.parent != null && page.view?.visibility == android.view.View.VISIBLE
+                    } == 1
+                }
+                settled
+            }
             resumed()
+            compose.waitForIdle()
             compose.onNodeWithText("定位精度").assertIsDisplayed()
             scenario.onActivity {
                 assertEquals(R.id.nav_settings_location, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)

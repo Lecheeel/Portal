@@ -7,13 +7,6 @@ import org.junit.Rule
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.navigation.findNavController
 import androidx.test.core.app.ActivityScenario
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.withId
-import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
-import androidx.test.espresso.matcher.ViewMatchers.withText
-import androidx.test.espresso.matcher.RootMatchers.isDialog as isNativeDialog
-import androidx.test.espresso.action.ViewActions.click
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.core.runtime.RuntimePhase
@@ -89,7 +82,7 @@ class UiDesignTest {
         }
     }
 
-    @Test fun drawerReturnsToMockAfterOpeningLibraryAndAfterRecreation() {
+    @Test fun drawerSwitchesSectionsAndBackReturnsHomeAfterRecreation() {
         permissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             fun openMock() {
@@ -110,7 +103,8 @@ class UiDesignTest {
             }
             scenario.onActivity { it.navigateFromDrawer(R.id.nav_route_gallery) }
             scenario.onActivity { it.systemBackForUiTest() }
-            compose.scrollToText("手动新建").assertIsDisplayed()
+            compose.onNodeWithText("开始模拟").assertIsDisplayed()
+            scenario.onActivity { assertEquals(R.id.nav_home, it.currentDestinationId) }
         }
     }
 
@@ -312,11 +306,11 @@ class UiDesignTest {
                     }
                     scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_settings_location) }
                     compose.scrollToText("地图提供方").performClick()
-                    onView(withText("地图服务")).inRoot(isNativeDialog()).check(matches(isDisplayed()))
-                    // Native window enter animation is independent of Compose idleness.
+                    compose.onNodeWithText("地图服务").assertIsDisplayed()
+                    // The dialog window enter animation is independent of Compose idleness.
                     android.os.SystemClock.sleep(350)
                     capture("map-provider-$suffix")
-                    onView(withText("取消")).inRoot(isNativeDialog()).perform(click())
+                    compose.onNodeWithText("取消").performClick()
                 } finally {
                     scenario.close()
                     assertEquals("Theme changes must not outlive their Activity", androidx.lifecycle.Lifecycle.State.DESTROYED, scenario.state)

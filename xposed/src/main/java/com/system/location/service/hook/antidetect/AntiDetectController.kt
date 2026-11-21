@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import com.system.location.service.hook.runtime.HookRuntime
+import com.system.location.service.hook.runtime.BackgroundQuery
 import com.system.location.service.hook.utils.FakeLoc
 import com.system.location.service.jni.AntiDetect
 
@@ -14,13 +15,14 @@ import com.system.location.service.jni.AntiDetect
  * Polls the controller for the two experimental anti-detection flags.
  *
  * Target application processes cannot read the controller's preferences directly; the existing
- * `fused_ext` command channel is the only allowed transport. The poll runs on the application's
- * main looper and creates no thread. A missing target selection simply leaves both features off.
+ * `fused_ext` command channel is the only allowed transport. The main looper only schedules polls;
+ * Binder and native loading use the platform worker pool without a dedicated module thread.
  */
 object AntiDetectController {
     private const val COMMAND = "get_anti_detect_state"
     private const val INTERVAL_MS = 1_000L
     @Volatile private var started = false
+    private val query = BackgroundQuery()
 
     fun start() {
         if (started) return
@@ -34,8 +36,13 @@ object AntiDetectController {
         val handler = Handler(Looper.getMainLooper())
         val poll = object : Runnable {
             override fun run() {
-                pollOnce(context)
-                handler.postDelayed(this, INTERVAL_MS)
+                try {
+                    query.submit({ pollOnce(context) }) { result -> result.exceptionOrNull()?.let(HookRuntime::log) }
+                } catch (failure: RuntimeException) {
+                    HookRuntime.log(failure)
+                } finally {
+                    handler.postDelayed(this, INTERVAL_MS)
+                }
             }
         }
         handler.post(poll)

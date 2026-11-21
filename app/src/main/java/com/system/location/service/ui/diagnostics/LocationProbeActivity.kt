@@ -13,8 +13,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -22,12 +20,18 @@ import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.*
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.system.location.service.databinding.ActivityLocationProbeBinding
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.core.view.WindowCompat
+import com.system.location.service.designsystem.theme.PortalTheme
 
 /** Separate process, same package/UID. This observer never writes providers or mock AppOps. */
 class LocationProbeActivity : AppCompatActivity() {
     class State : ViewModel() { val journal = LocationProbeJournal() }
-    private lateinit var binding: ActivityLocationProbeBinding
+    private var statusText by mutableStateOf("")
+    private var reportText by mutableStateOf("")
     private val journal by lazy { ViewModelProvider(this)[State::class.java].journal }
     private val manager by lazy { getSystemService(LocationManager::class.java) }
     private val handler = Handler(Looper.getMainLooper())
@@ -47,23 +51,21 @@ class LocationProbeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLocationProbeBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
-        binding.closeProbe.setOnClickListener { finish() }
-        binding.startProbe.setOnClickListener {
-            wanted = true
-            if (!hasPermission()) permissions.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
-            else { stopReceiving(); startReceiving() }
-        }
-        binding.stopProbe.setOnClickListener { wanted = false; stopReceiving(); render() }
-        binding.copyProbe.setOnClickListener {
-            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("位置接收诊断", report()))
-            Toast.makeText(this, "接收日志已复制", Toast.LENGTH_SHORT).show()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        setContent {
+            PortalTheme {
+                LocationProbeScreen(statusText, reportText, onBack = ::finish,
+                    onStart = {
+                        wanted = true
+                        if (!hasPermission()) permissions.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+                        else { stopReceiving(); startReceiving() }
+                    },
+                    onStop = { wanted = false; stopReceiving(); render() },
+                    onCopy = {
+                        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("位置接收诊断", report()))
+                        Toast.makeText(this, "接收日志已复制", Toast.LENGTH_SHORT).show()
+                    })
+            }
         }
         render()
     }
@@ -80,8 +82,8 @@ class LocationProbeActivity : AppCompatActivity() {
     }
     private fun report() = "LocationService 接收端 ${com.system.location.service.BuildConfig.VERSION_NAME}\nAndroid ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT} ROM=${Build.DISPLAY}\nprocess=${android.app.Application.getProcessName()} uid=${Process.myUid()}\n" + journal.report()
     private fun render() {
-        binding.probeStatus.text = if (active) "正在前台接收 · 收到 ${journal.sampleCount} 条 · mock ${journal.mockCount} 条" else "接收已停止；无新样本不能证明不存在模拟位置"
-        binding.probeLog.text = report()
+        statusText = if (active) "正在前台接收 · 收到 ${journal.sampleCount} 条 · mock ${journal.mockCount} 条" else "接收已停止；无新样本不能证明不存在模拟位置"
+        reportText = report()
     }
 
     @SuppressLint("MissingPermission")

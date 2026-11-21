@@ -26,59 +26,92 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.viewModels
-import androidx.activity.BackEventCompat
-import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.GravityCompat
-import androidx.core.view.updatePadding
-import androidx.core.view.doOnLayout
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.navOptions
-import androidx.navigation.findNavController
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.navigateUp
-import androidx.navigation.ui.setupActionBarWithNavController
-import androidx.navigation.ui.setupWithNavController
-import com.google.android.material.navigation.NavigationView
 import com.system.location.service.maps.*
 import com.system.location.service.privacy.TencentPrivacy
 import com.system.location.service.privacy.SdkPrivacy
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import com.system.location.service.android.permission.RequestPermissions
 import com.system.location.service.android.root.ShellUtils
 import com.system.location.service.android.window.OverlayUtils
-import com.system.location.service.databinding.ActivityMainBinding
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.system.location.service.ui.navigation.PortalAppShell
 import com.system.location.service.ext.Loc4j
 import com.system.location.service.ui.notification.NotificationUtils
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 import com.system.location.service.update.StartupUpdateViewModel
 import com.system.location.service.runtime.ScenarioRuntime
-import com.system.location.service.ui.displayLabel
 import com.system.location.service.update.UpdateDialogFragment
 import com.system.location.service.ui.navigation.PortalNavigationTransitions
-import com.system.location.service.ui.runtime.DrawerModeControl
 import com.system.location.service.designsystem.theme.PortalTheme
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.ViewCompositionStrategy
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var appBarConfiguration: AppBarConfiguration
-    lateinit var binding: ActivityMainBinding
+    internal var drawerState = androidx.compose.material3.DrawerState(androidx.compose.material3.DrawerValue.Closed)
+        private set
+    internal var currentDestinationId by androidx.compose.runtime.mutableIntStateOf(R.id.nav_home)
+        private set
+    internal var selectedDrawerId by androidx.compose.runtime.mutableIntStateOf(R.id.nav_home)
+        private set
+    private var pageTitle by androidx.compose.runtime.mutableStateOf("Portal")
+    private var shellReady = false
+    private var navHost: androidx.navigation.fragment.NavHostFragment? = null
+    internal val shellView: View get() = findViewById(android.R.id.content)
+    internal val navigationController get() = requireNotNull(navHost).navController
+
+    fun openDrawer() { lifecycleScope.launch { drawerState.open() } }
+    fun closeDrawer() { lifecycleScope.launch { drawerState.close() } }
+    fun navigateFromDrawer(destination: Int) {
+        val controller = navigationController
+        if (controller.currentDestination?.id == destination) return
+        val start = controller.graph.findStartDestination().id
+        if (destination == start && controller.popBackStack(start, false)) return
+        controller.navigate(destination, null, navOptions { launchSingleTop = true; popUpTo(start) })
+    }
+
+    private fun createNavigationHost(): View {
+        // Fragment navigation remains the interoperability layer for the existing Compose screens.
+        // Construct its container synchronously before restoring the graph's Fragment views.
+        return androidx.fragment.app.FragmentContainerView(this).apply {
+            id = R.id.nav_host_fragment_content_main
+            setBackgroundColor(androidx.core.content.ContextCompat.getColor(context, R.color.page_background))
+            val host = supportFragmentManager.findFragmentById(id) as? androidx.navigation.fragment.NavHostFragment
+                ?: androidx.navigation.fragment.NavHostFragment.create(R.navigation.mobile_navigation).also {
+                    supportFragmentManager.beginTransaction().replace(id, it).setPrimaryNavigationFragment(it).commitNow()
+                }
+            navHost = host
+            androidx.navigation.Navigation.setViewNavController(this, host.navController)
+            host.navController.addOnDestinationChangedListener { _, destination, args ->
+                currentDestinationId = destination.id
+                pageTitle = destination.label?.toString()?.let { label ->
+                    Regex("\\{(.+?)\\}").replace(label) { match -> args?.get(match.groupValues[1])?.toString().orEmpty() }
+                }.orEmpty()
+                selectedDrawerId = when {
+                    destination.arguments.containsKey("category") -> R.id.nav_settings
+                    destination.id == R.id.nav_gnss_mock -> R.id.nav_mock
+                    destination.id == R.id.nav_route_edit -> R.id.nav_route_gallery
+                    destination.id in setOf(R.id.nav_app_selection, R.id.nav_sensor_packages,
+                        R.id.nav_point_selection, R.id.nav_map_keys, R.id.nav_carrier_identity) -> R.id.nav_settings
+                    destination.id in setOf(R.id.nav_environment_library, R.id.nav_environment_editor) -> R.id.nav_route_gallery
+                    destination.id == R.id.nav_environment -> R.id.nav_mock
+                    else -> destination.id
+                }
+            }
+        }
+    }
 
     /* Permission */
     private val requestMultiplePermissions = RequestPermissions(this)
@@ -149,116 +182,17 @@ class MainActivity : AppCompatActivity() {
 
                 initNotification()
 
-                binding = ActivityMainBinding.inflate(layoutInflater)
-                setContentView(binding.root)
+                drawerState = androidx.compose.material3.DrawerState(if (restoreDrawerOpen)
+                    androidx.compose.material3.DrawerValue.Open else androidx.compose.material3.DrawerValue.Closed)
+                setContent {
+                    PortalTheme {
+                        PortalAppShell(drawerState, currentDestinationId, selectedDrawerId, pageTitle,
+                            onNavigate = ::navigateFromDrawer, onBack = { onSupportNavigateUp() },
+                            createHost = ::createNavigationHost)
+                    }
+                }
+                shellReady = true
                 applySystemBarTheme()
-
-                setSupportActionBar(binding.appBarMain.toolbar)
-
-                val drawerLayout: DrawerLayout = binding.drawerLayout
-                val navView: NavigationView = binding.navView
-                val header = navView.getHeaderView(0)
-                val headerTopPadding = header.paddingTop
-                val drawerVisible = androidx.compose.runtime.mutableStateOf(false)
-                header.findViewById<ComposeView>(R.id.drawer_mode_control).apply {
-                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-                    setContent { PortalTheme { DrawerModeControl(drawerVisible.value) } }
-                }
-                ViewCompat.setOnApplyWindowInsetsListener(drawerLayout) { _, insets ->
-                    val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-                    header.updatePadding(top = headerTopPadding + safe.top)
-                    insets
-                }
-                val drawerBack = object : OnBackPressedCallback(false) {
-                    override fun handleOnBackStarted(backEvent: BackEventCompat) = navView.startBackProgress(backEvent)
-                    override fun handleOnBackProgressed(backEvent: BackEventCompat) = navView.updateBackProgress(backEvent)
-                    override fun handleOnBackCancelled() = navView.cancelBackProgress()
-                    override fun handleOnBackPressed() = navView.handleBackInvoked()
-                }
-                onBackPressedDispatcher.addCallback(this@MainActivity, drawerBack)
-                drawerLayout.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
-                    override fun onDrawerSlide(drawerView: View, slideOffset: Float) { drawerVisible.value = slideOffset > 0f }
-                    override fun onDrawerOpened(drawerView: View) { drawerBack.isEnabled = true; drawerVisible.value = true }
-                    override fun onDrawerClosed(drawerView: View) { drawerBack.isEnabled = false; drawerVisible.value = false }
-                })
-                val navController = findNavController(R.id.nav_host_fragment_content_main)
-
-                appBarConfiguration = AppBarConfiguration(
-                    setOf(
-                        R.id.nav_home, R.id.nav_runtime, R.id.nav_mock, R.id.nav_gnss_mock, R.id.nav_route_gallery, R.id.nav_settings
-                    ), drawerLayout
-                )
-
-                setupActionBarWithNavController(navController, appBarConfiguration)
-                navView.setupWithNavController(navController)
-                lifecycleScope.launch {
-                    repeatOnLifecycle(Lifecycle.State.STARTED) {
-                        ScenarioRuntime.state.map { state ->
-                            state.displayLabel()
-                        }.distinctUntilChanged().collect { summary ->
-                            navView.getHeaderView(0).findViewById<android.widget.TextView>(R.id.textView).text = summary
-                        }
-                    }
-                }
-                // Drawer items name an exact screen. Restoring a saved top-level stack
-                // could instead restore the library opened from the mock screen.
-                navView.setNavigationItemSelectedListener { item ->
-                    if (navController.currentDestination?.id != item.itemId) {
-                        // Return to the existing start screen instead of replacing its Fragment
-                        // through launchSingleTop, which would initialize the map SDK again.
-                        val returnedHome = item.itemId == navController.graph.findStartDestination().id &&
-                            navController.popBackStack(item.itemId, false)
-                        if (!returnedHome) navController.navigate(item.itemId, null, navOptions {
-                            launchSingleTop = true
-                            popUpTo(navController.graph.findStartDestination().id)
-                            // Fragment transitions support progress and cancellation during Back.
-                        })
-                    }
-                    drawerLayout.closeDrawer(GravityCompat.START)
-                    true
-                }
-
-                ViewCompat.setOnApplyWindowInsetsListener(binding.appBarMain.root) { view, insets ->
-                    val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-                    val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
-                    val home = navController.currentDestination?.id == R.id.nav_home
-                    view.updatePadding(
-                        left = if (home) 0 else safe.left,
-                        top = if (home) 0 else safe.top,
-                        right = if (home) 0 else safe.right,
-                        bottom = if (home) 0 else maxOf(safe.bottom, keyboard.bottom)
-                    )
-                    insets
-                }
-
-                navController.addOnDestinationChangedListener { _, destination, _ ->
-                    val drawerDestination = when {
-                        destination.arguments.containsKey("category") -> R.id.nav_settings
-                        destination.id == R.id.nav_gnss_mock -> R.id.nav_mock
-                        destination.id == R.id.nav_route_edit -> R.id.nav_route_gallery
-                        destination.id in setOf(R.id.nav_app_selection, R.id.nav_sensor_packages,
-                            R.id.nav_point_selection, R.id.nav_map_keys, R.id.nav_carrier_identity) ->
-                            R.id.nav_settings
-                        else -> destination.id
-                    }
-                    navView.menu.findItem(drawerDestination)?.let { navView.setCheckedItem(it) }
-                    // Show standard toolbar for secondary screens, hide for home full-screen map
-                    if (destination.id == R.id.nav_home) {
-                        binding.appBarMain.appBarLayout.visibility = View.GONE
-                    } else {
-                        binding.appBarMain.appBarLayout.visibility = View.VISIBLE
-                    }
-                    ViewCompat.requestApplyInsets(binding.appBarMain.root)
-                }
-                // Consent/permission checks can delay setContentView until after Android's
-                // automatic hierarchy restoration. Restore the drawer after its first layout.
-                drawerLayout.doOnLayout {
-                    if (restoreDrawerOpen) drawerLayout.openDrawer(GravityCompat.START, false)
-                    // Hierarchy restoration may already have opened it before the listener was
-                    // attached, so synchronize Back interception even without an opened event.
-                    drawerBack.isEnabled = drawerLayout.isDrawerVisible(GravityCompat.START)
-                    drawerVisible.value = drawerBack.isEnabled
-                }
                 startupUpdateViewModel.check()
             }
         }
@@ -314,7 +248,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (::binding.isInitialized) startupUpdateViewModel.check()
+        if (shellReady) startupUpdateViewModel.check()
     }
 
     override fun onResume() {
@@ -335,9 +269,6 @@ class MainActivity : AppCompatActivity() {
         WindowInsetsControllerCompat(window, window.decorView).apply {
             isAppearanceLightStatusBars = light
             isAppearanceLightNavigationBars = light
-        }
-        if (::binding.isInitialized) {
-            binding.drawerLayout.setStatusBarBackgroundColor(Color.TRANSPARENT)
         }
     }
 
@@ -430,14 +361,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onSupportNavigateUp(): Boolean {
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
+        val controller = navHost?.navController ?: return false
+        if (com.system.location.service.ui.navigation.portalDestinations.any { it.id == currentDestinationId } ||
+            currentDestinationId == R.id.nav_gnss_mock) {
+            openDrawer()
+            return true
+        }
+        return controller.navigateUp()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        if (::binding.isInitialized) {
-            outState.putBoolean("portal.drawer.open", binding.drawerLayout.isDrawerVisible(GravityCompat.START))
-        }
+        outState.putBoolean("portal.drawer.open", drawerState.isOpen)
         super.onSaveInstanceState(outState)
     }
 

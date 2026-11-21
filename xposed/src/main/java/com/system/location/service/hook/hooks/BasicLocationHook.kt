@@ -43,10 +43,10 @@ object BasicLocationHook : BaseLocationHook() {
 
                         if (!FakeLoc.enable) return@intercept2 chain.proceed(args)
 
-                        val locationResult = chain.thisObject
+                        val locationResult = chain.thisObject ?: return@intercept2 chain.proceed(args)
                         val mLocationsField =
                             Reflection.findFieldIfExists(
-                                locationResult?.javaClass ?: return@intercept2 chain.proceed(args),
+                                locationResult.javaClass,
                                 "mLocations",
                             )
                         if (mLocationsField == null) {
@@ -54,18 +54,13 @@ object BasicLocationHook : BaseLocationHook() {
                             return@intercept2 chain.proceed(args)
                         }
                         mLocationsField.isAccessible = true
-                        val locations =
-                            mLocationsField.get(locationResult) as? List<*>
-                                ?: return@intercept2 chain.proceed(args)
-                        if (locations.isEmpty() || locations.any { it !is Location })
-                            return@intercept2 chain.proceed(args)
-                        val context = ProviderView.capture()
-                        mLocationsField.set(
-                            locationResult,
-                            injectLocationBatch(locations.map { it as Location }, context),
+                        LocationResultIsolation.writeWithLocations(locationResult, mLocationsField,
+                            rewrite = { locations ->
+                                if (locations.isEmpty() || locations.any { it !is Location }) null
+                                else injectLocationBatch(locations.map { it as Location }, ProviderView.capture())
+                            },
+                            write = { chain.proceed(args) },
                         )
-
-                        chain.proceed(args)
                     },
                 )
             }

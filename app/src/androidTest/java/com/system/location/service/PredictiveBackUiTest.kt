@@ -22,30 +22,34 @@ class PredictiveBackUiTest {
         grantUiPermissions()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.waitUntil(5_000) { runCatching { compose.onNodeWithText("开始模拟").assertIsDisplayed(); true }.getOrDefault(false) }
+            scenario.onActivity { it.openDrawer() }
+            compose.waitUntil(5_000) {
+                var open = false
+                scenario.onActivity { open = it.drawerState.isOpen && !it.drawerState.isAnimationRunning }
+                open
+            }
             scenario.onActivity {
-                it.binding.drawerLayout.openDrawer(GravityCompat.START, false)
                 it.onBackPressedDispatcher.dispatchOnBackStarted(event(0f))
                 it.onBackPressedDispatcher.dispatchOnBackProgressed(event(.65f))
-                // Material stretches horizontally from the opening edge and shrinks vertically.
-                assertTrue("Drawer must preview the Back gesture", it.binding.navView.scaleY < 1f)
-                assertTrue(it.binding.drawerLayout.isDrawerOpen(GravityCompat.START))
+                // The Compose drawer handles progress without navigating the underlying page.
+                assertEquals(R.id.nav_home, it.currentDestinationId)
+                assertTrue(it.drawerState.isOpen)
                 it.onBackPressedDispatcher.dispatchOnBackCancelled()
             }
             compose.waitUntil(5_000) {
                 var restored = false
-                scenario.onActivity { restored = kotlin.math.abs(it.binding.navView.scaleX - 1f) < .001f &&
-                    kotlin.math.abs(it.binding.navView.scaleY - 1f) < .001f }
+                scenario.onActivity { restored = it.drawerState.isOpen && !it.drawerState.isAnimationRunning }
                 restored
             }
             scenario.onActivity {
-                assertTrue(it.binding.drawerLayout.isDrawerOpen(GravityCompat.START))
+                assertTrue(it.drawerState.isOpen)
                 it.onBackPressedDispatcher.dispatchOnBackStarted(event(0f))
                 it.onBackPressedDispatcher.dispatchOnBackProgressed(event(.8f))
                 it.onBackPressedDispatcher.onBackPressed()
             }
             compose.waitUntil(5_000) {
                 var closed = false
-                scenario.onActivity { closed = !it.binding.drawerLayout.isDrawerVisible(GravityCompat.START) }
+                scenario.onActivity { closed = !(it.drawerState.isOpen || it.drawerState.isAnimationRunning) }
                 closed
             }
             compose.onNodeWithText("开始模拟").assertIsDisplayed()

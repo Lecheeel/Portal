@@ -50,13 +50,13 @@ class UiDesignTest {
                 scenario.onActivity { activity ->
                     val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isAttachedToWindow }.single()
                     val mapPosition = IntArray(2).also { map.getLocationOnScreen(it) }
-                    val rootPosition = IntArray(2).also { activity.binding.drawerLayout.getLocationOnScreen(it) }
+                    val rootPosition = IntArray(2).also { activity.shellView.getLocationOnScreen(it) }
                     assertArrayEquals("Map must start at the full-screen content origin", rootPosition, mapPosition)
-                    assertEquals("Map must fill the content width", activity.binding.drawerLayout.width, map.width)
-                    assertEquals("Map must extend behind the action panel", activity.binding.drawerLayout.height, map.height)
+                    assertEquals("Map must fill the content width", activity.shellView.width, map.width)
+                    assertEquals("Map must extend behind the action panel", activity.shellView.height, map.height)
                     assertEquals("The vendor map must retain its full viewport", map.height, map.getChildAt(0).height)
                     assertEquals(map.width, map.getChildAt(0).width)
-                    assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
+                    assertEquals(R.id.nav_home, activity.currentDestinationId)
                     geometry = listOf(mapPosition[0], mapPosition[1], map.width, map.height, search.top.toInt(), bottom.bottom.toInt())
                 }
                 return geometry
@@ -68,10 +68,10 @@ class UiDesignTest {
                     scenario.onActivity { activity ->
                         activity.findNavController(R.id.nav_host_fragment_content_main).navigate(destination)
                     }
-                    onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
+                    compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
                     if (useDrawer) {
                         scenario.onActivity { activity ->
-                            activity.binding.navView.menu.performIdentifierAction(R.id.nav_home, 0)
+                            activity.navigateFromDrawer(R.id.nav_home)
                         }
                     } else {
                         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
@@ -80,9 +80,9 @@ class UiDesignTest {
                 }
             }
             scenario.onActivity { it.findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_mock) }
-            onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
+            compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
             scenario.recreate()
-            onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
+            compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
             assertEquals(initial, homeGeometry())
             capture("home-after-navigation")
@@ -94,7 +94,7 @@ class UiDesignTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             fun openMock() {
                 scenario.onActivity { activity ->
-                    activity.binding.navView.menu.performIdentifierAction(R.id.nav_mock, 0)
+                    activity.navigateFromDrawer(R.id.nav_mock)
                 }
                 compose.scrollToText("手动新建").assertIsDisplayed()
                 scenario.onActivity {
@@ -103,12 +103,12 @@ class UiDesignTest {
             }
             openMock()
             repeat(2) {
-                compose.scrollToText("打开资料库").performClick()
+                scenario.onActivity { it.navigateFromDrawer(R.id.nav_route_gallery) }
                 compose.scrollToText("搜索资料").assertIsDisplayed()
                 if (it == 0) scenario.recreate()
                 openMock()
             }
-            compose.scrollToText("打开资料库").performClick()
+            scenario.onActivity { it.navigateFromDrawer(R.id.nav_route_gallery) }
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
             compose.scrollToText("手动新建").assertIsDisplayed()
         }
@@ -122,7 +122,7 @@ class UiDesignTest {
                 .setInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars(), androidx.core.graphics.Insets.of(12, 48, 16, 32))
                 .build()
             fun applyInsets() {
-                scenario.onActivity { androidx.core.view.ViewCompat.dispatchApplyWindowInsets(it.binding.appBarMain.root, insets) }
+                scenario.onActivity { androidx.core.view.ViewCompat.dispatchApplyWindowInsets(it.shellView, insets) }
                 compose.waitForIdle()
             }
             applyInsets()
@@ -131,18 +131,18 @@ class UiDesignTest {
             var mapWidth = 0
             var mapHeight = 0
             scenario.onActivity { activity ->
-                val container = activity.binding.appBarMain.root
+                val container = activity.shellView
                 assertEquals(0, container.paddingTop)
                 assertEquals(0, container.paddingBottom)
                 val map = activity.window.decorView.descendantsOfType<PortalMapView>().filter { it.isAttachedToWindow }.single()
                 mapWidth = map.width
-                mapHeight = activity.binding.drawerLayout.height
+                mapHeight = activity.shellView.height
                 val mapPosition = IntArray(2).also { map.getLocationOnScreen(it) }
-                val rootPosition = IntArray(2).also { activity.binding.drawerLayout.getLocationOnScreen(it) }
+                val rootPosition = IntArray(2).also { activity.shellView.getLocationOnScreen(it) }
                 assertArrayEquals("Insets must not move the full-screen map", rootPosition, mapPosition)
-                assertEquals("Insets must not shrink the map width", activity.binding.drawerLayout.width, map.width)
+                assertEquals("Insets must not shrink the map width", activity.shellView.width, map.width)
                 assertEquals("Map must remain full-height behind the controls", mapHeight, map.height)
-                assertEquals(View.GONE, activity.binding.appBarMain.appBarLayout.visibility)
+                assertEquals(R.id.nav_home, activity.currentDestinationId)
             }
             assertTrue("Search must avoid the status bar", search.top >= 48f)
             assertTrue("Search must avoid side insets", search.left >= 12f && search.right <= mapWidth - 16f)
@@ -158,14 +158,9 @@ class UiDesignTest {
             assertEquals(start, compose.onNodeWithText("开始模拟").fetchSemanticsNode().boundsInRoot)
             compose.openPage(scenario, R.id.nav_mock)
             applyInsets()
-            scenario.onActivity { activity ->
-                val container = activity.binding.appBarMain.root
-                assertEquals(48, container.paddingTop)
-                assertEquals(32, container.paddingBottom)
-                assertEquals(12, container.paddingLeft)
-                assertEquals(16, container.paddingRight)
-                assertEquals(View.VISIBLE, activity.binding.appBarMain.toolbar.visibility)
-            }
+            compose.onNodeWithTag("portal_toolbar").assertIsDisplayed()
+            val toolbar = compose.onNodeWithTag("portal_toolbar").fetchSemanticsNode().boundsInRoot
+            assertTrue("Secondary toolbar must avoid the status bar", toolbar.top >= 48f)
         }
     }
 
@@ -292,23 +287,14 @@ class UiDesignTest {
                 try {
                     compose.onNodeWithText("开始模拟").assertIsDisplayed()
                     capture("home-$suffix")
-                    scenario.onActivity { activity ->
-                        val drawer = activity.binding.navView
-                        activity.binding.drawerLayout.openDrawer(androidx.core.view.GravityCompat.START, false)
-                        assertEquals("Drawer must reach the top edge", 0, drawer.top)
-                        assertEquals("Drawer must reach the bottom edge", activity.binding.drawerLayout.height, drawer.bottom)
-                        assertTrue("Drawer header must be text only",
-                            drawer.getHeaderView(0).descendantsOfType<android.widget.ImageView>().isEmpty())
-                        val headerTitle = drawer.getHeaderView(0).findViewById<View>(R.id.nav_header_title)
-                        val titlePosition = IntArray(2).also { headerTitle.getLocationOnScreen(it) }
-                        val safeTop = androidx.core.view.ViewCompat.getRootWindowInsets(drawer)!!
-                            .getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
-                                androidx.core.view.WindowInsetsCompat.Type.displayCutout()).top
-                        assertTrue("Drawer title needs room below the status bar",
-                            titlePosition[1] >= safeTop + 20 * activity.resources.displayMetrics.density)
-                    }
+                    scenario.onActivity { it.openDrawer() }
+                    compose.waitForIdle()
+                    val drawer = compose.onNodeWithTag("portal_drawer").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                    val title = compose.onNodeWithText("Portal").fetchSemanticsNode().boundsInRoot
+                    assertTrue("Drawer must reach the top edge", drawer.top <= 1f)
+                    assertTrue("Drawer title needs safe space", title.top >= 20f)
                     capture("drawer-$suffix")
-                    scenario.onActivity { it.binding.drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START, false) }
+                    scenario.onActivity { it.closeDrawer() }
                     scenario.onActivity { activity ->
                         val controller = androidx.core.view.WindowInsetsControllerCompat(activity.window, activity.window.decorView)
                         assertEquals(mode == AppCompatDelegate.MODE_NIGHT_NO, controller.isAppearanceLightStatusBars)

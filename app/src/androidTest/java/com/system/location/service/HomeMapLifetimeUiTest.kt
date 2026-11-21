@@ -32,7 +32,7 @@ class HomeMapLifetimeUiTest {
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                     fun drawerPage(destination: Int) {
                         compose.waitForIdle()
-                        scenario.onActivity { it.binding.navView.menu.performIdentifierAction(destination, 0) }
+                        scenario.onActivity { it.navigateFromDrawer(destination) }
                         compose.waitUntil(5_000) {
                             var resumed = false
                             scenario.onActivity { activity ->

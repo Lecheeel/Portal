@@ -50,30 +50,26 @@ class SettingsNavigationUiTest {
     @Test fun groupedDrawerKeepsOnlyOneDestinationSelected() {
         acceptSelectedMapForUiTest()
         grantUiPermissions()
-        fun checked(menu: Menu): List<Int> = (0 until menu.size()).flatMap { index ->
-            val item = menu.getItem(index)
-            listOfNotNull(item.itemId.takeIf { item.isChecked }) + (item.subMenu?.let(::checked) ?: emptyList())
-        }
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             listOf(R.id.nav_settings, R.id.nav_mock, R.id.nav_runtime, R.id.nav_home, R.id.nav_route_gallery).forEach { id ->
-                scenario.onActivity { it.binding.navView.menu.performIdentifierAction(id, 0) }
+                scenario.onActivity { it.navigateFromDrawer(id) }
                 compose.waitForIdle()
                 scenario.onActivity {
                     assertEquals(id, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
-                    assertEquals(listOf(id), checked(it.binding.navView.menu))
+                    assertEquals(id, it.selectedDrawerId)
                 }
             }
             scenario.recreate()
-            scenario.onActivity { it.binding.drawerLayout.openDrawer(GravityCompat.START, false) }
+            scenario.onActivity { it.openDrawer() }
             compose.waitForIdle()
             captureUi("drawer-green")
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
             compose.waitUntil(5_000) {
                 var closed = false
-                scenario.onActivity { closed = !it.binding.drawerLayout.isDrawerOpen(GravityCompat.START) }
+                scenario.onActivity { closed = !it.drawerState.isOpen }
                 closed
             }
-            scenario.onActivity { assertFalse(it.binding.drawerLayout.isDrawerOpen(GravityCompat.START)) }
+            scenario.onActivity { assertFalse(it.drawerState.isOpen) }
         }
     }
 }

@@ -21,8 +21,7 @@ class NavigationCompatibilityUiTest {
         acceptSelectedMapForUiTest()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                val sectionTitles = (0 until activity.binding.navView.menu.size())
-                    .map { activity.binding.navView.menu.getItem(it).title.toString() }
+                val sectionTitles = com.system.location.service.ui.navigation.portalDestinations.map { it.section }
                 assertTrue(sectionTitles.contains("环境/卫星"))
                 assertFalse(sectionTitles.contains("模拟"))
             }
@@ -77,7 +76,7 @@ class NavigationCompatibilityUiTest {
                 compose.waitForIdle()
                 scenario.onActivity {
                     assertEquals(destination, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
-                    assertTrue("Explicit link must select its drawer section", it.binding.navView.menu.findItem(drawerItem).isChecked)
+                    assertTrue("Explicit link must select its drawer section", (it.selectedDrawerId == drawerItem))
                 }
                 if (destination == R.id.nav_gnss_mock) compose.onNodeWithText("卫星").assertIsSelected()
             }
@@ -100,7 +99,7 @@ class NavigationCompatibilityUiTest {
                 compose.waitForIdle()
                 scenario.onActivity {
                     assertEquals(destination, it.findNavController(R.id.nav_host_fragment_content_main).currentDestination?.id)
-                    assertTrue("Settings child must keep its section selected", it.binding.navView.menu.findItem(R.id.nav_settings).isChecked)
+                    assertTrue("Settings child must keep its section selected", (it.selectedDrawerId == R.id.nav_settings))
                     it.onSupportNavigateUp()
                 }
                 compose.scrollToText("分应用路由（实验）").assertIsDisplayed()

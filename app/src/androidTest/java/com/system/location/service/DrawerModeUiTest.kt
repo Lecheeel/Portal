@@ -43,7 +43,7 @@ class DrawerModeUiTest {
         try {
             assertTrue(runBlocking { ScenarioRuntime.selectBackend(BackendType.MOCK_PROVIDER).await() })
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                scenario.onActivity { it.binding.drawerLayout.openDrawer(GravityCompat.START, false) }
+                scenario.onActivity { it.openDrawer() }
                 select(1f)
                 awaitBackend(BackendType.XPOSED)
                 select(2f)

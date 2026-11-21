@@ -61,7 +61,7 @@ class HomeSelectionUiTest {
                 selectSavedTarget("路线", route.route.name)
                 compose.onNodeWithText("开始模拟").performClick()
                 awaitRunning(route.route.name)
-                scenario.onActivity { it.binding.drawerLayout.openDrawer(androidx.core.view.GravityCompat.START, false) }
+                scenario.onActivity { it.openDrawer() }
                 compose.onNodeWithTag("drawer-mode-slider").assertIsNotEnabled()
                 compose.onNodeWithText("运行中 · 停止场景后可切换").assertIsDisplayed()
                 scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }

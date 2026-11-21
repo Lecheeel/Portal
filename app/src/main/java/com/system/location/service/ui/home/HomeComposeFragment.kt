@@ -468,17 +468,14 @@ class HomeComposeFragment : Fragment() {
         startRealLocation()
     }
 
-    override fun onPause() {
-        map?.onPause()
-        super.onPause()
-    }
-
     override fun onStop() {
         if (providerReceiverRegistered) {
             requireContext().unregisterReceiver(providerReceiver)
             providerReceiverRegistered = false
         }
         stopRealLocation()
+        // A paused Fragment can still be visible in the exit or predictive-back transition.
+        // Stop the SDK only when its surface is no longer part of that visible page.
         map?.onStop()
         super.onStop()
     }
@@ -507,7 +504,7 @@ class HomeComposeFragment : Fragment() {
     override fun onDestroyView() {
         libraryLoad?.cancel()
         stopRealLocation()
-        // onPause/onStop suspend rendering and location requests before the view is removed.
+        // onStop suspends rendering and location requests before the view is removed.
         // Keep only this Fragment's map; Activity recreation and Fragment removal release it.
         (map?.parent as? ViewGroup)?.removeView(map)
         super.onDestroyView()

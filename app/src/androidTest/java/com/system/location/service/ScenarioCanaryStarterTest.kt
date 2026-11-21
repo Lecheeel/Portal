@@ -9,6 +9,7 @@ import com.system.location.service.core.scenario.Scenario
 import com.system.location.service.runtime.ScenarioRuntime
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -20,6 +21,8 @@ import org.junit.runner.RunWith
 class ScenarioCanaryStarterTest {
     @Test
     fun startXposedScenarioForPermissionCanary() = runBlocking {
+        assumeTrue("Standalone permission-canary fixture; requires an active system module and receiver",
+            InstrumentationRegistry.getArguments().getString("permissionCanary") == "true")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertTrue(ScenarioRuntime.selectBackend(BackendType.XPOSED).await())
         val started = ScenarioRuntime.start(

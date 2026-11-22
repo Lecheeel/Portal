@@ -40,7 +40,7 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
       - name: Generate and submit dependency graph
-        uses: gradle/actions/dependency-submission@v6.4.1
+        uses: gradle/actions/dependency-submission@v6
         with:
           cache-provider: basic
           dependency-graph: generate-and-submit

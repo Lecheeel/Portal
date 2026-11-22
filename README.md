@@ -82,6 +82,9 @@ Android 虚拟定位/环境伪造工具，支持路线播放和悬浮摇杆，�
 
 
 ##  ⚠已知问题
+
+已修复，请更新至(**v2.3.7**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.7]
+
 (**v2.3.6**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.6] 会造成：
 - #11 荐作用域勾失败
 - #21 在 Redmi K70 / HyperOS 2 上导致基带丢失（RIL 初始化失败）
@@ -90,7 +93,7 @@ Android 虚拟定位/环境伪造工具，支持路线播放和悬浮摇杆，�
 
 其中基带丢失问题会出现在**所有**Android13-15的设备上
 
-已修复，请更新至(**v2.3.7**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.7]
+
 
 
 <!--

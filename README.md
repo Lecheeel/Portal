@@ -216,7 +216,8 @@ GGA/RMC/GSA/GSV/GST/ZDA
 - [ ] 5G NSA/SA 切换
 - [ ] 物理卡/虚拟卡混合
 - [ ] 场景模板分享
-
+- [ ] 临时内核提权（CVE-2026-43499、CVE-2026-43284）
+- [ ] Shizuku模式
 ## 🚀 快速开始
 
 1. 从 [Releases](https://github.com/Lecheeel/Portal/releases) 安装。

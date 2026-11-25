@@ -80,6 +80,17 @@
 
 Android 虚拟定位/环境伪造工具，支持路线播放和悬浮摇杆，模拟与伪造GNSS/NMEA/WiFi/基站/SIM卡
 
+##  ⚠已知问题
+(**v2.3.6**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.6] 会造成：
+- #11 荐作用域勾失败
+- #21 在 Redmi K70 / HyperOS 2 上导致基带丢失（RIL 初始化失败）
+- - 注：基带丢失关闭模块即可恢复，Portal不会修改基带、Vendor分区
+- - 如无特殊需要，先不要开启运营商/SIM卡伪造
+
+其中基带丢失问题会出现在**所有**Android13-15的设备上
+
+如有需要请更换至(**v2.3.5**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.5]
+
 <!--
 ##  ⚠已知问题
 

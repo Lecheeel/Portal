@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="384"
+    android:viewportHeight="384">
+    <!-- The 256-unit artwork fills the central 72dp of the adaptive layer. -->
+    <group android:translateX="64" android:translateY="64">
+        <path
+            android:pathData="M76 120h110a17 17 0 0 1 0 34h-62l-30 43a17 17 0 1 1-28-19l18-24h-8a17 17 0 0 1 0-34z"
+            android:fillColor="#193E31" />
+        <path
+            android:pathData="M101 112V81a33 33 0 0 1 66 0v31zm17-16h32V81a16 16 0 0 0-32 0z"
+            android:fillColor="#53C975"
+            android:fillType="evenOdd" />
+    </group>
+</vector>

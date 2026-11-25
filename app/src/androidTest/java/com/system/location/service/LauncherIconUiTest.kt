@@ -1,6 +1,7 @@
 package com.system.location.service
 
 import android.content.Intent
+import android.graphics.drawable.AdaptiveIconDrawable
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
@@ -18,28 +19,41 @@ class LauncherIconUiTest {
 
     @Test fun iconDraftCancelApplyRecreateAndLauncherEntryStayConsistent() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val manager = context.packageManager
         val original = LauncherIcon.current(context)
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(context.packageName)
         fun assertEntry(icon: LauncherIcon) {
-            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(context.packageName)
-            val entries = context.packageManager.queryIntentActivities(intent, 0)
+            val entries = manager.queryIntentActivities(intent, 0)
             assertEquals("Exactly one desktop entry", 1, entries.size)
-            assertEquals(icon.component(context).className, entries.single().activityInfo.name)
-            assertTrue(context.packageManager.getActivityInfo(icon.component(context), 0).loadIcon(context.packageManager).intrinsicWidth > 0)
+            val activity = entries.single().activityInfo
+            assertEquals(icon, LauncherIcon.current(context))
+            assertEquals(icon.component(context).className, activity.name)
+            assertTrue(context.getDrawable(activity.iconResource) is AdaptiveIconDrawable)
         }
         try {
+            val resources = LauncherIcon.entries.map { icon ->
+                LauncherIcon.select(context, icon)
+                assertEntry(icon)
+                manager.getActivityInfo(icon.component(context), 0).iconResource
+            }
+            assertEquals(
+                "Each choice uses a distinct launcher resource",
+                LauncherIcon.entries.size,
+                resources.toSet().size,
+            )
             LauncherIcon.select(context, LauncherIcon.STANDARD)
             acceptSelectedMapForUiTest()
             grantUiPermissions()
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 compose.openPage(scenario, R.id.nav_settings_updates)
                 compose.onNodeWithText("应用图标").performClick()
-                compose.onNodeWithText("霓虹版").performClick()
+                compose.onNode(hasText(LauncherIcon.NEON.label) and isSelectable()).performScrollTo().performClick()
                 scenario.recreate()
                 compose.onNode(hasText("霓虹版") and isSelectable()).assertIsSelected()
                 compose.onNodeWithText("取消").performClick()
                 assertEntry(LauncherIcon.STANDARD)
                 compose.onNodeWithText("应用图标").performClick()
-                compose.onNodeWithText("霓虹版").performClick()
+                compose.onNode(hasText(LauncherIcon.NEON.label) and isSelectable()).performScrollTo().performClick()
                 compose.onNode(hasText("霓虹版") and isSelectable()).assertIsSelected()
                 android.os.SystemClock.sleep(350)
                 captureUi("launcher-icon-picker")
@@ -49,7 +63,7 @@ class LauncherIconUiTest {
                 scenario.recreate()
                 compose.onNodeWithText("霓虹版").assertIsDisplayed()
                 compose.onNodeWithText("应用图标").performClick()
-                compose.onNodeWithText(LauncherIcon.STANDARD.label).performClick()
+                compose.onNode(hasText(LauncherIcon.STANDARD.label) and isSelectable()).performScrollTo().performClick()
                 compose.onNodeWithText("应用", useUnmergedTree = true).performClick()
                 compose.waitForIdle()
                 assertEntry(LauncherIcon.STANDARD)
@@ -60,7 +74,7 @@ class LauncherIconUiTest {
                     landscape
                 }
                 compose.onNodeWithText("应用图标").performScrollTo().performClick()
-                compose.onNode(hasText("霓虹版") and isSelectable()).performScrollTo().performClick()
+                compose.onNode(hasText(LauncherIcon.G4.label) and isSelectable()).performScrollTo().performClick()
                 compose.onNodeWithText("应用", useUnmergedTree = true).assertIsDisplayed()
                 compose.onNodeWithText("取消").assertIsDisplayed().performClick()
                 assertEntry(LauncherIcon.STANDARD)

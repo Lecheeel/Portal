@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="384"
+    android:viewportHeight="384">
+    <!-- The 256-unit artwork fills the central 72dp of the adaptive layer. -->
+    <group android:translateX="64" android:translateY="64">
+        <group android:pivotX="128" android:pivotY="130" android:rotation="-20">
+            <path
+                android:pathData="M66 111h136q11 0 11 11v16q0 11-11 11H97l-30 44a13 13 0 0 1-22-14l21-30h-1a14 14 0 0 1-14-14v-10a14 14 0 0 1 15-14z"
+                android:fillColor="#15352A" />
+            <path
+                android:pathData="M120 111V79a22 22 0 0 1 44 0v32z"
+                android:fillColor="#56CB72" />
+            <path
+                android:pathData="M187,130a6,6 0,1 0,12 0a6,6 0,1 0,-12 0z"
+                android:fillColor="#99E997" />
+        </group>
+    </group>
+</vector>

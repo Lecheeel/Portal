@@ -7,7 +7,7 @@ import android.os.Build
 import com.system.location.service.R
 
 internal enum class LauncherIcon(val label: String, val alias: String, val preview: Int, val background: Int) {
-    STANDARD("普通版", "StandardIcon", R.drawable.portal_icon_standard, R.color.portal_icon_standard_background),
+    STANDARD("F4 · 默认", "StandardIcon", R.drawable.portal_icon_f4, R.color.portal_icon_white_background),
     NEON("霓虹版", "NeonIcon", R.drawable.portal_icon_neon, R.color.portal_icon_neon_background);
 
     // Class names use the namespace; packageName can include a debug applicationId suffix.

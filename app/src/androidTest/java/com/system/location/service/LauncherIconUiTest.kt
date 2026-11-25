@@ -49,7 +49,7 @@ class LauncherIconUiTest {
                 scenario.recreate()
                 compose.onNodeWithText("霓虹版").assertIsDisplayed()
                 compose.onNodeWithText("应用图标").performClick()
-                compose.onNodeWithText("普通版").performClick()
+                compose.onNodeWithText(LauncherIcon.STANDARD.label).performClick()
                 compose.onNodeWithText("应用", useUnmergedTree = true).performClick()
                 compose.waitForIdle()
                 assertEntry(LauncherIcon.STANDARD)

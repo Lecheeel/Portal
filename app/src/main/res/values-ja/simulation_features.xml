@@ -10,6 +10,7 @@
     <string name="orbit_period_desc">微小移動の速度は半径と周期で決まり、ジョイスティックの速度とは独立しています。速度がゼロまたは一時停止中は停止します。指を離した位置を中心に移動します。</string>
     <string name="background_guidance">バックグラウンド設定と確認</string>
     <string name="background_status">端末：%1$s %2$s\nバッテリー最適化：%3$s\n正確な位置情報：%4$s\n通知：%5$s</string>
+    <string name="background_restricted_playback">Portal のバックグラウンド動作が制限されているため、他のアプリに切り替えると位置情報の更新が中断することがあります。アプリ情報でバックグラウンド動作を許可してから、シナリオを開始し直してください。</string>
     <string name="battery_unrestricted">システムのバッテリー最適化から除外済み</string>
     <string name="battery_restricted">システムのバッテリー最適化の対象</string>
     <string name="permission_granted">有効</string>

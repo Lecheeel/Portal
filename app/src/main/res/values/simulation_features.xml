@@ -12,6 +12,7 @@
     <string name="orbit_period_desc">微动速度由半径和周期决定，与摇杆速度独立；摇杆速度设为零或暂停时停止微动。松手后围绕当前位置微动。</string>
     <string name="background_guidance">后台运行设置与检查</string>
     <string name="background_status">设备：%1$s %2$s\n电池优化：%3$s\n精确位置权限：%4$s\n通知：%5$s</string>
+    <string name="background_restricted_playback">系统限制了 Portal 的后台活动，切到其他应用后定位更新可能中断。可在应用详情中允许后台运行，再重新启动场景。</string>
     <string name="battery_unrestricted">已豁免系统电池优化</string>
     <string name="battery_restricted">仍受系统电池优化限制</string>
     <string name="permission_granted">已开启</string>

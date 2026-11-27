@@ -1,6 +1,7 @@
 package com.system.location.service.runtime
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -28,6 +29,9 @@ object BackgroundGuidance {
         notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled(),
     )
 
+    internal fun isRestricted(context: Context): Boolean =
+        context.getSystemService(ActivityManager::class.java).isBackgroundRestricted
+
     fun status(context: Context): String {
         val state = inspect(context)
         return context.getString(R.string.background_status, Build.MANUFACTURER, Build.MODEL,
@@ -38,7 +42,7 @@ object BackgroundGuidance {
 
     fun diagnosticStatus(context: Context): String {
         val state = inspect(context)
-        return "后台状态：电池优化豁免=${state.batteryUnrestricted}；精确位置权限=${state.locationGranted}；通知=${state.notificationsEnabled}"
+        return "后台状态：系统限制后台=${isRestricted(context)}；电池优化豁免=${state.batteryUnrestricted}；精确位置权限=${state.locationGranted}；通知=${state.notificationsEnabled}"
     }
     fun show(context: Context) {
         val dialog = PortalDialog(context)

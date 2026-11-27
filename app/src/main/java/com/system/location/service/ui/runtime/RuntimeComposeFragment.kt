@@ -73,6 +73,7 @@ import com.system.location.service.designsystem.components.PortalCard
 import com.system.location.service.designsystem.components.PortalSectionTitle
 import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.designsystem.theme.PortalSpacing
+import com.system.location.service.runtime.BackgroundGuidance
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.data.repository.LibraryRepositories
 import com.system.location.service.ui.displayLabel
@@ -165,6 +166,7 @@ private fun RuntimeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var environment by remember { mutableStateOf<RuntimeEnvironment?>(null) }
     var environmentCheckFailed by remember { mutableStateOf(false) }
+    var backgroundRestricted by remember { mutableStateOf(false) }
     var refreshGeneration by remember { mutableStateOf(0) }
     var nativeRiskVisible by rememberSaveable { mutableStateOf(false) }
     var nativeConfirmed by rememberSaveable { mutableStateOf(false) }
@@ -215,6 +217,7 @@ private fun RuntimeScreen(
             }
             environment = result.getOrNull()
             environmentCheckFailed = result.isFailure
+            backgroundRestricted = BackgroundGuidance.isRestricted(context)
             ScenarioRuntime.refreshDiagnostics()
         }
     }
@@ -327,6 +330,13 @@ private fun RuntimeScreen(
                     if (issues.isNotEmpty()) {
                         Spacer(Modifier.height(PortalSpacing.sm))
                         Text(issues.joinToString("\n"), style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (backgroundRestricted) {
+                        PortalActionRow(
+                            resources.getString(R.string.background_guidance),
+                            resources.getString(R.string.background_restricted_playback),
+                            onClick = { BackgroundGuidance.show(context) },
+                        )
                     }
                 }
             }

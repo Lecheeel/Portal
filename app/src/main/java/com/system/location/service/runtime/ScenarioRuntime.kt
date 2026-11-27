@@ -6,6 +6,7 @@ import android.location.LocationManager
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.system.location.service.LocationServiceApp
+import com.system.location.service.R
 import com.system.location.service.backend.xposed.XposedBackend
 import com.system.location.service.backend.mock.MockProviderBackend
 import com.system.location.service.backend.mock.AndroidMockProviderPort
@@ -226,6 +227,9 @@ object ScenarioRuntime {
             controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
             val started = controller.start(frozen, routeEndPosition = context.routeEndPosition)
             if (started) {
+                if (BackgroundGuidance.isRestricted(context)) {
+                    controller.note("BACKGROUND_RESTRICTED", "WARN", context.getString(R.string.background_restricted_playback))
+                }
                 val current = state.value
                 pendingMockWirelessReminder.value = if (current.backend == BackendType.MOCK_PROVIDER)
                     MockWirelessReminder(frozen.id, current.startedAt) else null

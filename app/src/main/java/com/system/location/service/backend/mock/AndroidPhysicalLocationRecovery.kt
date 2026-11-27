@@ -3,10 +3,11 @@ package com.system.location.service.backend.mock
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
-import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Looper
 import android.os.SystemClock
+import androidx.core.location.LocationCompat
+import androidx.core.location.LocationListenerCompat
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 
@@ -37,9 +38,9 @@ class AndroidPhysicalLocationRecovery(
     @SuppressLint("MissingPermission")
     private suspend fun recover(provider: String, since: Long): String = withContext(Dispatchers.Main.immediate) {
         val fixes = Channel<Location>(Channel.CONFLATED)
-        val listener = object : LocationListener {
+        val listener = object : LocationListenerCompat {
             override fun onLocationChanged(location: Location) {
-                if (!location.isMock && location.elapsedRealtimeNanos >= since) fixes.trySend(location)
+                if (!LocationCompat.isMock(location) && location.elapsedRealtimeNanos >= since) fixes.trySend(location)
             }
         }
         try {

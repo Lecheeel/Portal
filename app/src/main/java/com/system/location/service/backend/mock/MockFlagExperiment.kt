@@ -1,6 +1,7 @@
 package com.system.location.service.backend.mock
 
 import android.location.Location
+import androidx.core.location.LocationCompat
 
 /** Only changes the outgoing object. Android may mark it mock again after submission. */
 class MockFlagExperiment {
@@ -27,7 +28,7 @@ class MockFlagExperiment {
     }
 
     fun clear(location: Location): Outcome {
-        val before = location.isMock
+        val before = LocationCompat.isMock(location)
         val failures = mutableListOf<String>()
         for (attempt in attempts) {
             val action = attempt.clear
@@ -37,13 +38,13 @@ class MockFlagExperiment {
             }
             try {
                 action(location)
-                if (!location.isMock) return Outcome(true,
+                if (!LocationCompat.isMock(location)) return Outcome(true,
                     "${attempt.name} 调用完成；提交前 isMock=$before → false；仅本地对象，不代表系统或高德收到的标记")
                 failures += "${attempt.name}: 标记仍为 true"
             } catch (error: Exception) {
                 failures += "${attempt.name}: ${error.javaClass.simpleName}"
             }
         }
-        return Outcome(false, "反射清除不可用；提交前 isMock=$before → ${location.isMock}；" + failures.joinToString("; "))
+        return Outcome(false, "反射清除不可用；提交前 isMock=$before → ${LocationCompat.isMock(location)}；" + failures.joinToString("; "))
     }
 }

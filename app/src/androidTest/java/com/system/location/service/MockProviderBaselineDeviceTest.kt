@@ -4,11 +4,13 @@ import android.Manifest
 import android.app.AppOpsManager
 import android.content.pm.PackageManager
 import android.location.Location
-import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.os.SystemClock
+import androidx.core.location.LocationCompat
+import androidx.core.location.LocationListenerCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.backend.mock.AndroidMockProviderPort
@@ -64,7 +66,7 @@ class MockProviderBaselineDeviceTest {
                 .let { ParcelFileDescriptor.AutoCloseInputStream(it).use { stream -> stream.readBytes() } }
         }
         val callbacks = LinkedBlockingQueue<Location>()
-        val listener = LocationListener { callbacks.offer(Location(it)) }
+        val listener = LocationListenerCompat { callbacks.offer(Location(it)) }
         var registered = false
         try {
             authorization("allow")
@@ -72,7 +74,7 @@ class MockProviderBaselineDeviceTest {
                 assertEquals(BackendResult.Success, backend.prepare())
                 assertEquals(BackendResult.Success, backend.start())
                 if (!registered) {
-                    manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f, { it.run() }, listener)
+                    manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f, listener, Looper.getMainLooper())
                     registered = true
                 }
                 for (index in 0..2) {
@@ -88,13 +90,13 @@ class MockProviderBaselineDeviceTest {
                     }
                     assertNotNull("No current GPS callback", incoming)
                     val fix = checkNotNull(incoming)
-                    assertTrue("Android must retain the standard mock marker", fix.isMock)
+                    assertTrue("Android must retain the standard mock marker", LocationCompat.isMock(fix))
                     assertEquals(sample.latitude, fix.latitude, 0.0)
                     assertEquals(sample.longitude, fix.longitude, 0.0)
                     for (key in listOf("satellites", "meanCn0", "maxCn0")) {
                         assertFalse("Standard backend invented $key", fix.extras?.containsKey(key) == true)
                     }
-                    assertTrue(checkNotNull(manager.getLastKnownLocation(LocationManager.GPS_PROVIDER)).isMock)
+                    assertTrue(LocationCompat.isMock(checkNotNull(manager.getLastKnownLocation(LocationManager.GPS_PROVIDER))))
                 }
                 assertEquals(BackendResult.Success, backend.stop())
                 assertTrue("Stop must clear durable ownership", realPort.pendingProviders().isEmpty())

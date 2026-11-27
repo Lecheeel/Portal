@@ -1,14 +1,18 @@
 package com.system.location.service.backend.mock
 
+import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.content.Context
+import android.location.Criteria
 import android.location.LocationManager
 import android.location.provider.ProviderProperties
+import android.os.Build
 import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.util.Log
+import androidx.core.location.LocationManagerCompat
 import com.system.location.service.core.backend.BackendDiagnostic
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.providers.ProviderKind
@@ -44,15 +48,26 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
     private fun requireAuthorization(operation: String) {
         if (!permissionGranted()) throw MockAuthorizationException(operation)
     }
+    @Suppress("DEPRECATION")
+    @SuppressLint("WrongConstant") // The legacy overload defines these values in Criteria.
     override fun register(provider: String) {
         requireAuthorization("注册 $provider 前")
         record(pendingProviders() + provider)
-        manager.addTestProvider(provider, ProviderProperties.Builder()
-            .setHasNetworkRequirement(provider == LocationManager.NETWORK_PROVIDER)
-            .setHasSatelliteRequirement(provider == LocationManager.GPS_PROVIDER)
-            .setHasAltitudeSupport(true).setHasSpeedSupport(true).setHasBearingSupport(true)
-            .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
-            .setAccuracy(ProviderProperties.ACCURACY_FINE).build())
+        val requiresNetwork = provider == LocationManager.NETWORK_PROVIDER
+        val requiresSatellite = provider == LocationManager.GPS_PROVIDER
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            manager.addTestProvider(provider, ProviderProperties.Builder()
+                .setHasNetworkRequirement(requiresNetwork)
+                .setHasSatelliteRequirement(requiresSatellite)
+                .setHasAltitudeSupport(true).setHasSpeedSupport(true).setHasBearingSupport(true)
+                .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
+                .setAccuracy(ProviderProperties.ACCURACY_FINE).build())
+        } else {
+            manager.addTestProvider(provider, requiresNetwork, requiresSatellite,
+                /* requiresCell = */ false, /* hasMonetaryCost = */ false,
+                /* supportsAltitude = */ true, /* supportsSpeed = */ true, /* supportsBearing = */ true,
+                Criteria.POWER_LOW, Criteria.ACCURACY_FINE)
+        }
         requireAuthorization("注册 $provider 后")
     }
     override fun enable(provider: String, enabled: Boolean) {
@@ -118,7 +133,7 @@ class AndroidMockProviderPort(context: Context) : MockProviderPort {
             val signal = CancellationSignal()
             handler.postDelayed({ runCatching { signal.cancel() } }, FLUSH_TIMEOUT_MS)
             try {
-                manager.getCurrentLocation(provider, signal, context.mainExecutor) { _ ->
+                LocationManagerCompat.getCurrentLocation(manager, provider, signal, context.mainExecutor) { _ ->
                     // The provider's own last-location cache is updated by the platform.
                 }
             } catch (_: SecurityException) {

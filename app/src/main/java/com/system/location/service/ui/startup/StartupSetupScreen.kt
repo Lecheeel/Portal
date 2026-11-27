@@ -65,8 +65,7 @@ internal data class SetupProgress(
     val location: SetupPermission,
     val notifications: SetupPermission,
     val batteryExempt: Boolean,
-    val xiaomiBatteryOpened: Boolean?,
-    val xiaomiAutostartOpened: Boolean?,
+    val xiaomiBackgroundRestricted: Boolean?,
     val step: SetupStep,
 )
 
@@ -124,23 +123,20 @@ internal fun StartupSetupScreen(
                             title = stringResource(R.string.setup_battery),
                             description = stringResource(R.string.setup_battery_description),
                             icon = R.drawable.setup_battery,
-                            badge = if (progress.batteryExempt) R.string.setup_permission_granted else R.string.setup_pending_settings,
+                            badge = if (progress.batteryExempt) R.string.setup_battery_exempt else R.string.setup_battery_not_exempt,
                             checked = progress.batteryExempt,
                         )
-                        progress.xiaomiBatteryOpened?.let { opened ->
+                        progress.xiaomiBackgroundRestricted?.let { restricted ->
                             SetupStatusCard(
                                 title = stringResource(R.string.setup_xiaomi_battery),
                                 description = stringResource(R.string.setup_xiaomi_battery_description),
                                 icon = R.drawable.setup_battery,
-                                badge = if (opened) R.string.setup_settings_viewed else R.string.setup_pending_settings,
+                                badge = R.string.setup_xiaomi_background_restricted.takeIf { restricted },
                             )
-                        }
-                        progress.xiaomiAutostartOpened?.let { opened ->
                             SetupStatusCard(
                                 title = stringResource(R.string.setup_xiaomi_autostart),
                                 description = stringResource(R.string.setup_xiaomi_autostart_description),
                                 icon = R.drawable.setup_autostart,
-                                badge = if (opened) R.string.setup_settings_viewed else R.string.setup_pending_settings,
                             )
                         }
                     }
@@ -195,7 +191,7 @@ private fun SetupStatusCard(
     title: String,
     description: String,
     @DrawableRes icon: Int,
-    @StringRes badge: Int,
+    @StringRes badge: Int? = null,
     checked: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -206,7 +202,7 @@ private fun SetupStatusCard(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PortalSpacing.xs)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(PortalSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
                     Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    PermissionBadge(badge, checked)
+                    if (badge != null) PermissionBadge(badge, checked)
                 }
                 Text(description, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
             }

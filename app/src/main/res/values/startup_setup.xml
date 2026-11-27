@@ -18,12 +18,13 @@
     <string name="setup_background">后台运行</string>
     <string name="setup_battery">忽略电池优化</string>
     <string name="setup_battery_description">减少熄屏时的系统限制，让定位场景能继续更新。</string>
+    <string name="setup_battery_exempt">已豁免</string>
+    <string name="setup_battery_not_exempt">未豁免</string>
     <string name="setup_xiaomi_battery">小米耗电管理</string>
     <string name="setup_xiaomi_battery_description">找到 Portal，将应用智能省电设为「无限制」。</string>
     <string name="setup_xiaomi_autostart">小米后台自启动</string>
     <string name="setup_xiaomi_autostart_description">打开「应用设置 › 权限管理 › 后台自启动」，允许 Portal。</string>
-    <string name="setup_pending_settings">待设置</string>
-    <string name="setup_settings_viewed">已打开设置</string>
+    <string name="setup_xiaomi_background_restricted">后台受限</string>
     <string name="setup_open_battery">设置电池优化</string>
     <string name="setup_open_xiaomi_battery">打开小米耗电管理</string>
     <string name="setup_open_xiaomi_autostart">打开小米后台自启动</string>

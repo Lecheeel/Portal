@@ -18,12 +18,13 @@
     <string name="setup_background">バックグラウンド動作</string>
     <string name="setup_battery">バッテリー最適化の除外</string>
     <string name="setup_battery_description">画面を消したときの制限を減らし、位置情報の更新を続けやすくします。</string>
+    <string name="setup_battery_exempt">除外済み</string>
+    <string name="setup_battery_not_exempt">未除外</string>
     <string name="setup_xiaomi_battery">Xiaomi のバッテリー管理</string>
     <string name="setup_xiaomi_battery_description">アプリのバッテリー設定で Portal を「制限なし」にします。</string>
     <string name="setup_xiaomi_autostart">Xiaomi のバックグラウンド自動起動</string>
     <string name="setup_xiaomi_autostart_description">「アプリ › 権限 › バックグラウンド自動起動」で Portal を許可します。</string>
-    <string name="setup_pending_settings">未設定</string>
-    <string name="setup_settings_viewed">設定を確認済み</string>
+    <string name="setup_xiaomi_background_restricted">バックグラウンド制限中</string>
     <string name="setup_open_battery">バッテリー最適化を設定</string>
     <string name="setup_open_xiaomi_battery">Xiaomi のバッテリー管理を開く</string>
     <string name="setup_open_xiaomi_autostart">Xiaomi の自動起動設定を開く</string>

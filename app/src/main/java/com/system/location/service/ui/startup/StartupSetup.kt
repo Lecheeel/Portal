@@ -26,9 +26,11 @@ import com.system.location.service.runtime.BackgroundGuidance
 @Composable
 internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boolean) {
     val supportsNotifications = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val isXiaomi = BackgroundGuidance.isXiaomiFamily
     var locationGranted by remember { mutableStateOf(activity.hasPermission(ACCESS_FINE_LOCATION)) }
     var notificationGranted by remember { mutableStateOf(NotificationManagerCompat.from(activity).areNotificationsEnabled()) }
     var batteryExempt by remember { mutableStateOf(BackgroundGuidance.isBatteryExempt(activity)) }
+    var xiaomiBackgroundRestricted by remember { mutableStateOf(isXiaomi && BackgroundGuidance.isRestricted(activity)) }
     var locationRequested by rememberSaveable { mutableStateOf(false) }
     var notificationRequested by rememberSaveable { mutableStateOf(false) }
     var skipBackground by rememberSaveable { mutableStateOf(false) }
@@ -37,21 +39,22 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
     var selected by rememberSaveable { mutableStateOf<MapProvider?>(null) }
     var mapError by rememberSaveable { mutableStateOf(false) }
 
-    fun refreshPermissions() {
+    fun refreshStatus() {
         locationGranted = activity.hasPermission(ACCESS_FINE_LOCATION)
         notificationGranted = NotificationManagerCompat.from(activity).areNotificationsEnabled()
         batteryExempt = BackgroundGuidance.isBatteryExempt(activity)
+        xiaomiBackgroundRestricted = isXiaomi && BackgroundGuidance.isRestricted(activity)
     }
     val requestPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.containsKey(ACCESS_FINE_LOCATION)) locationRequested = true
         if (result.containsKey(POST_NOTIFICATIONS)) notificationRequested = true
-        refreshPermissions()
+        refreshStatus()
         if (locationGranted && notificationGranted && !batteryExempt && !skipBackground) {
             BackgroundGuidance.openBatterySettings(activity, requestExemption = true)
         }
     }
     LifecycleResumeEffect(activity) {
-        refreshPermissions()
+        refreshStatus()
         onPauseOrDispose { }
     }
 
@@ -68,7 +71,6 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
         }
         if (notifications == SetupPermission.REQUEST || notifications == SetupPermission.RETRY) add(POST_NOTIFICATIONS)
     }
-    val isXiaomi = BackgroundGuidance.isXiaomiFamily
     val step = when {
         pendingPermissions.isNotEmpty() -> SetupStep.PERMISSIONS
         !locationGranted || !notificationGranted -> SetupStep.PERMISSION_SETTINGS
@@ -80,7 +82,7 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
 
     StartupSetupScreen(
         progress = SetupProgress(location, notifications, batteryExempt,
-            xiaomiBatteryOpened.takeIf { isXiaomi }, xiaomiAutostartOpened.takeIf { isXiaomi }, step),
+            xiaomiBackgroundRestricted.takeIf { isXiaomi }, step),
         selectedMap = selected,
         mapError = mapError,
         onSkipBackground = { skipBackground = true },
@@ -100,7 +102,7 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
                 SetupStep.XIAOMI_BATTERY -> xiaomiBatteryOpened = BackgroundGuidance.openXiaomiBattery(activity)
                 SetupStep.XIAOMI_AUTOSTART -> xiaomiAutostartOpened = BackgroundGuidance.openXiaomiAutostart(activity)
                 SetupStep.MAP -> {
-                    refreshPermissions()
+                    refreshStatus()
                     val provider = selected
                     if (locationGranted && notificationGranted && provider != null) mapError = !onComplete(provider)
                 }

@@ -24,13 +24,21 @@ object BackgroundGuidance {
     private data class Status(val batteryUnrestricted: Boolean, val locationGranted: Boolean, val notificationsEnabled: Boolean)
 
     private fun inspect(context: Context) = Status(
-        batteryUnrestricted = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName),
+        batteryUnrestricted = isBatteryExempt(context),
         locationGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED,
         notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled(),
     )
 
     internal fun isRestricted(context: Context): Boolean =
         context.getSystemService(ActivityManager::class.java).isBackgroundRestricted
+
+    internal fun isBatteryExempt(context: Context): Boolean =
+        context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+
+    internal val isXiaomiFamily: Boolean
+        get() = listOf(Build.MANUFACTURER, Build.BRAND).any {
+            it.equals("xiaomi", true) || it.equals("redmi", true) || it.equals("poco", true)
+        }
 
     fun status(context: Context): String {
         val state = inspect(context)
@@ -55,10 +63,10 @@ object BackgroundGuidance {
                         showPortalChoiceDialog(context, context.getString(R.string.background_settings),
                             context.resources.getStringArray(R.array.background_settings_options).toList()) { index ->
                             when (index) {
-                                0 -> open(context, listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS), details(context)))
-                                1 -> open(context, listOf(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")), details(context)))
-                                2 -> open(context, listOf(details(context)))
-                                3 -> open(context, listOf(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName), details(context)))
+                                0 -> openBatterySettings(context)
+                                1 -> openXiaomiAutostart(context)
+                                2 -> if (isXiaomiFamily) openXiaomiBattery(context) else openAppDetails(context)
+                                3 -> openNotifications(context)
                             }
                         }
                     }) { Text(context.getString(R.string.open_background_settings)) }
@@ -66,13 +74,44 @@ object BackgroundGuidance {
         }.show()
     }
 
-    private fun details(context: Context) = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
-    private fun open(context: Context, candidates: List<Intent>) {
+    internal fun openBatterySettings(context: Context, requestExemption: Boolean = false): Boolean = open(context, buildList {
+        if (requestExemption && !isBatteryExempt(context)) {
+            add(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri(context)))
+        }
+        add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        add(details(context))
+    })
+
+    internal fun openXiaomiBattery(context: Context): Boolean = open(context, listOf(
+        Intent().setComponent(ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"))
+            .putExtra("package_name", context.packageName)
+            .putExtra("package_label", context.applicationInfo.loadLabel(context.packageManager).toString()),
+        details(context),
+    ))
+
+    internal fun openXiaomiAutostart(context: Context): Boolean = open(context, listOf(
+        Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+        details(context),
+    ))
+
+    internal fun openNotifications(context: Context): Boolean = open(context, listOf(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+        details(context),
+    ))
+
+    internal fun openAppDetails(context: Context): Boolean = open(context, listOf(details(context)))
+
+    private fun packageUri(context: Context): Uri = Uri.fromParts("package", context.packageName, null)
+
+    private fun details(context: Context) = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri(context))
+
+    private fun open(context: Context, candidates: List<Intent>): Boolean {
         for (intent in candidates) {
-            try { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return }
+            try { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true }
             catch (_: android.content.ActivityNotFoundException) { }
             catch (_: SecurityException) { }
         }
         Toast.makeText(context, R.string.settings_unavailable, Toast.LENGTH_LONG).show()
+        return false
     }
 }

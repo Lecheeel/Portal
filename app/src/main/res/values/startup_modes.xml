@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setup_modes_step">第 2 步，共 2 步</string>
+    <string name="setup_modes_title">选择运行模式</string>
+    <string name="setup_modes_subtitle">根据设备环境选择定位方式，之后可在运行中心切换。</string>
+    <string name="setup_modes_back">返回权限设置</string>
+    <string name="setup_mode_standard">无 Root 模式</string>
+    <string name="setup_mode_standard_detail">使用 Android 的模拟位置功能。</string>
+    <string name="setup_mode_xposed">Xposed 模式</string>
+    <string name="setup_mode_xposed_detail">使用系统框架模块提供定位与环境模拟。</string>
+    <string name="setup_mode_native">Native 模式</string>
+    <string name="setup_mode_native_detail">实验性传感器扩展，需要 Root、Xposed 和 arm64。</string>
+    <string name="setup_mode_kernel">内核提权模式</string>
+    <string name="setup_mode_shizuku">Shizuku 模式</string>
+    <string name="setup_modes_developing">开发中</string>
+    <string name="setup_modes_checking">正在检查设备条件…</string>
+    <string name="setup_modes_ready">已满足所选模式的使用条件。</string>
+    <string name="setup_modes_need_developer">先在「关于手机」中连续点击 7 次版本号（部分设备为系统版本），开启开发者选项后返回。</string>
+    <string name="setup_modes_open_about">打开关于手机</string>
+    <string name="setup_modes_need_mock">在「开发者选项 › 选择模拟位置信息应用」中选择 Portal（LocationService），然后返回。</string>
+    <string name="setup_modes_open_developer">打开开发者选项</string>
+    <string name="setup_modes_need_module">在 Xposed 管理器启用 Portal，勾选「系统框架」作用域，重启设备后重新检查。</string>
+    <string name="setup_modes_need_android">此模式需要 Android 12 或更高版本。</string>
+    <string name="setup_modes_need_arm64">Native 模式需要 arm64 设备，请选择其他模式。</string>
+    <string name="setup_modes_need_library">当前安装包缺少 Native 组件，请选择其他模式。</string>
+    <string name="setup_modes_need_root">验证 Portal 的 Root 权限。若 Root 管理器弹出授权窗口，请允许。</string>
+    <string name="setup_modes_root_failed">未获得 Root 权限。请在 Root 管理器中允许 Portal，再重新验证。</string>
+    <string name="setup_modes_verify_root">验证 Root 权限</string>
+    <string name="setup_modes_retry">重新检查</string>
+    <string name="setup_modes_continue">进入 Portal</string>
+    <string name="setup_modes_save_failed">无法保存运行模式，请重试。</string>
+    <string name="setup_modes_check_failed">无法检查运行条件，请重试。</string>
+    <string name="setup_modes_native_risk">选择 Native 即启用实验性功能。支持程度取决于系统，停止模拟后可能需要重启才能卸载系统 Hook。</string>
+</resources>

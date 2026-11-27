@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setup_modes_step">ステップ 2 / 2</string>
+    <string name="setup_modes_title">動作モードを選ぶ</string>
+    <string name="setup_modes_subtitle">端末に合わせて測位方法を選びます。後から動作センターで切り替えられます。</string>
+    <string name="setup_modes_back">権限の設定に戻る</string>
+    <string name="setup_mode_standard">Root なしモード</string>
+    <string name="setup_mode_standard_detail">Android の模擬位置情報機能を使用します。</string>
+    <string name="setup_mode_xposed">Xposed モード</string>
+    <string name="setup_mode_xposed_detail">システムフレームワークのモジュールで位置情報と環境をシミュレートします。</string>
+    <string name="setup_mode_native">Native モード</string>
+    <string name="setup_mode_native_detail">実験的なセンサー拡張です。Root、Xposed、arm64 が必要です。</string>
+    <string name="setup_mode_kernel">カーネル権限昇格モード</string>
+    <string name="setup_mode_shizuku">Shizuku モード</string>
+    <string name="setup_modes_developing">開発中</string>
+    <string name="setup_modes_checking">端末の条件を確認しています…</string>
+    <string name="setup_modes_ready">このモードを使用できます。</string>
+    <string name="setup_modes_need_developer">「デバイス情報」のビルド番号（端末によってはシステムバージョン）を 7 回タップして開発者向けオプションを有効にし、戻ってください。</string>
+    <string name="setup_modes_open_about">デバイス情報を開く</string>
+    <string name="setup_modes_need_mock">「開発者向けオプション › 仮の現在地情報アプリの選択」で Portal（LocationService）を選び、戻ってください。</string>
+    <string name="setup_modes_open_developer">開発者向けオプションを開く</string>
+    <string name="setup_modes_need_module">Xposed マネージャーで Portal を有効にし、システムフレームワークをスコープに追加します。端末を再起動してから再確認してください。</string>
+    <string name="setup_modes_need_android">このモードには Android 12 以降が必要です。</string>
+    <string name="setup_modes_need_arm64">Native モードには arm64 端末が必要です。別のモードを選択してください。</string>
+    <string name="setup_modes_need_library">このインストールには Native コンポーネントがありません。別のモードを選択してください。</string>
+    <string name="setup_modes_need_root">Portal の Root 権限を確認します。Root マネージャーに確認画面が出たら許可してください。</string>
+    <string name="setup_modes_root_failed">Root 権限を取得できませんでした。Root マネージャーで Portal を許可し、もう一度確認してください。</string>
+    <string name="setup_modes_verify_root">Root 権限を確認</string>
+    <string name="setup_modes_retry">再確認</string>
+    <string name="setup_modes_continue">Portal を開く</string>
+    <string name="setup_modes_save_failed">動作モードを保存できませんでした。もう一度お試しください。</string>
+    <string name="setup_modes_check_failed">動作条件を確認できませんでした。もう一度お試しください。</string>
+    <string name="setup_modes_native_risk">Native は実験的な機能です。対応状況は端末によって異なります。シミュレーション停止後にシステムフックを解除するには再起動が必要な場合があります。</string>
+</resources>

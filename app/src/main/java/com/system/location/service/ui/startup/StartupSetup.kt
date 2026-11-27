@@ -36,7 +36,7 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
     var skipBackground by rememberSaveable { mutableStateOf(false) }
     var xiaomiBatteryOpened by rememberSaveable { mutableStateOf(false) }
     var xiaomiAutostartOpened by rememberSaveable { mutableStateOf(false) }
-    var selected by rememberSaveable { mutableStateOf<MapProvider?>(null) }
+    var selected by rememberSaveable { mutableStateOf(MapProvider.TENCENT) }
     var mapError by rememberSaveable { mutableStateOf(false) }
 
     fun refreshStatus() {
@@ -103,8 +103,7 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
                 SetupStep.XIAOMI_AUTOSTART -> xiaomiAutostartOpened = BackgroundGuidance.openXiaomiAutostart(activity)
                 SetupStep.MAP -> {
                     refreshStatus()
-                    val provider = selected
-                    if (locationGranted && notificationGranted && provider != null) mapError = !onComplete(provider)
+                    if (locationGranted && notificationGranted) mapError = !onComplete(selected)
                 }
             }
         },

@@ -72,7 +72,7 @@ internal data class SetupProgress(
 @Composable
 internal fun StartupSetupScreen(
     progress: SetupProgress,
-    selectedMap: MapProvider?,
+    selectedMap: MapProvider,
     mapError: Boolean,
     onSkipBackground: () -> Unit,
     onSelectMap: (MapProvider) -> Unit,
@@ -147,7 +147,7 @@ internal fun StartupSetupScreen(
                         Text(stringResource(R.string.setup_maps_description), style = MaterialTheme.typography.bodyMedium,
                             color = colors.onSurfaceVariant)
                         Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(PortalSpacing.sm)) {
-                            MapProvider.entries.forEach { provider ->
+                            listOf(MapProvider.TENCENT, MapProvider.AMAP).forEach { provider ->
                                 MapServiceCard(provider, provider == selectedMap,
                                     onSelect = { onSelectMap(provider) }, onReadPolicy = { onReadPolicy(provider) })
                             }
@@ -272,7 +272,7 @@ private fun SetupIcon(@DrawableRes icon: Int, secondary: Boolean = false) {
 }
 
 @Composable
-private fun SetupFooter(progress: SetupProgress, selectedMap: MapProvider?, mapError: Boolean,
+private fun SetupFooter(progress: SetupProgress, selectedMap: MapProvider, mapError: Boolean,
     onSkipBackground: () -> Unit, onContinue: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val step = progress.step
@@ -285,7 +285,7 @@ private fun SetupFooter(progress: SetupProgress, selectedMap: MapProvider?, mapE
         SetupStep.SYSTEM_BATTERY -> R.string.setup_open_battery
         SetupStep.XIAOMI_BATTERY -> R.string.setup_open_xiaomi_battery
         SetupStep.XIAOMI_AUTOSTART -> R.string.setup_open_xiaomi_autostart
-        SetupStep.MAP -> if (selectedMap == null) R.string.setup_choose_map else R.string.setup_enter
+        SetupStep.MAP -> R.string.setup_enter
     }
     Surface(color = colors.surface, shadowElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -294,17 +294,14 @@ private fun SetupFooter(progress: SetupProgress, selectedMap: MapProvider?, mapE
                 val hint = when (step) {
                     SetupStep.PERMISSIONS -> stringResource(if (denied) R.string.setup_permissions_denied else R.string.setup_permissions_hint)
                     SetupStep.PERMISSION_SETTINGS -> stringResource(R.string.setup_permissions_denied)
-                    SetupStep.MAP -> when {
-                        mapError -> stringResource(R.string.setup_map_error)
-                        selectedMap != null -> stringResource(R.string.setup_privacy_acknowledgement, stringResource(mapTitle(selectedMap)))
-                        else -> null
-                    }
+                    SetupStep.MAP -> if (mapError) stringResource(R.string.setup_map_error)
+                        else stringResource(R.string.setup_privacy_acknowledgement, stringResource(mapTitle(selectedMap)))
                     else -> null
                 }
                 if (hint != null) Text(hint, textAlign = TextAlign.Center,
                     color = if (step == SetupStep.MAP && mapError) colors.error else colors.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium)
-                Button(onClick = onContinue, enabled = step != SetupStep.MAP || selectedMap != null,
+                Button(onClick = onContinue,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("setup-continue")) {
                     Text(stringResource(action), textAlign = TextAlign.Center)
                 }

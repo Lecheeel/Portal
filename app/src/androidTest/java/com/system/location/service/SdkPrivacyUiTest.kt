@@ -49,12 +49,12 @@ class SdkPrivacyUiTest {
             continueButton.performClick()
             respondToDevicePermissions(allow = false)
             compose.onNodeWithText(context.getString(R.string.setup_permissions_denied)).assertExists()
-            selectMap(mapTag)
+            selectMap("setup-map-AMAP")
             scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
             assertPrivacyState(accepted = null)
             scenario.recreate()
-            compose.onNodeWithTag("startup-setup").performScrollToNode(hasTestTag(mapTag))
-            compose.onNodeWithTag(mapTag).assertIsSelected()
+            compose.onNodeWithTag("startup-setup").performScrollToNode(hasTestTag("setup-map-AMAP"))
+            compose.onNodeWithTag("setup-map-AMAP").assertIsSelected()
             compose.onNodeWithText(context.getString(R.string.setup_enter)).assertDoesNotExist()
             assertPrivacyState(accepted = null)
         }
@@ -71,8 +71,11 @@ class SdkPrivacyUiTest {
             if (compose.onAllNodesWithTag("setup-skip-background").fetchSemanticsNodes().isNotEmpty()) {
                 compose.onNodeWithTag("setup-skip-background").performClick()
             }
-            continueButton.assertIsNotEnabled() // New activity has no selected provider.
-            selectMap(mapTag)
+            compose.onNodeWithTag("startup-setup").performScrollToNode(hasTestTag("setup-map-AMAP"))
+            val tencent = compose.onNodeWithTag("setup-map-TENCENT").assertIsSelected()
+            val amap = compose.onNodeWithTag("setup-map-AMAP").assertIsNotSelected()
+            assertTrue(tencent.getUnclippedBoundsInRoot().top < amap.getUnclippedBoundsInRoot().top)
+            if (provider == MapProvider.AMAP) selectMap(mapTag)
             assertPrivacyState(accepted = null)
             continueButton.assertIsEnabled().performClick()
             assertPrivacyState(accepted = provider)

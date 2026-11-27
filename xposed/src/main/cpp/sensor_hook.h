@@ -8,6 +8,9 @@
 #include <cstdint>
 #include "android/sensor.h"
 
+constexpr uint8_t kMotionSensors = 1u;
+constexpr uint8_t kStepSensors = 2u;
+
 struct NativeSensorFrame {
     int64_t stepCount;
     int32_t stepCadence;

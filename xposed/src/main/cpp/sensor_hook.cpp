@@ -16,6 +16,7 @@
 #define LIBSF_PATH "/system/lib64/libsensorservice.so"
 
 extern std::atomic_bool enableSensorHook;
+extern std::atomic<uint8_t> sensorChannels;
 
 namespace {
 OriginalConvertToSensorEventType OriginalConvertToSensorEvent = nullptr;
@@ -84,6 +85,8 @@ void applyEvent(void *dst) {
     if (!enableSensorHook.load()) return;
     auto *event = reinterpret_cast<ASensorEvent *>(dst);
     if (event == nullptr) return;
+    const auto channel = (event->type == 18 || event->type == 19) ? kStepSensors : kMotionSensors;
+    if ((sensorChannels.load() & channel) == 0) return;
     NativeSensorFrame frame;
     if (!readNativeSensorFrame(event->timestamp, frame)) return;
 

@@ -7,6 +7,7 @@
 #include <algorithm>
 
 std::atomic_bool enableSensorHook{false};
+std::atomic<uint8_t> sensorChannels{kMotionSensors | kStepSensors};
 
 JNIEXPORT jint JNICALL
 JNI_OnLoad(JavaVM* vm, void* reserved) {
@@ -22,6 +23,12 @@ JNIEXPORT void JNICALL
 Java_com_system_location_service_jni_Dobby_setStatus(JNIEnv *env, jobject thiz, jboolean status) {
     enableSensorHook.store(status);
     if (!status) clearNativeSensorFrames();
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_system_location_service_jni_Dobby_setSensorChannels(JNIEnv *, jobject, jboolean motion, jboolean steps) {
+    sensorChannels.store((motion ? kMotionSensors : 0u) | (steps ? kStepSensors : 0u));
 }
 
 extern "C"

@@ -33,24 +33,35 @@ internal fun NumberSettingDialog(
     initial: String,
     onDismiss: () -> Unit,
     onSave: (String) -> String?,
+) = NumberSettingDialog(setting.title, "数值（${setting.unit}）", setting.range, setting.decimal, initial, onDismiss, onSave)
+
+@Composable
+internal fun NumberSettingDialog(
+    title: String,
+    unit: String,
+    range: String,
+    decimal: Boolean,
+    initial: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> String?,
 ) {
-    var input by rememberSaveable(setting, stateSaver = TextFieldValue.Saver) {
+    var input by rememberSaveable(title, stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(initial, TextRange(0, initial.length)))
     }
-    var error by rememberSaveable(setting) { mutableStateOf<String?>(null) }
+    var error by rememberSaveable(title) { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(setting.title) },
+        title = { Text(title) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it; error = null },
-                    label = { Text("数值（${setting.unit}）") },
-                    supportingText = { Text(error ?: setting.range) },
+                    label = { Text(unit) },
+                    supportingText = { Text(error ?: range) },
                     isError = error != null,
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = if (setting.decimal) KeyboardType.Decimal else KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
                 )
             }
         },

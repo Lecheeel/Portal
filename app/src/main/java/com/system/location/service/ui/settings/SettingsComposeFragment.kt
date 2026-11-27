@@ -546,6 +546,9 @@ private fun SettingsScreen(
                             }
                         }
                     }
+                    item(key = "step-simulation") {
+                        StepSimulationControls(preferencesRevision, onConfigChanged)
+                    }
                 }
                 if (category == SettingsCategory.ADVANCED) {
                     item(key = "channels") {

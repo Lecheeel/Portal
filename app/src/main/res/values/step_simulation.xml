@@ -1,0 +1,24 @@
+<resources>
+    <string name="step_simulation">步频模拟</string>
+    <string name="step_enable">启用步频模拟</string>
+    <string name="step_supported_modes">用于 Xposed 和 Native，标准无 Root 模式不支持</string>
+    <string name="step_method">步频实现</string>
+    <string name="step_method_xposed">Xposed</string>
+    <string name="step_method_native">Native</string>
+    <string name="step_method_xposed_details">在「分应用规则」和 Xposed 框架中选择目标应用，然后重启目标应用</string>
+    <string name="step_method_native_details">需 Root、arm64 和 Xposed 系统作用域，在系统传感器服务中生效</string>
+    <string name="step_targets_details">需 Xposed：在框架中同时勾选所选应用并重启应用。步频方式可在「运动与摇杆」中设置。</string>
+    <string name="step_auto">自动频率</string>
+    <string name="step_auto_details">按模拟速度、估算步长和步态变化计算</string>
+    <string name="step_fixed_cadence">固定步频</string>
+    <string name="step_cadence_scale">步频倍率</string>
+    <string name="step_variation">波动强度</string>
+    <string name="step_per_minute">步/分钟</string>
+    <string name="step_scale_unit">倍率</string>
+    <string name="step_variation_unit">系数</string>
+    <string name="step_fixed_cadence_range">1–220 步/分钟，整数</string>
+    <string name="step_cadence_scale_range">0.50–2.00 倍</string>
+    <string name="step_variation_range">0.00–0.50</string>
+    <string name="step_factor_value">%1$.2f</string>
+    <string name="step_frequency_value">%1$d 步/分钟</string>
+</resources>

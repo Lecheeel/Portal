@@ -16,7 +16,7 @@ import com.system.location.service.designsystem.components.PortalIconBadge
 
 internal enum class SettingsCategory(val title: String, val summary: String, val destination: Int, val icon: Int) {
     LOCATION("地图与定位", "地图服务、海拔、精度与上报间隔", R.id.nav_settings_location, R.drawable.ic_portal_map),
-    MOTION("运动与摇杆", "速度、路线平滑与结束位置", R.id.nav_settings_motion, R.drawable.ic_portal_motion),
+    MOTION("运动与摇杆", "速度、路线平滑、结束位置与步频模拟", R.id.nav_settings_motion, R.drawable.ic_portal_motion),
     GNSS("卫星与 GNSS", "卫星生成、数量策略与接收环境", R.id.nav_settings_gnss, R.drawable.ic_portal_satellite),
     APPS("分应用规则", "应用路由、固定点与传感器目标", R.id.nav_settings_apps, R.drawable.ic_portal_apps),
     SYSTEM("系统与环境模拟", "SIM、Wi-Fi、网络类型与环境配置", R.id.nav_settings_system, R.drawable.ic_portal_system),

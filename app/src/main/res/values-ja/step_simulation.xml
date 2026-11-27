@@ -1,0 +1,24 @@
+<resources>
+    <string name="step_simulation">歩数シミュレーション</string>
+    <string name="step_enable">歩数シミュレーションを有効にする</string>
+    <string name="step_supported_modes">Xposed と Native に対応。標準モードでは利用できません</string>
+    <string name="step_method">歩数のシミュレーション方式</string>
+    <string name="step_method_xposed">Xposed</string>
+    <string name="step_method_native">Native</string>
+    <string name="step_method_xposed_details">アプリ別ルールと Xposed フレームワークで対象を選び、対象アプリを再起動してください</string>
+    <string name="step_method_native_details">Root、arm64、Xposed のシステムスコープが必要です。システムのセンサーサービスに適用されます</string>
+    <string name="step_targets_details">Xposed フレームワークでも同じアプリを選び、再起動してください。歩数の方式は「移動とジョイスティック」で設定できます。</string>
+    <string name="step_auto">歩数ペースの自動調整</string>
+    <string name="step_auto_details">シミュレーション速度、推定歩幅、歩き方の変化から計算します</string>
+    <string name="step_fixed_cadence">固定歩数ペース</string>
+    <string name="step_cadence_scale">歩数ペースの倍率</string>
+    <string name="step_variation">変動の強さ</string>
+    <string name="step_per_minute">歩/分</string>
+    <string name="step_scale_unit">倍率</string>
+    <string name="step_variation_unit">係数</string>
+    <string name="step_fixed_cadence_range">1～220 歩/分の整数</string>
+    <string name="step_cadence_scale_range">0.50～2.00 倍</string>
+    <string name="step_variation_range">0.00～0.50</string>
+    <string name="step_factor_value">%1$.2f</string>
+    <string name="step_frequency_value">%1$d 歩/分</string>
+</resources>

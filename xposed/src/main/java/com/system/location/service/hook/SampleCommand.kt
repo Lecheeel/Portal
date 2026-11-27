@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.os.SystemClock
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.performance.PerformanceProbe
-import com.system.location.service.hook.hooks.LocationServiceHook
 import com.system.location.service.hook.security.PublicationLease
 import com.system.location.service.core.runtime.ScenarioSampleStore
 import com.system.location.service.hook.utils.FakeLoc
@@ -58,7 +57,7 @@ object SampleCommand {
         FakeLoc.acceptSample(fix, scenario)
         lastPublishMillis = fix.timeMillis
         if (needsTicker) LocationTicker.start()
-        if (FakeLoc.isSystemServerProcess) LocationServiceHook.callOnLocationChanged()
+        if (FakeLoc.isSystemServerProcess) LocationTicker.deliverPublishedSample()
         return true
     }
 

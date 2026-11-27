@@ -4,6 +4,7 @@ package com.system.location.service.core.runtime
 class LatestStateWorker<T : Any>(
     private val deliver: (T) -> Unit,
     private val onFailure: (Throwable) -> Unit,
+    private val threadName: String = "RuntimePeerDelivery",
 ) : AutoCloseable {
     private val monitor = Object()
     private var pending: T? = null
@@ -17,7 +18,7 @@ class LatestStateWorker<T : Any>(
         monitor.notifyAll()
         if (!running) {
             running = true
-            Thread(::drain, "RuntimePeerDelivery").apply { isDaemon = true }.start()
+            Thread(::drain, threadName).apply { isDaemon = true }.start()
         }
         true
     }

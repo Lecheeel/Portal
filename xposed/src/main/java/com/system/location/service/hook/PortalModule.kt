@@ -125,6 +125,7 @@ class PortalModule : XposedModule() {
                 // otherwise BinderProxy would keep every retired classloader alive. Complete
                 // all retirements even if one cleanup fails, without resuming a partial old table.
                 listOf<() -> Unit>(
+                    { LocationTicker.retirePublishedDelivery() },
                     { LocationServiceHook.retireLocationSubscriptions() },
                     { GnssListenerRouting.clear() },
                     { NmeaListenerRouting.clear() },

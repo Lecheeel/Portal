@@ -782,8 +782,8 @@ internal object LocationServiceHook : BaseLocationHook() {
     }
 
     @Synchronized
-    fun callOnLocationChanged() {
-        try { LocationListenerDelivery.deliver(locationListeners) }
+    fun callOnLocationChanged(publication: com.system.location.service.core.runtime.RuntimeSnapshotObservation? = null) {
+        try { LocationListenerDelivery.deliver(locationListeners, publication) }
         finally {
             // A free-running 1 Hz poll can repeatedly observe the same leased sample around a
             // second boundary and then skip an epoch. Drive GNSS from accepted publications.

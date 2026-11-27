@@ -2,6 +2,7 @@ package com.system.location.service.hook.hooks
 
 import android.os.DeadObjectException
 import android.os.IInterface
+import com.system.location.service.core.runtime.RuntimeSnapshotObservation
 import com.system.location.service.hook.BaseLocationHook
 import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.runtime.Reflection
@@ -12,16 +13,20 @@ import java.lang.reflect.InvocationTargetException
 
 /** Sends the current provider view through the listener's original implementation. */
 internal object LocationListenerDelivery : BaseLocationHook() {
-    fun deliver(locationListeners: Collection<Pair<String, IInterface>>) {
-        if (!FakeLoc.enable) return
+    fun deliver(locationListeners: Collection<Pair<String, IInterface>>, publication: RuntimeSnapshotObservation?) {
+        val observation = FakeLoc.runtimeSnapshots.observation()
+        if (!observation.state.configuration.enabled) return
+        val generation = observation.simulationGeneration
+        if (publication != null && publication.simulationGeneration != generation) return
         val context = ProviderView.capture(force = true)
-        if (!context.state.configuration.enabled) return
+        if (!context.state.configuration.enabled || !isCurrent(generation)) return
+        if (publication != null && context.state.sample?.elapsedNanos != publication.state.sample?.elapsedNanos) return
         if (context.state.configuration.debugLog) {
             Logger.debug("==> callOnLocationChanged: ${locationListeners.size}")
         }
         locationListeners.forEach { listenerWithProvider ->
             val listener = listenerWithProvider.second
-            if (!FakeLoc.enable) return
+            if (!isCurrent(generation)) return
             val route = ListenerRouting.route(listener, context.state.routing)
             if (route is ListenerRouting.Route.Denied) return@forEach
             val scenarioId = (route as? ListenerRouting.Route.Scenario)?.scenarioId
@@ -42,6 +47,7 @@ internal object LocationListenerDelivery : BaseLocationHook() {
                         }
                     }
             }.getOrNull() ?: return@forEach
+            if (!isCurrent(generation)) return
             var called = false
             var error: Throwable? = null
             kotlin
@@ -72,7 +78,7 @@ internal object LocationListenerDelivery : BaseLocationHook() {
                     error = it
                 }
 
-            if (!called)
+            if (!called && isCurrent(generation))
                 runCatching {
                         val mOnLocationChanged =
                             Reflection.findMethodBestMatch(
@@ -109,6 +115,10 @@ internal object LocationListenerDelivery : BaseLocationHook() {
         if (context.state.configuration.debugLog) {
             Logger.debug("==> callOnLocationChanged: end")
         }
+    }
+
+    private fun isCurrent(generation: Long): Boolean = FakeLoc.runtimeSnapshots.observation().let {
+        it.simulationGeneration == generation && it.state.configuration.enabled
     }
 
 }

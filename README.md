@@ -80,8 +80,11 @@
 
 Android 虚拟定位/环境伪造工具，支持路线播放和悬浮摇杆，模拟与伪造GNSS/NMEA/WiFi/基站/SIM卡
 
-
+<!--
 ##  ⚠已知问题
+
+已修复，请更新至(**v2.3.7**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.7]
+
 (**v2.3.6**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.6] 会造成：
 - #11 荐作用域勾失败
 - #21 在 Redmi K70 / HyperOS 2 上导致基带丢失（RIL 初始化失败）
@@ -89,8 +92,7 @@ Android 虚拟定位/环境伪造工具，支持路线播放和悬浮摇杆，�
 - - 如无特殊需要，先不要开启运营商/SIM卡伪造
 
 其中基带丢失问题会出现在**所有**Android13-15的设备上
-
-已修复，请更新至(**v2.3.7**)[https://github.com/Lecheeel/Portal/releases/tag/v2.3.7]
+-->
 
 
 <!--
@@ -213,7 +215,8 @@ GGA/RMC/GSA/GSV/GST/ZDA
 - [ ] 5G NSA/SA 切换
 - [ ] 物理卡/虚拟卡混合
 - [ ] 场景模板分享
-
+- [ ] 临时内核提权（CVE-2026-43499、CVE-2026-43284）
+- [ ] Shizuku模式
 ## 🚀 快速开始
 
 1. 从 [Releases](https://github.com/Lecheeel/Portal/releases) 安装。

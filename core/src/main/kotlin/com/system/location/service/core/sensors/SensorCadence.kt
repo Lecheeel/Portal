@@ -15,10 +15,13 @@ data class SensorTuning(
     val cadenceScale: Double = 1.0,
     val variability: Double = 0.15,
     val seed: Long = 0L,
+    val stepsEnabled: Boolean = true,
+    val fixedCadence: Int? = null,
 ) {
     init {
         require(cadenceScale.isFinite() && cadenceScale in 0.5..2.0)
         require(variability.isFinite() && variability in 0.0..0.5)
+        require(fixedCadence == null || fixedCadence in 1..StepSimulationSettings.MAX_STEPS_PER_MINUTE)
     }
 }
 
@@ -34,7 +37,8 @@ object SensorCadence {
         require(eventCount in 0..32)
         if (eventCount == 0) return longArrayOf()
 
-        val cadence = (cadencePerMinute.takeIf { it > 0 } ?: 120).coerceIn(1, 220)
+        val cadence = (cadencePerMinute.takeIf { it > 0 } ?: StepSimulationSettings.DEFAULT_STEPS_PER_MINUTE)
+            .coerceIn(1, StepSimulationSettings.MAX_STEPS_PER_MINUTE)
         val periodNanos = 60_000_000_000L / cadence
         val intervals = eventCount - 1
         var spacingNanos = periodNanos
@@ -85,6 +89,6 @@ object SensorCadence {
             0.32 * sin(2.0 * PI * 0.07 * seconds + phase) +
                 0.12 * sin(2.0 * PI * 0.19 * seconds + phase * 1.7)
             )
-        return (base * wobble).coerceIn(0.0, 220.0)
+        return (base * wobble).coerceIn(0.0, StepSimulationSettings.MAX_STEPS_PER_MINUTE.toDouble())
     }
 }

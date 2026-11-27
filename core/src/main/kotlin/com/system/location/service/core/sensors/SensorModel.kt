@@ -72,6 +72,7 @@ class SyntheticSensorModel(
     private var lastMillis: Long? = null
     private var lastFrame: SensorFrame? = null
     private var lastCadence = 0.0
+    private var wasCounting = false
     private var fractionalSteps = 0.0
     private var stepCount = 0L
     private var accelPhase = 0.0
@@ -81,6 +82,7 @@ class SyntheticSensorModel(
         lastMillis = null
         lastFrame = null
         lastCadence = 0.0
+        wasCounting = false
         fractionalSteps = 0.0
         stepCount = startStepCount.coerceAtLeast(0L)
         accelPhase = 0.0
@@ -95,8 +97,13 @@ class SyntheticSensorModel(
         val dt = if (previous == null) 0.0 else ((atMillis - previous) / 1_000.0).coerceIn(0.0, 5.0)
         val t = atMillis / 1_000.0
 
-        val cadence = SensorCadence.cadence(state.mode, state.speedMps, tuning, atMillis)
-        if (dt > 0.0) {
+        val onFoot = state.mode == MotionMode.WALK || state.mode == MotionMode.RUN
+        val motionCadence = tuning.fixedCadence?.takeIf { tuning.stepsEnabled && onFoot }?.toDouble()
+            ?: SensorCadence.cadence(state.mode, state.speedMps, tuning, atMillis)
+        val cadence = if (tuning.stepsEnabled) motionCadence else 0.0
+        if (!tuning.stepsEnabled) {
+            fractionalSteps = 0.0
+        } else if (wasCounting && dt > 0.0) {
             fractionalSteps += (cadence + lastCadence) / 120.0 * dt
             val whole = floor(fractionalSteps).toLong()
             if (whole > 0) {
@@ -105,11 +112,12 @@ class SyntheticSensorModel(
             }
         }
         lastCadence = cadence
+        wasCounting = tuning.stepsEnabled
 
         val stepHz = when (state.mode) {
             MotionMode.STILL -> 0.0
             MotionMode.VEHICLE -> 8.0
-            MotionMode.WALK, MotionMode.RUN -> cadence / 60.0
+            MotionMode.WALK, MotionMode.RUN -> motionCadence / 60.0
         }
         val gyroHz = when (state.mode) {
             MotionMode.STILL -> 0.0

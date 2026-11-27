@@ -15,6 +15,24 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 class SensorModelTest {
+    @Test
+    fun fixedCadenceFollowsItsSettingAndDisabledTimeDoesNotAccumulate() {
+        val walking = MotionState(MotionMode.WALK, 1.2, 90.0, 0.0)
+        val running = walking.copy(mode = MotionMode.RUN, speedMps = 3.0)
+        val tuning = SensorTuning(fixedCadence = 120)
+        val model = SyntheticSensorModel(tuning = tuning)
+        assertEquals(120, model.frame(walking, 0L).stepCadence)
+        assertEquals(120, model.frame(running, 1_000L).stepCadence)
+        assertEquals(2L, model.frame(walking, 1_000L).stepCount)
+        model.tuning = tuning.copy(stepsEnabled = false)
+        assertEquals(0, model.frame(walking, 2_000L).stepCadence)
+        assertEquals(2L, model.frame(running, 10_000L).stepCount)
+        model.tuning = tuning
+        assertEquals(2L, model.frame(walking, 11_000L).stepCount)
+        assertEquals(4L, model.frame(walking, 12_000L).stepCount)
+        assertEquals(0, model.frame(walking.copy(mode = MotionMode.STILL, speedMps = 0.0), 12_020L).stepCadence)
+    }
+
     private val state = MotionState(MotionMode.STILL, 0.0, 90.0, 80.0)
 
     @Test

@@ -31,7 +31,7 @@ class AndroidPhysicalLocationRecovery(
             }
             ensureActive()
             report(if (outcomes.any { it.endsWith(":FRESH") }) "SUCCESS" else "UNKNOWN",
-                "停止后真实定位请求：${outcomes.joinToString()}；不代表其他应用缓存已刷新")
+                "停止后真实定位请求：${outcomes.joinToString()}")
         }
     }
 

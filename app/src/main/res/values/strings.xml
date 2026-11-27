@@ -125,7 +125,7 @@
     <string name="wifi_fingerprint_import">导入 WiFi 指纹库</string>
     <string name="environment_replay_set">已设为回放环境，下次启动场景生效</string>
     <string name="mock_wireless_title">无 Root 模拟已启动</string>
-    <string name="mock_wireless_message">其他应用可能使用附近的 Wi-Fi 和蓝牙信号辅助定位。如果它们仍显示原位置，可以在系统设置中关闭这些功能后重试。</string>
+    <string name="mock_wireless_message">其他应用可能使用附近的 Wi-Fi 和蓝牙信标辅助定位。如果你的定位仍未生效，可以在系统设置中关闭这些功能。</string>
     <string name="mock_wireless_wifi_settings">Wi-Fi 设置</string>
     <string name="mock_wireless_bluetooth_settings">蓝牙设置</string>
     <string name="mock_wireless_ignore">忽略</string>

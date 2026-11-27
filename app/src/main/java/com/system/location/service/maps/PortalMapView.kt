@@ -212,7 +212,7 @@ class PortalMapView @JvmOverloads constructor(context: Context, attrs: Attribute
         if (point == null) { original?.remove(); original = null; return }
         val existing = original
         if (existing != null) existing.position(point) else {
-            original = marker(point, "这是原始位置", MapLocationBadge(context, true, "这是原始位置"), anchorY = 44f / 64f)
+            original = marker(point, "原始位置", MapLocationBadge(context, true, "原始位置"), anchorY = 44f / 64f)
         }
     }
     fun clear() { current = null; original = null; amap?.map?.clear(); tencent?.map?.clear() }

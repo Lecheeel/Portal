@@ -8,9 +8,12 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Debug
 import android.os.SystemClock
+import com.system.location.service.backend.native.NativeSensorSession
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.core.performance.PerformanceProbe
+import com.system.location.service.core.sensors.StepSimulationSettings
+import com.system.location.service.data.persistence.StepSimulationPreferences
 import com.system.location.service.ext.mockWifiEnabled
 import com.system.location.service.ext.sensorTargetPackages
 import com.system.location.service.gnss.gnssReplayOnStart
@@ -21,12 +24,13 @@ import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
 
 /** The scenario runtime owns movement. One authenticated IPC sends each immutable fix. */
-class XposedBackend(private val context: Context) : LocationBackend {
+class XposedBackend(private val context: Context, private val manageNativeSteps: Boolean = true) : LocationBackend {
     private val manager = context.getSystemService(LocationManager::class.java)
     private val publishProbe = PerformanceProbe()
     private var previousCpuMillis = 0L
     private var previousCpuWallMillis = 0L
     private var connected = false
+    private var startNativeSteps = false
     override val type = BackendType.XPOSED
     override suspend fun diagnose(): List<BackendDiagnostic> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -111,13 +115,16 @@ class XposedBackend(private val context: Context) : LocationBackend {
                 if (connected) Availability.AVAILABLE else Availability.REQUIRES_ACTION,
                 "需要在框架中启用 system_server 作用域；Hook 命中仍取决于设备")
             Capability.BACKGROUND_PLAYBACK -> CapabilityStatus(Availability.AVAILABLE, "由定位前台服务运行")
-            Capability.SENSOR_SIMULATION -> CapabilityStatus(
+            Capability.SENSOR_SIMULATION -> if (StepSimulationPreferences.read(context.sharedPrefs.all).usesNative) {
+                CapabilityStatus(Availability.EXPERIMENTAL, "Native 计步需要 Root 和兼容的系统模块")
+            } else CapabilityStatus(
                 if (context.sensorTargetPackages.isEmpty()) Availability.REQUIRES_ACTION else Availability.EXPERIMENTAL,
-                "需在设置和框架中选择目标应用并重启应用；仅 Java 传感器队列，不需 Native")
+                "Xposed 计步需在设置和框架中选择目标应用并重启应用")
             else -> CapabilityStatus(Availability.UNAVAILABLE, "当前后端未提供此能力")
         }
     }
     override suspend fun prepare(): BackendResult {
+        startNativeSteps = false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             return BackendResult.Failure("XPOSED_API", "Xposed 模式要求 Android 12 或更新版本", "请选择标准无 Root 模式")
         }
@@ -129,16 +136,27 @@ class XposedBackend(private val context: Context) : LocationBackend {
             connected = false
             return BackendResult.Failure("PROTOCOL", "已加载的系统模块不支持统一定位快照", "安装当前版本并重启设备")
         }
+        val stepSettings = StepSimulationPreferences.read(context.sharedPrefs.all)
+        if (stepSettings != StepSimulationSettings() && !status.getBoolean("step_simulation_supported")) {
+            return BackendResult.Failure("STEP_MODULE", "已加载的 Xposed 模块不支持当前步频设置", "启用当前版本的模块并重启设备")
+        }
         context.applySatelliteStartupDefaults(status.getString("hook_scope") == "SYSTEM_SERVER" &&
             status.getInt("hook_installed") > 0)
         context.gnssReplayProblem()?.let { return BackendResult.Failure("GNSS_CAPTURE", it, "重新采集或在快捷回放中选择目标天空") }
         if (!MockServiceHelper.setNativeEnabled(manager, false)) {
             return BackendResult.Failure("NATIVE_DISABLE", "无法关闭之前的 Native 传感器", "重新连接系统模块后重试")
         }
+        if (manageNativeSteps && stepSettings.usesNative) {
+            val prepared = NativeSensorSession.prepare(context, manager)
+            if (prepared is BackendResult.Failure) return prepared
+            startNativeSteps = true
+        }
         return checked(MockServiceHelper.putConfig(manager, context), "CONFIGURE", "检查系统服务连接")
     }
     override suspend fun start(): BackendResult {
-        return checked(activateReplay(context, manager), "REPLAY_START", "检查系统模块连接后重试")
+        val started = checked(activateReplay(context, manager), "REPLAY_START", "检查系统模块连接后重试")
+        if (started is BackendResult.Failure || !startNativeSteps) return started
+        return NativeSensorSession.enable(manager, motionSensors = false)
     }
     override suspend fun publish(sample: LocationSample, scenarioId: String?): BackendResult {
         val started = SystemClock.elapsedRealtimeNanos()

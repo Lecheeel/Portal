@@ -320,21 +320,7 @@ object MockServiceHelper {
             com.system.location.service.hook.utils.Logger.error("Configuration rejected: ${error.javaClass.simpleName}")
             return false
         }
-        val rely = Bundle().apply {
-            putString("command_id", "put_config")
-            values.forEach { (key, value) ->
-                when (value) {
-                    null -> putString(key, null)
-                    is String -> putString(key, value)
-                    is Boolean -> putBoolean(key, value)
-                    is Int -> putInt(key, value)
-                    is Long -> putLong(key, value)
-                    is Float -> putFloat(key, value)
-                    is Double -> putDouble(key, value)
-                    else -> error("Unsupported configuration type for $key")
-                }
-            }
-        }
+        val rely = configurationBundle(values)
         carrierIdentityStatus = null
         carrierOverrideSupported = null
         if (!commandClient.send(locationManager, rely)) return false
@@ -343,6 +329,31 @@ object MockServiceHelper {
             rely.getBoolean("carrier_override_supported") else null
         FakeLoc.runtimeSnapshots.update(prepared::applyTo)
         return true
+    }
+
+    internal fun putStepSimulation(locationManager: LocationManager,
+        settings: com.system.location.service.core.sensors.StepSimulationSettings): Boolean {
+        val values = com.system.location.service.data.persistence.StepSimulationPreferences.wire(settings)
+        val prepared = com.system.location.service.core.runtime.PreparedRuntimeConfiguration.prepare(values)
+        if (!commandClient.send(locationManager, configurationBundle(values))) return false
+        FakeLoc.runtimeSnapshots.update(prepared::applyTo)
+        return true
+    }
+
+    private fun configurationBundle(values: Map<String, Any?>) = Bundle().apply {
+        putString("command_id", "put_config")
+        values.forEach { (key, value) ->
+            when (value) {
+                null -> putString(key, null)
+                is String -> putString(key, value)
+                is Boolean -> putBoolean(key, value)
+                is Int -> putInt(key, value)
+                is Long -> putLong(key, value)
+                is Float -> putFloat(key, value)
+                is Double -> putDouble(key, value)
+                else -> error("Unsupported configuration type for $key")
+            }
+        }
     }
 
     fun isServiceInit(): Boolean {
@@ -370,9 +381,12 @@ object MockServiceHelper {
     fun prepareNative(locationManager: LocationManager): Boolean = commandClient.send(locationManager, Bundle().apply {
         putString("command_id", "native_prepare")
     })
-    fun setNativeEnabled(locationManager: LocationManager, enabled: Boolean): Boolean = commandClient.send(locationManager, Bundle().apply {
-        putString("command_id", "native_status"); putBoolean("enabled", enabled)
-    })
+    fun setNativeEnabled(locationManager: LocationManager, enabled: Boolean, motionSensors: Boolean = true): Boolean =
+        commandClient.send(locationManager, Bundle().apply {
+            putString("command_id", "native_status")
+            putBoolean("enabled", enabled)
+            putBoolean("motion_sensors", motionSensors)
+        })
 
 
     private fun broadcastInterval(context: Context): Long {

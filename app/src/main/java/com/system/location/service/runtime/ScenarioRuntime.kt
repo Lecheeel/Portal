@@ -10,6 +10,7 @@ import com.system.location.service.R
 import com.system.location.service.backend.xposed.XposedBackend
 import com.system.location.service.backend.mock.MockProviderBackend
 import com.system.location.service.backend.mock.AndroidMockProviderPort
+import com.system.location.service.backend.native.NativeSensorSession
 import com.system.location.service.core.backend.*
 import com.system.location.service.core.config.ConfigEnvelope
 import com.system.location.service.core.environment.CellMode
@@ -22,6 +23,8 @@ import com.system.location.service.core.playback.NoiseProfile
 import com.system.location.service.core.routing.RoutingConfig
 import com.system.location.service.core.runtime.*
 import com.system.location.service.core.scenario.Scenario
+import com.system.location.service.core.sensors.StepSimulationSettings
+import com.system.location.service.data.persistence.StepSimulationPreferences
 import com.system.location.service.ext.experimentalOrbitMotion
 import com.system.location.service.ext.experimentalOrbitRadius
 import com.system.location.service.ext.speed
@@ -47,6 +50,7 @@ import com.system.location.service.ext.platformFusedEnabled
 import com.system.location.service.ext.experimentalClearMockFlag
 import com.system.location.service.ext.smoothRouteMotion
 import com.system.location.service.ext.routeEndPosition
+import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.gnss.gnssReplayProblem
 import kotlinx.coroutines.*
@@ -75,6 +79,58 @@ object ScenarioRuntime {
                 runCatching { MockServiceHelper.putConfig(manager, context) }.getOrDefault(false)
             }
         }
+    }
+
+    internal fun updateStepSimulation(change: (StepSimulationSettings) -> StepSimulationSettings) = scope.async {
+        initialized.await()
+        stepChanges.withLock {
+            val previous = StepSimulationPreferences.read(context.sharedPrefs.all)
+            val updated = change(previous)
+            if (previous == updated) return@withLock BackendResult.Success
+            val immediate = commands.withLock {
+                val current = state.value
+                if (current.isActive && current.backend == BackendType.XPOSED && updated.usesNative) null
+                else saveStepSimulation(updated)
+            }
+            if (immediate != null) return@withLock immediate
+
+            // A Root prompt can outlive the location lease. Keep publishing while Native prepares.
+            val prepared = withContext(Dispatchers.IO) {
+                val manager = context.getSystemService(LocationManager::class.java)
+                if (manager == null) BackendResult.Failure("STEP_MODULE", "定位服务不可用")
+                else NativeSensorSession.prepare(context, manager)
+            }
+            if (prepared is BackendResult.Failure) return@withLock prepared
+            commands.withLock { saveStepSimulation(updated) }
+        }
+    }
+
+    private suspend fun saveStepSimulation(settings: StepSimulationSettings): BackendResult {
+        val current = state.value
+        if (current.isActive && current.backend != BackendType.MOCK_PROVIDER) {
+            val result = withContext(Dispatchers.IO) { applyStepSimulation(current.backend, settings) }
+            if (result is BackendResult.Failure) return result
+        }
+        StepSimulationPreferences.write(context.sharedPrefs, settings)
+        return BackendResult.Success
+    }
+
+    private fun applyStepSimulation(backend: BackendType, settings: StepSimulationSettings): BackendResult {
+        val manager = context.getSystemService(LocationManager::class.java)
+        val status = manager?.let(MockServiceHelper::runtimeStatus)
+        if (manager == null || status?.getBoolean("step_simulation_supported") != true) {
+            return BackendResult.Failure("STEP_MODULE", "步频设置无法应用", "检查并启用当前版本的 Xposed 系统模块")
+        }
+        val startNative = backend == BackendType.XPOSED && settings.usesNative && !status.getBoolean("native_enabled")
+        if (startNative) {
+            val enabled = NativeSensorSession.enable(manager, motionSensors = false)
+            if (enabled is BackendResult.Failure) return enabled
+        }
+        if (!MockServiceHelper.putStepSimulation(manager, settings)) {
+            if (startNative) MockServiceHelper.setNativeEnabled(manager, false)
+            return BackendResult.Failure("STEP_CONFIG", "步频设置未生效", "检查系统模块连接后重试")
+        }
+        return BackendResult.Success
     }
     suspend fun gnssMockRunning(): Boolean {
         initialized.await()
@@ -113,6 +169,7 @@ object ScenarioRuntime {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val commands = Mutex()
+    private val stepChanges = Mutex()
     private val preferences get() = context.getSharedPreferences("scenario_runtime", Context.MODE_PRIVATE)
     private val journal by lazy { DiagnosticJournal(AtomicDocumentStore(File(context.noBackupFilesDir, "runtime-diagnostics.json"))) }
     private val configStore by lazy { FileConfigStore(File(context.noBackupFilesDir, "active-config.json")) }

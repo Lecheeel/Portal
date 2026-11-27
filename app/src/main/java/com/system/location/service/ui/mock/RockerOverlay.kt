@@ -3,6 +3,7 @@ package com.system.location.service.ui.mock
 import android.content.Context
 import android.content.SharedPreferences
 import android.hardware.display.DisplayManager
+import android.os.Build
 import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.Display
@@ -45,6 +46,16 @@ object RockerOverlay {
     var isVisible by mutableStateOf(false)
         private set
 
+    private fun overlayContext(): Context {
+        val display = context.getSystemService(DisplayManager::class.java).getDisplay(Display.DEFAULT_DISPLAY)
+        val displayContext = context.createDisplayContext(display)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            displayContext.createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+        } else {
+            displayContext
+        }
+    }
+
     fun refresh(): Boolean {
         if (!isEnabled || !OverlayUtils.hasOverlayPermissions(context)) {
             moving = false
@@ -83,11 +94,7 @@ object RockerOverlay {
             }
         }
         return try {
-            val window = rocker ?: Rocker(ContextThemeWrapper(
-                context.createDisplayContext(context.getSystemService(DisplayManager::class.java)
-                    .getDisplay(Display.DEFAULT_DISPLAY))
-                    .createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null), R.style.AppTheme
-            )).also { view ->
+            val window = rocker ?: Rocker(ContextThemeWrapper(overlayContext(), R.style.AppTheme)).also { view ->
                 rocker = view
                 view.onSpeedChanged = { speed ->
                     val change = ScenarioRuntime.setSpeed(speed)

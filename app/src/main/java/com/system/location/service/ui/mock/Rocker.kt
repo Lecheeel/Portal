@@ -2,13 +2,17 @@ package com.system.location.service.ui.mock
 
 import android.content.Context
 import android.graphics.PixelFormat
+import android.graphics.Point
+import android.os.Build
 import android.view.Gravity
+import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.core.view.ViewCompat
 import com.system.location.service.R
 import com.system.location.service.android.widget.RockerView
 import com.system.location.service.core.runtime.RuntimePhase
@@ -104,7 +108,7 @@ class Rocker(private val context: Context) {
         })
         targetsEnabled = phase !in setOf(RuntimePhase.PREPARING, RuntimePhase.READY, RuntimePhase.STOPPING)
         rockerView.isEnabled = canMove
-        rockerView.stateDescription = status
+        ViewCompat.setStateDescription(rockerView, status)
         if (!canMove) resetMovement()
     }
 
@@ -126,13 +130,20 @@ class Rocker(private val context: Context) {
         windowManager.updateViewLayout(root, layoutParams)
     }
     private fun savePosition() { context.rockerCoords = layoutParams.x to layoutParams.y }
+    @Suppress("DEPRECATION")
     private fun clampPosition() {
         if (!isStart) return
-        val metrics = windowManager.currentWindowMetrics
-        val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
-            android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout())
-        val maxX = (metrics.bounds.width() - insets.left - insets.right - root.width).coerceAtLeast(0)
-        val maxY = (metrics.bounds.height() - insets.top - insets.bottom - root.height).coerceAtLeast(0)
+        val available = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val metrics = windowManager.currentWindowMetrics
+            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+                WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+            Point(metrics.bounds.width() - insets.left - insets.right,
+                metrics.bounds.height() - insets.top - insets.bottom)
+        } else {
+            Point().also { windowManager.defaultDisplay.getSize(it) }
+        }
+        val maxX = (available.x - root.width).coerceAtLeast(0)
+        val maxY = (available.y - root.height).coerceAtLeast(0)
         val x = layoutParams.x.coerceIn(0, maxX)
         val y = layoutParams.y.coerceIn(0, maxY)
         if (x != layoutParams.x || y != layoutParams.y) {

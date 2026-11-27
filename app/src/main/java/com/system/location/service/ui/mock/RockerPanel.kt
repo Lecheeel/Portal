@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.ViewCompat
 import com.system.location.service.R
 import com.system.location.service.android.widget.RockerView
 import kotlin.math.ceil
@@ -63,7 +64,11 @@ internal fun RockerPanel(minimized: Boolean, expanded: Boolean, status: String, 
             AndroidView(factory = {
                 (rocker.parent as? android.view.ViewGroup)?.removeView(rocker)
                 rocker
-            }, update = { it.isEnabled = canMove; it.alpha = if (canMove) 1f else .55f; it.stateDescription = status },
+            }, update = {
+                it.isEnabled = canMove
+                it.alpha = if (canMove) 1f else .55f
+                ViewCompat.setStateDescription(it, status)
+            },
                 modifier = Modifier.fillMaxWidth().height(152.dp).semantics { if (!canMove) disabled() }.testTag("rocker_direction"))
             TextButton(onClick = onExpand, modifier = Modifier.fillMaxWidth().testTag("rocker_speed_toggle")) {
                 Text(stringResource(R.string.overlay_speed_value, speed))

@@ -67,6 +67,7 @@ class SettingsRestoreUiTest {
                 compose.openPage(activity, R.id.nav_runtime)
                 compose.scrollToText("恢复并启动上次场景").assertIsEnabled().performClick()
                 compose.waitUntil(10_000) { ScenarioRuntime.state.value.phase == RuntimePhase.RUNNING }
+                compose.ignoreMockWirelessReminderIfShown()
                 compose.onNodeWithText("恢复并启动上次场景").assertIsNotEnabled()
                 assertEquals(123.5, context.altitude, 0.001)
                 assertEquals(1.4, context.speed, 0.001)

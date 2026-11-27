@@ -49,6 +49,8 @@ import com.system.location.service.ext.routeEndPosition
 import com.system.location.service.service.MockServiceHelper
 import com.system.location.service.gnss.gnssReplayProblem
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -56,6 +58,8 @@ import kotlinx.serialization.json.Json
 
 /** Process-owned command facade. UI cancellation never cancels an accepted runtime command. */
 object ScenarioRuntime {
+    internal class MockWirelessReminder(val scenarioId: String, val startedAt: Long?)
+
     private val context get() = LocationServiceApp.appContext
 
     /** Serialize system configuration with runtime commands; a Mock Provider session has no Hook config. */
@@ -136,6 +140,13 @@ object ScenarioRuntime {
     }, diagnosticBatchSink = { events -> writer.enqueue(events) })
     val state = controller.state
     val diagnostics = controller.diagnostics
+    private val pendingMockWirelessReminder = MutableStateFlow<MockWirelessReminder?>(null)
+    internal val mockWirelessReminder = pendingMockWirelessReminder.asStateFlow()
+
+    internal fun dismissMockWirelessReminder(reminder: MockWirelessReminder) {
+        pendingMockWirelessReminder.compareAndSet(reminder, null)
+    }
+
     @Volatile private var service: ScenarioService? = null
     @Volatile private var ready = CompletableDeferred<Unit>()
     private val serviceStarts = ServiceStartGate()
@@ -215,6 +226,9 @@ object ScenarioRuntime {
             controller.configureOrbit(context.experimentalOrbitMotion, context.experimentalOrbitRadius, context.orbitPeriodSeconds)
             val started = controller.start(frozen, routeEndPosition = context.routeEndPosition)
             if (started) {
+                val current = state.value
+                pendingMockWirelessReminder.value = if (current.backend == BackendType.MOCK_PROVIDER)
+                    MockWirelessReminder(frozen.id, current.startedAt) else null
                 withContext(Dispatchers.IO) {
                     runCatching {
                         val revision = (configStore.load()?.revision ?: 0L) + 1L
@@ -352,6 +366,7 @@ object ScenarioRuntime {
     }
     private suspend fun finishService() = withContext(Dispatchers.Main) {
         startupBurst = null
+        pendingMockWirelessReminder.value = null
         serviceStarts.cancel()
         service?.let { instance -> service = null; instance.finishPlayback() }
     }

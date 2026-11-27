@@ -18,6 +18,7 @@ import com.system.location.service.R
 import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.ui.displayLabel
 import com.system.location.service.ui.runtime.DrawerModeControl
+import com.system.location.service.ui.runtime.MockWirelessReminderDialog
 import kotlinx.coroutines.launch
 
 internal data class PortalDestination(val id: Int, val label: String, val icon: Int, val section: String)
@@ -37,6 +38,7 @@ internal fun PortalAppShell(drawer: DrawerState, selectedSection: Int,
     onNavigate: (Int) -> Unit, createHost: () -> View) = BoxWithConstraints(Modifier.fillMaxSize()) {
     val scope = rememberCoroutineScope()
     val runtime by ScenarioRuntime.state.collectAsStateWithLifecycle()
+    MockWirelessReminderDialog(runtime)
     val drawerWidth = minOf(288.dp, maxWidth * .78f)
     ModalNavigationDrawer(drawerState = drawer,
         // Open only from a menu button on every page. Once open, retain drag-to-close

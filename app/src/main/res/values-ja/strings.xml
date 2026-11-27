@@ -124,4 +124,10 @@
   <string name="wifi_fingerprint_enable">WiFi フィンガープリントデータベースを有効にする（試験的）</string>
   <string name="wifi_fingerprint_import">WiFi フィンガープリントデータベースをインポート</string>
   <string name="environment_replay_set">再現用の環境に設定しました。次回のシナリオ開始時に反映されます</string>
+  <string name="mock_wireless_title">Root なしの位置シミュレーションを開始しました</string>
+  <string name="mock_wireless_message">他のアプリは、周辺の Wi-Fi や Bluetooth の信号を測位に使うことがあります。元の位置が表示される場合は、システム設定でこれらをオフにしてから再試行してください。</string>
+  <string name="mock_wireless_wifi_settings">Wi-Fi 設定</string>
+  <string name="mock_wireless_bluetooth_settings">Bluetooth 設定</string>
+  <string name="mock_wireless_ignore">無視する</string>
+  <string name="mock_wireless_settings_unavailable">システム設定を開けません。クイック設定から Wi-Fi と Bluetooth をオフにできます。</string>
 </resources>

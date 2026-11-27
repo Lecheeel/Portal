@@ -1,6 +1,7 @@
 package com.system.location.service
 
 import android.Manifest
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.ui.test.SemanticsMatcher
@@ -8,7 +9,9 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.findNavController
 import androidx.test.core.app.ActivityScenario
@@ -17,6 +20,8 @@ import com.system.location.service.maps.MapProvider
 import com.system.location.service.maps.mapProvider
 import com.system.location.service.privacy.SdkPrivacy
 import com.system.location.service.privacy.TencentPrivacy
+import com.system.location.service.runtime.ScenarioRuntime
+import kotlinx.coroutines.runBlocking
 
 /** Activity 1.13 routes system Back through NavigationEvent, including Compose drawer handlers. */
 internal fun MainActivity.systemBackForUiTest() {
@@ -87,12 +92,25 @@ internal fun acceptSelectedMapForUiTest() {
 
 internal fun grantUiPermissions() {
     val instrumentation = InstrumentationRegistry.getInstrumentation()
-    listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.POST_NOTIFICATIONS).forEach {
+    val permissions = mutableListOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissions += Manifest.permission.POST_NOTIFICATIONS
+    permissions.forEach {
         if (androidx.core.content.ContextCompat.checkSelfPermission(instrumentation.targetContext, it) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             instrumentation.uiAutomation.grantRuntimePermission(instrumentation.targetContext.packageName, it)
         }
     }
+}
+
+internal fun ComposeTestRule.ignoreMockWirelessReminderIfShown() {
+    // Wait for the serialized start command, which queues the reminder after the first fix is published.
+    runBlocking { ScenarioRuntime.refreshDiagnostics().await() }
+    val pending = ScenarioRuntime.mockWirelessReminder.value ?: return
+    val ignore = InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.mock_wireless_ignore)
+    waitUntil(10_000) {
+        ScenarioRuntime.mockWirelessReminder.value !== pending ||
+            onAllNodesWithText(ignore).fetchSemanticsNodes().isNotEmpty()
+    }
+    if (ScenarioRuntime.mockWirelessReminder.value === pending) onNodeWithText(ignore).performClick()
 }
 
 /** SDK surfaces intentionally remain Views, and no longer have XML layout IDs in Compose. */

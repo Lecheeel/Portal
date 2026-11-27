@@ -134,6 +134,7 @@ class HomeSelectionUiTest {
                     assertNotEquals("Switch failed: ${state.error}", RuntimePhase.ERROR, state.phase)
                     state.phase == RuntimePhase.RUNNING && state.scenarioId != previousId && state.sample != null
                 }
+                compose.ignoreMockWirelessReminderIfShown()
                 assertNull(ScenarioRuntime.state.value.routeId)
                 assertCoordinate(Wgs84(25.123456, 119.123456), ScenarioRuntime.state.value)
                 compose.onNodeWithText("停止模拟").assertIsEnabled()
@@ -262,6 +263,7 @@ class HomeSelectionUiTest {
             state.phase == RuntimePhase.RUNNING && state.scenarioName == name && state.sample != null
         }
         assertEquals(name, ScenarioRuntime.state.value.scenarioName)
+        compose.ignoreMockWirelessReminderIfShown()
     }
 
     private fun assertCoordinate(expected: Wgs84, state: RuntimeState) {

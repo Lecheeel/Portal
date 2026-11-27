@@ -30,7 +30,7 @@ object ApplicationSensorHook {
     private var lastSyntheticCounter = 0L
     private var counterOffset = 0L
     private var counterSessionActive = false
-    private var suppressHardware = false
+    private var channels = ProtectedChannels()
     private var session: String? = null
     private var generation = 0L
     private val supported = SensorEventValues.continuousTypes + setOf(18, 19)
@@ -41,6 +41,7 @@ object ApplicationSensorHook {
         var lastSteps = -1L
         var lastDetectorTimestampNanos = 0L
         var pending = false
+        val isStep: Boolean get() = type == 18 || type == 19
     }
 
     fun install(loader: ClassLoader) {
@@ -98,13 +99,12 @@ object ApplicationSensorHook {
             val action = synchronized(lock) {
                 val reg = registrations.firstOrNull { it.queue === chain.thisObject && it.handle == handle }
                     ?: return@synchronized 0
+                if (!(if (reg.isStep) channels.steps else channels.motion)) return@synchronized 0
                 // Check receipt time too: an old queued event cannot revive an expired grant.
-                if (playback.frame(SystemClock.elapsedRealtimeNanos()) == null) {
-                    return@synchronized if (suppressHardware) 2 else 0
-                }
+                if (playback.frame(SystemClock.elapsedRealtimeNanos()) == null) return@synchronized 2
                 // A queued hardware event from before the current grant must not cross the boundary.
                 val frame = playback.frame(timestamp) ?: return@synchronized 2
-                if (reg.type == 18 || reg.type == 19) return@synchronized 2
+                if (reg.isStep) return@synchronized 2
                 val values = SensorEventValues.from(frame, reg.type, original.size) ?: return@synchronized 2
                 args[1] = values
                 1
@@ -145,12 +145,13 @@ object ApplicationSensorHook {
         lastPoll = 0L
         playback.update(null, SystemClock.elapsedRealtimeNanos())
         counterSessionActive = false
-        suppressHardware = false
+        channels = ProtectedChannels()
         session = null
         generation++
     }
 
-    private data class PollResult(val protected: Boolean?, val state: SensorPlaybackState?)
+    private data class ProtectedChannels(val motion: Boolean = false, val steps: Boolean = false)
+    private data class PollResult(val channels: ProtectedChannels?, val state: SensorPlaybackState?)
 
     private fun pollState(context: Context?, handler: Handler, epoch: Long) {
         try {
@@ -159,15 +160,20 @@ object ApplicationSensorHook {
                 val result = Bundle()
                 if (manager?.sendExtraCommand("fused_ext", SensorSnapshotCommand.COMMAND, result) != true)
                     PollResult(null, null)
-                else PollResult(result.getBoolean(SensorSnapshotCommand.PROTECTED_KEY), SensorStateWire.read(result))
+                else {
+                    val legacy = result.getBoolean(SensorSnapshotCommand.PROTECTED_KEY)
+                    PollResult(ProtectedChannels(result.getBoolean(SensorSnapshotCommand.MOTION_KEY, legacy),
+                        result.getBoolean(SensorSnapshotCommand.STEPS_KEY, legacy)), SensorStateWire.read(result))
+                }
             }) { result ->
                 synchronized(lock) {
                     // An unregister/re-register may reuse the same Handler. Its old in-flight
                     // Binder response must not restore a motion grant into the new subscription.
                     if (worker !== handler || generation != epoch) return@synchronized
                     val next = result.getOrDefault(PollResult(null, null))
-                    next.protected?.let { suppressHardware = it }
-                    if (session != next.state?.session) {
+                    val stepChannelChanged = next.channels?.steps?.let { it != channels.steps } ?: false
+                    next.channels?.let { channels = it }
+                    if (session != next.state?.session || stepChannelChanged) {
                         session = next.state?.session
                         generation++
                         counterSessionActive = false
@@ -200,7 +206,7 @@ object ApplicationSensorHook {
                 if (worker !== handler) return
                 val now = SystemClock.elapsedRealtimeNanos()
                 val frame = playback.frame(now)
-                if (frame == null) {
+                if (frame == null || !channels.steps) {
                     counterSessionActive = false
                     registrations.forEach { it.lastSteps = -1 }
                 } else {
@@ -209,7 +215,7 @@ object ApplicationSensorHook {
                         counterSessionActive = true
                     }
                     counterOffset = maxOf(counterOffset, lastSyntheticCounter - frame.stepCount)
-                    registrations.filter { it.type == 18 || it.type == 19 }.forEach { reg ->
+                    registrations.filter { it.isStep }.forEach { reg ->
                         if (reg.pending) return@forEach
                         val previous = reg.lastSteps
                         val previousDetectorTimestamp = reg.lastDetectorTimestampNanos

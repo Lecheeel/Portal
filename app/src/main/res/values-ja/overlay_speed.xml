@@ -17,6 +17,8 @@
     <string name="overlay_idle">停止中</string>
     <string name="overlay_speed_number">%1$.2f</string>
     <string name="overlay_speed_toggle">速度調整</string>
+    <string name="overlay_speed_edit">速度を入力</string>
+    <string name="overlay_speed_input_range">速度（0–1000 m/s）</string>
     <string name="overlay_expanded">展開中</string>
     <string name="overlay_collapsed">折りたたみ中</string>
     <string name="overlay_target_menu">ルートまたは地点を選択</string>

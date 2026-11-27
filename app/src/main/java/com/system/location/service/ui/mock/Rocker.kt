@@ -18,6 +18,7 @@ import com.system.location.service.android.widget.RockerView
 import com.system.location.service.core.runtime.RuntimePhase
 import com.system.location.service.designsystem.theme.PortalTheme
 import com.system.location.service.ext.rockerCoords
+import com.system.location.service.ui.PortalDialog
 import kotlin.math.round
 
 /** A single application-owned Compose overlay; it never retains an Activity or Fragment. */
@@ -47,7 +48,7 @@ class Rocker(private val context: Context) {
     private var status by mutableStateOf("")
     private var canMove by mutableStateOf(false)
     private var targetsEnabled by mutableStateOf(true)
-    private var draggingSpeed = false
+    private var speedInput: PortalDialog? = null
     var onSpeedChanged: ((Double) -> Unit)? = null
 
     fun show() {
@@ -65,7 +66,7 @@ class Rocker(private val context: Context) {
                 RockerPanel(isMinimized, speedExpanded, status, displayedSpeed, route, canMove,
                     targetsEnabled, rockerView, ::minimize, { speedExpanded = !speedExpanded },
                     { resetMovement(); rockerView.listener?.onFinished(); targetMenu.open() },
-                    ::changeSpeed, { draggingSpeed = it }, ::drag, ::savePosition)
+                    ::changeSpeed, ::editSpeed, ::drag, ::savePosition)
             }
         }
         try {
@@ -82,6 +83,7 @@ class Rocker(private val context: Context) {
 
     fun hide() {
         targetMenu.close()
+        speedInput?.dismiss()
         resetMovement()
         if (isStart) windowManager.removeViewImmediate(root)
         isStart = false
@@ -91,7 +93,10 @@ class Rocker(private val context: Context) {
     }
 
     fun minimize(value: Boolean) {
-        if (value) { speedExpanded = false; draggingSpeed = false }
+        if (value) {
+            speedExpanded = false
+            speedInput?.dismiss()
+        }
         isMinimized = value
         if (isStart) root.post { clampPosition() }
     }
@@ -116,11 +121,19 @@ class Rocker(private val context: Context) {
     fun setRockerListener(listener: RockerView.Companion.OnMoveListener) { rockerView.listener = listener }
     fun setSpeedState(route: Boolean, speed: Double) {
         this.route = route
-        if (!draggingSpeed) displayedSpeed = speed.coerceIn(0.0, 1000.0)
+        displayedSpeed = speed.coerceIn(0.0, 1000.0)
     }
     private fun changeSpeed(speed: Double) {
         displayedSpeed = (round(speed * 100.0) / 100.0).coerceIn(0.0, 1000.0)
         onSpeedChanged?.invoke(displayedSpeed)
+    }
+    private fun editSpeed() {
+        if (speedInput?.isShowing == true) return
+        resetMovement()
+        rockerView.listener?.onFinished()
+        speedInput = showRockerSpeedInput(context, displayedSpeed, ::changeSpeed)?.also { dialog ->
+            dialog.setOnDismissListener { if (speedInput === dialog) speedInput = null }
+        }
     }
     private fun drag(dx: Float, dy: Float) {
         if (!isStart) return

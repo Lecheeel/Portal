@@ -132,6 +132,12 @@ class RockerOverlayTest {
                 compose.onNodeWithTag("rocker_speed_down").performClick()
                 runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 3.05) > 0.001) delay(10) } }
                 compose.onNodeWithText(context.getString(R.string.speed_kmh, context.speed * 3.6)).assertIsDisplayed()
+                compose.onNodeWithTag("rocker_speed_edit").performClick()
+                awaitOverlay("rocker_speed_input")
+                compose.onNodeWithTag("rocker_speed_input").performTextReplacement("2.37")
+                compose.onNodeWithText(context.getString(android.R.string.ok)).performClick()
+                runBlocking { withTimeout(5000) { while (kotlin.math.abs(context.speed - 2.37) > 0.001) delay(10) } }
+                compose.onNodeWithText(context.getString(R.string.overlay_speed_number, context.speed)).assertIsDisplayed()
                 compose.onNodeWithContentDescription(context.getString(R.string.overlay_minimize)).performClick()
                 awaitOverlay("rocker_expand")
                 compose.onNodeWithTag("rocker_expand").performClick()

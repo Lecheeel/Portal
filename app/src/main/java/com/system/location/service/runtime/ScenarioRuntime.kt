@@ -321,14 +321,16 @@ object ScenarioRuntime {
         }
     }
     fun motion(bearing: Double, moving: Boolean, strength: Double = 1.0) = command { controller.setMotion(bearing, moving, strength) }
-    fun setSpeed(speed: Double): Deferred<Boolean> {
+    fun setSpeed(speed: Double, overrideRouteSpeed: Boolean = false): Deferred<Boolean> {
         val expected = state.value
         return command {
             val current = state.value
             if (!speed.isFinite() || speed !in 0.0..LocationSanitizer.MAX_SPEED_MPS ||
                 current.scenarioId != expected.scenarioId || current.startedAt != expected.startedAt ||
                 current.phase != expected.phase) return@command false
-            val accepted = if (current.isActive) controller.setSpeed(speed) else true
+            val accepted = if (current.isActive) {
+                controller.setSpeed(speed, overrideRouteSpeed && current.routeId != null)
+            } else true
             if (accepted) context.speed = speed
             accepted
         }

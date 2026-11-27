@@ -2,8 +2,6 @@ package com.system.location.service.ui.mock
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
@@ -31,7 +29,7 @@ import kotlin.math.ceil
 internal fun RockerPanel(minimized: Boolean, expanded: Boolean, status: String, speed: Double,
     route: Boolean, canMove: Boolean, targetsEnabled: Boolean, rocker: RockerView,
     onMinimize: (Boolean) -> Unit, onExpand: () -> Unit, onTargets: () -> Unit,
-    onSpeed: (Double) -> Unit, onDraggingSpeed: (Boolean) -> Unit,
+    onSpeed: (Double) -> Unit, onEditSpeed: () -> Unit,
     onDrag: (Float, Float) -> Unit, onDragEnd: () -> Unit) {
     val drag = Modifier.pointerInput(Unit) {
         detectDragGestures(onDragEnd = onDragEnd, onDragCancel = onDragEnd) { change, delta ->
@@ -74,21 +72,27 @@ internal fun RockerPanel(minimized: Boolean, expanded: Boolean, status: String, 
                 Text(stringResource(R.string.overlay_speed_value, speed))
             }
             if (expanded) {
-                val interactions = remember { MutableInteractionSource() }
-                val dragging by interactions.collectIsDraggedAsState()
-                LaunchedEffect(dragging) { onDraggingSpeed(dragging) }
-                DisposableEffect(Unit) { onDispose { onDraggingSpeed(false) } }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                var draft by remember { mutableStateOf<Float?>(null) }
+                val visibleSpeed = draft?.toDouble() ?: speed
+                val editSpeedLabel = stringResource(R.string.overlay_speed_edit)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     IconButton(onClick = { onSpeed(speed - .1) }, enabled = speed > 0,
                         modifier = Modifier.testTag("rocker_speed_down")) { Text("−") }
-                    Text(stringResource(R.string.overlay_speed_number, speed), Modifier.padding(top = 12.dp))
+                    TextButton(onClick = onEditSpeed, modifier = Modifier.weight(1f)
+                        .semantics { contentDescription = editSpeedLabel }
+                        .testTag("rocker_speed_edit"), contentPadding = PaddingValues(horizontal = 2.dp)) {
+                        Text(stringResource(R.string.overlay_speed_number, visibleSpeed), maxLines = 1)
+                    }
                     IconButton(onClick = { onSpeed(speed + .1) }, enabled = speed < 1000,
                         modifier = Modifier.testTag("rocker_speed_up")) { Text("+") }
                 }
-                Text(stringResource(R.string.speed_kmh, speed * 3.6), style = MaterialTheme.typography.bodySmall)
-                Slider(value = speed.toFloat(), onValueChange = { onSpeed(it.toDouble()) },
-                    interactionSource = interactions,
-                    onValueChangeFinished = { onDraggingSpeed(false) },
+                Text(stringResource(R.string.speed_kmh, visibleSpeed * 3.6), style = MaterialTheme.typography.bodySmall)
+                Slider(value = visibleSpeed.toFloat(), onValueChange = { draft = it },
+                    onValueChangeFinished = {
+                        draft?.let { onSpeed(it.toDouble()) }
+                        draft = null
+                    },
                     valueRange = 0f..maxOf(50.0, ceil(speed / 10.0) * 10.0).toFloat(),
                     modifier = Modifier.semantics { contentDescription = title }.testTag("rocker_speed_slider"))
             }

@@ -97,7 +97,7 @@ object RockerOverlay {
             val window = rocker ?: Rocker(ContextThemeWrapper(overlayContext(), R.style.AppTheme)).also { view ->
                 rocker = view
                 view.onSpeedChanged = { speed ->
-                    val change = ScenarioRuntime.setSpeed(speed)
+                    val change = ScenarioRuntime.setSpeed(speed, overrideRouteSpeed = true)
                     scope.launch {
                         if (!change.await()) {
                             updateSpeedState()

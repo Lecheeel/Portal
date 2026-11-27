@@ -1,5 +1,6 @@
 package com.system.location.service.hook
 
+import android.os.Build
 import android.os.Bundle
 import com.system.location.service.hook.runtime.HookRuntime
 import com.system.location.service.hook.scope.HookStatusRegistry
@@ -19,6 +20,7 @@ import com.system.location.service.hook.utils.FakeLoc
 
 /** System hooks wait for the framework's system-server classloader. */
 class PortalModule : XposedModule() {
+    private val supportedPlatform = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     private var processName: String = ""
     private val lifecycle = ModuleInstallScheduler(installSystemPackageHooks = { pkg, loader ->
         HookRuntime.attach(this)
@@ -47,6 +49,10 @@ class PortalModule : XposedModule() {
     }.getOrDefault("")
 
     override fun onModuleLoaded(param: XposedModuleInterface.ModuleLoadedParam) {
+        if (!supportedPlatform) {
+            android.util.Log.i("PortalModule", "System hooks require Android 12 or newer")
+            return
+        }
         processName = param.processName
         moduleInfo = runCatching { getModuleApplicationInfo() }.getOrNull()
         GnssBundledOrbitResources.installExternalReader(::readModuleResource)
@@ -56,11 +62,13 @@ class PortalModule : XposedModule() {
     }
 
     override fun onSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) {
+        if (!supportedPlatform) return
         android.util.Log.i("PortalModule", "System server starting: loader=${param.classLoader.javaClass.name}")
         lifecycle.systemServerStarting(param.classLoader)
     }
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) {
+        if (!supportedPlatform) return
         // The framework may report the shared android package before the actual phone/fused
         // package. Scope resolution, rather than isFirstPackage, decides which package to install.
         if (isSystemProcess()) {
@@ -79,6 +87,7 @@ class PortalModule : XposedModule() {
     }
 
     override fun onHotReloading(param: XposedModuleInterface.HotReloadingParam): Boolean {
+        if (!supportedPlatform) return false
         // Native Dobby hooks cannot be unloaded; require a process restart once they are active.
         if (!HotReloadPolicy.allowed(isSystemProcess(), NativeCommand.isLoaded)) {
             android.util.Log.i("PortalModule", "hot reload rejected: system=${isSystemProcess()} native=${NativeCommand.isLoaded} process=${currentProcessName()}")
@@ -137,6 +146,7 @@ class PortalModule : XposedModule() {
     }
 
     override fun onHotReloaded(param: XposedModuleInterface.HotReloadedParam) {
+        if (!supportedPlatform) return
         if (!param.isSystemServer && !isSystemProcess()) return
         val transferred = param.getSavedInstanceState()
         val handoff = transferred as? Array<*>

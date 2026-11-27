@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <!-- The Xposed module entry and its backend require API 31. The standard backend can run on API 29. -->
+    <uses-sdk tools:overrideLibrary="com.system.location.service.hook" />
     <!-- Android Q 新增的权限。允许用户授予对两个不同范围的位置访问权限：在使用中（仅限前景）或始终（前景和后台） -->
     <!-- android 10.0后台定位权限-->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />

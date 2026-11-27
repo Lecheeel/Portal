@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.location.LocationManager
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Debug
 import android.os.SystemClock
 import com.system.location.service.core.backend.*
@@ -28,6 +29,9 @@ class XposedBackend(private val context: Context) : LocationBackend {
     private var connected = false
     override val type = BackendType.XPOSED
     override suspend fun diagnose(): List<BackendDiagnostic> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return listOf(BackendDiagnostic("XPOSED_API", "UNAVAILABLE", "Xposed 模式要求 Android 12 或更新版本", "请选择标准无 Root 模式"))
+        }
         if (!MockServiceHelper.isServiceInit()) MockServiceHelper.tryInitService(manager)
         val status = MockServiceHelper.runtimeStatus(manager)
         connected = status?.getInt("sample_version")?.let(SampleWire::isCompatible) == true
@@ -111,6 +115,9 @@ class XposedBackend(private val context: Context) : LocationBackend {
         }
     }
     override suspend fun prepare(): BackendResult {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return BackendResult.Failure("XPOSED_API", "Xposed 模式要求 Android 12 或更新版本", "请选择标准无 Root 模式")
+        }
         MockServiceHelper.tryInitService(manager)
         connected = MockServiceHelper.isServiceInit()
         if (!connected) return checked(false, "CONNECT", "启用 Xposed 模块的系统作用域并重启设备")

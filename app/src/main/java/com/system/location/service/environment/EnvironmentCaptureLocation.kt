@@ -5,6 +5,8 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.CancellationSignal
 import android.os.SystemClock
+import androidx.core.location.LocationCompat
+import androidx.core.location.LocationManagerCompat
 import com.system.location.service.core.geo.Wgs84
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
@@ -44,7 +46,7 @@ class EnvironmentCaptureLocation(private val context: Context) {
             val signal = CancellationSignal()
             continuation.invokeOnCancellation { signal.cancel() }
             try {
-                manager.getCurrentLocation(provider, signal, context.mainExecutor) { location ->
+                LocationManagerCompat.getCurrentLocation(manager, provider, signal, context.mainExecutor) { location ->
                     if (continuation.isActive) continuation.resume(location)
                 }
             } catch (failure: SecurityException) {
@@ -55,7 +57,7 @@ class EnvironmentCaptureLocation(private val context: Context) {
         }
 
     private fun isUsable(location: Location, nowElapsedNanos: Long): Boolean {
-        if (location.isMock || !location.hasAccuracy()) return false
+        if (LocationCompat.isMock(location) || !location.hasAccuracy()) return false
         val accuracy = location.accuracy
         if (!accuracy.isFinite() || accuracy <= 0f) return false
         val ageNanos = nowElapsedNanos - location.elapsedRealtimeNanos

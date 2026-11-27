@@ -82,6 +82,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.location.LocationCompat
+import androidx.core.location.LocationListenerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.fragment.app.Fragment
@@ -613,12 +615,12 @@ open class HomeComposeFragment : Fragment() {
             // Some fused network fixes omit elapsed time; still require a recent timestamp.
             System.currentTimeMillis() - loc.time
         }
-        if (loc.isMock || active || age !in 0..HomeCameraPolicy.MAX_FIX_AGE_MILLIS ||
+        if (LocationCompat.isMock(loc) || active || age !in 0..HomeCameraPolicy.MAX_FIX_AGE_MILLIS ||
             point.first !in -90.0..90.0 || point.second !in -180.0..180.0 ||
             point.first == 0.0 && point.second == 0.0) return
-        val move = cameraPolicy.accept(point.first, point.second, age, SystemClock.elapsedRealtime(), loc.isMock, active)
+        val move = cameraPolicy.accept(point.first, point.second, age, SystemClock.elapsedRealtime(), LocationCompat.isMock(loc), active)
         mapModel.currentLocation = point
-        mapModel.rememberOriginalLocation(point, loc.isMock, active)
+        mapModel.rememberOriginalLocation(point, LocationCompat.isMock(loc), active)
         map?.currentPosition(CoordinateTransform.toGcj02(Wgs84(point.first, point.second)))
         requireContext().lastKnownLat = point.first
         requireContext().lastKnownLng = point.second
@@ -668,7 +670,7 @@ open class HomeComposeFragment : Fragment() {
                 }
             }.onFailure { stopRealLocation(); showLocationIssue(HomeLocationIssue.UNAVAILABLE) }
         } else {
-            val listener = object : android.location.LocationListener {
+            val listener = object : LocationListenerCompat {
                 override fun onLocationChanged(location: Location) {
                     if (locationListener === this) acceptRealLocation(location, location.latitude to location.longitude)
                 }
@@ -691,7 +693,7 @@ open class HomeComposeFragment : Fragment() {
             // A recent system fix can avoid an unnecessary wait. Old and mock fixes are rejected.
             providers.mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }
                 .sortedByDescending { it.elapsedRealtimeNanos }
-                .firstOrNull { !it.isMock }?.let { acceptRealLocation(it, it.latitude to it.longitude) }
+                .firstOrNull { !LocationCompat.isMock(it) }?.let { acceptRealLocation(it, it.latitude to it.longitude) }
         }
     }
 

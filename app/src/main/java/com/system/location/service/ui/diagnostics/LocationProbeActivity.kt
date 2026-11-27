@@ -12,6 +12,9 @@ import android.os.*
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.location.LocationCompat
+import androidx.core.location.LocationListenerCompat
+import androidx.core.location.LocationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -77,7 +80,7 @@ class LocationProbeActivity : AppCompatActivity() {
     private fun event(source: String, detail: String) { journal.message(source, detail); render() }
     private fun receive(source: String, location: Location?, token: Long) {
         if (!current(token)) return
-        val fix = location?.let { ProbeFix(it.provider, it.latitude, it.longitude, it.isMock, it.elapsedRealtimeNanos, it.time, it.accuracy) }
+        val fix = location?.let { ProbeFix(it.provider, it.latitude, it.longitude, LocationCompat.isMock(it), it.elapsedRealtimeNanos, it.time, it.accuracy) }
         journal.receive(source, fix, SystemClock.elapsedRealtimeNanos()); render()
     }
     private fun report() = "LocationService 接收端 ${com.system.location.service.BuildConfig.VERSION_NAME}\nAndroid ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT} ROM=${Build.DISPLAY}\nprocess=${android.app.Application.getProcessName()} uid=${Process.myUid()}\n" + journal.report()
@@ -97,7 +100,7 @@ class LocationProbeActivity : AppCompatActivity() {
             if (!manager.allProviders.contains(provider)) { event(provider, "系统未提供此通道"); continue }
             runCatching { manager.getLastKnownLocation(provider) }
                 .onSuccess { receive("lastKnown/$provider", it, token) }.onFailure { event(provider, "缓存读取失败：${it.javaClass.simpleName}") }
-            val listener = object : LocationListener {
+            val listener = object : LocationListenerCompat {
                 override fun onLocationChanged(location: Location) { receive("updates/$provider", location, token) }
                 override fun onProviderDisabled(name: String) { if (current(token)) event(provider, "Provider 已禁用") }
             }
@@ -112,7 +115,7 @@ class LocationProbeActivity : AppCompatActivity() {
             }
             timeouts += timeout; handler.postDelayed(timeout, 10_000)
             runCatching {
-                manager.getCurrentLocation(provider, signal, mainExecutor) { location ->
+                LocationManagerCompat.getCurrentLocation(manager, provider, signal, mainExecutor) { location ->
                     if (!complete) { complete = true; handler.removeCallbacks(timeout); receive("current/$provider", location, token) }
                 }
             }.onFailure { complete = true; handler.removeCallbacks(timeout); event(provider, "单次请求失败：${it.javaClass.simpleName}") }

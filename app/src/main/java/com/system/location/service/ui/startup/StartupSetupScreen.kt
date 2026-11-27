@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -89,7 +91,8 @@ internal fun StartupSetupScreen(
         }
     }
     Surface(color = colors.background, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
+            horizontalAlignment = Alignment.CenterHorizontally) {
             LazyColumn(
                 modifier = Modifier.weight(1f).widthIn(max = 560.dp).fillMaxWidth().testTag("startup-setup"),
                 state = listState,
@@ -288,7 +291,8 @@ private fun SetupFooter(progress: SetupProgress, selectedMap: MapProvider, mapEr
         SetupStep.MAP -> R.string.setup_enter
     }
     Surface(color = colors.surface, shadowElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)),
+            contentAlignment = Alignment.Center) {
             Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = PortalSpacing.xl, vertical = PortalSpacing.md),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(PortalSpacing.xs)) {
                 val hint = when (step) {

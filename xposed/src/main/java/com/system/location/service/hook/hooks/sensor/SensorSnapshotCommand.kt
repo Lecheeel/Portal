@@ -16,6 +16,8 @@ import com.system.location.service.hook.utils.FakeLoc
 object SensorSnapshotCommand {
     const val COMMAND = "get_sensor_state"
     const val PROTECTED_KEY = "sensor_protected"
+    const val MOTION_KEY = "motion_protected"
+    const val STEPS_KEY = "steps_protected"
 
     fun read(uid: Int, output: Bundle): Boolean {
         output.clear()
@@ -26,13 +28,17 @@ object SensorSnapshotCommand {
         val targetAllowed = SensorTargets.allows(uid, packages, state.configuration.sensorTargets)
         val route = RoutingTable(state.routing ?: com.system.location.service.core.routing.RoutingConfig())
             .decision(uid, packages, false)
+        val steps = state.configuration.stepSimulation
         val decision = SensorProtectionPolicy.evaluate(
             targetAllowed = targetAllowed,
             simulationEnabled = state.configuration.enabled,
-            nativeEnabled = NativeCommand.isEnabled,
+            nativeMotionEnabled = NativeCommand.motionSensorsEnabled,
             routeAllowed = route != RoutingDecision.Deny,
+            usesXposed = steps.usesXposed,
         )
         output.putBoolean(PROTECTED_KEY, decision.protected)
+        output.putBoolean(MOTION_KEY, decision.motion)
+        output.putBoolean(STEPS_KEY, decision.steps)
         if (!decision.protected) return decision.handled
         val now = SystemClock.elapsedRealtimeNanos()
         val fix = when (route) {
@@ -46,25 +52,30 @@ object SensorSnapshotCommand {
             minOf(now + 1_000_000_000, fix.elapsedNanos + SampleStore.DEFAULT_MAX_AGE_NANOS),
             if (route is RoutingDecision.Point) 0f else fix.speed,
             fix.bearing, fix.altitude.coerceIn(-500.0, 20_000.0),
-            SensorTuning(state.configuration.sensorCadenceScale, state.configuration.sensorVariation),
+            SensorTuning(state.configuration.sensorCadenceScale, state.configuration.sensorVariation,
+                stepsEnabled = decision.steps, fixedCadence = steps.fixedCadence.takeIf { steps.enabled }),
         )
         SensorStateWire.write(output, motion)
         return true
     }
 }
 
-internal data class SensorProtectionDecision(val handled: Boolean, val protected: Boolean)
+internal data class SensorProtectionDecision(val handled: Boolean, val motion: Boolean, val steps: Boolean) {
+    val protected: Boolean get() = motion || steps
+}
 
 internal object SensorProtectionPolicy {
     fun evaluate(
         targetAllowed: Boolean,
         simulationEnabled: Boolean,
-        nativeEnabled: Boolean,
+        nativeMotionEnabled: Boolean,
         routeAllowed: Boolean,
-    ) = SensorProtectionDecision(
-        handled = true,
-        protected = targetAllowed && simulationEnabled && !nativeEnabled && routeAllowed,
-    )
+        usesXposed: Boolean,
+    ): SensorProtectionDecision {
+        val allowed = targetAllowed && simulationEnabled && routeAllowed
+        return SensorProtectionDecision(handled = true, motion = allowed && !nativeMotionEnabled,
+            steps = allowed && usesXposed)
+    }
 }
 
 internal object SensorStateWire {
@@ -78,6 +89,7 @@ internal object SensorStateWire {
         putDouble("altitude", state.altitudeMeters)
         putDouble("cadence_scale", state.tuning.cadenceScale)
         putDouble("variation", state.tuning.variability)
+        putInt("fixed_cadence", state.tuning.fixedCadence ?: 0)
     }
 
     fun read(bundle: Bundle): SensorPlaybackState? = runCatching {
@@ -86,6 +98,8 @@ internal object SensorStateWire {
             bundle.getLong("sample_nanos", -1), bundle.getLong("expires_nanos", -1),
             bundle.getFloat("speed", Float.NaN), bundle.getFloat("bearing", Float.NaN),
             bundle.getDouble("altitude", Double.NaN),
-            SensorTuning(bundle.getDouble("cadence_scale", Double.NaN), bundle.getDouble("variation", Double.NaN)))
+            SensorTuning(bundle.getDouble("cadence_scale", Double.NaN), bundle.getDouble("variation", Double.NaN),
+                stepsEnabled = bundle.getBoolean(SensorSnapshotCommand.STEPS_KEY, true),
+                fixedCadence = bundle.getInt("fixed_cadence").takeUnless { it == 0 }))
     }.getOrNull()
 }

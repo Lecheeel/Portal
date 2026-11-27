@@ -64,8 +64,8 @@ object BackgroundGuidance {
                             context.resources.getStringArray(R.array.background_settings_options).toList()) { index ->
                             when (index) {
                                 0 -> openBatterySettings(context)
-                                1 -> openXiaomiAutostart(context)
-                                2 -> if (isXiaomiFamily) openXiaomiBattery(context) else openAppDetails(context)
+                                1 -> openAutostartSettings(context)
+                                2 -> openBackgroundBatterySettings(context)
                                 3 -> openNotifications(context)
                             }
                         }
@@ -82,17 +82,21 @@ object BackgroundGuidance {
         add(details(context))
     })
 
-    internal fun openXiaomiBattery(context: Context): Boolean = open(context, listOf(
-        Intent().setComponent(ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"))
-            .putExtra("package_name", context.packageName)
-            .putExtra("package_label", context.applicationInfo.loadLabel(context.packageManager).toString()),
-        details(context),
-    ))
+    internal fun openBackgroundBatterySettings(context: Context): Boolean = open(context, buildList {
+        if (isXiaomiFamily) {
+            add(Intent().setComponent(ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"))
+                .putExtra("package_name", context.packageName)
+                .putExtra("package_label", context.applicationInfo.loadLabel(context.packageManager).toString()))
+        }
+        add(details(context))
+    })
 
-    internal fun openXiaomiAutostart(context: Context): Boolean = open(context, listOf(
-        Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
-        details(context),
-    ))
+    internal fun openAutostartSettings(context: Context): Boolean = open(context, buildList {
+        if (isXiaomiFamily) {
+            add(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")))
+        }
+        add(details(context))
+    })
 
     internal fun openNotifications(context: Context): Boolean = open(context, listOf(
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),

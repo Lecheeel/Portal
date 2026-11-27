@@ -26,16 +26,16 @@ import com.system.location.service.runtime.BackgroundGuidance
 @Composable
 internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boolean) {
     val supportsNotifications = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    val isXiaomi = BackgroundGuidance.isXiaomiFamily
+    val guideAutostart = BackgroundGuidance.isXiaomiFamily
     var locationGranted by remember { mutableStateOf(activity.hasPermission(ACCESS_FINE_LOCATION)) }
     var notificationGranted by remember { mutableStateOf(NotificationManagerCompat.from(activity).areNotificationsEnabled()) }
     var batteryExempt by remember { mutableStateOf(BackgroundGuidance.isBatteryExempt(activity)) }
-    var xiaomiBackgroundRestricted by remember { mutableStateOf(isXiaomi && BackgroundGuidance.isRestricted(activity)) }
+    var backgroundRestricted by remember { mutableStateOf(BackgroundGuidance.isRestricted(activity)) }
     var locationRequested by rememberSaveable { mutableStateOf(false) }
     var notificationRequested by rememberSaveable { mutableStateOf(false) }
     var skipBackground by rememberSaveable { mutableStateOf(false) }
-    var xiaomiBatteryOpened by rememberSaveable { mutableStateOf(false) }
-    var xiaomiAutostartOpened by rememberSaveable { mutableStateOf(false) }
+    var backgroundSettingsOpened by rememberSaveable { mutableStateOf(false) }
+    var autostartSettingsOpened by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf(MapProvider.TENCENT) }
     var mapError by rememberSaveable { mutableStateOf(false) }
 
@@ -43,7 +43,7 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
         locationGranted = activity.hasPermission(ACCESS_FINE_LOCATION)
         notificationGranted = NotificationManagerCompat.from(activity).areNotificationsEnabled()
         batteryExempt = BackgroundGuidance.isBatteryExempt(activity)
-        xiaomiBackgroundRestricted = isXiaomi && BackgroundGuidance.isRestricted(activity)
+        backgroundRestricted = BackgroundGuidance.isRestricted(activity)
     }
     val requestPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.containsKey(ACCESS_FINE_LOCATION)) locationRequested = true
@@ -75,14 +75,13 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
         pendingPermissions.isNotEmpty() -> SetupStep.PERMISSIONS
         !locationGranted || !notificationGranted -> SetupStep.PERMISSION_SETTINGS
         !skipBackground && !batteryExempt -> SetupStep.SYSTEM_BATTERY
-        !skipBackground && isXiaomi && !xiaomiBatteryOpened -> SetupStep.XIAOMI_BATTERY
-        !skipBackground && isXiaomi && !xiaomiAutostartOpened -> SetupStep.XIAOMI_AUTOSTART
+        !skipBackground && backgroundRestricted && !backgroundSettingsOpened -> SetupStep.BACKGROUND_BATTERY
+        !skipBackground && guideAutostart && !autostartSettingsOpened -> SetupStep.AUTOSTART
         else -> SetupStep.MAP
     }
 
     StartupSetupScreen(
-        progress = SetupProgress(location, notifications, batteryExempt,
-            xiaomiBackgroundRestricted.takeIf { isXiaomi }, step),
+        progress = SetupProgress(location, notifications, batteryExempt, backgroundRestricted, guideAutostart, step),
         selectedMap = selected,
         mapError = mapError,
         onSkipBackground = { skipBackground = true },
@@ -99,8 +98,8 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
                 SetupStep.PERMISSION_SETTINGS -> if (!locationGranted) BackgroundGuidance.openAppDetails(activity)
                     else BackgroundGuidance.openNotifications(activity)
                 SetupStep.SYSTEM_BATTERY -> BackgroundGuidance.openBatterySettings(activity, requestExemption = true)
-                SetupStep.XIAOMI_BATTERY -> xiaomiBatteryOpened = BackgroundGuidance.openXiaomiBattery(activity)
-                SetupStep.XIAOMI_AUTOSTART -> xiaomiAutostartOpened = BackgroundGuidance.openXiaomiAutostart(activity)
+                SetupStep.BACKGROUND_BATTERY -> backgroundSettingsOpened = BackgroundGuidance.openBackgroundBatterySettings(activity)
+                SetupStep.AUTOSTART -> autostartSettingsOpened = BackgroundGuidance.openAutostartSettings(activity)
                 SetupStep.MAP -> {
                     refreshStatus()
                     if (locationGranted && notificationGranted) mapError = !onComplete(selected)

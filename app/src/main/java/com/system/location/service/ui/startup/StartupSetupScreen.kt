@@ -60,14 +60,15 @@ import com.system.location.service.maps.MapProvider
 internal enum class SetupPermission { GRANTED, REQUEST, RETRY, SETTINGS }
 
 internal enum class SetupStep(val section: Int) {
-    PERMISSIONS(1), PERMISSION_SETTINGS(1), SYSTEM_BATTERY(2), XIAOMI_BATTERY(2), XIAOMI_AUTOSTART(2), MAP(3),
+    PERMISSIONS(1), PERMISSION_SETTINGS(1), SYSTEM_BATTERY(2), BACKGROUND_BATTERY(2), AUTOSTART(2), MAP(3),
 }
 
 internal data class SetupProgress(
     val location: SetupPermission,
     val notifications: SetupPermission,
     val batteryExempt: Boolean,
-    val xiaomiBackgroundRestricted: Boolean?,
+    val backgroundRestricted: Boolean,
+    val guideAutostart: Boolean,
     val step: SetupStep,
 )
 
@@ -129,16 +130,17 @@ internal fun StartupSetupScreen(
                             badge = if (progress.batteryExempt) R.string.setup_battery_exempt else R.string.setup_battery_not_exempt,
                             checked = progress.batteryExempt,
                         )
-                        progress.xiaomiBackgroundRestricted?.let { restricted ->
+                        SetupStatusCard(
+                            title = stringResource(R.string.setup_background_battery),
+                            description = stringResource(if (progress.backgroundRestricted) R.string.setup_background_battery_description
+                                else R.string.setup_background_battery_unrestricted),
+                            icon = R.drawable.setup_battery,
+                            badge = R.string.setup_background_restricted.takeIf { progress.backgroundRestricted },
+                        )
+                        if (progress.guideAutostart) {
                             SetupStatusCard(
-                                title = stringResource(R.string.setup_xiaomi_battery),
-                                description = stringResource(R.string.setup_xiaomi_battery_description),
-                                icon = R.drawable.setup_battery,
-                                badge = R.string.setup_xiaomi_background_restricted.takeIf { restricted },
-                            )
-                            SetupStatusCard(
-                                title = stringResource(R.string.setup_xiaomi_autostart),
-                                description = stringResource(R.string.setup_xiaomi_autostart_description),
+                                title = stringResource(R.string.setup_autostart),
+                                description = stringResource(R.string.setup_autostart_description),
                                 icon = R.drawable.setup_autostart,
                             )
                         }
@@ -286,8 +288,8 @@ private fun SetupFooter(progress: SetupProgress, selectedMap: MapProvider, mapEr
         SetupStep.PERMISSIONS -> if (denied) R.string.setup_retry_permissions else R.string.setup_start_permissions
         SetupStep.PERMISSION_SETTINGS -> R.string.setup_open_settings
         SetupStep.SYSTEM_BATTERY -> R.string.setup_open_battery
-        SetupStep.XIAOMI_BATTERY -> R.string.setup_open_xiaomi_battery
-        SetupStep.XIAOMI_AUTOSTART -> R.string.setup_open_xiaomi_autostart
+        SetupStep.BACKGROUND_BATTERY -> R.string.setup_open_background_battery
+        SetupStep.AUTOSTART -> R.string.setup_open_autostart
         SetupStep.MAP -> R.string.setup_enter
     }
     Surface(color = colors.surface, shadowElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {

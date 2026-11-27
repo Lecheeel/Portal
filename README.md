@@ -68,7 +68,7 @@
 
 [![Ask DeepWiki](https://raw.githubusercontent.com/Lecheeel/Portal/main/docs/badge.svg)](https://deepwiki.com/Lecheeel/Portal)
 [![Release](https://img.shields.io/badge/Release-brightgreen)](https://github.com/Lecheeel/Portal/releases)
-[![Android](https://img.shields.io/badge/Android-查看安装要求-blue.svg?style=flat)](#-快速开始)
+[![Android](https://img.shields.io/badge/Android-10%20--%2017-blue.svg?style=flat)](https://github.com/Lecheeel/Portal/releases)
 [![PR](https://img.shields.io/badge/PRs-Wellcome-brightgreen.svg?style=flat)](https://github.com/Lecheeel/Portal/pulls)
 [![libxposed](https://img.shields.io/badge/libxposed%20API-102-blue.svg?style=flat)](https://github.com/Lecheeel/Portal/releases)
 [![Xposed](https://img.shields.io/badge/Lsposed%2FVector-Supported-brightgreen)](https://github.com/Lecheeel/Portal/releases)
@@ -219,10 +219,8 @@ GGA/RMC/GSA/GSV/GST/ZDA
 - [ ] Shizuku模式
 ## 🚀 快速开始
 
-1. 从 [Releases](https://github.com/Lecheeel/Portal/releases) 下载对应版本。已发布的 v2.3.7 要求 Android 12（API 31）及以上。
-2. 使用标准无 Root 模式时，在系统开发者选项中将 Portal 设为模拟位置应用，并授予定位权限。
-
-当前主分支已将标准无 Root 模式适配到 Android 10（API 29）。无 Root 模拟启动后，如果 Wi-Fi 或蓝牙仍开启，Portal 会提示前往系统设置，也可以忽略。Xposed 与 Native + Xposed 要求 Android 12 及以上，具体功能取决于框架和设备。
+1. 从 [Releases](https://github.com/Lecheeel/Portal/releases) 安装。
+2. 授予权限
 
 
 

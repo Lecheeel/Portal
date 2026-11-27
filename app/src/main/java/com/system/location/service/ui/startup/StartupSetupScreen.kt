@@ -21,17 +21,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,26 +55,45 @@ import com.system.location.service.R
 import com.system.location.service.designsystem.theme.PortalSpacing
 import com.system.location.service.maps.MapProvider
 
-internal enum class SetupPermission { GRANTED, REQUEST, RETRY, SETTINGS, SKIPPED }
+internal enum class SetupPermission { GRANTED, REQUEST, RETRY, SETTINGS }
+
+internal enum class SetupStep(val section: Int) {
+    PERMISSIONS(1), PERMISSION_SETTINGS(1), SYSTEM_BATTERY(2), XIAOMI_BATTERY(2), XIAOMI_AUTOSTART(2), MAP(3),
+}
+
+internal data class SetupProgress(
+    val location: SetupPermission,
+    val notifications: SetupPermission,
+    val batteryExempt: Boolean,
+    val xiaomiBatteryOpened: Boolean?,
+    val xiaomiAutostartOpened: Boolean?,
+    val step: SetupStep,
+)
 
 @Composable
 internal fun StartupSetupScreen(
-    location: SetupPermission,
-    notifications: SetupPermission?,
+    progress: SetupProgress,
     selectedMap: MapProvider?,
     mapError: Boolean,
-    onLocation: () -> Unit,
-    onNotifications: () -> Unit,
-    onSkipNotifications: () -> Unit,
+    onSkipBackground: () -> Unit,
     onSelectMap: (MapProvider) -> Unit,
     onReadPolicy: (MapProvider) -> Unit,
-    onContinue: (MapProvider) -> Unit,
+    onContinue: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
+    val listState = rememberLazyListState()
+    var previousSection by remember { mutableIntStateOf(progress.step.section) }
+    LaunchedEffect(progress.step.section) {
+        if (previousSection != progress.step.section) {
+            previousSection = progress.step.section
+            listState.animateScrollToItem(previousSection)
+        }
+    }
     Surface(color = colors.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing), horizontalAlignment = Alignment.CenterHorizontally) {
             LazyColumn(
                 modifier = Modifier.weight(1f).widthIn(max = 560.dp).fillMaxWidth().testTag("startup-setup"),
+                state = listState,
                 contentPadding = PaddingValues(horizontal = PortalSpacing.xl, vertical = PortalSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(PortalSpacing.lg),
             ) {
@@ -77,28 +101,46 @@ internal fun StartupSetupScreen(
                 item(key = "device") {
                     Column(verticalArrangement = Arrangement.spacedBy(PortalSpacing.sm)) {
                         SetupHeading(stringResource(R.string.setup_permissions))
-                        PermissionCard(
+                        SetupStatusCard(
                             title = stringResource(R.string.setup_location),
-                            description = stringResource(
-                                if (location == SetupPermission.RETRY || location == SetupPermission.SETTINGS)
-                                    R.string.setup_location_denied else R.string.setup_location_description,
-                            ),
+                            description = stringResource(R.string.setup_location_description),
                             icon = R.drawable.setup_location,
-                            permission = location,
-                            requestLabel = R.string.setup_grant_location,
-                            onRequest = onLocation,
-                            actionTag = "setup-location-action",
+                            badge = permissionBadge(progress.location),
+                            checked = progress.location == SetupPermission.GRANTED,
                         )
-                        if (notifications != null) {
-                            PermissionCard(
-                                title = stringResource(R.string.setup_notification),
-                                description = stringResource(R.string.setup_notification_description),
-                                icon = R.drawable.setup_notification,
-                                permission = notifications,
-                                requestLabel = R.string.setup_enable_notifications,
-                                onRequest = onNotifications,
-                                actionTag = "setup-notification-action",
-                                onSkip = onSkipNotifications,
+                        SetupStatusCard(
+                            title = stringResource(R.string.setup_notification),
+                            description = stringResource(R.string.setup_notification_description),
+                            icon = R.drawable.setup_notification,
+                            badge = permissionBadge(progress.notifications),
+                            checked = progress.notifications == SetupPermission.GRANTED,
+                        )
+                    }
+                }
+                item(key = "background") {
+                    Column(verticalArrangement = Arrangement.spacedBy(PortalSpacing.sm)) {
+                        SetupHeading(stringResource(R.string.setup_background))
+                        SetupStatusCard(
+                            title = stringResource(R.string.setup_battery),
+                            description = stringResource(R.string.setup_battery_description),
+                            icon = R.drawable.setup_battery,
+                            badge = if (progress.batteryExempt) R.string.setup_permission_granted else R.string.setup_pending_settings,
+                            checked = progress.batteryExempt,
+                        )
+                        progress.xiaomiBatteryOpened?.let { opened ->
+                            SetupStatusCard(
+                                title = stringResource(R.string.setup_xiaomi_battery),
+                                description = stringResource(R.string.setup_xiaomi_battery_description),
+                                icon = R.drawable.setup_battery,
+                                badge = if (opened) R.string.setup_settings_viewed else R.string.setup_pending_settings,
+                            )
+                        }
+                        progress.xiaomiAutostartOpened?.let { opened ->
+                            SetupStatusCard(
+                                title = stringResource(R.string.setup_xiaomi_autostart),
+                                description = stringResource(R.string.setup_xiaomi_autostart_description),
+                                icon = R.drawable.setup_autostart,
+                                badge = if (opened) R.string.setup_settings_viewed else R.string.setup_pending_settings,
                             )
                         }
                     }
@@ -117,7 +159,7 @@ internal fun StartupSetupScreen(
                     }
                 }
             }
-            SetupFooter(location == SetupPermission.GRANTED, selectedMap, mapError, onContinue)
+            SetupFooter(progress, selectedMap, mapError, onSkipBackground, onContinue)
         }
     }
 }
@@ -149,47 +191,34 @@ private fun SetupHeading(title: String) {
 }
 
 @Composable
-private fun PermissionCard(
+private fun SetupStatusCard(
     title: String,
     description: String,
     @DrawableRes icon: Int,
-    permission: SetupPermission,
-    @StringRes requestLabel: Int,
-    onRequest: () -> Unit,
-    actionTag: String,
-    onSkip: (() -> Unit)? = null,
+    @StringRes badge: Int,
+    checked: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
-    val granted = permission == SetupPermission.GRANTED
-    val skipped = permission == SetupPermission.SKIPPED
     Surface(shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, colors.outlineVariant)) {
-        Column(Modifier.padding(horizontal = PortalSpacing.lg, vertical = PortalSpacing.md)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(PortalSpacing.md)) {
-                SetupIcon(icon)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PortalSpacing.xs)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium)
-                    Text(description, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().padding(horizontal = PortalSpacing.lg, vertical = PortalSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(PortalSpacing.md)) {
+            SetupIcon(icon)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PortalSpacing.xs)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(PortalSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    PermissionBadge(badge, checked)
                 }
-                if (granted) {
-                    PermissionBadge(R.string.setup_permission_granted, checked = true)
-                } else if (onSkip != null) {
-                    PermissionBadge(if (skipped) R.string.setup_notification_skipped else R.string.setup_optional)
-                }
-            }
-            if (!granted) {
-                Row(Modifier.fillMaxWidth().padding(top = PortalSpacing.xs),
-                    horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    if (onSkip != null && !skipped) TextButton(onClick = onSkip) {
-                        Text(stringResource(R.string.setup_notification_skip), textAlign = TextAlign.Center)
-                    }
-                    OutlinedButton(onClick = onRequest, modifier = Modifier.testTag(actionTag)) {
-                        Text(stringResource(if (permission == SetupPermission.SETTINGS) R.string.setup_open_settings else requestLabel),
-                            textAlign = TextAlign.Center)
-                    }
-                }
+                Text(description, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
             }
         }
     }
+}
+
+@StringRes
+private fun permissionBadge(permission: SetupPermission): Int = when (permission) {
+    SetupPermission.GRANTED -> R.string.setup_permission_granted
+    SetupPermission.REQUEST -> R.string.setup_permission_pending
+    else -> R.string.setup_permission_missing
 }
 
 @Composable
@@ -247,26 +276,44 @@ private fun SetupIcon(@DrawableRes icon: Int, secondary: Boolean = false) {
 }
 
 @Composable
-private fun SetupFooter(preciseLocation: Boolean, selectedMap: MapProvider?, mapError: Boolean,
-    onContinue: (MapProvider) -> Unit) {
+private fun SetupFooter(progress: SetupProgress, selectedMap: MapProvider?, mapError: Boolean,
+    onSkipBackground: () -> Unit, onContinue: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val step = progress.step
+    val backgroundStep = step.section == 2
+    val denied = progress.location in setOf(SetupPermission.RETRY, SetupPermission.SETTINGS) ||
+        progress.notifications in setOf(SetupPermission.RETRY, SetupPermission.SETTINGS)
+    val action = when (step) {
+        SetupStep.PERMISSIONS -> if (denied) R.string.setup_retry_permissions else R.string.setup_start_permissions
+        SetupStep.PERMISSION_SETTINGS -> R.string.setup_open_settings
+        SetupStep.SYSTEM_BATTERY -> R.string.setup_open_battery
+        SetupStep.XIAOMI_BATTERY -> R.string.setup_open_xiaomi_battery
+        SetupStep.XIAOMI_AUTOSTART -> R.string.setup_open_xiaomi_autostart
+        SetupStep.MAP -> if (selectedMap == null) R.string.setup_choose_map else R.string.setup_enter
+    }
     Surface(color = colors.surface, shadowElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = PortalSpacing.xl, vertical = PortalSpacing.md),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(PortalSpacing.xs)) {
-                if (mapError) {
-                    Text(stringResource(R.string.setup_map_error), color = colors.error, style = MaterialTheme.typography.bodyMedium)
-                } else if (selectedMap != null && preciseLocation) {
-                    Text(stringResource(R.string.setup_privacy_acknowledgement, stringResource(mapTitle(selectedMap))),
-                        textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                val hint = when (step) {
+                    SetupStep.PERMISSIONS -> stringResource(if (denied) R.string.setup_permissions_denied else R.string.setup_permissions_hint)
+                    SetupStep.PERMISSION_SETTINGS -> stringResource(R.string.setup_permissions_denied)
+                    SetupStep.MAP -> when {
+                        mapError -> stringResource(R.string.setup_map_error)
+                        selectedMap != null -> stringResource(R.string.setup_privacy_acknowledgement, stringResource(mapTitle(selectedMap)))
+                        else -> null
+                    }
+                    else -> null
                 }
-                Button(onClick = { selectedMap?.let(onContinue) }, enabled = preciseLocation && selectedMap != null,
+                if (hint != null) Text(hint, textAlign = TextAlign.Center,
+                    color = if (step == SetupStep.MAP && mapError) colors.error else colors.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium)
+                Button(onClick = onContinue, enabled = step != SetupStep.MAP || selectedMap != null,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("setup-continue")) {
-                    Text(stringResource(when {
-                        !preciseLocation -> R.string.setup_grant_to_continue
-                        selectedMap == null -> R.string.setup_choose_map
-                        else -> R.string.setup_enter
-                    }), textAlign = TextAlign.Center)
+                    Text(stringResource(action), textAlign = TextAlign.Center)
+                }
+                if (backgroundStep) TextButton(onClick = onSkipBackground, modifier = Modifier.testTag("setup-skip-background")) {
+                    Text(stringResource(R.string.setup_skip_background))
                 }
             }
         }

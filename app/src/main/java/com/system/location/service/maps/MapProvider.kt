@@ -3,8 +3,9 @@ package com.system.location.service.maps
 import android.content.Context
 import com.system.location.service.ext.sharedPrefs
 
-enum class MapProvider(val label: String) {
-    AMAP("高德地图"), TENCENT("腾讯地图");
+enum class MapProvider(val label: String, val privacyPolicyUrl: String) {
+    AMAP("高德地图", "https://lbs.amap.com/pages/privacy/"),
+    TENCENT("腾讯地图", "https://lbs.qq.com/userAgreements/agreements/privacy");
     companion object {
         fun restore(value: String?) = entries.firstOrNull { it.name == value } ?: TENCENT
     }

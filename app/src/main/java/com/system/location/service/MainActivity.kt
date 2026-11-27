@@ -1,20 +1,9 @@
 package com.system.location.service
 
-import android.Manifest.permission.ACCESS_COARSE_LOCATION
-import android.Manifest.permission.ACCESS_FINE_LOCATION
-import android.Manifest.permission.ACCESS_LOCATION_EXTRA_COMMANDS
-import android.Manifest.permission.ACCESS_NETWORK_STATE
-import android.Manifest.permission.ACCESS_WIFI_STATE
-import android.Manifest.permission.CHANGE_WIFI_STATE
-import android.Manifest.permission.FOREGROUND_SERVICE
-import android.Manifest.permission.INTERNET
-import android.Manifest.permission.READ_PHONE_STATE
-import android.Manifest.permission.VIBRATE
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.LocationManager
 import android.net.Uri
@@ -27,7 +16,6 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
@@ -38,29 +26,21 @@ import androidx.navigation.navOptions
 import com.system.location.service.maps.*
 import com.system.location.service.privacy.TencentPrivacy
 import com.system.location.service.privacy.SdkPrivacy
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import com.system.location.service.ui.PortalDialog
-import com.system.location.service.ui.PortalDialogContent
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 import kotlinx.coroutines.launch
-import com.system.location.service.android.permission.RequestPermissions
-import com.system.location.service.android.root.ShellUtils
 import com.system.location.service.android.window.OverlayUtils
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.system.location.service.ui.navigation.PortalAppShell
-import com.system.location.service.ext.Loc4j
 import com.system.location.service.ui.notification.NotificationUtils
 import com.system.location.service.ui.viewmodel.AMapViewModel
 import com.system.location.service.ui.viewmodel.MockServiceViewModel
 import com.system.location.service.update.StartupUpdateViewModel
-import com.system.location.service.runtime.ScenarioRuntime
 import com.system.location.service.update.UpdateDialogFragment
 import com.system.location.service.ui.navigation.PortalNavigationTransitions
 import com.system.location.service.designsystem.theme.PortalTheme
+import com.system.location.service.ui.startup.StartupSetup
 
 class MainActivity : AppCompatActivity() {
     internal var drawerState = androidx.compose.material3.DrawerState(androidx.compose.material3.DrawerValue.Closed)
@@ -69,7 +49,7 @@ class MainActivity : AppCompatActivity() {
         private set
     internal var selectedDrawerId by androidx.compose.runtime.mutableIntStateOf(R.id.nav_home)
         private set
-    private var shellReady = false
+    private var shellReady by mutableStateOf(false)
     private var navHost: androidx.navigation.fragment.NavHostFragment? = null
     private var drawerUiScope: kotlinx.coroutines.CoroutineScope? = null
     internal val shellView: View get() = findViewById(android.R.id.content)
@@ -118,92 +98,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /* Permission */
-    private val requestMultiplePermissions = RequestPermissions(this)
-
     /* ViewModels */
     private val aMapViewModel by viewModels<AMapViewModel>()
     private val mockServiceViewModel by viewModels<MockServiceViewModel>()
     private val startupUpdateViewModel by viewModels<StartupUpdateViewModel>()
 
-    private fun getRequiredPermissions(): MutableSet<String> {
-        val permissions = mutableSetOf(
-            ACCESS_FINE_LOCATION,
-            ACCESS_COARSE_LOCATION,
-        )
-        if (Build.VERSION.SDK_INT >= 33) {
-            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
-        }
-        return permissions
-    }
-
-    private fun handleDeniedPermissions(denied: Set<String>) {
-        denied.forEach { permission ->
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
-                showPermissionDeniedToast(permission)
-            } else {
-                ActivityCompat.requestPermissions(this, arrayOf(permission), REQUEST_PERMISSIONS_CODE)
-            }
-        }
-
-    }
-
-    private fun showPermissionDeniedToast(permission: String) {
-        val message = when (permission) {
-            ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION -> "LocationService需要完整位置权限"
-            ACCESS_LOCATION_EXTRA_COMMANDS -> "LocationService需要额外位置命令权限和系统交互"
-            CHANGE_WIFI_STATE, ACCESS_WIFI_STATE -> "LocationService需要访问Wi-Fi状态"
-            READ_PHONE_STATE -> "LocationService需要读取设备信息"
-            ACCESS_NETWORK_STATE, INTERNET -> "LocationService需要访问网络"
-            VIBRATE -> "LocationService需要访问传感器"
-            else -> "需要  才能运行"
-        }
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
-    private suspend fun checkPermission(): Boolean {
-        val permissions = getRequiredPermissions()
-        val (_, denied) = requestMultiplePermissions.request(permissions)
-        handleDeniedPermissions(denied)
-        return denied.isEmpty()
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         supportFragmentManager.registerFragmentLifecycleCallbacks(PortalNavigationTransitions(), true)
-        // super restores NavHost and its MapViews synchronously.
-        // Discard old UI state unless consent is confirmed and the map SDK is ready.
-        val mapsReady = selectedMapsReady()
+        // A saved onboarding screen contains no NavHost. Never restore an old MapView before consent.
+        val mapsReady = runCatching { selectedMapsReady() }.getOrDefault(false)
         val restoreDrawerOpen = mapsReady && savedInstanceState?.getBoolean("portal.drawer.open") == true
-        super.onCreate(if (mapsReady) savedInstanceState else null)
-
-        // Edge-to-Edge full immersion layout
+        val safeToRestore = mapsReady || savedInstanceState?.getBoolean(SETUP_VISIBLE) == true
+        super.onCreate(savedInstanceState.takeIf { safeToRestore })
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        if (mapsReady) prepareAppShell(restoreDrawerOpen)
 
-        lifecycleScope.launch {
-            if (!awaitMapConsent()) { finish(); return@launch }
-            repeatOnLifecycle(Lifecycle.State.CREATED) {
-                checkPermission()
-                mockServiceViewModel.locationManager = getSystemService(LOCATION_SERVICE) as? LocationManager
-
-                initNotification()
-
-                drawerState = androidx.compose.material3.DrawerState(if (restoreDrawerOpen)
-                    androidx.compose.material3.DrawerValue.Open else androidx.compose.material3.DrawerValue.Closed)
-                setContent {
+        setContent {
+            PortalTheme {
+                if (shellReady) {
                     val scope = androidx.compose.runtime.rememberCoroutineScope()
                     androidx.compose.runtime.DisposableEffect(scope) {
                         drawerUiScope = scope
                         onDispose { if (drawerUiScope === scope) drawerUiScope = null }
                     }
-                    PortalTheme {
-                        PortalAppShell(drawerState, selectedDrawerId,
-                            onNavigate = ::navigateFromDrawer,
-                            createHost = ::createNavigationHost)
-                    }
+                    PortalAppShell(drawerState, selectedDrawerId,
+                        onNavigate = ::navigateFromDrawer,
+                        createHost = ::createNavigationHost)
+                } else {
+                    StartupSetup(this@MainActivity, ::completeStartupSetup)
                 }
-                shellReady = true
-                applySystemBarTheme()
-                startupUpdateViewModel.check()
             }
         }
 
@@ -219,37 +142,29 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    private suspend fun awaitMapConsent(): Boolean {
-        if (selectedMapsReady()) return true
-        return suspendCancellableCoroutine { continuation ->
-            val dialog = PortalDialog(this)
-            dialog.setCancelable(false)
-            dialog.content {
-                PortalDialogContent(getString(R.string.map_privacy_title),
-                    getString(if (mapProvider == MapProvider.TENCENT) R.string.tencent_privacy_message else R.string.map_privacy_message),
-                    buttons = {
-                        TextButton(onClick = {
-                            if (continuation.isActive) continuation.resume(false)
-                            dialog.dismiss()
-                        }) { Text(getString(R.string.map_privacy_decline)) }
-                        TextButton(onClick = {
-                            runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
-                                if (mapProvider == MapProvider.TENCENT) "https://lbs.qq.com/userAgreements/agreements/privacy"
-                                else "https://lbs.amap.com/pages/privacy/"))) }
-                                .onFailure { Toast.makeText(this@MainActivity, R.string.map_privacy_no_browser, Toast.LENGTH_LONG).show() }
-                        }) { Text(getString(R.string.map_privacy_policy)) }
-                        TextButton(onClick = {
-                            runCatching { if (mapProvider == MapProvider.TENCENT) TencentPrivacy.accept(this@MainActivity) else SdkPrivacy.acceptMaps() }
-                                .onSuccess {
-                                    if (continuation.isActive) continuation.resume(true)
-                                    dialog.dismiss()
-                                }.onFailure { Toast.makeText(this@MainActivity, it.message ?: getString(R.string.privacy_save_failed), Toast.LENGTH_LONG).show() }
-                        }) { Text(getString(R.string.map_privacy_accept)) }
-                    })
+    private fun completeStartupSetup(provider: MapProvider): Boolean {
+        if (shellReady) return true
+        val ready = runCatching {
+            mapProvider = provider
+            when (provider) {
+                MapProvider.AMAP -> SdkPrivacy.acceptMaps()
+                MapProvider.TENCENT -> TencentPrivacy.accept(this)
             }
-            continuation.invokeOnCancellation { dialog.dismiss() }
-            dialog.show()
+            selectedMapsReady()
+        }.getOrDefault(false)
+        if (ready) {
+            prepareAppShell(restoreDrawerOpen = false)
+            startupUpdateViewModel.check()
         }
+        return ready
+    }
+
+    private fun prepareAppShell(restoreDrawerOpen: Boolean) {
+        mockServiceViewModel.locationManager = getSystemService(LocationManager::class.java)
+        initNotification()
+        drawerState = androidx.compose.material3.DrawerState(if (restoreDrawerOpen)
+            androidx.compose.material3.DrawerValue.Open else androidx.compose.material3.DrawerValue.Closed)
+        shellReady = true
     }
 
     private fun selectedMapsReady(): Boolean = if (mapProvider == MapProvider.TENCENT)
@@ -342,37 +257,6 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_PERMISSIONS_CODE) {
-            val denied = permissions.filterIndexed { index, _ ->
-                grantResults[index] != PackageManager.PERMISSION_GRANTED
-            }
-
-            if (denied.isEmpty()) {
-                mockServiceViewModel.locationManager = getSystemService(LOCATION_SERVICE) as? LocationManager
-                return
-            }
-
-            for (permission in denied) {
-                Toast.makeText(this, when(permission) {
-                    ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION -> "LocationService需要完整位置权限"
-                    ACCESS_LOCATION_EXTRA_COMMANDS -> "LocationService需要额外位置命令权限和系统交互"
-                    CHANGE_WIFI_STATE, ACCESS_WIFI_STATE -> "LocationService需要访问Wi-Fi状态"
-                    READ_PHONE_STATE -> "LocationService需要读取设备信息"
-                    ACCESS_NETWORK_STATE, INTERNET -> "LocationService需要访问网络"
-                    VIBRATE -> "LocationService需要访问传感器"
-                    else -> "需要  才能运行"
-                } + "，请手动授权！", Toast.LENGTH_SHORT).show()
-            }
-
-        }
-    }
-
     override fun onSupportNavigateUp(): Boolean {
         val controller = navHost?.navController ?: return false
         if (com.system.location.service.ui.navigation.portalDestinations.any { it.id == currentDestinationId } ||
@@ -385,11 +269,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean("portal.drawer.open", drawerState.isOpen)
+        outState.putBoolean(SETUP_VISIBLE, !shellReady)
         super.onSaveInstanceState(outState)
     }
 
     companion object {
-        private const val REQUEST_PERMISSIONS_CODE = 111
+        private const val SETUP_VISIBLE = "portal.startup.setup_visible"
 
         internal var mCityString: String? = null
             set(value) {

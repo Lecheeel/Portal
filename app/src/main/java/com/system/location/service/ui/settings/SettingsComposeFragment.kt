@@ -246,10 +246,7 @@ class SettingsComposeFragment : Fragment() {
                         if (next == com.system.location.service.maps.MapProvider.TENCENT) R.string.tencent_privacy_message
                         else R.string.map_privacy_message), buttons = {
                         TextButton(onClick = {
-                            runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(
-                                if (next == com.system.location.service.maps.MapProvider.TENCENT)
-                                    "https://lbs.qq.com/userAgreements/agreements/privacy"
-                                else "https://lbs.amap.com/pages/privacy/"))) }
+                            runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(next.privacyPolicyUrl))) }
                         }) { Text("查看政策") }
                         TextButton(onClick = { dialog.dismiss() }) { Text("取消") }
                         TextButton(onClick = {

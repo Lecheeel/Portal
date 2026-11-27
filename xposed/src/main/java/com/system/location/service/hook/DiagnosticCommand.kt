@@ -32,6 +32,7 @@ object DiagnosticCommand {
         rely.putInt("hook_missing", ownership?.missing?.size ?: 0)
         rely.putBoolean("native_loaded", NativeCommand.isLoaded)
         rely.putBoolean("native_enabled", NativeCommand.isEnabled)
+        rely.putBoolean("step_simulation_supported", true)
         SampleCommand.publishStats()?.let { stats ->
             rely.putInt("publish_samples", stats.samples)
             rely.putLong("publish_p50_nanos", stats.p50Nanos)

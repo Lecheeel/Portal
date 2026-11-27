@@ -87,7 +87,10 @@ class XposedBackend(private val context: Context) : LocationBackend {
         val battery = BackendDiagnostic(
             "BATTERY",
             "INFO",
-            "level=${if (batteryPercent >= 0) "$batteryPercent%" else "unknown"} · temp=%.1f°C".format(batteryTemp),
+            "level=%s · temp=%.1f°C".format(
+                if (batteryPercent >= 0) "$batteryPercent%" else "unknown",
+                batteryTemp,
+            ),
         )
         return listOf(BackendDiagnostic("REMOTE_COMMAND", "CONNECTED", "system_server 远程通道已连接"),
             BackendDiagnostic("HOOK_SUMMARY", "INFO", "system_server：installed=${status.getInt("hook_installed")}, matched=${status.getInt("hook_matched")}, skipped=${status.getInt("hook_skipped")}, failed=${status.getInt("hook_failed")}"),

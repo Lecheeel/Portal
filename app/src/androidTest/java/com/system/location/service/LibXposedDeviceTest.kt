@@ -12,6 +12,7 @@ import android.os.OperationCanceledException
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.system.location.service.backend.xposed.XposedBackend
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.hook.security.SampleWire
@@ -20,6 +21,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -59,6 +61,15 @@ class LibXposedDeviceTest {
             "Unsupported sample protocol",
             SampleWire.isCompatible(status.getInt("sample_version")),
         )
+    }
+
+    @Test
+    fun diagnosticsIncludeBatteryAndAuthoritativePublicationState() = runBlocking {
+        connectAndReadStatus()
+        val diagnostics = XposedBackend(context).diagnose().associateBy { it.stage }
+        assertEquals("CONNECTED", diagnostics.getValue("REMOTE_COMMAND").result)
+        assertTrue(diagnostics.getValue("BATTERY").reason.matches(Regex("level=\\d+% · temp=.+°C")))
+        assertTrue(diagnostics.containsKey("LAST_PUBLISH"))
     }
 
     @Test

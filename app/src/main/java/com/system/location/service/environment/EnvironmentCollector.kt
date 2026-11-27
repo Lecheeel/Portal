@@ -96,7 +96,7 @@ class EnvironmentCollector(private val context: Context) {
                     frequencyMhz = frequency,
                     channel = channel,
                     capabilities = capabilities,
-                    standard = result.wifiStandard,
+                    standard = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) result.wifiStandard else WifiAp.MIN_STANDARD,
                     connected = bssid.lowercase() == connectedBssid,
                 )
             }.getOrNull()
@@ -106,6 +106,7 @@ class EnvironmentCollector(private val context: Context) {
     @Suppress("MissingPermission")
     private data class CellCapture(val gsm: List<CellTower>, val cdma: List<CdmaTower>)
 
+    @Suppress("DEPRECATION")
     private suspend fun captureCells(originElapsedRealtimeNanos: Long?): CellCapture {
         if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return CellCapture(emptyList(), emptyList())
@@ -116,8 +117,13 @@ class EnvironmentCollector(private val context: Context) {
         val source = updated?.takeIf { it.isNotEmpty() }
             ?: runCatching { manager.allCellInfo }.getOrDefault(emptyList())
         val cells = source.filter { cell ->
-            originElapsedRealtimeNanos == null || EnvironmentCaptureFreshness.cellTimestampNanos(cell.timestampMillis)
-                ?.let { EnvironmentCaptureFreshness.matchesFix(it, originElapsedRealtimeNanos) } == true
+            if (originElapsedRealtimeNanos == null) return@filter true
+            val timestampNanos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                EnvironmentCaptureFreshness.cellTimestampNanos(cell.timestampMillis)
+            } else {
+                cell.timeStamp.takeUnless { it == Long.MAX_VALUE }
+            }
+            timestampNanos?.let { EnvironmentCaptureFreshness.matchesFix(it, originElapsedRealtimeNanos) } == true
         }
         val gsm = cells.mapNotNull { cell -> runCatching { cell.toTower() }.getOrNull() }
             .distinctBy { "${it.mcc}:${it.mnc}:${it.areaCode}:${it.cellId}" }

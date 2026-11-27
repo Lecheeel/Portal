@@ -7,13 +7,14 @@ import android.location.GnssMeasurementsEvent
 import android.location.GnssNavigationMessage
 import android.location.GnssStatus
 import android.location.Location
-import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import androidx.core.location.LocationCompat
+import androidx.core.location.LocationListenerCompat
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.gnss.*
 import com.system.location.service.core.backend.BackendType
@@ -69,9 +70,9 @@ class GnssReceiverCollector(
                 if (localActive() || ScenarioRuntime.controller.startGeneration != localGeneration) contaminated = true
                 return accepting && !contaminated
             }
-            val locationListener = LocationListener { sample ->
-                if (sample.isMock) contaminated = true
-                if (!accepts()) return@LocationListener
+            val locationListener = LocationListenerCompat { sample ->
+                if (LocationCompat.isMock(sample)) contaminated = true
+                if (!accepts()) return@LocationListenerCompat
                 val arrival = SystemClock.elapsedRealtimeNanos()
                 val valid = sample.latitude in -90.0..90.0 && sample.longitude in -180.0..180.0 &&
                     sample.elapsedRealtimeNanos in 1..arrival &&
@@ -150,12 +151,16 @@ class GnssReceiverCollector(
                                 sample.accumulatedDeltaRangeUncertaintyMeters,
                                 if (sample.hasCarrierFrequencyHz()) sample.carrierFrequencyHz.toDouble() else null,
                                 if (sample.hasCodeType()) sample.codeType else null,
-                                fullInterSignalBiasNanos = if (sample.hasFullInterSignalBiasNanos()) sample.fullInterSignalBiasNanos else null,
-                                fullInterSignalBiasUncertaintyNanos = if (sample.hasFullInterSignalBiasUncertaintyNanos())
+                                fullInterSignalBiasNanos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                                    sample.hasFullInterSignalBiasNanos()) sample.fullInterSignalBiasNanos else null,
+                                fullInterSignalBiasUncertaintyNanos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                                    sample.hasFullInterSignalBiasUncertaintyNanos())
                                     sample.fullInterSignalBiasUncertaintyNanos else null,
-                                satelliteInterSignalBiasNanos = if (sample.hasSatelliteInterSignalBiasNanos())
+                                satelliteInterSignalBiasNanos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                                    sample.hasSatelliteInterSignalBiasNanos())
                                     sample.satelliteInterSignalBiasNanos else null,
-                                satelliteInterSignalBiasUncertaintyNanos = if (sample.hasSatelliteInterSignalBiasUncertaintyNanos())
+                                satelliteInterSignalBiasUncertaintyNanos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                                    sample.hasSatelliteInterSignalBiasUncertaintyNanos())
                                     sample.satelliteInterSignalBiasUncertaintyNanos else null)
                         }.onFailure { notes += "部分原始测量字段无效：${it.javaClass.simpleName}" }.getOrNull()
                     }.take(512)
@@ -172,11 +177,14 @@ class GnssReceiverCollector(
                             elapsedRealtimeNanos = if (Build.VERSION.SDK_INT >= 29 && clock.hasElapsedRealtimeNanos()) clock.elapsedRealtimeNanos else null,
                             elapsedRealtimeUncertaintyNanos = if (Build.VERSION.SDK_INT >= 29 && clock.hasElapsedRealtimeUncertaintyNanos()) clock.elapsedRealtimeUncertaintyNanos else null,
                             capturedElapsedRealtimeNanos = capturedElapsed,
-                            referenceConstellationTypeForIsb = if (clock.hasReferenceConstellationTypeForIsb())
+                            referenceConstellationTypeForIsb = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                                clock.hasReferenceConstellationTypeForIsb())
                                 clock.referenceConstellationTypeForIsb else null,
-                            referenceCarrierHzForIsb = if (clock.hasReferenceCarrierFrequencyHzForIsb())
+                            referenceCarrierHzForIsb = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                                clock.hasReferenceCarrierFrequencyHzForIsb())
                                 clock.referenceCarrierFrequencyHzForIsb else null,
-                            referenceCodeTypeForIsb = if (clock.hasReferenceCodeTypeForIsb()) clock.referenceCodeTypeForIsb else null)
+                            referenceCodeTypeForIsb = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                                clock.hasReferenceCodeTypeForIsb()) clock.referenceCodeTypeForIsb else null)
                     }.onSuccess { measurements += it }
                         .onFailure { notes += "原始接收机时钟字段无效：${it.message}" }
                 }
@@ -198,10 +206,12 @@ class GnssReceiverCollector(
             try {
                 // HAL capability flags, registration acceptance and actual received data are
                 // independent evidence. A successful registration does not imply hardware support.
-                runCatching {
-                    val capabilities = manager.gnssCapabilities
-                    notes += "系统声明 GNSS 能力：原始测量=${capabilities.hasMeasurements()}，导航电文=${capabilities.hasNavigationMessages()}"
-                }.onFailure { notes += "GNSS 能力读取失败：${it.javaClass.simpleName}" }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    runCatching {
+                        val capabilities = manager.gnssCapabilities
+                        notes += "系统声明 GNSS 能力：原始测量=${capabilities.hasMeasurements()}，导航电文=${capabilities.hasNavigationMessages()}"
+                    }.onFailure { notes += "GNSS 能力读取失败：${it.javaClass.simpleName}" }
+                }
                 runCatching {
                     notes += "GNSS 驱动：${manager.gnssHardwareModelName ?: "未提供"}；硬件年份=${manager.gnssYearOfHardware}（0 表示未提供 2016 年及以后的年份）"
                 }.onFailure { notes += "GNSS 驱动信息读取失败：${it.javaClass.simpleName}" }

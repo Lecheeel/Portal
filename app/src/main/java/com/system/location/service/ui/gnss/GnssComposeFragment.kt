@@ -4,7 +4,6 @@ import android.content.Context
 import android.location.GnssStatus
 import android.location.LocationManager
 import android.location.Location
-import android.location.LocationListener
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.ComposeView
+import androidx.core.location.LocationListenerCompat
 import com.system.location.service.ui.navigation.setPortalPageContent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -176,7 +176,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                         satellites = displaySpacecraft(list)
                     }
                 }
-                val locationListener = object : LocationListener {
+                val locationListener = object : LocationListenerCompat {
                     override fun onLocationChanged(location: Location) = Unit
                     override fun onProviderDisabled(provider: String) {
                         if (listening) { satellites = emptyList(); observationMessage = "系统定位已关闭，请开启后查看真实卫星" }
@@ -187,7 +187,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                 }
                 if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                     try {
-                        check(manager.registerGnssStatusCallback(context.mainExecutor, callback)) { "系统未接受卫星状态监听" }
+                        check(manager.registerGnssStatusCallback(callback, android.os.Handler(android.os.Looper.getMainLooper()))) { "系统未接受卫星状态监听" }
                         if (!runtime.isActive) {
                             // Status callbacks alone do not turn on the GNSS receiver. Keep it active
                             // only while this tab is resumed and no simulated scene is running.
@@ -195,7 +195,7 @@ private fun GnssScreen(model: GnssViewModel, captureModel: com.system.location.s
                             observationMessage = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
                                 "等待卫星信号，可移至室外重试" else "系统定位已关闭，请开启后查看真实卫星"
                             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1_000L, 0f,
-                                context.mainExecutor, locationListener)
+                                locationListener, android.os.Looper.getMainLooper())
                         }
                     } catch (_: SecurityException) {
                         satellites = emptyList()

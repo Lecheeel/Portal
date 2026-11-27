@@ -5,6 +5,8 @@ import com.system.location.service.core.gnss.GnssMinimumPolicy
 import com.system.location.service.core.gnss.GnssSimulationEnvironment
 import com.system.location.service.core.gnss.GnssSimulationPolicy
 import com.system.location.service.core.location.LocationSanitizer
+import com.system.location.service.core.sensors.StepSimulationMethod
+import com.system.location.service.core.sensors.StepSimulationSettings
 
 import com.system.location.service.core.environment.EnvironmentConfig
 
@@ -95,6 +97,7 @@ class SettingsSchema(specs: List<SettingSpec>) {
 }
 
 object PortalSettingsSchema {
+    private val defaultSteps = StepSimulationSettings()
     val schema = SettingsSchema(
         listOf(
             SettingSpec("altitude", SettingType.DOUBLE, "0.0", 0.0, 20_000.0),
@@ -131,6 +134,12 @@ object PortalSettingsSchema {
             SettingSpec("sensor_cadence_scale", SettingType.DOUBLE, "1.0", 0.5, 2.0),
             SettingSpec("sensor_variation", SettingType.DOUBLE, "0.15", 0.0, 0.5),
             SettingSpec("sensor_targets", SettingType.STRING, "", maxLength = 32768, allowBlank = true),
+            SettingSpec("step_simulation_enabled", SettingType.BOOLEAN, defaultSteps.enabled.toString()),
+            SettingSpec("step_simulation_method", SettingType.ENUM, defaultSteps.method.name,
+                choices = StepSimulationMethod.entries.map { it.name }.toSet()),
+            SettingSpec("step_simulation_automatic", SettingType.BOOLEAN, defaultSteps.automatic.toString()),
+            SettingSpec("step_simulation_cadence", SettingType.INT, defaultSteps.manualStepsPerMinute.toString(),
+                1.0, StepSimulationSettings.MAX_STEPS_PER_MINUTE.toDouble()),
             SettingSpec("environment_ap_count", SettingType.INT, "4",
                 EnvironmentConfig.MIN_AP_PER_CELL.toDouble(), EnvironmentConfig.MAX_AP_PER_CELL.toDouble()),
             SettingSpec("cell_mode", SettingType.ENUM, "FULL_REPLAY", choices = setOf(

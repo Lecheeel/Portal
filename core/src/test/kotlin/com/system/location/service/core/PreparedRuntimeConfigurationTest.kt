@@ -200,4 +200,22 @@ class PreparedRuntimeConfigurationTest {
         assertFalse(result.configuration.nmeaEnabled)
         assertEquals(result, prepared.applyTo(latest))
     }
+
+    @Test fun stepSettingsDefaultToAutomaticXposedAndKeepSavedCadenceOnToggle() {
+        val defaults = initial.configuration.stepSimulation
+        assertTrue(defaults.usesXposed)
+        assertNull(defaults.fixedCadence)
+        val manual = PreparedRuntimeConfiguration.prepare(mapOf(
+            "step_simulation_method" to "NATIVE", "step_simulation_automatic" to false,
+            "step_simulation_cadence" to 145,
+        )).applyTo(initial)
+        assertTrue(manual.configuration.stepSimulation.usesNative)
+        assertEquals(145, manual.configuration.stepSimulation.fixedCadence)
+        val disabled = PreparedRuntimeConfiguration.prepare(mapOf("step_simulation_enabled" to false)).applyTo(manual)
+        assertFalse(disabled.configuration.stepSimulation.usesNative)
+        assertEquals(145, disabled.configuration.stepSimulation.fixedCadence)
+        assertThrows(IllegalArgumentException::class.java) {
+            PreparedRuntimeConfiguration.prepare(mapOf("step_simulation_cadence" to 221))
+        }
+    }
 }

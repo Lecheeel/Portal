@@ -12,6 +12,7 @@ import com.system.location.service.core.gnss.GnssMinimumPolicy
 import com.system.location.service.core.gnss.GnssSimulationEnvironment
 import com.system.location.service.core.gnss.RinexNavigationResource
 import com.system.location.service.core.routing.RoutingConfig
+import com.system.location.service.core.sensors.StepSimulationMethod
 import com.system.location.service.core.settings.PortalSettingsSchema
 import com.system.location.service.core.settings.SettingType
 import kotlinx.serialization.json.Json
@@ -64,6 +65,12 @@ class PreparedRuntimeConfiguration private constructor(
             sensorCadenceScale = value("sensor_cadence_scale", old.sensorCadenceScale),
             sensorVariation = value("sensor_variation", old.sensorVariation),
             sensorTargets = value("sensor_targets", old.sensorTargets),
+            stepSimulation = old.stepSimulation.copy(
+                enabled = value("step_simulation_enabled", old.stepSimulation.enabled),
+                method = value("step_simulation_method", old.stepSimulation.method),
+                automatic = value("step_simulation_automatic", old.stepSimulation.automatic),
+                manualStepsPerMinute = value("step_simulation_cadence", old.stepSimulation.manualStepsPerMinute),
+            ),
             wifiFingerprintEnabled = value("wifi_fingerprint_enabled", old.wifiFingerprintEnabled),
             wifiFingerprintCatalogJson = value("wifi_fingerprint_json", old.wifiFingerprintCatalogJson),
             gnssSource = if ("gnss_capture" in values) source else old.gnssSource,
@@ -140,6 +147,9 @@ class PreparedRuntimeConfiguration private constructor(
             (values["gnss_mode"] as String?)?.let { values["gnss_mode"] = GnssSimulationMode.valueOf(it) }
             (values["gnss_minimum_policy"] as String?)?.let { values["gnss_minimum_policy"] = GnssMinimumPolicy.valueOf(it) }
             (values["gnss_environment"] as String?)?.let { values["gnss_environment"] = GnssSimulationEnvironment.valueOf(it) }
+            (values["step_simulation_method"] as String?)?.let {
+                values["step_simulation_method"] = StepSimulationMethod.valueOf(it)
+            }
             val navigation = (values["gnss_navigation"] as String?)?.let(RinexNavigationResource::decodeWire)
             val carrierIdentity = (values["carrier_identity_json"] as String?)?.let {
                 com.system.location.service.core.carrier.CarrierIdentityCodec.decode(it)

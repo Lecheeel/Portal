@@ -54,7 +54,7 @@ object HookConfigurationPreferences {
             "wifi_fingerprint_json" to text("wifiFingerprintCatalogJson").takeIf { it.isNotBlank() },
             "routing_json" to text("routingJson").takeIf { it.isNotBlank() },
             "environment_json" to text("environmentReplayJson").takeIf { it.isNotBlank() },
-        ) + readGnss(preferences, fallback)
+        ) + readGnss(preferences, fallback) + StepSimulationPreferences.wire(StepSimulationPreferences.read(preferences))
     }
 
     /** Same wire defaults for local prediction and configuration, independent of unrelated settings. */

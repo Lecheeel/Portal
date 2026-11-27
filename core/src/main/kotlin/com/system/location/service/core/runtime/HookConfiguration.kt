@@ -7,6 +7,7 @@ import com.system.location.service.core.gnss.GnssSourceSelection
 import com.system.location.service.core.gnss.GnssFrameSource
 import com.system.location.service.core.gnss.RinexNavigationResource
 import com.system.location.service.core.carrier.CarrierIdentityConfig
+import com.system.location.service.core.sensors.StepSimulationSettings
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -47,6 +48,7 @@ data class HookConfiguration(
     val sensorCadenceScale: Double = 1.0,
     val sensorVariation: Double = 0.15,
     val sensorTargets: Set<String> = emptySet(),
+    val stepSimulation: StepSimulationSettings = StepSimulationSettings(),
     val wifiFingerprintEnabled: Boolean = false,
     val wifiFingerprintCatalogJson: String? = null,
     /** Optional receiver evidence failed decoding; other configuration remains usable. */

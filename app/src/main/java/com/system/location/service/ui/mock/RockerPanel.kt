@@ -3,6 +3,7 @@ package com.system.location.service.ui.mock
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -15,6 +16,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.disabled
@@ -27,9 +29,9 @@ import kotlin.math.ceil
 
 @Composable
 internal fun RockerPanel(minimized: Boolean, expanded: Boolean, status: String, speed: Double,
-    route: Boolean, canMove: Boolean, targetsEnabled: Boolean, rocker: RockerView,
+    route: Boolean, canMove: Boolean, targetsEnabled: Boolean, stepEnabled: Boolean, canToggleSteps: Boolean, rocker: RockerView,
     onMinimize: (Boolean) -> Unit, onExpand: () -> Unit, onTargets: () -> Unit,
-    onSpeed: (Double) -> Unit, onEditSpeed: () -> Unit,
+    onSpeed: (Double) -> Unit, onEditSpeed: () -> Unit, onStepSimulation: (Boolean) -> Unit,
     onDrag: (Float, Float) -> Unit, onDragEnd: () -> Unit) {
     val drag = Modifier.pointerInput(Unit) {
         detectDragGestures(onDragEnd = onDragEnd, onDragCancel = onDragEnd) { change, delta ->
@@ -95,6 +97,14 @@ internal fun RockerPanel(minimized: Boolean, expanded: Boolean, status: String, 
                     },
                     valueRange = 0f..maxOf(50.0, ceil(speed / 10.0) * 10.0).toFloat(),
                     modifier = Modifier.semantics { contentDescription = title }.testTag("rocker_speed_slider"))
+            }
+            Row(Modifier.fillMaxWidth().testTag("rocker_step_simulation")
+                .toggleable(stepEnabled, enabled = canToggleSteps, role = Role.Switch, onValueChange = onStepSimulation)
+                .heightIn(min = 48.dp).padding(horizontal = 4.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(stringResource(R.string.step_simulation), Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium)
+                Switch(checked = stepEnabled, onCheckedChange = null, enabled = canToggleSteps)
             }
         }
     }

@@ -48,8 +48,11 @@ class Rocker(private val context: Context) {
     private var status by mutableStateOf("")
     private var canMove by mutableStateOf(false)
     private var targetsEnabled by mutableStateOf(true)
+    private var stepEnabled by mutableStateOf(false)
+    private var canToggleSteps by mutableStateOf(false)
     private var speedInput: PortalDialog? = null
     var onSpeedChanged: ((Double) -> Unit)? = null
+    var onStepSimulationChanged: ((Boolean) -> Unit)? = null
 
     fun show() {
         if (isStart) return
@@ -64,9 +67,9 @@ class Rocker(private val context: Context) {
         root.setContent {
             PortalTheme {
                 RockerPanel(isMinimized, speedExpanded, status, displayedSpeed, route, canMove,
-                    targetsEnabled, rockerView, ::minimize, { speedExpanded = !speedExpanded },
+                    targetsEnabled, stepEnabled, canToggleSteps, rockerView, ::minimize, { speedExpanded = !speedExpanded },
                     { resetMovement(); rockerView.listener?.onFinished(); targetMenu.open() },
-                    ::changeSpeed, ::editSpeed, ::drag, ::savePosition)
+                    ::changeSpeed, ::editSpeed, { onStepSimulationChanged?.invoke(it) }, ::drag, ::savePosition)
             }
         }
         try {
@@ -122,6 +125,10 @@ class Rocker(private val context: Context) {
     fun setSpeedState(route: Boolean, speed: Double) {
         this.route = route
         displayedSpeed = speed.coerceIn(0.0, 1000.0)
+    }
+    fun setStepSimulationState(enabled: Boolean, canToggle: Boolean) {
+        stepEnabled = enabled
+        canToggleSteps = canToggle
     }
     private fun changeSpeed(speed: Double) {
         displayedSpeed = (round(speed * 100.0) / 100.0).coerceIn(0.0, 1000.0)

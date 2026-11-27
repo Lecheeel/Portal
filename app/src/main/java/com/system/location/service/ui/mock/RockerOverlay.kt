@@ -16,7 +16,10 @@ import com.system.location.service.LocationServiceApp
 import com.system.location.service.R
 import com.system.location.service.android.widget.RockerView
 import com.system.location.service.android.window.OverlayUtils
+import com.system.location.service.core.backend.BackendResult
+import com.system.location.service.core.backend.BackendType
 import com.system.location.service.core.runtime.RuntimePhase
+import com.system.location.service.data.persistence.StepSimulationPreferences
 import com.system.location.service.ext.sharedPrefs
 import com.system.location.service.ext.speed
 import com.system.location.service.runtime.ScenarioRuntime
@@ -39,8 +42,10 @@ object RockerOverlay {
     private var locked = false
     private var bearing = 0.0
     private var strength = 0.0
-    private val speedPreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == "speed") scope.launch { updateSpeedState() }
+    private var stepUpdating = false
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "speed" || key == null) scope.launch { updateSpeedState() }
+        if (key == null || key in StepSimulationPreferences.keys) scope.launch { updateStepState() }
     }
     val isEnabled get() = preferences.getBoolean("enabled", true)
     var isVisible by mutableStateOf(false)
@@ -77,7 +82,7 @@ object RockerOverlay {
         overlayNightMode = nightMode
         if (!observing) {
             observing = true
-            context.sharedPrefs.registerOnSharedPreferenceChangeListener(speedPreferenceListener)
+            context.sharedPrefs.registerOnSharedPreferenceChangeListener(preferenceListener)
             scope.launch {
                 ScenarioRuntime.state.map { Triple(it.phase, it.scenarioId, it.startedAt) }
                     .distinctUntilChanged().collect {
@@ -92,6 +97,9 @@ object RockerOverlay {
                 ScenarioRuntime.state.map { Triple(it.phase, it.routeId, it.configuredSpeedMps) }
                     .distinctUntilChanged().collect { updateSpeedState() }
             }
+            scope.launch {
+                ScenarioRuntime.state.map { it.backend }.distinctUntilChanged().collect { updateStepState() }
+            }
         }
         return try {
             val window = rocker ?: Rocker(ContextThemeWrapper(overlayContext(), R.style.AppTheme)).also { view ->
@@ -105,6 +113,7 @@ object RockerOverlay {
                         }
                     }
                 }
+                view.onStepSimulationChanged = ::setStepSimulation
                 view.setRockerListener(object : RockerView.Companion.OnMoveListener {
                     override fun onStarted() {
                         bearing = ScenarioRuntime.state.value.sample?.bearing?.toDouble() ?: bearing
@@ -126,6 +135,7 @@ object RockerOverlay {
             }
             updatePlaybackState()
             updateSpeedState()
+            updateStepState()
             window.show()
             isVisible = window.isStart
             true
@@ -162,5 +172,28 @@ object RockerOverlay {
         val state = ScenarioRuntime.state.value
         rocker?.setSpeedState(state.isActive && state.routeId != null,
             if (state.isActive) state.configuredSpeedMps ?: context.speed else context.speed)
+    }
+
+    private fun updateStepState() {
+        val supported = ScenarioRuntime.state.value.backend != BackendType.MOCK_PROVIDER
+        val enabled = supported && StepSimulationPreferences.read(context.sharedPrefs.all).enabled
+        rocker?.setStepSimulationState(enabled, supported && !stepUpdating)
+    }
+
+    private fun setStepSimulation(enabled: Boolean) {
+        if (stepUpdating || ScenarioRuntime.state.value.backend == BackendType.MOCK_PROVIDER) return
+        stepUpdating = true
+        updateStepState()
+        scope.launch {
+            try {
+                val result = ScenarioRuntime.updateStepSimulation { it.copy(enabled = enabled) }.await()
+                if (result is BackendResult.Failure) {
+                    Toast.makeText(context, "${result.reason}\n${result.suggestion}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                stepUpdating = false
+                updateStepState()
+            }
+        }
     }
 }

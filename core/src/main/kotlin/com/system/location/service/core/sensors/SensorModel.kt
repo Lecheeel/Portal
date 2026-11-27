@@ -98,7 +98,7 @@ class SyntheticSensorModel(
         val t = atMillis / 1_000.0
 
         val onFoot = state.mode == MotionMode.WALK || state.mode == MotionMode.RUN
-        val motionCadence = tuning.fixedCadence?.takeIf { tuning.stepsEnabled && onFoot }?.toDouble()
+        val motionCadence = tuning.fixedCadence?.takeIf { onFoot }?.toDouble()
             ?: SensorCadence.cadence(state.mode, state.speedMps, tuning, atMillis)
         val cadence = if (tuning.stepsEnabled) motionCadence else 0.0
         if (!tuning.stepsEnabled) {

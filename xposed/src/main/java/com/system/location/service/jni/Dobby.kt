@@ -2,6 +2,7 @@ package com.system.location.service.jni
 
 object Dobby {
     external fun setStatus(status: Boolean)
+    external fun setSensorChannels(motion: Boolean, steps: Boolean)
     external fun setSensorFrame(
         stepCount: Long,
         stepCadence: Int,

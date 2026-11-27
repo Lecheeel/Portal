@@ -12,8 +12,12 @@ object NativeCommand {
     var isLoaded = false
         private set
 
+    private var isPrepared = false
     @Volatile
     var isEnabled = false
+        private set
+    @Volatile
+    var motionSensorsEnabled = false
         private set
 
     fun load(rely: Bundle): Boolean {
@@ -34,18 +38,22 @@ object NativeCommand {
 
     @Synchronized fun prepare(): Boolean {
         if (!FakeLoc.isSystemServerProcess || !isLoaded) return false
-        Dobby.setStatus(false)
-        isEnabled = false
-        sensorGeneration++
-        com.system.location.service.hook.hooks.sensor.NativeSensorTicker.stop()
-        return Dobby.prepareSensors()
+        if (!isPrepared) {
+            isPrepared = runCatching {
+                Dobby.setSensorChannels(motion = false, steps = false)
+                Dobby.prepareSensors()
+            }.getOrDefault(false)
+        }
+        return isPrepared
     }
 
-    @Synchronized fun setEnabled(enabled: Boolean): Boolean {
+    @Synchronized fun setEnabled(enabled: Boolean, motionSensors: Boolean = true): Boolean {
         if (!FakeLoc.isSystemServerProcess) return false
-        if (!isLoaded) return !enabled
-        if (enabled == isEnabled) return true
+        if (!isPrepared) return !enabled
+        val nextMotion = enabled && motionSensors
+        if (enabled == isEnabled && nextMotion == motionSensorsEnabled) return true
         Dobby.setStatus(false)
+        motionSensorsEnabled = nextMotion
         isEnabled = enabled
         sensorGeneration++
         if (enabled) com.system.location.service.hook.hooks.sensor.NativeSensorTicker.start()
@@ -53,9 +61,10 @@ object NativeCommand {
         return true
     }
 
-    fun setEnabled(rely: Bundle): Boolean = setEnabled(rely.getBoolean("enabled"))
+    fun setEnabled(rely: Bundle): Boolean =
+        setEnabled(rely.getBoolean("enabled"), rely.getBoolean("motion_sensors", true))
 
-    fun setSensorFrame(
+    private fun setSensorFrame(
         frame: com.system.location.service.core.sensors.SensorFrame,
         syncNanos: Long,
     ) {
@@ -73,16 +82,15 @@ object NativeCommand {
     }
 
     @Synchronized internal fun applySensorTick(generation: Long,
-        frame: com.system.location.service.core.sensors.SensorFrame?, nowNanos: Long) {
-        if (!isLoaded || !isEnabled || generation != sensorGeneration) return
-        if (frame != null) setSensorFrame(frame, nowNanos)
-        Dobby.setStatus(frame != null)
+        frame: com.system.location.service.core.sensors.SensorFrame?, nowNanos: Long, stepsEnabled: Boolean = false) {
+        if (!isEnabled || generation != sensorGeneration) return
+        val active = frame != null && (motionSensorsEnabled || stepsEnabled)
+        if (active) {
+            setSensorFrame(frame, nowNanos)
+            Dobby.setSensorChannels(motionSensorsEnabled, stepsEnabled)
+        }
+        Dobby.setStatus(active)
     }
 
-    @Synchronized fun disable() {
-        if (isLoaded) Dobby.setStatus(false)
-        isEnabled = false
-        sensorGeneration++
-        com.system.location.service.hook.hooks.sensor.NativeSensorTicker.stop()
-    }
+    fun disable() { setEnabled(false) }
 }

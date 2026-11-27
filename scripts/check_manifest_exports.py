@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail if app components other than MainActivity are exported (P6-04)."""
+"""Permit only MainActivity and its launcher aliases to be exported (P6-04)."""
 
 from __future__ import annotations
 
@@ -10,16 +10,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "app" / "src" / "main" / "AndroidManifest.xml"
 ANDROID = "{http://schemas.android.com/apk/res/android}"
-ALLOWED_EXPORTED = {
+MAIN_ACTIVITY_NAMES = {
     "com.system.location.service.MainActivity",
     ".MainActivity",
-    ".launcher.StandardIcon",
-    ".launcher.NeonIcon",
 }
 
 
 def component_name(node: ET.Element) -> str:
     return node.get(f"{ANDROID}name", "")
+
+
+def is_main_launcher_alias(node: ET.Element) -> bool:
+    if node.get(f"{ANDROID}targetActivity") not in MAIN_ACTIVITY_NAMES:
+        return False
+    filters = node.findall("intent-filter")
+    return len(filters) == 1 and sorted((entry.tag, component_name(entry)) for entry in filters[0]) == [
+        ("action", "android.intent.action.MAIN"),
+        ("category", "android.intent.category.LAUNCHER"),
+    ]
 
 
 def main() -> int:
@@ -42,7 +50,10 @@ def main() -> int:
         for node in application.findall(tag):
             name = component_name(node)
             exported = node.get(f"{ANDROID}exported")
-            if exported == "true" and name not in ALLOWED_EXPORTED:
+            allowed = (tag == "activity" and name in MAIN_ACTIVITY_NAMES) or (
+                tag == "activity-alias" and is_main_launcher_alias(node)
+            )
+            if exported == "true" and not allowed:
                 errors.append(f"unexpected exported {tag}: {name}")
             if tag in ("service", "provider") and exported != "false":
                 errors.append(f"{tag} must set exported=false: {name}")

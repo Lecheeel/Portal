@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -15,10 +16,12 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.ext.sharedPrefs
+import com.system.location.service.core.backend.BackendType
 import com.system.location.service.maps.MapProvider
 import com.system.location.service.maps.mapProvider
 import com.system.location.service.privacy.SdkPrivacy
 import com.system.location.service.privacy.TencentPrivacy
+import com.system.location.service.runtime.ScenarioRuntime
 import org.junit.Assume.assumeTrue
 import org.junit.Assert.*
 import org.junit.Before
@@ -81,8 +84,64 @@ class SdkPrivacyUiTest {
             assertPrivacyState(accepted = provider)
             assertEquals(provider, context.mapProvider)
             compose.onNodeWithTag("startup-setup").assertDoesNotExist()
+            compose.onNodeWithTag("startup-mode-setup").assertIsDisplayed()
+            scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
+            compose.onNodeWithText(context.getString(R.string.setup_modes_back)).performClick()
+            compose.onNodeWithTag("startup-setup").performScrollToNode(hasTestTag(mapTag))
+            compose.onNodeWithTag(mapTag).assertIsSelected()
+            continueButton.assertIsEnabled().performClick()
+            compose.onNodeWithTag("startup-mode-setup").assertIsDisplayed()
+        }
+
+        // A fresh Activity still blocks entry while no mode has been confirmed.
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val action = compose.onNodeWithTag("setup-mode-action")
+            for (tag in listOf("setup-mode-KERNEL", "setup-mode-SHIZUKU")) {
+                compose.onNodeWithTag("startup-mode-list").performScrollToNode(hasTestTag(tag))
+                compose.onNodeWithTag(tag).assertIsNotEnabled()
+            }
+            selectBackend("setup-mode-XPOSED")
+            assertModeHint(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) R.string.setup_modes_need_module
+                else R.string.setup_modes_need_android)
+            selectBackend("setup-mode-NATIVE")
+            assertModeHint(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) R.string.setup_modes_need_arm64
+                else R.string.setup_modes_need_android)
+            selectBackend("setup-mode-STANDARD")
+            scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
+            val globalKey = Settings.Global.DEVELOPMENT_SETTINGS_ENABLED
+            val developerSetting = Settings.Global.getString(context.contentResolver, globalKey)
+            try {
+                if (developerSetting?.toIntOrNull() != 1) {
+                    assertModeHint(R.string.setup_modes_need_developer)
+                    action.assertHasClickAction().performClick()
+                    awaitSettings()
+                    enableDeveloperOptions()
+                    runShell("input keyevent KEYCODE_BACK")
+                }
+                assertModeHint(R.string.setup_modes_need_mock)
+                action.assertHasClickAction().performClick()
+                awaitSettings()
+                runShell("input keyevent KEYCODE_BACK")
+                assertModeHint(R.string.setup_modes_need_mock)
+                scenario.onActivity { assertTrue(it.supportFragmentManager.fragments.isEmpty()) }
+
+                action.performClick()
+                awaitSettings()
+                runShell("appops set ${context.packageName} android:mock_location allow")
+                runShell("input keyevent KEYCODE_BACK")
+                assertModeHint(R.string.setup_modes_ready)
+                action.assertIsEnabled().performClick()
+                compose.waitUntil(10_000) { compose.onAllNodesWithTag("startup-mode-setup").fetchSemanticsNodes().isEmpty() }
+                assertEquals(BackendType.MOCK_PROVIDER, ScenarioRuntime.state.value.backend)
+                assertFalse(ScenarioRuntime.startupModePending())
+            } finally {
+                runShell("appops set ${context.packageName} android:mock_location default")
+                if (developerSetting == null) runShell("settings delete global $globalKey")
+                else if (developerSetting != "1") runShell("settings put global $globalKey $developerSetting")
+            }
             scenario.recreate()
             compose.onNodeWithTag("startup-setup").assertDoesNotExist()
+            compose.onNodeWithTag("startup-mode-setup").assertDoesNotExist()
             assertPrivacyState(accepted = provider)
         }
     }
@@ -91,6 +150,54 @@ class SdkPrivacyUiTest {
         compose.onNodeWithTag("startup-setup").performScrollToNode(hasTestTag(tag))
         compose.onNodeWithTag(tag).assertIsDisplayed().performClick().assertIsSelected()
     }
+
+    private fun selectBackend(tag: String) {
+        compose.onNodeWithTag("startup-mode-list").performScrollToNode(hasTestTag(tag))
+        compose.onNodeWithTag(tag).performClick().assertIsSelected()
+    }
+
+    private fun assertModeHint(resource: Int) {
+        val text = context.getString(resource)
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(text).assertIsDisplayed()
+    }
+
+    private fun awaitSettings() {
+        val automation = instrumentation.uiAutomation
+        val deadline = SystemClock.uptimeMillis() + 7_000
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (automation.rootInActiveWindow?.packageName?.toString()?.endsWith(".settings") == true) return
+            SystemClock.sleep(100)
+        }
+        fail("System Settings did not open")
+    }
+
+    private fun enableDeveloperOptions() {
+        val automation = instrumentation.uiAutomation
+        val display = context.resources.displayMetrics
+        val x = display.widthPixels / 2
+        val deadline = SystemClock.uptimeMillis() + 7_000
+        while (SystemClock.uptimeMillis() < deadline) {
+            val title = automation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Build number")
+                ?.firstOrNull { it.text?.toString() == "Build number" && it.isVisibleToUser }
+            val row = generateSequence(title) { it.parent }.firstOrNull { it.isClickable }
+            if (row != null) {
+                repeat(7) {
+                    assertTrue("Build number did not respond", row.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+                    SystemClock.sleep(180)
+                }
+                assertEquals(1, Settings.Global.getInt(context.contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0))
+                return
+            }
+            runShell("input swipe $x ${display.heightPixels * 3 / 4} $x ${display.heightPixels / 4} 250")
+            SystemClock.sleep(250)
+        }
+        fail("Build number was not visible in About phone")
+    }
+
+    private fun runShell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
+        instrumentation.uiAutomation.executeShellCommand(command),
+    ).use { it.readBytes() }
 
     private fun respondToDevicePermissions(allow: Boolean) {
         val automation = instrumentation.uiAutomation

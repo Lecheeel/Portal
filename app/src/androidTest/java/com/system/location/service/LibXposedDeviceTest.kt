@@ -10,13 +10,17 @@ import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.OperationCanceledException
 import android.os.SystemClock
+import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.system.location.service.backend.xposed.XposedBackend
+import com.system.location.service.core.backend.BackendType
 import com.system.location.service.core.geo.Wgs84
 import com.system.location.service.core.location.LocationSample
 import com.system.location.service.hook.security.SampleWire
 import com.system.location.service.service.MockServiceHelper
+import com.system.location.service.ui.startup.ModeRequirement
+import com.system.location.service.ui.startup.checkStartupMode
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
@@ -61,6 +65,18 @@ class LibXposedDeviceTest {
             "Unsupported sample protocol",
             SampleWire.isCompatible(status.getInt("sample_version")),
         )
+    }
+
+    @Test
+    fun startupChecksUseTheActiveSystemModuleWithoutStartingPlayback() = runBlocking {
+        assertEquals(ModeRequirement.READY, checkStartupMode(context, BackendType.XPOSED))
+        if (InstrumentationRegistry.getArguments().getString("startupNativeRoot") == "true") {
+            assertEquals(ModeRequirement.ROOT, checkStartupMode(context, BackendType.NATIVE))
+            val result = checkStartupMode(context, BackendType.NATIVE, verifyRoot = true)
+            assertTrue("Unexpected Native check result: $result",
+                result == ModeRequirement.READY || result == ModeRequirement.ROOT_DENIED)
+            Log.i("PortalStartupTest", "Native app UID Root verification: $result")
+        }
     }
 
     @Test

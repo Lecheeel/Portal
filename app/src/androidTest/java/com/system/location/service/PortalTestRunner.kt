@@ -13,6 +13,7 @@ class PortalTestRunner : AndroidJUnitRunner() {
             check(app.getSharedPreferences("sdk_privacy", 0).edit().clear().commit())
             // Exercise the actual no-preference default, even after a prior provider test.
             check(app.sharedPrefs.edit().remove("map_provider").commit())
+            check(app.getSharedPreferences("scenario_runtime", 0).edit().remove("startup_mode_pending").commit())
         }
         super.callApplicationOnCreate(app)
     }

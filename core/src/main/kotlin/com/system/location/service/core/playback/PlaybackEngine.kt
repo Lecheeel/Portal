@@ -29,6 +29,7 @@ class PlaybackEngine(input: Scenario) {
     private var manualMoving = false
     private var manualStrength = 1.0
     private var speedMps = scenario.profile.speedMps
+    private var smoothRouteSpeed = scenario.profile.smoothMotion
     private var plan: RouteSpeedPlan? = makePlan(speedMps)
     private var routeSeconds = 0.0
     private var orbitEnabled = false
@@ -56,9 +57,13 @@ class PlaybackEngine(input: Scenario) {
         orbitRadiusMeters = radiusMeters
         orbitPeriodSeconds = periodSeconds
     }
-    fun setSpeed(speed: Double) {
+    fun setSpeed(speed: Double, overrideRouteSpeed: Boolean = false) {
         require(speed.isFinite() && speed in 0.0..LocationSanitizer.MAX_SPEED_MPS)
-        if (scenario.route != null && scenario.profile.smoothMotion && speed > 0) {
+        if (overrideRouteSpeed) {
+            smoothRouteSpeed = false
+            plan = null
+        }
+        if (scenario.route != null && smoothRouteSpeed && speed > 0) {
             val old = plan
             val time = old?.let {
                 if (scenario.mode == RouteMode.ONCE) routeSeconds.coerceAtMost(it.duration)
@@ -71,7 +76,7 @@ class PlaybackEngine(input: Scenario) {
         }
         speedMps = speed
     }
-    private fun makePlan(speed: Double) = if (scenario.route != null && scenario.profile.smoothMotion && speed > 0) RouteSpeedPlan(points, lengths, speed) else null
+    private fun makePlan(speed: Double) = if (scenario.route != null && smoothRouteSpeed && speed > 0) RouteSpeedPlan(points, lengths, speed) else null
 
     fun tick(nowNanos: Long, wallTimeMillis: Long): PlaybackFrame {
         require(nowNanos >= 0 && wallTimeMillis >= 0)
@@ -97,7 +102,7 @@ class PlaybackEngine(input: Scenario) {
                 now, wallTimeMillis, 0, 0.0, false)
         }
         var outputSpeed = speedMps
-        if (scenario.profile.smoothMotion) {
+        if (smoothRouteSpeed) {
             plan?.let {
                 if (!paused && speedMps > 0) routeSeconds += dt
                 val time = when (scenario.mode) {

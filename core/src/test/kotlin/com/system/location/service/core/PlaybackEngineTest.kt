@@ -9,9 +9,9 @@ import net.sf.geographiclib.Geodesic
 
 class PlaybackEngineTest {
     private val points = listOf(Wgs84(0.0, 0.0), Wgs84(0.0, 0.001), Wgs84(0.001, 0.001))
-    private fun engine(mode: RouteMode = RouteMode.ONCE, route: List<Wgs84> = points) =
+    private fun engine(mode: RouteMode = RouteMode.ONCE, route: List<Wgs84> = points, smooth: Boolean = false) =
         PlaybackEngine(Scenario("s", "场景", route = Route("r", "路线", route), mode = mode,
-            profile = MovementProfile(speedMps = 10.0)))
+            profile = MovementProfile(speedMps = 10.0, smoothMotion = smooth)))
 
     @Test fun irregularTicksTravelAccordingToActualElapsedTime() {
         val slow = engine(); val fast = engine()
@@ -53,6 +53,27 @@ class PlaybackEngineTest {
         val reverse = ping.tick(halfwayBack, halfwayBack / 1_000_000)
         assertEquals(0.5, reverse.progress, 1e-8)
         assertFalse(reverse.completed)
+    }
+
+    @Test fun manualRouteSpeedTakesEffectWithoutMovingOrReversingAtTheChange() {
+        val e = engine(RouteMode.PING_PONG, smooth = true)
+        e.tick(0, 0)
+        val before = e.tick(40_000_000_000, 40_000)
+        assertTrue(before.sample.bearing in 180f..270f)
+        e.setSpeed(2.35, overrideRouteSpeed = true)
+        val changed = e.tick(40_000_000_000, 40_000)
+        assertEquals(before.sample.coordinate, changed.sample.coordinate)
+        assertEquals(before.sample.bearing, changed.sample.bearing)
+        assertEquals(2.35f, changed.sample.speed)
+        val moved = e.tick(41_000_000_000, 41_000)
+        assertEquals(2.35, (changed.progress - moved.progress) * e.totalDistance, 1e-6)
+        e.pause()
+        e.setSpeed(4.2, overrideRouteSpeed = true)
+        val paused = e.tick(50_000_000_000, 50_000)
+        assertEquals(moved.sample.coordinate, paused.sample.coordinate)
+        assertEquals(0f, paused.sample.speed)
+        e.resume(60_000_000_000)
+        assertEquals(4.2f, e.tick(60_000_000_000, 60_000).sample.speed)
     }
 
     @Test fun routeIsFrozenAndLongRoutesRemainValid() {

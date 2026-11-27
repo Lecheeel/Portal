@@ -150,12 +150,12 @@ class ScenarioController(private val factory: (BackendType) -> LocationBackend, 
         engine?.setOrbit(enabled, radiusMeters, periodSeconds)
         true
     }
-    suspend fun setSpeed(speed: Double): Boolean = mutex.withLock {
+    suspend fun setSpeed(speed: Double, overrideRouteSpeed: Boolean = false): Boolean = mutex.withLock {
         if (!speed.isFinite() || speed !in 0.0..LocationSanitizer.MAX_SPEED_MPS ||
             state.value.phase !in setOf(RuntimePhase.RUNNING, RuntimePhase.PAUSED)) return@withLock false
         // Settle elapsed movement at the old speed before changing it.
         if (!publishLocked() || !state.value.isActive) return@withLock false
-        engine!!.setSpeed(speed)
+        engine!!.setSpeed(speed, overrideRouteSpeed)
         mutableState.value = state.value.copy(configuredSpeedMps = speed)
         publishLocked()
     }

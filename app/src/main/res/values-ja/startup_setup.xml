@@ -38,7 +38,7 @@
     <string name="setup_map_tencent_privacy">地図表示、場所・住所の検索、徒歩経路の案内に使用します。Tencent は位置情報、検索内容、端末情報をポリシーに従って処理します。</string>
     <string name="setup_read_map_privacy">%1$sのプライバシーポリシーを確認</string>
     <string name="setup_privacy_acknowledgement">続行すると、%1$sのプライバシーポリシーに同意したことになります。</string>
-    <string name="setup_enter">同意して Portal を開く</string>
+    <string name="setup_enter">同意して続行</string>
     <string name="setup_map_error">地図サービスを有効にできませんでした。もう一度お試しください。</string>
     <string name="setup_open_policy_failed">ブラウザーを開けません。%1$s でポリシーを確認してください。</string>
 </resources>

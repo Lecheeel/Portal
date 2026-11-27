@@ -205,6 +205,26 @@ object ScenarioRuntime {
     fun selectBackend(type: BackendType) = command {
         controller.selectBackend(type).also { if (it) preferences.edit().putString("backend", type.name).commit() }
     }
+
+    internal fun startupModePending(): Boolean = preferences.getBoolean(STARTUP_MODE_PENDING, false)
+
+    internal fun beginStartupModeSetup(): Boolean = preferences.edit().putBoolean(STARTUP_MODE_PENDING, true).commit()
+
+    internal suspend fun completeStartupModeSetup(type: BackendType): Boolean = command {
+        if (!startupModePending()) return@command state.value.backend == type
+        val previous = state.value.backend
+        if (!controller.selectBackend(type)) return@command false
+        val previousBackend = preferences.getString("backend", null)
+        val wasNativeOptedIn = preferences.getBoolean("native_opt_in", false)
+        val settings = preferences.edit().putString("backend", type.name).remove(STARTUP_MODE_PENDING)
+        if (type == BackendType.NATIVE) settings.putBoolean("native_opt_in", true)
+        if (settings.commit()) return@command true
+
+        preferences.edit().putString("backend", previousBackend).putBoolean("native_opt_in", wasNativeOptedIn)
+            .putBoolean(STARTUP_MODE_PENDING, true).commit()
+        controller.selectBackend(previous)
+        false
+    }.await()
     fun start(scenario: Scenario): Deferred<Boolean> {
         val frozen = scenario.frozen()
         return command { startLocked(frozen) }
@@ -375,3 +395,5 @@ object ScenarioRuntime {
         service?.let { instance -> service = null; instance.finishPlayback() }
     }
 }
+
+private const val STARTUP_MODE_PENDING = "startup_mode_pending"

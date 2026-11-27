@@ -31,6 +31,7 @@ import com.system.location.service.android.window.OverlayUtils
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import com.system.location.service.ui.navigation.PortalAppShell
 import com.system.location.service.ui.notification.NotificationUtils
@@ -40,6 +41,9 @@ import com.system.location.service.update.StartupUpdateViewModel
 import com.system.location.service.update.UpdateDialogFragment
 import com.system.location.service.ui.navigation.PortalNavigationTransitions
 import com.system.location.service.designsystem.theme.PortalTheme
+import com.system.location.service.core.backend.BackendType
+import com.system.location.service.runtime.ScenarioRuntime
+import com.system.location.service.ui.startup.StartupModeSetup
 import com.system.location.service.ui.startup.StartupSetup
 
 class MainActivity : AppCompatActivity() {
@@ -50,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     internal var selectedDrawerId by androidx.compose.runtime.mutableIntStateOf(R.id.nav_home)
         private set
     private var shellReady by mutableStateOf(false)
+    private var choosingStartupMode by mutableStateOf(false)
     private var navHost: androidx.navigation.fragment.NavHostFragment? = null
     private var drawerUiScope: kotlinx.coroutines.CoroutineScope? = null
     internal val shellView: View get() = findViewById(android.R.id.content)
@@ -107,11 +112,13 @@ class MainActivity : AppCompatActivity() {
         supportFragmentManager.registerFragmentLifecycleCallbacks(PortalNavigationTransitions(), true)
         // A saved onboarding screen contains no NavHost. Never restore an old MapView before consent.
         val mapsReady = runCatching { selectedMapsReady() }.getOrDefault(false)
-        val restoreDrawerOpen = mapsReady && savedInstanceState?.getBoolean("portal.drawer.open") == true
-        val safeToRestore = mapsReady || savedInstanceState?.getBoolean(SETUP_VISIBLE) == true
+        val showHome = mapsReady && !ScenarioRuntime.startupModePending()
+        val restoreDrawerOpen = showHome && savedInstanceState?.getBoolean("portal.drawer.open") == true
+        val safeToRestore = showHome || savedInstanceState?.getBoolean(SETUP_VISIBLE) == true
         super.onCreate(savedInstanceState.takeIf { safeToRestore })
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        if (mapsReady) prepareAppShell(restoreDrawerOpen)
+        if (showHome) prepareAppShell(restoreDrawerOpen)
+        choosingStartupMode = mapsReady && !showHome && savedInstanceState?.getBoolean(SETUP_MODE_VISIBLE, true) != false
 
         setContent {
             PortalTheme {
@@ -125,7 +132,17 @@ class MainActivity : AppCompatActivity() {
                         onNavigate = ::navigateFromDrawer,
                         createHost = ::createNavigationHost)
                 } else {
-                    StartupSetup(this@MainActivity, ::completeStartupSetup)
+                    val setupState = rememberSaveableStateHolder()
+                    if (choosingStartupMode) {
+                        setupState.SaveableStateProvider(SETUP_MODE_VISIBLE) {
+                            StartupModeSetup(this@MainActivity, onBack = { choosingStartupMode = false }, ::completeStartupMode)
+                        }
+                    } else {
+                        setupState.SaveableStateProvider(SETUP_VISIBLE) {
+                            val initialMap = if (ScenarioRuntime.startupModePending()) mapProvider else MapProvider.TENCENT
+                            StartupSetup(this@MainActivity, initialMap, ::completeStartupSetup)
+                        }
+                    }
                 }
             }
         }
@@ -145,6 +162,7 @@ class MainActivity : AppCompatActivity() {
     private fun completeStartupSetup(provider: MapProvider): Boolean {
         if (shellReady) return true
         val ready = runCatching {
+            check(ScenarioRuntime.beginStartupModeSetup())
             mapProvider = provider
             when (provider) {
                 MapProvider.AMAP -> SdkPrivacy.acceptMaps()
@@ -152,11 +170,15 @@ class MainActivity : AppCompatActivity() {
             }
             selectedMapsReady()
         }.getOrDefault(false)
-        if (ready) {
-            prepareAppShell(restoreDrawerOpen = false)
-            startupUpdateViewModel.check()
-        }
+        if (ready) choosingStartupMode = true
         return ready
+    }
+
+    private suspend fun completeStartupMode(backend: BackendType): Boolean {
+        if (!ScenarioRuntime.completeStartupModeSetup(backend)) return false
+        prepareAppShell(restoreDrawerOpen = false)
+        startupUpdateViewModel.check()
+        return true
     }
 
     private fun prepareAppShell(restoreDrawerOpen: Boolean) {
@@ -270,11 +292,13 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean("portal.drawer.open", drawerState.isOpen)
         outState.putBoolean(SETUP_VISIBLE, !shellReady)
+        outState.putBoolean(SETUP_MODE_VISIBLE, choosingStartupMode)
         super.onSaveInstanceState(outState)
     }
 
     companion object {
         private const val SETUP_VISIBLE = "portal.startup.setup_visible"
+        private const val SETUP_MODE_VISIBLE = "portal.startup.mode_visible"
 
         internal var mCityString: String? = null
             set(value) {

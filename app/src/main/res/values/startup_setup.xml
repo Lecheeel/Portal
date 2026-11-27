@@ -38,7 +38,7 @@
     <string name="setup_map_tencent_privacy">用于地图、地点搜索、地址查询和步行规划。腾讯按其政策处理相关位置、搜索内容及设备信息。</string>
     <string name="setup_read_map_privacy">查看%1$s隐私政策</string>
     <string name="setup_privacy_acknowledgement">继续即表示你同意%1$s的隐私政策。</string>
-    <string name="setup_enter">同意并进入 Portal</string>
+    <string name="setup_enter">同意并继续</string>
     <string name="setup_map_error">地图服务暂时无法启用，请重试。</string>
     <string name="setup_open_policy_failed">无法打开浏览器，请访问 %1$s 查看政策。</string>
 </resources>

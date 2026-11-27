@@ -24,7 +24,7 @@ import com.system.location.service.maps.MapProvider
 import com.system.location.service.runtime.BackgroundGuidance
 
 @Composable
-internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boolean) {
+internal fun StartupSetup(activity: Activity, initialMap: MapProvider, onComplete: (MapProvider) -> Boolean) {
     val supportsNotifications = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     val guideAutostart = BackgroundGuidance.isXiaomiFamily
     var locationGranted by remember { mutableStateOf(activity.hasPermission(ACCESS_FINE_LOCATION)) }
@@ -36,7 +36,7 @@ internal fun StartupSetup(activity: Activity, onComplete: (MapProvider) -> Boole
     var skipBackground by rememberSaveable { mutableStateOf(false) }
     var backgroundSettingsOpened by rememberSaveable { mutableStateOf(false) }
     var autostartSettingsOpened by rememberSaveable { mutableStateOf(false) }
-    var selected by rememberSaveable { mutableStateOf(MapProvider.TENCENT) }
+    var selected by rememberSaveable { mutableStateOf(initialMap) }
     var mapError by rememberSaveable { mutableStateOf(false) }
 
     fun refreshStatus() {

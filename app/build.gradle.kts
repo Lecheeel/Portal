@@ -22,7 +22,7 @@ android {
 
     defaultConfig {
         applicationId = "com.system.location.service"
-        minSdk = 31
+        minSdk = 29
         targetSdk = 37
         versionCode = releaseVersionCode.get()
         versionName = releaseVersionName.get()

@@ -1,7 +1,10 @@
 package com.system.location.service.detector.checks
 
+import android.annotation.TargetApi
+import android.location.Criteria
 import android.location.LocationManager
 import android.location.provider.ProviderProperties
+import android.os.Build
 import com.system.location.service.detector.model.Check
 import com.system.location.service.detector.model.CheckContext
 import com.system.location.service.detector.model.CheckIds
@@ -157,19 +160,28 @@ class ProviderListCheck : Check {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun readProperties(manager: LocationManager, provider: String): PropertyRead =
         try {
-            val properties = manager.getProviderProperties(provider)
+            val properties = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                manager.getProviderProperties(provider)?.let(::summarize)
+            } else {
+                manager.getProvider(provider)?.let { info ->
+                    summarize(info.powerRequirement, info.accuracy, info.supportsAltitude(),
+                        info.supportsBearing(), info.supportsSpeed(), info.requiresSatellite(),
+                        info.requiresCell(), info.requiresNetwork(), info.hasMonetaryCost())
+                }
+            }
             if (properties == null) {
                 PropertyRead(
                     provider = provider,
                     summary = null,
-                    error = "getProviderProperties 返回 null（属性未知）",
+                    error = "系统返回空属性（属性未知）",
                     hardFailure = true,
                     inconclusive = false,
                 )
             } else {
-                PropertyRead(provider, summarize(properties), null, hardFailure = false, inconclusive = false)
+                PropertyRead(provider, properties, null, hardFailure = false, inconclusive = false)
             }
         } catch (error: Exception) {
             val security = error is SecurityException
@@ -202,28 +214,36 @@ private fun isSuspiciousProvider(name: String): Boolean {
         lower.contains("portal")
 }
 
-private fun summarize(properties: ProviderProperties): String = buildString {
-    append("power=").append(powerUsageLabel(properties.powerUsage))
-    append(" accuracy=").append(accuracyLabel(properties.accuracy))
-    append(" alt=").append(properties.hasAltitudeSupport())
-    append(" bearing=").append(properties.hasBearingSupport())
-    append(" speed=").append(properties.hasSpeedSupport())
-    append(" sat=").append(properties.hasSatelliteRequirement())
-    append(" cell=").append(properties.hasCellRequirement())
-    append(" net=").append(properties.hasNetworkRequirement())
-    append(" cost=").append(properties.hasMonetaryCost())
+@TargetApi(Build.VERSION_CODES.S)
+private fun summarize(properties: ProviderProperties): String = summarize(
+    properties.powerUsage, properties.accuracy, properties.hasAltitudeSupport(),
+    properties.hasBearingSupport(), properties.hasSpeedSupport(), properties.hasSatelliteRequirement(),
+    properties.hasCellRequirement(), properties.hasNetworkRequirement(), properties.hasMonetaryCost(),
+)
+
+private fun summarize(power: Int, accuracy: Int, altitude: Boolean, bearing: Boolean, speed: Boolean,
+    satellite: Boolean, cell: Boolean, network: Boolean, cost: Boolean): String = buildString {
+    append("power=").append(powerUsageLabel(power))
+    append(" accuracy=").append(accuracyLabel(accuracy))
+    append(" alt=").append(altitude)
+    append(" bearing=").append(bearing)
+    append(" speed=").append(speed)
+    append(" sat=").append(satellite)
+    append(" cell=").append(cell)
+    append(" net=").append(network)
+    append(" cost=").append(cost)
 }
 
 private fun powerUsageLabel(value: Int): String = when (value) {
-    ProviderProperties.POWER_USAGE_LOW -> "LOW(1)"
-    ProviderProperties.POWER_USAGE_MEDIUM -> "MEDIUM(2)"
-    ProviderProperties.POWER_USAGE_HIGH -> "HIGH(3)"
+    Criteria.POWER_LOW -> "LOW(1)"
+    Criteria.POWER_MEDIUM -> "MEDIUM(2)"
+    Criteria.POWER_HIGH -> "HIGH(3)"
     else -> "UNKNOWN($value)"
 }
 
 private fun accuracyLabel(value: Int): String = when (value) {
-    ProviderProperties.ACCURACY_FINE -> "FINE(1)"
-    ProviderProperties.ACCURACY_COARSE -> "COARSE(2)"
+    Criteria.ACCURACY_FINE -> "FINE(1)"
+    Criteria.ACCURACY_COARSE -> "COARSE(2)"
     else -> "UNKNOWN($value)"
 }
 

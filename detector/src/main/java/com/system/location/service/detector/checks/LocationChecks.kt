@@ -3,6 +3,7 @@ package com.system.location.service.detector.checks
 import android.annotation.SuppressLint
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import com.system.location.service.detector.model.Check
 import com.system.location.service.detector.model.CheckContext
 import com.system.location.service.detector.model.CheckIds
@@ -47,16 +48,19 @@ class LocationMockCheck : Check {
         return locations
     }
 
+    @Suppress("DEPRECATION")
     private fun evaluate(locations: List<Location>): CheckResult {
         val sampled = locations.takeLast(MAX_LOCATIONS)
         var mockCount = 0
         val lines = mutableListOf<String>()
         sampled.forEach { location ->
             val reflected = reflectMockFields(location)
-            val mock = location.isMock || location.isFromMockProvider || reflected.values.any { it == true }
+            val platformMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) location.isMock else null
+            val legacyMock = location.isFromMockProvider
+            val mock = platformMock == true || legacyMock || reflected.values.any { it == true }
             if (mock) mockCount++
             lines += "provider=${location.provider ?: "?"} time=${location.time} " +
-                "isMock=${location.isMock} isFromMockProvider=${location.isFromMockProvider} " +
+                "isMock=${platformMock ?: "N/A"} isFromMockProvider=$legacyMock " +
                 "reflection=$reflected"
         }
         lines += "checked=${sampled.size} mock=$mockCount"

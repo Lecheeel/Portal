@@ -11,6 +11,8 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.location.OnNmeaMessageListener
+import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.telephony.TelephonyManager
 import com.system.location.service.detector.DetectorSettings
@@ -31,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * affected checks then report UNKNOWN with the reason.
  */
 @SuppressLint("MissingPermission")
+@Suppress("DEPRECATION")
 class CheckSampler(
     private val context: Context,
     private val settings: DetectorSettings,
@@ -48,7 +51,7 @@ class CheckSampler(
         val lastKnown = LinkedHashMap<String, Location>()
 
         val locationManager = context.getSystemService(LocationManager::class.java)
-        val executor = context.mainExecutor
+        val handler = Handler(Looper.getMainLooper())
         val sensorManager = context.getSystemService(SensorManager::class.java)
         val wifiManager = context.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
         val telephonyManager = context.getSystemService(TelephonyManager::class.java)
@@ -58,6 +61,9 @@ class CheckSampler(
                 if (locations.size < MAX_LOCATIONS) locations.add(Location(location))
                 else droppedLocations.incrementAndGet()
             }
+            override fun onProviderEnabled(provider: String) = Unit
+            override fun onProviderDisabled(provider: String) = Unit
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
         }
         val gnssCallback = object : GnssStatus.Callback() {
             override fun onSatelliteStatusChanged(status: GnssStatus) {
@@ -113,13 +119,13 @@ class CheckSampler(
                     runCatching { locationManager.getLastKnownLocation(provider) }
                         .getOrNull()?.let { lastKnown[provider] = Location(it) }
                 }
-                runCatching { locationManager.registerGnssStatusCallback(executor, gnssCallback) }
+                runCatching { locationManager.registerGnssStatusCallback(gnssCallback, handler) }
                     .onSuccess {
                         registeredGnss = it
                         if (!it) notes += "GnssStatus 注册被系统拒绝（返回 false）"
                     }
                     .onFailure { notes += "GnssStatus 注册失败：${it.javaClass.simpleName}" }
-                runCatching { locationManager.addNmeaListener(executor, nmeaListener) }
+                runCatching { locationManager.addNmeaListener(nmeaListener, handler) }
                     .onSuccess {
                         registeredNmea = it
                         if (!it) notes += "NMEA 注册被系统拒绝（返回 false）"

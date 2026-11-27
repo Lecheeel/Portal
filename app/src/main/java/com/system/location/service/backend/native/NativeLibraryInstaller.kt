@@ -15,6 +15,14 @@ object NativeLibraryInstaller {
         0xD2.toByte(), 0x44, 0xBB.toByte(), 0x6F,
     )
 
+    private fun bundledLibrary(context: Context) =
+        File(context.applicationInfo.nativeLibraryDir, "liblocationext.so")
+
+    internal fun hasPackagedLibrary(context: Context): Boolean {
+        val hasAsset = runCatching { context.assets.open(ASSET).use { it.available() > 64 } }.getOrDefault(false)
+        return hasAsset || bundledLibrary(context).isFile
+    }
+
     /** Decode encrypted payload to app-private cache; removed after the privileged copy. */
     private fun decodedAsset(context: Context): File? = runCatching {
         val encoded = context.assets.open(ASSET).use { it.readBytes() }
@@ -29,7 +37,7 @@ object NativeLibraryInstaller {
         if (Build.SUPPORTED_ABIS.firstOrNull() != "arm64-v8a") return BackendResult.Failure("NATIVE_ABI",
             "当前 Native 路径只评估 arm64 固定符号布局", "改用标准 Mock 或 Xposed 后端")
         val decoded = decodedAsset(context)
-        val source = decoded ?: File(context.applicationInfo.nativeLibraryDir, "liblocationext.so")
+        val source = decoded ?: bundledLibrary(context)
         if (!source.isFile) {
             decoded?.delete()
             return BackendResult.Failure("NATIVE_LIBRARY", "APK 中未找到 Native 库", "检查安装包 ABI")
